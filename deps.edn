@@ -1,1 +1,3 @@
-{}
+{:deps  {org.clojure/data.csv   {:mvn/version "1.0.0"}
+         org.clojure/core.async {:mvn/version "1.3.610"}}
+ :paths ["src"]}
