@@ -30,11 +30,11 @@
          i 0
          checksum 0]
     (if (= i ll)
-      (nth inverse checksum)
+      (inverse checksum)
       (let [n (- ll i 1)                                    ;; get index rightmost digit
             v (mod (- (int (nth ss n)) (int \0)) 10)        ;; get digit from string and convert to integer value
-            perm (nth (nth permutation-table (mod (inc i) 8)) v) ;; lookup permutation table value
-            checksum (nth (nth multiplication-table checksum) perm)]
+            perm (get-in permutation-table [(mod (inc i) 8) v])    ;; lookup permutation table value
+            checksum (get-in multiplication-table [checksum perm])]
         (recur ss ll (inc i) checksum)))))
 
 ;; The Verhoeff checksum calculation is performed as follows:
@@ -50,13 +50,12 @@
          i 0
          checksum 0]
     (if (= i ll)
-      (= 0 (nth inverse checksum))                          ;; number is valid if checksum==0
+      (= 0 (inverse checksum))                              ;; number is valid if checksum==0
       (let [n (- ll i 1)
             v (mod (- (int (nth ss n)) (int \0)) 10)        ;; modulus of 10, so wrap in case of non-numeric characters
-            perm (nth (nth permutation-table (mod i 8)) v)
-            checksum (nth (nth multiplication-table checksum) perm)]
+            perm (get-in permutation-table [(mod i 8) v])
+            checksum (get-in multiplication-table [checksum perm])]
         (recur ss ll (inc i) checksum)))))
-
 
 (defn append
   "Append a Verhoeff check digit"
@@ -65,5 +64,9 @@
 
 
 (comment
-  (valid? nil)
+  (calculate "12345")
+  (calculate "31122019000")
+  (valid? "311220190006")
+  (calculate "2470000")
+  (valid? "24700007")
   )
