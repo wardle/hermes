@@ -47,15 +47,14 @@
           batches (->> (csv/read-csv reader :separator \tab :quote \tab)
                        csv-data->maps
                        (partition-all batchSize)
-                       (map #(hash-map :type snomed-type :data %))
-                       )]
+                       (map #(hash-map :type snomed-type :data %)))]
       (doseq [batch batches] (>!! out-c batch)))))
 
 (defn file-worker
   [files-c out-c batchSize]
   (loop [f (<!! files-c)]
     (when f
-      (log/info "Queuing file for import: " (.getPath f))
+      (log/info "Queuing file: " (.getPath f))
       (process-file (.getPath f) out-c (or batchSize 1000))
       (recur (<!! files-c)))))
 
@@ -63,7 +62,7 @@
   "Creates a number of workers threads each running the function specified. Returns a channel
   to signal when the workers have completed."
   [n f & args]
-  (loop [i 1 chans []]
+  (loop [i 0 chans []]
     (if (= i n)
       (async/merge chans)
       (recur (inc i) (conj chans (thread (apply f args)))))))
@@ -75,9 +74,8 @@
   (loop [batch (<!! batch-c)]
     (when batch
       (swap! totals-atom #(update % (:type batch) (fnil + 0) (count (:data batch))))
-      (log/info "Processed... " @totals-atom)
+      (log/debug "processed... " @totals-atom)
       (recur (<!! batch-c)))))
-
 
 (defn import-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
@@ -86,18 +84,21 @@
   (let [files-c (chan)
         batches-c (chan)
         files (snomed-file-seq dir)
-        done (create-workers (or nthreads 2) file-worker files-c batches-c (or batch-size 50000))]
+        done (create-workers (or nthreads 4) file-worker files-c batches-c (or batch-size 50000))]
     (log/info "importing files from " dir)
     (when-not (seq files) (log/warn "no files found to import in " dir))
     (async/onto-chan!! files-c files true)                  ;; stream list of files into work channel
     (thread (<!! done) (close! batches-c))                  ;; watch for completion and close output channel
     batches-c))
 
-
-
 (defn -main [x]
-  (let [ff (snomed-file-seq x)]
-    (println "Found" (count ff) "files in" x)))
+  (log/info "starting hermes...")
+  (let [ff (snomed-file-seq x)
+        results-c (import-snomed x)
+        totals (atom {})]
+    (log/info "found" (count ff) "files in" x)
+    (<!! (create-workers 4 counting-worker results-c totals))
+    (log/info "totals: " @totals)))
 
 (comment
   (require '[clojure.reflect :as reflect])

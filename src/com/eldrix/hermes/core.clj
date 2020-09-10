@@ -1,4 +1,6 @@
-(ns com.eldrix.hermes.core (:gen-class))
+(ns com.eldrix.hermes.core
+  (:gen-class)
+  (:require [clojure.tools.logging :as log]))
 
 (defn -main [& args]
-  (println "Hello world"))
+  (log/info "Hello, World"))
