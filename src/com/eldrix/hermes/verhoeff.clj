@@ -59,9 +59,7 @@
 
 (defn append
   "Append a Verhoeff check digit"
-  [s] (str s (calculate s))
-  )
-
+  [s] (str s (calculate s)))
 
 (comment
   (calculate "12345")
