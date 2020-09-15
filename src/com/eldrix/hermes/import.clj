@@ -4,13 +4,15 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [clojure.core.async :as async :refer [>! <! >!! <!! go chan buffer close! thread
-                                                  alts! alts!! take! put! timeout]]))
+                                                  alts! alts!! take! put! timeout]]
+            [com.eldrix.hermes.snomed :as snomed]))
 
 (def ^:private snomed-files
   "Pattern matched SNOMED distribution files and their 'type'"
-  {#"sct2_Concept_Full_\S+_\S+.txt"      :snomed/concept
-   #"sct2_Description_Full-\S+_\S+.txt"  :snomed/description
-   #"sct2_Relationship_Full_\S+_\S+.txt" :snomed/relationship})
+  {#"sct2_Concept_Full_\S+_\S+.txt"     :snomed/concept
+   #"sct2_Description_Full-\S+_\S+.txt" :snomed/description
+   #"sct2_Relationship_Full_\S+_\S+.txt" :snomed/relationship
+   })
 
 (defn is-snomed-file? [filename]
   (first (filter #(re-find % filename) (keys snomed-files))))
@@ -39,22 +41,27 @@
 
 (defn- process-file
   "Process the specified file, streaming batched results to the channel specified, blocking if channel not being
-  drained. Each batch is a map with keys :type and :data."
+  drained. Each batch is a map with keys :type, :headings and :data. :data is a sequence of vectors representing each
+  column."
   [filename out-c batchSize]
   (with-open [reader (io/reader filename)]
-    (log/info "Processing file " filename)
+    (log/info "Processing:" filename)
     (let [snomed-type (get-snomed-type filename)
-          batches (->> (csv/read-csv reader :separator \tab :quote \tab)
-                       csv-data->maps
+          csv-data (csv/read-csv reader :separator \tab :quote \tab)
+          headings (first csv-data)
+          data (rest csv-data)
+          batches (->> data
                        (partition-all batchSize)
-                       (map #(hash-map :type snomed-type :data %)))]
+                       (map #(hash-map :type snomed-type
+                                       :headings headings
+                                       :data %)))]
       (doseq [batch batches] (>!! out-c batch)))))
 
 (defn file-worker
   [files-c out-c batchSize]
   (loop [f (<!! files-c)]
     (when f
-      (log/info "Queuing file: " (.getPath f))
+      (log/debug "Queuing   : " (.getPath f))
       (process-file (.getPath f) out-c (or batchSize 1000))
       (recur (<!! files-c)))))
 
@@ -74,6 +81,7 @@
   (loop [batch (<!! batch-c)]
     (when batch
       (swap! totals-atom #(update % (:type batch) (fnil + 0) (count (:data batch))))
+      (snomed/parse-batch batch)
       (log/debug "processed... " @totals-atom)
       (recur (<!! batch-c)))))
 
@@ -81,15 +89,17 @@
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
   [dir & {:keys [nthreads batch-size]}]
-  (let [files-c (chan)
-        batches-c (chan)
+  (let [files-c (chan)    ;; list of files
+        batches1-c (chan)   ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+        batches2-c (chan) ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (snomed-file-seq dir)
-        done (create-workers (or nthreads 4) file-worker files-c batches-c (or batch-size 50000))]
+        done (create-workers (or nthreads 4) file-worker files-c batches1-c (or batch-size 5000))]
     (log/info "importing files from " dir)
     (when-not (seq files) (log/warn "no files found to import in " dir))
     (async/onto-chan!! files-c files true)                  ;; stream list of files into work channel
-    (thread (<!! done) (close! batches-c))                  ;; watch for completion and close output channel
-    batches-c))
+    (thread (<!! done) (close! batches1-c))                  ;; watch for completion and close output channel
+    (async/pipeline (or nthreads 4) batches2-c (map snomed/parse-batch) batches1-c true)
+    batches2-c))
 
 (defn -main [x]
   (log/info "starting hermes...")
@@ -117,8 +127,8 @@
   (get-snomed-type filename)
   (snomed-file-seq "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
   (def c (chan))
-  (thread (process-snomed-file filename c 5))
-  (<! c)
+  (thread (process-file filename c 5))
+  (<!! c)
 
   ;; manually configure
   (def dir "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
@@ -133,6 +143,8 @@
   (<!! batches-c)                                           ;; run this a few times as a test
   (close! files-c)
   (close! batches-c)
+
+
 
   ;; this does all of that in one step
   (def results-c (import-snomed dir))

@@ -4,7 +4,9 @@
            org.clojure/data.csv           {:mvn/version "1.0.0"}
            org.clojure/core.async         {:mvn/version "1.3.610"}
            org.clojure/tools.logging      {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}
+           ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
+           mount/mount                    {:mvn/version "0.1.16"}
+           org.mapdb/mapdb                {:mvn/version "3.0.8"}}
 
  :aliases {:test    {:extra-paths ["test"]
                      :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
