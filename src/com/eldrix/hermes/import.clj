@@ -85,7 +85,7 @@
       (log/debug "processed... " @totals-atom)
       (recur (<!! batch-c)))))
 
-(defn import-snomed
+(defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
   [dir & {:keys [nthreads batch-size]}]
@@ -104,7 +104,7 @@
 (defn -main [x]
   (log/info "starting hermes...")
   (let [ff (snomed-file-seq x)
-        results-c (import-snomed x)
+        results-c (load-snomed x)
         totals (atom {})]
     (log/info "found" (count ff) "files in" x)
     (<!! (create-workers 4 counting-worker results-c totals))
@@ -147,8 +147,12 @@
 
 
   ;; this does all of that in one step
-  (def results-c (import-snomed dir))
+  (def results-c (load-snomed dir))
   (def totals (atom {}))
   (<!! (create-workers 4 counting-worker results-c totals))
   (println "Totals: " @totals)
+
+
+
+
   )
