@@ -33,52 +33,7 @@
 
 
 (defn ^LocalDate parse-date [^String s] (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)))
-
-;;
-(def snomed-file-pattern
-  #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
-
-(defn parse-snomed-filename
-  "Parse a filename according the specifications outlined in
-  https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
-  Each filename should match the following pattern:
-  [FileType]_[ContentType]_[ContentSubType]_[CountryNamespace]_[VersionDate].[FileExtension]"
-  [filename]
-  (when-let [m (re-matches snomed-file-pattern filename)]
-    {:filename          filename
-     :file-type         (m 1)
-     :status            (m 2)
-     :type              (m 3)
-     :format            (m 4)
-     :content-type      (m 5)
-     :pattern           (m 7)
-     :content           (m 8)
-     :content-subtype   (m 11)
-     :summary           (m 12)
-     :release-type      (m 14)
-     :doc-status        (m 15)
-     :language-code     (m 17)
-     :country-namespace (m 18)
-     :country-code      (m 19)
-     :namespace-id      (m 20)
-     :version-date      (parse-date (m 21))
-     :file-extension    (m 22)}))
-
-(def ^:private snomed-files
-  "Pattern matched SNOMED distribution files and their 'type'"
-  {#"sct2_Concept_Full_\S+_\S+.txt"      :info.snomed/Concept
-   #"sct2_Description_Full-\S+_\S+.txt"  :info.snomed/Description
-   #"sct2_Relationship_Full_\S+_\S+.txt" :info.snomed/Relationship
-   })
-
-(defn is-snomed-file? [filename]
-  (first (filter #(re-find % filename) (keys snomed-files))))
-
-(defn get-snomed-type
-  "Returns the SNOMED 'type' for the filename specified."
-  [filename]
-  (get snomed-files (is-snomed-file? filename)))
-
+(defn ^boolean parse-bool [^String s] (if (= "1" s) true false))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -171,18 +126,13 @@
                                 ^long referencedComponentId
                                 ^String mapTarget])
 
-;;// ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
-;// coding system.
-;// A 447250001 |Complex map type reference set|enables representation of maps where each SNOMED
-;// CT concept may map to one or more codes in a target scheme.
-;// The type of reference set supports the general set of mapping data required to enable a
-;// target code to be selected at run-time from a number of alternate codes. It supports
-;// target code selection by accommodating the inclusion of machine readable rules and/or human readable advice.
-;// An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
-;// Unfortunately, the documentation for complex and extended reference sets is out of date.
-;// https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
-;// A complex map includes an undocumented "map block", and an extended map contains a "category".
-;//  I have quite deliberately kept both.
+;; ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
+;; coding system.
+;; A 447250001 |Complex map type reference set|enables representation of maps where each SNOMED
+;; CT concept may map to one or more codes in a target scheme.
+;; The type of reference set supports the general set of mapping data required to enable a
+;; target code to be selected at run-time from a number of alternate codes. It supports
+;; target code selection by accommodating the inclusion of machine readable rules and/or human readable advice.
 (defrecord ComplexMapRefsetItem [^String id
                                  ^LocalDate effectiveTime
                                  ^boolean active
@@ -194,9 +144,23 @@
                                  ^String mapRule            ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
                                  ^String mapAdvice          ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
                                  ^String mapTarget          ;; The target code in the target terminology, classification or code system.
-                                 ^long correlationId        ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-                                 ^long mapBlock             ;; Only for complex map refsets: der2_iisssciRefset
-                                 ^long mapCategoryId])      ;; Only for extended complex map refsets: Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
+                                 ^long correlationId])      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+
+;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
+;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
+(defrecord ExtendedMapRefsetItem [^String id
+                                  ^LocalDate effectiveTime
+                                  ^boolean active
+                                  ^long moduleId
+                                  ^long refsetId
+                                  ^long referencedComponentId
+                                  ^long mapGroup            ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
+                                  ^long mapPriority         ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
+                                  ^String mapRule           ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
+                                  ^String mapAdvice         ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
+                                  ^String mapTarget         ;; The target code in the target terminology, classification or code system.
+                                  ^long correlationId       ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+                                  ^long mapCategoryId])     ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
 
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
@@ -218,7 +182,7 @@
   (->Concept
     (Long/parseLong (v 0))
     (parse-date (v 1))
-    (Boolean/parseBoolean (v 2))
+    (parse-bool (v 2))
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))))
 
@@ -226,7 +190,7 @@
   (->Description
     (Long/parseLong (v 0))
     (parse-date (v 1))
-    (Boolean/parseBoolean (v 2))
+    (parse-bool (v 2))
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))
     (v 5)
@@ -238,7 +202,7 @@
   (->Relationship
     (Long/parseLong (v 0))
     (parse-date (v 1))
-    (Boolean/parseBoolean (v 2))
+    (parse-bool (v 2))
     (Long/parseLong (v 3))                                  ;; moduleId
     (Long/parseLong (v 4))                                  ;; sourceId
     (Long/parseLong (v 5))                                  ;; destinationId
@@ -251,7 +215,7 @@
   (->SimpleRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))))                                ;; referenced component Id
@@ -260,7 +224,7 @@
   (->LanguageRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
@@ -270,7 +234,7 @@
   (->RefsetDescriptorRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
@@ -282,7 +246,7 @@
   (->SimpleMapRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
@@ -292,7 +256,22 @@
   (->ComplexMapRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id
+    (Long/parseLong (v 6))                                  ;; map group
+    (Long/parseLong (v 7))                                  ;; map priority
+    (v 8)                                                   ;; map rule
+    (v 9)                                                   ;; map advice
+    (v 10)                                                  ;; map target
+    (Long/parseLong (v 11))))                               ;; correlation
+
+(defn parse-extended-map-refset-item [v]
+  (->ExtendedMapRefsetItem
+    (v 0)                                                   ;; component id
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
@@ -302,14 +281,14 @@
     (v 9)                                                   ;; map advice
     (v 10)                                                  ;; map target
     (Long/parseLong (v 11))                                 ;; correlation
-    (Long/parseLong (v 12))                                 ;; map block
-    (Long/parseLong (v 13))))                               ;; map category
+    (Long/parseLong (v 12))))                               ;; map category id
+
 
 (defn parse-attribute-value-refset-item [v]
   (->AttributeValueRefsetItem
     (v 0)                                                   ;; component id
     (parse-date (v 1))                                      ;; effective time
-    (Boolean/parseBoolean (v 2))                            ;; active?
+    (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
@@ -326,7 +305,7 @@
    :info.snomed/LanguageRefset       parse-language-refset-item
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
-   :info.snomed/ExtendedMapRefset    parse-complex-map-refset-item
+   :info.snomed/ExtendedMapRefset    parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset parse-attribute-value-refset-item})
 
 (s/def ::type parsers)
@@ -334,15 +313,74 @@
 (s/def ::batch (s/keys :req-un [::type ::data]))
 
 (defn parse-batch
-  "Lazily parse a batch of SNOMED entities,"
+  "Lazily parse a batch of SNOMED entities, returning a batch with
+  data as parsed entities and not simply raw imported data."
   [batch]
   (when-not (s/valid? ::batch batch)
     (throw (ex-info "invalid batch:" (s/explain-data ::batch batch))))
   (if-let [parse (get parsers (:type batch))]
     (try
-      (map parse (:data batch))
-      (catch Exception e (ex-info "unable to parse" (dissoc batch :data) e)))
+      (assoc batch :data (map parse (:data batch)))
+      (catch Throwable e (println "error parsing:" (dissoc batch :data) e)))
     (throw (Exception. (str "no parser for batch type" (:type batch))))))
+
+(derive :info.snomed/Concept :info.snomed/Component)
+(derive :info.snomed/Description :info.snomed/Component)
+(derive :info.snomed/Relationship :info.snomed/Component)
+(derive :info.snomed/Refset :info.snomed/Component)
+(derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
+(derive :info.snomed/SimpleRefset :info.snomed/Refset)
+(derive :info.snomed/LanguageRefset :info.snomed/Refset)
+(derive :info.snomed/SimpleMapRefset :info.snomed/Refset)
+(derive :info.snomed/ComplexMapRefset :info.snomed/Refset)
+(derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
+(derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
+(derive Concept :info.snomed/Concept)
+(derive Description :info.snomed/Description)
+(derive Relationship :info.snomed/Relationship)
+(derive SimpleRefsetItem :info.snomed/SimpleRefset)
+(derive LanguageRefsetItem :info.snomed/LanguageRefset)
+(derive SimpleMapRefsetItem :info.snomed/SimpleMapRefset)
+(derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
+(derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
+(derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
+
+(def snomed-file-pattern
+  #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
+
+(defn parse-snomed-filename
+  "Parse a filename according the specifications outlined in
+  https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
+  Each filename should match the following pattern:
+  [FileType]_[ContentType]_[ContentSubType]_[CountryNamespace]_[VersionDate].[FileExtension].
+  Returns a map containing all the information from the filename."
+  [filename]
+  (let [nm (.getName (java.io.File. filename))]
+    (when-let [m (re-matches snomed-file-pattern nm)]
+      (let [component-name (str (m 12) (m 8))
+            id (keyword (str "info.snomed/" component-name))]
+        {:path              filename
+         :filename          nm
+         :component         component-name
+         :identifier        id
+         :parser            (get parsers id)
+         :file-type         (m 1)
+         :status            (m 2)
+         :type              (m 3)
+         :format            (m 4)
+         :content-type      (m 5)
+         :pattern           (m 7)
+         :content           (m 8)
+         :content-subtype   (m 11)
+         :summary           (m 12)
+         :release-type      (m 14)
+         :doc-status        (m 15)
+         :language-code     (m 17)
+         :country-namespace (m 18)
+         :country-code      (m 19)
+         :namespace-id      (m 20)
+         :version-date      (parse-date (m 21))
+         :file-extension    (m 22)}))))
 
 (defn partition-identifier
   "Return the partition from the identifier.
@@ -382,8 +420,6 @@
 (defmethod valid? :default [m] false)
 
 (comment
-
-
   (identifier->type 24700007)
   (identifier->type 24700030)
   (verhoeff/valid? 24700002)

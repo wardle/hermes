@@ -1,34 +1,37 @@
 (ns com.eldrix.hermes.import
   "Provides import functionality for processing directories of files"
-  (:require [clojure.data.csv :as csv]
-            [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
-            [clojure.core.async :as async :refer [>! <! >!! <!! go chan buffer close! thread
-                                                  alts! alts!! take! put! timeout]]
-            [com.eldrix.hermes.snomed :as snomed]))
+  (:require
+    [clojure.java.io :as io]
+    [clojure.tools.logging :as log]
+    [clojure.core.async :as async :refer [>! <! >!! <!! go chan buffer close! thread
+                                          alts! alts!! take! put! timeout]]
+    [com.eldrix.hermes.snomed :as snomed]
+    [clojure.string :as str]))
 
-(def ^:private snomed-files
-  "Pattern matched SNOMED distribution files and their 'type'"
-  {#"sct2_Concept_Full_\S+_\S+.txt"     :snomed/concept
-   #"sct2_Description_Full-\S+_\S+.txt" :snomed/description
-   #"sct2_Relationship_Full_\S+_\S+.txt" :snomed/relationship
-   })
 
-(defn is-snomed-file? [filename]
-  (first (filter #(re-find % filename) (keys snomed-files))))
-
-(defn get-snomed-type
-  "Returns the SNOMED 'type' :snomed/concept, :snomed/description, :snomed/relationship or :snomed/reference-set"
-  [filename]
-  (get snomed-files (is-snomed-file? filename)))
+(defn is-snomed-file? [f]
+  (snomed/parse-snomed-filename (.getName (clojure.java.io/file f))))
 
 (defn snomed-file-seq
-  "A tree sequence for SNOMED CT data files"
+  "A tree sequence for SNOMED CT data files, returning a sequence of maps.
+  Each result is a map of SNOMED information from the filename as per
+  the release file documentation.
+  https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
+  with :path the path of the file, and :component the canonical name of the
+  SNOMED component (e.g. 'Concept', 'SimpleRefset')"
   [dir]
   (->> dir
        clojure.java.io/file
        file-seq
-       (filter #(is-snomed-file? (.getName %)))))
+       (map #(snomed/parse-snomed-filename (.getPath %)))
+       (filter :component)))
+
+(defn importable-files
+  "Return a list of importable files from the directory specified."
+  [dir]
+  (->> (snomed-file-seq dir)
+       (filter #(= (:release-type %) "Snapshot"))
+       (filter :parser)))
 
 (defn csv-data->maps
   "Turn CSV data into maps, assuming first row is the header"
@@ -45,25 +48,51 @@
   column."
   [filename out-c batchSize]
   (with-open [reader (io/reader filename)]
-    (log/info "Processing:" filename)
-    (let [snomed-type (get-snomed-type filename)
-          csv-data (csv/read-csv reader :separator \tab :quote \tab)
-          headings (first csv-data)
-          data (rest csv-data)
-          batches (->> data
-                       (partition-all batchSize)
-                       (map #(hash-map :type snomed-type
-                                       :headings headings
-                                       :data %)))]
-      (doseq [batch batches] (>!! out-c batch)))))
+    (let [snofile (snomed/parse-snomed-filename filename)
+          parser (:parser snofile)]
+      (when parser
+        (let [csv-data (map #(str/split % #"\t") (line-seq reader))
+              headings (first csv-data)
+              data (rest csv-data)
+              batches (->> data
+                           (partition-all batchSize)
+                           (map #(hash-map :type (:identifier snofile)
+                                           :headings headings
+                                           :data %)))]
+          (log/info "Processing: " filename " type: " (:component snofile))
+          (doseq [batch batches] (>!! out-c batch)))))))
 
 (defn file-worker
   [files-c out-c batchSize]
   (loop [f (<!! files-c)]
     (when f
       (log/debug "Queuing   : " (.getPath f))
-      (process-file (.getPath f) out-c (or batchSize 1000))
+      (process-file f out-c (or batchSize 1000))
       (recur (<!! files-c)))))
+
+(defn test-csv [filename]
+  (with-open [rdr (clojure.java.io/reader filename)]
+    (if-let [parser (:parser (snomed/parse-snomed-filename filename))]
+      (loop [i 0
+             n 0
+             data (map #(str/split % #"\t") (line-seq rdr))
+             ]
+        (when-let [line (first data)]
+          (when (= i 0)
+            (println "Processing " filename "\n" line))
+          (try
+            (when (> i 0) (parser line))
+            (catch Throwable e (throw (Exception. (str "Error parsing " filename " line:" i "\nline : " line "\nError: " e)))))
+          (when (and (not= 0 n) (not= n (count line)))
+            (println "incorrect number of columns; expected" n " got:" (count line)) {})
+          (recur (inc i)
+                 (if (= n 0) (count line) n)
+                 (next data))))
+      (println "no parser for file: " filename))))
+
+(defn test-all-csv [dir]
+  (doseq [filename (map :path (importable-files dir))]
+    (test-csv filename)))
 
 (defn create-workers
   "Creates a number of workers threads each running the function specified. Returns a channel
@@ -89,70 +118,38 @@
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
   [dir & {:keys [nthreads batch-size]}]
-  (let [files-c (chan)    ;; list of files
-        batches1-c (chan)   ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        batches2-c (chan) ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
-        files (snomed-file-seq dir)
-        done (create-workers (or nthreads 4) file-worker files-c batches1-c (or batch-size 5000))]
+  (let [files-c (chan)                                      ;; list of files
+        raw-c (chan)                                        ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+        processed-c (chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
+        files (importable-files dir)
+        done (create-workers (or nthreads 4) file-worker files-c raw-c (or batch-size 5000))]
     (log/info "importing files from " dir)
     (when-not (seq files) (log/warn "no files found to import in " dir))
-    (async/onto-chan!! files-c files true)                  ;; stream list of files into work channel
-    (thread (<!! done) (close! batches1-c))                  ;; watch for completion and close output channel
-    (async/pipeline (or nthreads 4) batches2-c (map snomed/parse-batch) batches1-c true)
-    batches2-c))
+    (async/onto-chan!! files-c (map :path files) true)      ;; stream list of files into work channel
+    (thread (<!! done) (close! raw-c))                      ;; watch for completion and close output channel
+    (async/pipeline (or nthreads 4) processed-c (map snomed/parse-batch) raw-c true)
+    processed-c))
+
+
+(defn examine-distribution-files
+  [dir]
+  (let [results-c (load-snomed dir :batch-size 5000)]
+    (loop [counts {}
+           batch (async/<!! results-c)]
+      (when batch
+        (print counts "\r")
+        (recur
+          (merge-with + counts {(:type batch) (count (:data batch))})
+          (async/<!! results-c))))))
 
 (defn -main [x]
   (log/info "starting hermes...")
-  (let [ff (snomed-file-seq x)
-        results-c (load-snomed x)
-        totals (atom {})]
-    (log/info "found" (count ff) "files in" x)
-    (<!! (create-workers 4 counting-worker results-c totals))
-    (log/info "totals: " @totals)))
+  (examine-distribution-files x))
 
 (comment
   (require '[clojure.reflect :as reflect])
-  (clojure.pprint/pprint (reflect/reflect (java.util.Date.)))
-  (def f (first (file-seq (clojure.java.io/file "."))))
-  (reflect/reflect f)
-  (def patterns (vals snomed-files))
 
-  (is-snomed-file? "sct2_Concept_Full_INT_20190731.txt")
-  (is-snomed-file? "sct2_Concept_Wibble_INT_20190731.txt")
-
-  -- Let's open and read a CSV file into a lazy sequence of maps
-  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z/Full/Terminology/sct2_Concept_Full_INT_20190731.txt")
-  (is-snomed-file? filename)
-  (is-snomed-file? "wibble")
-  (get-snomed-type filename)
-  (snomed-file-seq "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
-  (def c (chan))
-  (thread (process-file filename c 5))
-  (<!! c)
-
-  ;; manually configure
-  (def dir "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
-  (snomed-file-seq dir)
-  ;; try asynchronously now...
-  (def batches-c (chan))
-  (def files-c (chan))
-  ;; put file sequence on a file processing channel
-  (async/onto-chan!! files-c (snomed-file-seq dir) true)
-  (def complete (create-workers 4 file-worker files-c batches-c 5))
-  (thread (<!! complete) (close! batches-c))
-  (<!! batches-c)                                           ;; run this a few times as a test
-  (close! files-c)
-  (close! batches-c)
-
-
-
-  ;; this does all of that in one step
-  (def results-c (load-snomed dir))
-  (def totals (atom {}))
-  (<!! (create-workers 4 counting-worker results-c totals))
-  (println "Totals: " @totals)
-
-
-
-
+  (snomed/parse-snomed-filename "sct2_Concept_Full_INT_20190731.txt")
+  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z/Snapshot/Refset/Map/der2_iisssccRefset_ExtendedMapSnapshot_INT_20190731.txt")
+  (test-csv filename)
   )

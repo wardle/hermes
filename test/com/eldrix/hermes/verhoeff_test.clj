@@ -21,5 +21,4 @@
   (is (not (valid? "14567895"))))
 
 (comment
-  (run-tests)
-  (run-all-tests))
+  (run-tests))

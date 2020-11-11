@@ -1,3 +1,7 @@
+; Compositional grammar specification
+; v2.4 June 2020
+; https://confluence.ihtsdotools.org/display/DOCSCG/5.1+Normative+Specification
+;
 expression =  ws [definitionStatus ws] subExpression ws
 subExpression = focusConcept [ws ":" ws refinement]
 definitionStatus = equivalentTo / subtypeOf

@@ -51,26 +51,23 @@
 (defn test-example [m]
   (let [t (:type m)
         r (snomed/parse-batch m)
-        v (doall (map #(= t (snomed/identifier->type (:id %))) r))]
+        v (doall (map #(= t (snomed/identifier->type (:id %))) (:data r)))]
     (is (every? true? v))))
 
 (deftest test-parsing
   (doall (map test-example core-examples)))
-
 
 (def refset-examples
   [{:filename "der2_Refset_SimpleFull_INT_20180131.txt"
     :type     :info.snomed/SimpleRefset
     :data     [["800aa109-431f-4407-a431-6fe65e9db160" "20170731" "1" "900000000000207008" "723264001" "731819006"]]}])
 
+
+(deftest test-hierarchy
+  (is (isa? :info.snomed/SimpleMapRefset :info.snomed/Refset))
+  (is (isa? :info.snomed/Concept :info.snomed/Component)))
+
+
 (comment
   (run-tests)
-  (def examples-list
-    (slurp (clojure.java.io/resource "com/eldrix/hermes/example-snomed-file-list.txt")))
-  (def examples (clojure.string/split examples-list #"\n"))
-  (clojure.pprint/print-table
-    (doall (map snomed/parse-snomed-filename examples)))
-
-  (snomed/parse-snomed-filename "der2_iisssccRefset_ExtendedMapFull_INT_20180131.txt")
-  (snomed/parse-simple-refset-item (first (:data (first refset-examples))))
   )

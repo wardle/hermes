@@ -5,92 +5,28 @@
             [com.eldrix.hermes.store :as store]
             [clojure.core.async :as async]))
 
-
-(defn import-worker
-  "Pull a batch from the channel 'c' specified into the backing store, or send an individual item to the duplicates channel 'dup-c' if already exists"
-  [bucket c dup-c]
-  (loop [batch (async/<!! c)]
-    (when-not (nil? batch)
-      (doseq [e batch]
-        (when-not (.putIfAbsentBoolean bucket (:id e) e)
-          (async/>!! dup-c e)))
-      (recur (async/<!! c)))))
-
-(defn duplicates-worker
-  [bucket dup-c]
-  (loop [count 0
-         e (async/<!! dup-c)]
-    (if (nil? e) count
-     (let [old (.get bucket (:id e))]
-        (when (nil? old)
-          (throw (ex-info "Entity for processing in duplicates channel not already in KV store!" {:entity e})))
-        (when (.isAfter (:effectiveTime e) (:effectiveTime old))
-          (.put bucket (:id e) e))
-        (recur (inc count))))))
-
 (defn import-snomed
+  "Import a SNOMED distribution from the specified directory `dir` into a local
+   file-based database `db-filename`.
+   Blocking; will return when done. "
   [dir db-filename]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
-        results-c (import/load-snomed dir :nthreads nthreads :batch-size 5000)
-        duplicates-c (async/chan)
-        db (store/open-database db-filename)
-        bt (store/open-btreemap db "core" org.mapdb.Serializer/LONG org.mapdb.Serializer/JAVA)
-        workers (import/create-workers nthreads (partial import-worker bt results-c duplicates-c))]
-    (async/thread
-      ;; single thread to process duplicates one-by-one, not in parallel
-      (duplicates-worker bt duplicates-c)
-      (log/info "finished processing duplicates from duplicates channel"))
-    (async/<!! workers)
-    (async/close! duplicates-c)
-    (.close db)
-    (log/info "import complete from '" dir "'")))
-
+        store (store/open-store db-filename {:read-only? false})
+        data-c (import/load-snomed dir)
+        done (import/create-workers nthreads store/write-batch-worker store data-c)]
+    (async/<!! done)
+    (store/close store)))
 
 (defn -main [& args]
   (log/info "Hello, World"))
 
-
-
-
 (comment
-
-
-
-  ;; Demonstrate usage of import to a key-value store
-  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
+  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z")
   (def filename "C:\\Users\\mark\\Dev\\downloads\\uk_sct2cl_30.0.0_20200805000001")
-
+  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z/Snapshot/Terminology")
   (import-snomed filename "snomed.db")
-
-  (def results-c (import/load-snomed filename :nthreads 8 :batch-size 5000))
-  (def duplicates-c (async/chan))
-  (def db (store/open-database "snomed.db" :read-only? true))
-  (def bt (store/open-btreemap db "core" org.mapdb.Serializer/LONG org.mapdb.Serializer/JAVA))
-
-  (.get bt 107012)
-  (time (.get bt 345122012))
-
-  ;; this thread simply processes an entity from the duplicates channel one-by-one
-  (async/thread
-    (loop []
-      (when-let [e (async/<!! duplicates-c)]
-        (let [old (.get bt (:id e))]
-          (when (nil? old)
-            (throw (ex-info "Entity for processing in duplicates channel not already in KV store!" {:entity e})))
-          (when (.isAfter (:effectiveTime e) (:effectiveTime old))
-            (.put bt (:id e) e))
-          (recur))))
-    (log/info "finished processing duplicates from duplicates channel"))
-
-  (def done (import/create-workers
-              8
-              (fn [c dup-c] (loop [batch (async/<!! c)]
-                              (when-not (nil? batch)
-                                (doseq [e batch]
-                                  (when-not (.putIfAbsentBoolean bt (:id e) e)
-                                    (async/>!! dup-c e)))
-                                (recur (async/<!! c)))))
-              results-c duplicates-c))
-  (async/thread (<!! done) (close! duplicates-c))
-
+  (println "Done")
+  (def st (store/open-store "snomed.db" true))
+  (store/concept st 24700007)
+  (store/description st 41398015)
   )
