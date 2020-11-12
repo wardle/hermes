@@ -1,4 +1,7 @@
 .cpcache/
 .idea/
+.nrepl-port
 classes/
 target/
+snomed.db
+hermes.iml
