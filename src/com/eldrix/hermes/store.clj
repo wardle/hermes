@@ -25,6 +25,12 @@
                  skip-check? (.checksumHeaderBypass)
                  read-only? (.readOnly))))
 
+(defn- ^org.mapdb.DB open-temp-database []
+  (-> (org.mapdb.DBMaker/tempFileDB)
+      (.fileMmapEnable)
+      (.closeOnJvmShutdown)
+      (.make)))
+
 (defn- ^org.mapdb.BTreeMap open-bucket
   "Create or open the named b-tree map with the specified value and key
   serializers.
@@ -213,34 +219,39 @@
   {:read-only?  true
    :skip-check? false})
 
-(defn open-store [filename opts]
-  (let [db (open-database filename (merge default-opts opts))
-        concepts (open-bucket db "c" Serializer/LONG Serializer/JAVA)
-        descriptions (open-bucket db "d" Serializer/LONG Serializer/JAVA)
-        relationships (open-bucket db "r" Serializer/LONG Serializer/JAVA)
-        refsets (open-bucket db "rs" Serializer/STRING Serializer/JAVA)
-        cache (open-bucket db "cache" Serializer/LONG Serializer/JAVA)
-        indexes {
-                 ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
-                 :concept-descriptions
-                 (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
+(defn open-store
+  ([] (open-store nil nil))
+  ([filename opts]
+   (let [db
+         (if filename
+           (open-database filename (merge default-opts opts))
+           (open-temp-database))
+         concepts (open-bucket db "c" Serializer/LONG Serializer/JAVA)
+         descriptions (open-bucket db "d" Serializer/LONG Serializer/JAVA)
+         relationships (open-bucket db "r" Serializer/LONG Serializer/JAVA)
+         refsets (open-bucket db "rs" Serializer/STRING Serializer/JAVA)
+         cache (open-bucket db "cache" Serializer/LONG Serializer/JAVA)
+         indexes {
+                  ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
+                  :concept-descriptions
+                  (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
 
-                 ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
-                 ;; this optimises for the get IS-A relationships of xxx, for example
-                 :concept-parent-relationships
-                 (open-index db "c-pr")
-                 :concept-child-relationships
-                 (open-index db "c-cr")
+                  ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
+                  ;; this optimises for the get IS-A relationships of xxx, for example
+                  :concept-parent-relationships
+                  (open-index db "c-pr")
+                  :concept-child-relationships
+                  (open-index db "c-cr")
 
-                 ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
-                 ;; a) determining whether a component is part of a refset, and
-                 ;; b) returning the items for a given component from a specific refset.
-                 :component-refsets
-                 (open-bucket db "c-rs"
-                              (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING]))
-                              Serializer/JAVA)}]
+                  ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
+                  ;; a) determining whether a component is part of a refset, and
+                  ;; b) returning the items for a given component from a specific refset.
+                  :component-refsets
+                  (open-bucket db "c-rs"
+                               (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING]))
+                               Serializer/JAVA)}]
 
-    (->MapDBStore db concepts descriptions relationships refsets cache indexes)))
+     (->MapDBStore db concepts descriptions relationships refsets cache indexes))))
 
 (defmulti write-batch :type)
 (defmethod write-batch :info.snomed/Concept [batch store]
@@ -276,7 +287,7 @@
     (java.time.LocalDateTime/now))
 
   (def db (open-store "snomed.db" {:read-only? true :skip-check? false}))
-  (def all-descriptions )
+  (def all-descriptions)
   (def all-relationships (iterator-seq (.valueIterator (.relationships db))))
 
   ;; build concept-description index
@@ -292,62 +303,63 @@
   (first all-refsets)
   (defn refsetitem->key [item]
     (into-array :referencedComponentId :refsetId :id %
-                )
-    ;; write an index of source->type->destination for each relationship
-    (let [bucket (:concept-parent-relationships (.indexes db))]
-      (dorun (pmap #(write-index-entry
-                      bucket
-                      (long-array [(:sourceId %) (:typeId %) (:destinationId %)])
-                      (:active %))
-                   all-relationships)))
+                ))
+  ;; write an index of source->type->destination for each relationship
+  (let [bucket (:concept-parent-relationships (.indexes db))]
+    (dorun (pmap #(write-index-entry
+                    bucket
+                    (long-array [(:sourceId %) (:typeId %) (:destinationId %)])
+                    (:active %))
+                 all-relationships)))
 
-    (do (println "started: " (java.time.LocalDateTime/now))
-        (build-relationship-indices db)
-        (println "finished: " (java.time.LocalDateTime/now)))
+  (do (println "started: " (java.time.LocalDateTime/now))
+      (build-relationship-indices db)
+      (println "finished: " (java.time.LocalDateTime/now)))
 
-    ;; get all parent relationships of MS
-    (map seq (.subSet (:concept-parent-relationships (.indexes db)) (long-array [24700007 0 0]) (long-array [24700007 Long/MAX_VALUE Long/MAX_VALUE])))
-    ;; get list of all direct child concepts of MS
-    (->> (.subSet (:concept-child-relationships (.indexes db))
-                  (long-array [24700007 116680003 0])
-                  (long-array [24700007 116680003 Long/MAX_VALUE]))
-         (map seq)
-         (map last))
+  ;; get all parent relationships of MS
+  (map seq (.subSet (:concept-parent-relationships (.indexes db)) (long-array [24700007 0 0]) (long-array [24700007 Long/MAX_VALUE Long/MAX_VALUE])))
+  ;; get list of all direct child concepts of MS
+  (->> (.subSet (:concept-child-relationships (.indexes db))
+                (long-array [24700007 116680003 0])
+                (long-array [24700007 116680003 Long/MAX_VALUE]))
+       (map seq)
+       (map last))
 
-    (defn get-parent-relationships
-      "Return the parent relationships of the given concept"
-      ([db concept-id] (get-parent-relationships db concept-id 0))
-      ([db concept-id type-id]
-       (map seq (.subSet (:concept-parent-relationships (.indexes db))
-                         (long-array [concept-id type-id 0])
-                         (long-array [24700007 (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
+  (defn get-parent-relationships
+    "Return the parent relationships of the given concept"
+    ([db concept-id] (get-parent-relationships db concept-id 0))
+    ([db concept-id type-id]
+     (map seq (.subSet (:concept-parent-relationships (.indexes db))
+                       (long-array [concept-id type-id 0])
+                       (long-array [24700007 (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
 
-    ;; get all direct parents (IS-A) for multiple sclerosis
-    (map last (get-parent-relationships db 24700007 116680003))
-    (map last (get-child-relationships db 24700007 116680003))
+  ;; get all direct parents (IS-A) for multiple sclerosis
+  (map last (get-parent-relationships db 24700007 116680003))
+  (map last (get-child-relationships db 24700007 116680003))
 
-    (with-open [db (open-store "snomed.db" {:read-only? false})]
-      (.compact (.getStore (.concepts db))))
+  (with-open [db (open-store "snomed.db" {:read-only? false})]
+    (.compact (.getStore (.concepts db))))
 
-    (with-open [db (open-store "snomed.db" {:read-only? false})]
-      (.getAllNames (.db db)))
+  (with-open [db (open-store "snomed.db" {:read-only? false})]
+    (.getAllNames (.db db)))
 
-    (with-open [db (open-store "snomed.db" {:read-only? false})]
-      (println "store cd" (.getStore (:concept-descriptions (.indexes db))))
-      (println "store c" (.getStore (.concepts db))))
+  (with-open [db (open-store "snomed.db" {:read-only? false})]
+    (println "store cd" (.getStore (:concept-descriptions (.indexes db))))
+    (println "store c" (.getStore (.concepts db))))
 
-    (do
-      (def result (with-open [db (open-store "snomed.db" {:read-only? false})]
-                    (let [test-set (.createOrOpen (.treeSet (.db db) "test3" Serializer/LONG_ARRAY))]
-                      (.add test-set (long-array [1 2 3]))
-                      (.add test-set (long-array [1 2 4]))
-                      (.add test-set (long-array [1 3 1]))
-                      (.contains test-set (long-array [1 2 3]))
-                      (seq (.subSet test-set (long-array [1 2]) (long-array [1 2 Long/MAX_VALUE]))))))
-      (map seq result))
+  (do
+    (def result (with-open [db (open-store "snomed.db" {:read-only? false})]
+                  (let [test-set (.createOrOpen (.treeSet (.db db) "test3" Serializer/LONG_ARRAY))]
+                    (.add test-set (long-array [1 2 3]))
+                    (.add test-set (long-array [1 2 4]))
+                    (.add test-set (long-array [1 3 1]))
+                    (.contains test-set (long-array [1 2 3]))
+                    (seq (.subSet test-set (long-array [1 2]) (long-array [1 2 Long/MAX_VALUE]))))))
+    (map seq result))
 
 
-    (close db)
-    (.close (.db db))
-    )
+  (close db)
+  (.close (.db db))
+
   )
+
