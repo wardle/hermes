@@ -276,9 +276,12 @@
   - description-type-id : type of description (e.g. synonym or FSN)
   - language-refset-id  : language reference set
 
-  Example identifiers:
+  Possible description-type-ids:
    900000000000013009: synonym (core metadata concept)
    900000000000003001: fully specified name
+
+  Example language-refset-ids:
+   900000000000509007: US English language reference set
    999001261000000100: UK English (clinical) language reference set."
   [store concept-id description-type-id language-refset-id]
   (let [descriptions (->> (get-concept-descriptions store concept-id)
@@ -310,7 +313,6 @@
 
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
   (some identity (map (partial get-preferred-description store concept-id 900000000000003001) language-refset-ids)))
-
 
 (defn- write-concepts [^MapDBStore store objects]
   (doseq [o objects]
