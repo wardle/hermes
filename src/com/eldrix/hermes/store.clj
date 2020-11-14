@@ -289,7 +289,7 @@
                           (filter :active)
                           (filter #(= description-type-id (:typeId %))))
         refset-item (->> (mapcat #(get-component-refset-items store (:id %) language-refset-id) descriptions)
-                         (filter #(= 900000000000548007 (:acceptabilityId %)))
+                         (filter #(= 900000000000548007 (:acceptabilityId %))) ;; only PREFERRED
                          (first))
         preferred (:referencedComponentId refset-item)]
     (when preferred (get-description store preferred))))
