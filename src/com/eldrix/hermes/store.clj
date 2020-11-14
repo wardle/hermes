@@ -121,10 +121,12 @@
   ------------------------------------------------------------------------
   "
   [^MapDBStore store]
-  (let [components ^java.util.NavigableSet (:component-refsets (.indexes store))
+  (let [installed ^java.util.NavigableSet (:installed-refsets (.indexes store))
+        components ^java.util.NavigableSet (:component-refsets (.indexes store))
         reverse-map ^java.util.NavigableSet (:map-target-component (.indexes store))
         all-refsets (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.refsets store)))]
     (dorun (pmap #(let [{:keys [id referencedComponentId refsetId active mapTarget]} %]
+                    (.add installed refsetId)
                     (write-index-entry components
                                        (to-array [referencedComponentId refsetId id])
                                        active)
@@ -133,6 +135,11 @@
                                          (to-array [refsetId mapTarget id])
                                          active)))
                  all-refsets))))
+
+(defn get-installed-reference-sets
+  "Returns the installed reference sets"
+  [store]
+  (into #{} (:installed-refsets (.indexes store))))
 
 (defn get-concept
   [^MapDBStore store concept-id]
@@ -346,9 +353,6 @@
             :parent-relationships parent-relationships
             :direct-parents       (set (mapcat last parent-relationships))})))
 
-(defn get-extended-concept [^MapDBStore store concept-id]
-  (.get ^org.mapdb.BTreeMap (.cache store) concept-id))
-
 (defn compact [^MapDBStore store]
   (.compact (.getStore ^org.mapdb.BTreeMap (.concepts store))))
 
@@ -399,6 +403,10 @@
                   :component-refsets
                   (open-index db "c-rs"
                               (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING])))
+
+                  ;; cache a set of installed reference sets
+                  :installed-refsets
+                  (open-index db "installed-rs" Serializer/LONG)
 
                   ;; for any map refsets, we store (refsetid--mapTarget--itemId) to
                   ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
@@ -477,3 +485,50 @@
     (.getAllNames (.db db)))
   )
 
+
+
+(def language-reference-sets
+  "Defines a mapping between ISO language tags and the language reference sets
+  (possibly) installed as part of SNOMED CT. These can be used if a client
+  does not wish to specify a reference set (or set of reference sets) to be used
+  to derive preferred or acceptable terms, but instead wants some sane defaults
+  on the basis of locale as defined by IETF BCP 47."
+  {"en-GB" [999001261000000100                              ;; NHS realm language (clinical part)
+            999000691000001104                              ;; NHS realm language (pharmacy part)
+            900000000000508004                              ;; Great Britain English language reference set
+            ]
+   "en-US" [900000000000509007]})
+
+(defn- select-language-reference-sets
+  "Returns the known language reference sets that are in the `installed` set.
+  - installed : a set of refset identifiers reference sets."
+  [installed]
+  (reduce-kv (fn [m k v]
+               (if-let [filtered (seq (filter installed v))]
+                 (assoc m k filtered)
+                 (dissoc m k)))
+             {}
+             language-reference-sets))
+
+(defn ordered-language-refsets-from-locale
+  "Return an ordered list of language reference sets, as determined by
+  the priority list from the user and the set of installed reference sets.
+  Parameters
+  - priority-list     : e.g. en-GB;q=1.0,en-US;q=0.5,fr-FR;q=0.0
+  - installed-refsets : e.g. #{900000000000509007 900000000000508004}"
+  [^String priority-list installed-refsets]
+  (let [installed (select-language-reference-sets installed-refsets)
+        priority-list (try (java.util.Locale$LanguageRange/parse priority-list) (catch Exception _ []))
+        locales (map #(java.util.Locale/forLanguageTag %) (keys installed))]
+    (mapcat #(get installed %) (map #(.toLanguageTag %) (java.util.Locale/filter priority-list locales)))))
+
+(comment
+  (with-open [store (open-store "snomed.db" {:read-only? true})]
+    (map :term
+         [(get-preferred-synonym store 80146002 (ordered-language-refsets-from-locale "en-GB" (get-installed-reference-sets store)))
+          (get-preferred-synonym store 80146002 (ordered-language-refsets-from-locale "en-US" (get-installed-reference-sets store)))])
+
+    )
+  (def store (open-store "snomed.db"))
+  (ordered-language-refsets-from-locale "en-GB" (get-installed-reference-sets store))
+  )

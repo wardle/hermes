@@ -18,6 +18,7 @@
   (.addDocument writer doc)
   (.close writer)
 
+  
   (def reader (DirectoryReader/open directory))
   (def searcher (IndexSearcher. reader))
   (def parser (QueryParser. "fieldName" analyzer))
