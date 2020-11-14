@@ -130,7 +130,8 @@
                                        active)
                     (when mapTarget
                       (write-index-entry reverse-map
-                                         (to-array [refsetId mapTarget id]) %)))
+                                         (to-array [refsetId mapTarget id])
+                                         active)))
                  all-refsets))))
 
 (defn get-concept
