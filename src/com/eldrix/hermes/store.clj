@@ -343,7 +343,8 @@
             :fully-specified-name fsn
             :refsets              refsets
             :all-parents          all-parents
-            :parent-relationships parent-relationships})))
+            :parent-relationships parent-relationships
+            :direct-parents       (set (mapcat last parent-relationships))})))
 
 (defn get-extended-concept [^MapDBStore store concept-id]
   (.get ^org.mapdb.BTreeMap (.cache store) concept-id))
