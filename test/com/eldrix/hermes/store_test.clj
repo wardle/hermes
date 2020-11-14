@@ -52,7 +52,10 @@
     (let [gb (store/get-preferred-synonym store 80146002 [999000691000001104 900000000000508004 999001261000000100])
           usa (store/get-preferred-synonym store 80146002 [900000000000509007])]
       (is (= "Appendicectomy" (:term gb)))
-      (is (= "Appendectomy" (:term usa))))))
+      (is (= "Appendectomy" (:term usa))))
+    (let [installed-refsets (store/get-installed-reference-sets store)]
+    (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (store/ordered-language-refsets-from-locale "en-GB" installed-refsets)))))
+    (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (store/ordered-language-refsets-from-locale "en-US" installed-refsets))))))))
 
 (defn test-ns-hook []
   (simple-store)
