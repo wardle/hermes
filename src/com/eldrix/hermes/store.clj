@@ -87,6 +87,11 @@
     (.add bucket k)
     (.remove bucket k)))
 
+(defn stream-all-concepts
+  [^MapDBStore store ch]
+  (let [concepts (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.concepts store)))]
+    (async/onto-chan! ch concepts)))
+
 (defn build-description-index
   [^MapDBStore store]
   (let [bucket ^org.mapdb.BTreeMap (:concept-descriptions (.indexes store))
