@@ -5,16 +5,21 @@
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource BooleanClause)
+           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource BooleanClause Query ScoreDoc TopDocs)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)))
+
+(set! *warn-on-reflection* true)
+
 
 (defn make-extended-descriptions
   [store concept]
   (let [ec (store/make-extended-concept store concept)
         ec' (dissoc ec :descriptions)]
-    (map #(assoc % :concept (merge (dissoc ec' :concept) (:concept ec'))) (:descriptions ec))))
+    (map #(assoc % :concept (merge (dissoc ec' :concept)    ;; turn concept inside out to focus on description instead
+                                   (:concept ec')))
+         (:descriptions ec))))
 
 (defn extended-description->document
   "Turn an extended description into a Lucene document."
@@ -23,8 +28,8 @@
               (.add (TextField. "term" (:term ed) Field$Store/YES))
               (.add (DoubleDocValuesField. "length-boost" (/ 1.0 (Math/sqrt (count (:term ed)))))) ;; add a penalty for longer terms
               (.add (LongPoint. "module-id" (long-array [(:moduleId ed)])))
-              (.add (StringField. "concept-active" ^String (.toString ^boolean (get-in ed [:concept :active])) Field$Store/NO))
-              (.add (StringField. "description-active" ^String (.toString (:active ed)) Field$Store/NO))
+              (.add (StringField. "concept-active" (str (get-in ed [:concept :active])) Field$Store/NO))
+              (.add (StringField. "description-active" (str (:active ed)) Field$Store/NO))
               (.add (LongPoint. "type-id" (long-array [(:typeId ed)])))
               (.add (LongPoint. "description-id" (long-array [(:id ed)]))) ;; for indexing and search
               (.add (StoredField. "id" ^long (:id ed)))     ;; stored field of same
@@ -76,17 +81,17 @@
            (.build builder))
          (first qs))))))
 
-(defn write-concept! [store writer concept]
+(defn write-concept! [store ^IndexWriter writer concept]
   (let [docs (concept->documents store concept)]
     (doseq [doc docs]
       (.addDocument writer doc))))
 
-(defn write-batch! [store writer concepts]
+(defn write-batch! [store ^IndexWriter writer concepts]
   (dorun (map (partial write-concept! store writer) concepts))
   (.commit writer))
 
 
-(defn open-index-writer
+(defn ^IndexWriter open-index-writer
   [filename]
   (let [analyzer (StandardAnalyzer.)
         directory (FSDirectory/open (java.nio.file.Paths/get filename (into-array String [])))
@@ -134,7 +139,7 @@
    :inactive-descriptions? false
    :properties             {}})
 
-(defn make-search-query
+(defn ^Query make-search-query
   [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]}]
   (let [booster (DoubleValuesSource/fromDoubleField "length-boost")
         query (cond-> (org.apache.lucene.search.BooleanQuery$Builder.)
@@ -147,15 +152,18 @@
                       (not show-fsn?)
                       (.add (LongPoint/newExactQuery "type-id" 900000000000003001) BooleanClause$Occur/MUST_NOT))]
     (doseq [[k v] properties]
-      (.add query (LongPoint/newSetQuery ^String (str k) ^Collection (if (vector? v) v [v])) BooleanClause$Occur/FILTER))
+      (let [^Collection vv (if (vector? v) v [v])]
+        (.add query
+              (LongPoint/newSetQuery (str k) vv)
+              BooleanClause$Occur/FILTER)))
     (FunctionScoreQuery. (.build query) booster)))
 
-(defn do-search [searcher params]
+(defn do-search [^IndexSearcher searcher params]
   (let [query (make-search-query params)
-        hits (seq (.-scoreDocs (.search searcher query (or (:max-hits params) 200))))]
+        hits (seq (.-scoreDocs ^TopDocs (.search searcher query (int (or (:max-hits params) 200)))))]
     (if hits
-      (map #(hash-map :id (.get % "id") :term (.get % "term") :concept-id (.get % "concept-id"))
-           (map #(.doc searcher %) (map #(.-doc %) hits)))
+      (map #(hash-map :id (Long/parseLong (.get ^Document % "id")) :term (.get ^Document % "term") :concept-id (Long/parseLong (.get ^Document % "concept-id")))
+           (map #(.doc searcher %) (map #(.-doc ^ScoreDoc %) hits)))
       (let [fuzzy (or (:fuzzy params) 0)
             fallback (or (:fallback-fuzzy params) 0)]
         (when (and (= fuzzy 0) (> fallback 0))
@@ -167,5 +175,11 @@
 
   (create-test-search "snomed.db" "test-search.db")
   (def searcher (IndexSearcher. (open-index-reader "test-search.db")))
-  (do-search searcher {:s "neurologist"})
+  (def store (store/open-store "snomed.db"))
+  (def langs (store/ordered-language-refsets-from-locale "en-GB" (store/get-installed-reference-sets store)))
+  ;; is-a 14679004 = occupations
+  (do-search searcher {:s "baker" :fuzzy 0 :fallback-fuzzy 1 :properties {116680003 [14679004]}})
+  (do-search searcher {:s "neurol" :fuzzy 0 :fallback-fuzzy 1 :properties {116680003 [14679004]}})
+
+  (map :term (map #(store/get-preferred-synonym store (:concept-id %) langs) (do-search searcher {:s "neurologist" :properties {116680003 [14679004]}})))
   )

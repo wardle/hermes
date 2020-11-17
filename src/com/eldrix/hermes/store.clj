@@ -455,7 +455,7 @@
   {:read-only?  true
    :skip-check? false})
 
-(defn open-store
+(defn ^Closeable open-store
   ([] (open-store nil nil))
   ([filename] (open-store filename nil))
   ([filename opts]
