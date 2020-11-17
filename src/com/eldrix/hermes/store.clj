@@ -2,7 +2,8 @@
   "Store provides access to a key value store."
   (:require [clojure.java.io :as io]
             [clojure.core.async :as async]
-            [clojure.tools.logging.readable :as log])
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer)
            (org.mapdb.serializer SerializerArrayTuple)
@@ -143,21 +144,21 @@
 
 (defn get-installed-reference-sets
   "Returns the installed reference sets"
-  [store]
+  [^MapDBStore store]
   (into #{} (:installed-refsets (.indexes store))))
 
 (defn get-concept
   [^MapDBStore store concept-id]
-  (.get ^org.mapdb.MapExtra (.concepts store) concept-id))
+  (.get ^org.mapdb.BTreeMap (.concepts store) concept-id))
 
 (defn get-description
   [^MapDBStore store description-id]
-  (.get ^org.mapdb.MapExtra (.descriptions store) description-id))
+  (.get ^org.mapdb.BTreeMap (.descriptions store) description-id))
 
 (defn get-descriptions
   [^MapDBStore store description-ids]
   (let [m (.descriptions store)]
-    (map #(.get ^org.mapdb.MapExtra m %) description-ids)))
+    (map #(.get ^org.mapdb.BTreeMap m %) description-ids)))
 
 (defn get-concept-descriptions
   "Return the descriptions for the concept specified."
@@ -167,6 +168,10 @@
 (defn is-fully-specified-name?
   [^Description d]
   (= 900000000000003001 (:typeId d)))
+
+(defn is-synonym?
+  [^Description d]
+  (= 900000000000013009 (:typeId d)))
 
 (defn get-fully-specified-name
   [^MapDBStore store concept-id]
@@ -186,13 +191,6 @@
    (map seq (.subSet ^java.util.NavigableSet (:concept-parent-relationships (.indexes store))
                      (long-array [concept-id type-id 0])
                      (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
-
-(defn get-parent-relationships
-  [store concept-id]
-  (->> (get-raw-parent-relationships store concept-id)
-       (map rest)
-       (map #(hash-map (first %) #{(second %)}))
-       (apply merge-with conj)))
 
 (defn- get-raw-child-relationships
   "Return the child relationships of the given concept.
@@ -220,6 +218,32 @@
              parents (if done-already? () (map last (get-raw-parent-relationships store id type-id)))]
          (recur (apply conj (rest work) parents)
                 (conj result id)))))))
+
+
+(defn get-parent-relationships
+  "Returns the parent relationships of the specified concept.
+  Returns a map
+  key: concept-id of the relationship type (e.g. identifier representing finding site)
+  value: a set of concept identifiers for that property.
+
+  See get-parent-relationships-expanded to get each target expanded via
+  transitive closure tables."
+  [store concept-id]
+  (->> (get-raw-parent-relationships store concept-id)
+       (map rest)
+       (map #(hash-map (first %) #{(second %)}))
+       (apply merge-with into)))
+
+(defn get-parent-relationships-expanded
+  "Returns all of the parent relationships, expanded to
+  include each target's transitive closure table.
+  This makes it trivial to build queries that find all concepts
+  with, for example, a common finding site at any level of granularity."
+  [store concept-id]
+  (->> (get-raw-parent-relationships store concept-id)
+       (map rest)
+       (map #(hash-map (first %) (get-all-parents store (second %))))
+       (apply merge-with into)))
 
 (defn get-all-children
   "Returns all child concepts for the concept.
@@ -281,6 +305,26 @@
        (map last)
        (map (partial get-refset-item store))))
 
+
+(defn get-description-refsets
+  "Get the refsets and language applicability for a description.
+  Returns a map containing:
+  - refsets       : a set of refsets to which this description is a member
+  - preferred-in  : refsets for which this description is preferred
+  - acceptable-in : refsets for which this description is acceptable.
+
+  Example:
+  (map #(merge % (get-description-refsets store (:id %)))
+       (get-concept-descriptions store 24700007))"
+  [store description-id]
+  (let [refset-items (get-component-refset-items store description-id)
+        refsets (into #{} (map :refsetId refset-items))
+        preferred-in (into #{} (map :refsetId (filter #(= 900000000000548007 (:acceptabilityId %)) refset-items)))
+        acceptable-in (into #{} (map :refsetId (filter #(= 900000000000549004 (:acceptabilityId %)) refset-items)))]
+    {:refsets       refsets
+     :preferred-in  preferred-in
+     :acceptable-in acceptable-in}))
+
 (defn get-preferred-description
   "Return the preferred description for the concept specified as defined by
   the language reference set specified for the description type.
@@ -327,8 +371,6 @@
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
   (some identity (map (partial get-preferred-description store concept-id 900000000000003001) language-refset-ids)))
 
-
-
 (def language-reference-sets
   "Defines a mapping between ISO language tags and the language reference sets
   (possibly) installed as part of SNOMED CT. These can be used if a client
@@ -362,7 +404,7 @@
   (let [installed (select-language-reference-sets installed-refsets)
         priority-list (try (java.util.Locale$LanguageRange/parse priority-list) (catch Exception _ []))
         locales (map #(java.util.Locale/forLanguageTag %) (keys installed))]
-    (mapcat #(get installed %) (map #(.toLanguageTag %) (java.util.Locale/filter priority-list locales)))))
+    (mapcat #(get installed %) (map #(.toLanguageTag ^java.util.Locale %) (java.util.Locale/filter priority-list locales)))))
 
 (defn- write-concepts [^MapDBStore store objects]
   (doseq [o objects]
@@ -380,20 +422,19 @@
   (doseq [o objects]
     (write-object (.refsets store) o)))
 
-(defn make-extended-concept [^MapDBStore store concept-id]
-  (let [concept (get-concept store concept-id)
-        descriptions (get-concept-descriptions store concept-id)
-        fsn (first (filter is-fully-specified-name? descriptions))
-        refsets (into #{} (get-component-refsets store concept-id))
-        all-parents (get-all-parents store concept-id)
-        parent-relationships (get-parent-relationships store concept-id)]
-    (merge concept
-           {:descriptions         descriptions
-            :fully-specified-name fsn
-            :refsets              refsets
-            :all-parents          all-parents
-            :parent-relationships parent-relationships
-            :direct-parents       (set (mapcat last parent-relationships))})))
+(defn make-extended-concept [^MapDBStore store concept]
+  (let [concept-id (:id concept)
+        descriptions (map #(merge % (get-description-refsets store (:id %)))
+                          (get-concept-descriptions store concept-id))
+        parent-relationships (get-parent-relationships-expanded store concept-id)
+        direct-parents (get (get-parent-relationships store concept-id) 116680003)  ;; direct IS-A relationships ONLY
+        refsets (into #{} (get-component-refsets store concept-id))]
+    (snomed/->ExtendedConcept
+      concept
+      descriptions
+      parent-relationships
+      direct-parents
+      refsets)))
 
 (defn compact [^MapDBStore store]
   (.compact (.getStore ^org.mapdb.BTreeMap (.concepts store))))
@@ -484,27 +525,10 @@
   (def store (open-store "snomed.db" {:read-only? true :skip-check? false}))
   (close store)
 
-  (do (log/info "Starting import")
-      (com.eldrix.hermes.core/import-snomed
-        "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001"
-        "snomed.db")
-      (log/info "building description index")
-      (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
-        (build-description-index st))
-      (log/info "building relationship indices")
-      (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
-        (build-relationship-indices st))
-      (log/info "building refset indices")
-      (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
-        (build-refset-indices st))
-      (log/info "compacting database")
-      (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
-        (compact st))
-      (log/info "finished: getting status")
-      (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
-        (status st)))
-
   (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
+    (.compact (.getStore (.concepts st))))
+
+  (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? true})]
     (.compact (.getStore (.concepts st))))
 
   (with-open [db (open-store "snomed.db" {:read-only? true :skip-check? false})]
@@ -531,14 +555,3 @@
                   (async/<!! (stream-all-concepts st ch))))
   )
 
-
-(comment
-  (with-open [store (open-store "snomed.db" {:read-only? true})]
-    (map :term
-         [(get-preferred-synonym store 80146002 (ordered-language-refsets-from-locale "en-GB" (get-installed-reference-sets store)))
-          (get-preferred-synonym store 80146002 (ordered-language-refsets-from-locale "en-US" (get-installed-reference-sets store)))])
-
-    )
-  (def store (open-store "snomed.db"))
-  (ordered-language-refsets-from-locale "en-GB" (get-installed-reference-sets store))
-  )
