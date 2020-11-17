@@ -176,9 +176,11 @@
 
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
-(defrecord ExtendedConcept [concept descriptions parent-relationships child-relationships all-parents reference-sets])
-
-
+(defrecord ExtendedConcept [concept
+                            descriptions
+                            parent-relationships
+                            direct-parents
+                            refsets])
 
 (defn parse-concept [v]
   (->Concept
