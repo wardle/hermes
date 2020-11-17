@@ -3,6 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [com.eldrix.hermes.import :as import]
             [com.eldrix.hermes.store :as store]
+            [com.eldrix.hermes.search :as search]
             [clojure.core.async :as async]))
 
 (defn import-snomed
@@ -23,10 +24,29 @@
 (comment
   (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z")
   (def filename "C:\\Users\\mark\\Dev\\downloads\\uk_sct2cl_30.0.0_20200805000001")
-  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z/Snapshot/Terminology")
-  (import-snomed filename "snomed.db")
-  (println "Done")
-  (def st (store/open-store "snomed.db" true))
-  (store/concept st 24700007)
-  (store/description st 41398015)
+  (do
+    (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001")
+    (import-snomed filename "snomed.db")                    ;; 15 minutes
+    (log/info "Starting indexing")
+    (log/info "building description index")
+    (with-open [st (store/open-store "snomed.db" {:read-only? false :skip-check? false})]
+      (store/build-description-index st))
+    (log/info "building relationship indices")
+    (with-open [st (store/open-store "snomed.db" {:read-only? false :skip-check? false})]
+      (store/build-relationship-indices st))
+    (log/info "building refset indices")
+    (with-open [st (store/open-store "snomed.db" {:read-only? false :skip-check? false})]
+      (store/build-refset-indices st))
+    (log/info "compacting database")
+    (with-open [st (store/open-store "snomed.db" {:read-only? false :skip-check? false})]
+      (store/compact st))
+    (log/info "finished: getting status")
+    (with-open [st (store/open-store "snomed.db" {:read-only? false :skip-check? false})]
+      (store/status st)))
+
+  (def st (store/open-store "snomed.db"))
+  (store/get-concept st 24700007)
+  (store/get-description-refsets st 41398015)
+
+  (search/build-search-index "snomed.db" "search.db")
   )
