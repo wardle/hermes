@@ -3,8 +3,7 @@
   (:require
     [clojure.java.io :as io]
     [clojure.tools.logging :as log]
-    [clojure.core.async :as async :refer [>! <! >!! <!! go chan buffer close! thread
-                                          alts! alts!! take! put! timeout]]
+    [clojure.core.async :as async]
     [com.eldrix.hermes.snomed :as snomed]
     [clojure.string :as str]))
 
@@ -60,15 +59,15 @@
                                            :headings headings
                                            :data %)))]
           (log/info "Processing: " filename " type: " (:component snofile))
-          (doseq [batch batches] (>!! out-c batch)))))))
+          (doseq [batch batches] (async/>!! out-c batch)))))))
 
 (defn file-worker
   [files-c out-c batchSize]
-  (loop [f (<!! files-c)]
+  (loop [f (async/<!! files-c)]
     (when f
       (log/debug "Queuing   : " (.getPath f))
       (process-file f out-c (or batchSize 1000))
-      (recur (<!! files-c)))))
+      (recur (async/<!! files-c)))))
 
 (defn test-csv [filename]
   (with-open [rdr (clojure.java.io/reader filename)]
@@ -101,32 +100,32 @@
   (loop [i 0 chans []]
     (if (= i n)
       (async/merge chans)
-      (recur (inc i) (conj chans (thread (apply f args)))))))
+      (recur (inc i) (conj chans (async/thread (apply f args)))))))
 
 (defn- counting-worker
   "A worker that loops on a channel containing batches of work and simply counts the types of data.
   Useful in testing and debugging"
   [batch-c totals-atom]
-  (loop [batch (<!! batch-c)]
+  (loop [batch (async/<!! batch-c)]
     (when batch
       (swap! totals-atom #(update % (:type batch) (fnil + 0) (count (:data batch))))
       (snomed/parse-batch batch)
       (log/debug "processed... " @totals-atom)
-      (recur (<!! batch-c)))))
+      (recur (async/<!! batch-c)))))
 
 (defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
   [dir & {:keys [nthreads batch-size]}]
-  (let [files-c (chan)                                      ;; list of files
-        raw-c (chan)                                        ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        processed-c (chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
+  (let [files-c (async/chan)                                      ;; list of files
+        raw-c (async/chan)                                        ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+        processed-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (importable-files dir)
         done (create-workers (or nthreads 4) file-worker files-c raw-c (or batch-size 5000))]
     (log/info "importing files from " dir)
     (when-not (seq files) (log/warn "no files found to import in " dir))
     (async/onto-chan!! files-c (map :path files) true)      ;; stream list of files into work channel
-    (thread (<!! done) (close! raw-c))                      ;; watch for completion and close output channel
+    (async/thread (async/<!! done) (async/close! raw-c))                      ;; watch for completion and close output channel
     (async/pipeline (or nthreads 4) processed-c (map snomed/parse-batch) raw-c true)
     processed-c))
 
