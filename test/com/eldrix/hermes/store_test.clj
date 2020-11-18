@@ -22,8 +22,8 @@
                                                 :caseSignificanceId 900000000000448009})]
       (store/write-batch {:type :info.snomed/Description
                           :data [description]} st)
-      (is (= description (store/get-description st 754365011)))
       (store/build-description-index st)
+      (is (= description (store/get-description st 754365011)))
       (is (= description (store/get-fully-specified-name st 24700007))))))
 
 (defn has-live-database? []
