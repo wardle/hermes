@@ -5,7 +5,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
-           (org.mapdb Serializer)
+           (org.mapdb Serializer BTreeMap)
            (org.mapdb.serializer SerializerArrayTuple)
            (java.util NavigableSet)
            (com.eldrix.hermes.snomed Description)))
@@ -13,12 +13,17 @@
 (set! *warn-on-reflection* true)
 
 (deftype MapDBStore [^org.mapdb.DB db
-                     ^org.mapdb.BTreeMap concepts
-                     ^org.mapdb.BTreeMap descriptions
-                     ^org.mapdb.BTreeMap relationships
-                     ^org.mapdb.BTreeMap refsets
-                     ^org.mapdb.BTreeMap cache
-                     indexes]
+                     ^BTreeMap concepts                     ;; conceptId -- concept
+                     ^NavigableSet descriptionsConcept      ;; descriptionId -- conceptId
+                     ^BTreeMap relationships                ;; relationshipId - relationship
+                     ^BTreeMap refsets                      ;; refset-item-id -- refset-item
+                     ^BTreeMap descriptions          ;; conceptId--id--description
+                     ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- destinationId
+                     ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- sourceId
+                     ^NavigableSet installedRefsets         ;; refsetId
+                     ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
+                     ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
+                     ]
   Closeable
   (close [_] (.close db)))
 
@@ -40,7 +45,7 @@
       (.closeOnJvmShutdown)
       (.make)))
 
-(defn- ^org.mapdb.BTreeMap open-bucket
+(defn- ^BTreeMap open-bucket
   "Create or open the named b-tree map with the specified value and key
   serializers.
   Parameters:
@@ -64,50 +69,61 @@
   "Write an object into a bucket.
   Correctly handles atomicity and only writes the object if the effectiveTime of
   the entity is newer than the version that already exists in that bucket."
-  ([^org.mapdb.MapExtra bucket o] (write-object bucket o 0))
-  ([^org.mapdb.MapExtra bucket o attempt]
-   (when-not (.putIfAbsentBoolean bucket (:id o) o)
-     (let [old (.get bucket (:id o))]
+  ([^BTreeMap bucket o] (write-object bucket o (:id o)))
+  ([^org.mapdb.MapExtra bucket o k] (write-object bucket o k 0))
+  ([^org.mapdb.MapExtra bucket o k attempt]
+   (when-not (.putIfAbsentBoolean bucket k o)
+     (let [old (.get bucket k)]
        (when (nil? old)
          (throw (ex-info "entity disappeared" {:entity o})))
        (when (.isAfter ^java.time.LocalDate (:effectiveTime o) (:effectiveTime old))
          ;atomically replace old value with new value, returning false if old value has been changed in meantime
-         (let [success (.replace bucket (:id o) old o)]
+         (let [success (.replace bucket k old o)]
            (when-not success
-             (println "attempted to update " (:id o) " but its value changed: trying again attempt:#" (inc attempt))
+             (println "attempted to update " k " but its value changed: trying again attempt:#" (inc attempt))
              (if (< attempt 10)
-               (write-object bucket o (inc attempt))
+               (write-object bucket o k (inc attempt))
                (throw (ex-info "failed to write entity." {:attempts attempt :entity o}))))))))))
 
 (defn- write-index-entry
   "Write an index entry `k` into the `bucket` specified.
   Adds a key to the set, if active.
   Removes a key from the set if not active."
-  [^java.util.NavigableSet bucket k active?]
+  [^NavigableSet bucket k active?]
   (if active?
     (.add bucket k)
     (.remove bucket k)))
 
 (defn stream-all-concepts
   [^MapDBStore store ch]
-  (let [concepts (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.concepts store)))]
+  (let [concepts (iterator-seq (.valueIterator ^BTreeMap (.concepts store)))]
     (async/onto-chan! ch concepts)))
 
 (defn build-description-index
+  "Write a description into the descriptionId-conceptId index.
+  Note unlike other indices, we write in both active and inactive.
+    -------------------------------------------------------
+  | index                   | compound key                 |
+  | .descriptionsConcept    | descriptionId -- conceptId   |
+  ---------------------------------------------------------"
   [^MapDBStore store]
-  (let [bucket ^org.mapdb.BTreeMap (:concept-descriptions (.indexes store))
-        all-descriptions (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.descriptions store)))]
-    (doall (pmap #(.put bucket
-                        (long-array [(:conceptId %) (:id %)]) %)
+  (let [bucket ^NavigableSet (.descriptionsConcept store)
+        all-descriptions (iterator-seq (.valueIterator ^BTreeMap (.descriptions store)))]
+    (doall (pmap #(write-index-entry bucket (long-array [(:id %) (:conceptId %)]) true)
                  all-descriptions))))
 
 (defn build-relationship-indices
   "Build the relationship indices.
-   Populates the child and parent relationship indices."
+   Populates the child and parent relationship indices.
+   -----------------------------------------------------------------------
+  | index                         | compound key                          |
+  | .conceptChildRelationships    | destinationId -- typeId -- sourceId   |
+  | .conceptParentRelationships   | sourceId -- typeId -- destinationId   |
+  ------------------------------------------------------------------------"
   [^MapDBStore store]
-  (let [all-relationships (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.relationships store)))
-        child-bucket (:concept-child-relationships (.indexes store))
-        parent-bucket (:concept-parent-relationships (.indexes store))]
+  (let [all-relationships (iterator-seq (.valueIterator ^BTreeMap (.relationships store)))
+        child-bucket (.conceptChildRelationships store)
+        parent-bucket (.conceptParentRelationships store)]
     (dorun (pmap #(let [active? (:active %)]
                     (write-index-entry parent-bucket
                                        (long-array [(:sourceId %) (:typeId %) (:destinationId %)])
@@ -121,16 +137,17 @@
   "Build indices relating to the refsets.
   Processes each refset item, recording an index to allow lookup of items on the following keys
   ------------------------------------------------------------------------
-  | bucket                 | compound key                                |
-  | :component-refsets     | referencedComponentId -- refsetId -- itemId |
-  | :map-target-component  | refsetId -- mapTarget -- itemId             |
+  | index                | compound key                                |
+  | .componentRefsets    | referencedComponentId -- refsetId -- itemId |
+  | .mapTargetComponent  | refsetId -- mapTarget -- itemId             |
   ------------------------------------------------------------------------
   "
   [^MapDBStore store]
-  (let [installed ^java.util.NavigableSet (:installed-refsets (.indexes store))
-        components ^java.util.NavigableSet (:component-refsets (.indexes store))
-        reverse-map ^java.util.NavigableSet (:map-target-component (.indexes store))
-        all-refsets (iterator-seq (.valueIterator ^org.mapdb.BTreeMap (.refsets store)))]
+  (let [installed ^NavigableSet (.installedRefsets store)
+        components ^NavigableSet (.componentRefsets store)
+        reverse-map ^NavigableSet (.mapTargetComponent store)
+        refsets ^BTreeMap (.refsets store)
+        all-refsets (iterator-seq (.valueIterator refsets))]
     (dorun (pmap #(let [{:keys [id referencedComponentId refsetId active mapTarget]} %]
                     (.add installed refsetId)
                     (write-index-entry components
@@ -145,50 +162,52 @@
 (defn get-installed-reference-sets
   "Returns the installed reference sets"
   [^MapDBStore store]
-  (into #{} (:installed-refsets (.indexes store))))
+  (into #{} (.installedRefsets store)))
 
 (defn get-concept
   [^MapDBStore store concept-id]
-  (.get ^org.mapdb.BTreeMap (.concepts store) concept-id))
+  (.get ^BTreeMap (.concepts store) concept-id))
 
 (defn get-description
+  "Return the description with the given `description-id`.
+  This uses the descriptionId-conceptId index to determine the concept-id,
+  as all descriptions are actually stored by conceptId-descriptionId-concept because
+  that's a more common operation that finding a description by identifier alone."
   [^MapDBStore store description-id]
-  (.get ^org.mapdb.BTreeMap (.descriptions store) description-id))
-
-(defn get-descriptions
-  [^MapDBStore store description-ids]
-  (let [m (.descriptions store)]
-    (map #(.get ^org.mapdb.BTreeMap m %) description-ids)))
+  (when-let [concept-id (first (map second (.subSet ^NavigableSet (.descriptionsConcept store)
+                                                    (long-array [description-id 0])
+                                                    (long-array [description-id Long/MAX_VALUE]))))]
+    (first (vals (.prefixSubMap ^BTreeMap (.descriptions store) (long-array [concept-id description-id]))))))
 
 (defn get-concept-descriptions
   "Return the descriptions for the concept specified."
   [^MapDBStore store concept-id]
-  (vals (.prefixSubMap ^org.mapdb.BTreeMap (:concept-descriptions (.indexes store)) (long-array [concept-id]))))
+  (vals (.prefixSubMap ^BTreeMap (.descriptions store) (long-array [concept-id]))))
 
 (defn is-fully-specified-name?
   [^Description d]
-  (= 900000000000003001 (:typeId d)))
+  (= snomed/FullySpecifiedName (:typeId d)))
 
 (defn is-synonym?
   [^Description d]
-  (= 900000000000013009 (:typeId d)))
+  (= snomed/Synonym (:typeId d)))
 
 (defn get-fully-specified-name
   [^MapDBStore store concept-id]
   (first (filter is-fully-specified-name? (get-concept-descriptions store concept-id))))
 
 (defn get-relationship [^MapDBStore store relationship-id]
-  (.get ^org.mapdb.BTreeMap (.relationships store) relationship-id))
+  (.get ^BTreeMap (.relationships store) relationship-id))
 
 (defn get-refset-item [^MapDBStore store uid]
-  (.get ^org.mapdb.BTreeMap (.refsets store) uid))
+  (.get ^BTreeMap (.refsets store) uid))
 
 (defn- get-raw-parent-relationships
   "Return the parent relationships of the given concept.
   Returns a list of tuples (from--type--to)."
   ([^MapDBStore store concept-id] (get-raw-parent-relationships store concept-id 0))
   ([^MapDBStore store concept-id type-id]
-   (map seq (.subSet ^java.util.NavigableSet (:concept-parent-relationships (.indexes store))
+   (map seq (.subSet ^NavigableSet (.conceptParentRelationships store)
                      (long-array [concept-id type-id 0])
                      (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
 
@@ -197,7 +216,7 @@
   Returns a list of tuples (from--type--to)."
   ([^MapDBStore store concept-id] (get-raw-child-relationships store concept-id 0))
   ([^MapDBStore store concept-id type-id]
-   (map seq (.subSet ^java.util.NavigableSet (:concept-child-relationships (.indexes store))
+   (map seq (.subSet ^NavigableSet (.conceptChildRelationships store)
                      (long-array [concept-id type-id 0])
                      (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
 
@@ -207,7 +226,7 @@
    - `store` the MapDBStore
    - `concept-id`
    - `type-id`, defaults to 'IS-A' (116680003)."
-  ([^MapDBStore store concept-id] (get-all-parents store concept-id 116680003))
+  ([^MapDBStore store concept-id] (get-all-parents store concept-id snomed/IsA))
   ([^MapDBStore store concept-id type-id]
    (loop [work #{concept-id}
           result #{}]
@@ -218,7 +237,6 @@
              parents (if done-already? () (map last (get-raw-parent-relationships store id type-id)))]
          (recur (apply conj (rest work) parents)
                 (conj result id)))))))
-
 
 (defn get-parent-relationships
   "Returns the parent relationships of the specified concept.
@@ -254,7 +272,7 @@
    - store
    - `concept-id`
    - `type-id`, defaults to 'IS-A' (116680003)."
-  ([^MapDBStore store concept-id] (get-all-children store concept-id 116680003))
+  ([^MapDBStore store concept-id] (get-all-children store concept-id snomed/IsA))
   ([^MapDBStore store concept-id type-id]
    (loop [work #{concept-id}
           result #{}]
@@ -280,7 +298,7 @@
   ([^MapDBStore store component-id]
    (get-component-refset-items store component-id nil))
   ([^MapDBStore store component-id refset-id]
-   (->> (.subSet ^java.util.NavigableSet (:component-refsets (.indexes store))
+   (->> (.subSet ^NavigableSet (.componentRefsets store)
                  (to-array (if refset-id [component-id refset-id] [component-id])) ;; lower limit = first two elements of composite key
                  (to-array [component-id refset-id nil]))   ;; upper limit = the three elements, with final nil = infinite
         (map seq)
@@ -290,7 +308,7 @@
 (defn get-component-refsets
   "Return the refset-id's to which this component belongs."
   [^MapDBStore store component-id]
-  (->> (.subSet ^java.util.NavigableSet (:component-refsets (.indexes store))
+  (->> (.subSet ^NavigableSet (.componentRefsets store)
                 (to-array [component-id])                   ;; lower limit = first two elements of composite key
                 (to-array [component-id nil nil]))
        (map seq)
@@ -299,12 +317,11 @@
 (defn get-reverse-map
   "Returns the reverse mapping from the reference set and mapTarget specified."
   [^MapDBStore store refset-id s]
-  (->> (map seq (.subSet ^java.util.NavigableSet (:map-target-component (.indexes store))
+  (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
                          (to-array [refset-id s])
                          (to-array [refset-id s nil])))
        (map last)
        (map (partial get-refset-item store))))
-
 
 (defn get-description-refsets
   "Get the refsets and language applicability for a description.
@@ -319,8 +336,8 @@
   [store description-id]
   (let [refset-items (get-component-refset-items store description-id)
         refsets (into #{} (map :refsetId refset-items))
-        preferred-in (into #{} (map :refsetId (filter #(= 900000000000548007 (:acceptabilityId %)) refset-items)))
-        acceptable-in (into #{} (map :refsetId (filter #(= 900000000000549004 (:acceptabilityId %)) refset-items)))]
+        preferred-in (into #{} (map :refsetId (filter #(= snomed/Preferred (:acceptabilityId %)) refset-items)))
+        acceptable-in (into #{} (map :refsetId (filter #(= snomed/Acceptable (:acceptabilityId %)) refset-items)))]
     {:refsets       refsets
      :preferred-in  preferred-in
      :acceptable-in acceptable-in}))
@@ -345,7 +362,7 @@
                           (filter :active)
                           (filter #(= description-type-id (:typeId %))))
         refset-item (->> (mapcat #(get-component-refset-items store (:id %) language-refset-id) descriptions)
-                         (filter #(= 900000000000548007 (:acceptabilityId %))) ;; only PREFERRED
+                         (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
                          (first))
         preferred (:referencedComponentId refset-item)]
     (when preferred (get-description store preferred))))
@@ -366,10 +383,10 @@
   999000691000001104 : NHS Realm language (pharmacy part)  (supercedes the old dm+d realm subset 30001000001134).
   This means that we need to be able to submit *multiple* language reference set identifiers."
   [store concept-id language-refset-ids]
-  (some identity (map (partial get-preferred-description store concept-id 900000000000013009) language-refset-ids)))
+  (some identity (map (partial get-preferred-description store concept-id snomed/Synonym) language-refset-ids)))
 
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
-  (some identity (map (partial get-preferred-description store concept-id 900000000000003001) language-refset-ids)))
+  (some identity (map (partial get-preferred-description store concept-id snomed/FullySpecifiedName) language-refset-ids)))
 
 (def language-reference-sets
   "Defines a mapping between ISO language tags and the language reference sets
@@ -412,7 +429,7 @@
 
 (defn- write-descriptions [^MapDBStore store objects]
   (doseq [o objects]
-    (write-object (.descriptions store) o)))
+    (write-object (.descriptions store) o (long-array [(:conceptId o) (:id o)]))))
 
 (defn- write-relationships [^MapDBStore store objects]
   (doseq [o objects]
@@ -427,7 +444,7 @@
         descriptions (map #(merge % (get-description-refsets store (:id %)))
                           (get-concept-descriptions store concept-id))
         parent-relationships (get-parent-relationships-expanded store concept-id)
-        direct-parents (get (get-parent-relationships store concept-id) 116680003)  ;; direct IS-A relationships ONLY
+        direct-parents (get (get-parent-relationships store concept-id) snomed/IsA) ;; direct IS-A relationships ONLY
         refsets (into #{} (get-component-refsets store concept-id))]
     (snomed/->ExtendedConcept
       concept
@@ -437,19 +454,23 @@
       refsets)))
 
 (defn compact [^MapDBStore store]
-  (.compact (.getStore ^org.mapdb.BTreeMap (.concepts store))))
+  (.compact (.getStore ^BTreeMap (.concepts store))))
 
 (defn close [^MapDBStore store]
   (.close ^org.mapdb.DB (.db store)))
 
 (defn status
   [^MapDBStore store]
-  {:concepts      (.size ^org.mapdb.BTreeMap (.concepts store))
-   :descriptions  (.size ^org.mapdb.BTreeMap (.descriptions store))
-   :relationships (.size ^org.mapdb.BTreeMap (.relationships store))
-   :refsets       (.size ^org.mapdb.BTreeMap (.refsets store))
-   :indices       (let [ks (keys (.indexes store))]
-                    (zipmap ks (map #(.size (get (.indexes store) %)) ks)))})
+  {:concepts      (.size ^BTreeMap (.concepts store))
+   :descriptions  (.size ^BTreeMap (.descriptions store))
+   :relationships (.size ^BTreeMap (.relationships store))
+   :refsets       (.size ^BTreeMap (.refsets store))
+   :indices       {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
+                   :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
+                   :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
+                   :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
+                   :component-refsets            (.size ^NavigableSet (.componentRefsets store))
+                   :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))}})
 
 (def default-opts
   {:read-only?  true
@@ -459,45 +480,45 @@
   ([] (open-store nil nil))
   ([filename] (open-store filename nil))
   ([filename opts]
-   (let [db
-         (if filename
-           (open-database filename (merge default-opts opts))
-           (open-temp-database))
+   (let [db (if filename
+              (open-database filename (merge default-opts opts))
+              (open-temp-database))
+         ;; core components - concepts, descriptions, relationships and refset items
          concepts (open-bucket db "c" Serializer/LONG Serializer/JAVA)
-         descriptions (open-bucket db "d" Serializer/LONG Serializer/JAVA)
+         descriptions-concept (open-index db "dc")
          relationships (open-bucket db "r" Serializer/LONG Serializer/JAVA)
          refsets (open-bucket db "rs" Serializer/STRING Serializer/JAVA)
-         cache (open-bucket db "cache" Serializer/LONG Serializer/JAVA)
-         indexes {
-                  ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
-                  :concept-descriptions
-                  (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
 
-                  ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
-                  ;; this optimises for the get IS-A relationships of xxx, for example
-                  :concept-parent-relationships
-                  (open-index db "c-pr")
-                  :concept-child-relationships
-                  (open-index db "c-cr")
+         ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
+         concept-descriptions (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
 
-                  ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
-                  ;; a) determining whether a component is part of a refset, and
-                  ;; b) returning the items for a given component from a specific refset.
-                  :component-refsets
-                  (open-index db "c-rs"
-                              (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING])))
+         ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
+         ;; this optimises for the get IS-A relationships of xxx, for example
+         concept-parent-relationships (open-index db "c-pr")
+         concept-child-relationships (open-index db "c-cr")
 
-                  ;; cache a set of installed reference sets
-                  :installed-refsets
-                  (open-index db "installed-rs" Serializer/LONG)
+         ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
+         ;; a) determining whether a component is part of a refset, and
+         ;; b) returning the items for a given component from a specific refset.
+         component-refsets (open-index db "c-rs" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING])))
 
-                  ;; for any map refsets, we store (refsetid--mapTarget--itemId) to
-                  ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
-                  :map-target-component
-                  (open-index db "r-ti"
-                              (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/STRING])))}]
+         ;; cache a set of installed reference sets
+         installed-refsets (open-index db "installed-rs" Serializer/LONG)
+         ;; for any map refsets, we store (refsetid--mapTarget--itemId) to
+         ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
 
-     (->MapDBStore db concepts descriptions relationships refsets cache indexes))))
+         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/STRING])))]
+     (->MapDBStore db
+                   concepts
+                   descriptions-concept
+                   relationships
+                   refsets
+                   concept-descriptions
+                   concept-parent-relationships
+                   concept-child-relationships
+                   installed-refsets
+                   component-refsets
+                   map-target-component))))
 
 (defmulti write-batch :type)
 (defmethod write-batch :info.snomed/Concept [batch store]
