@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.search
   (:require
     [clojure.core.async :as async]
+    [clojure.tools.logging.readable :as log]
     [com.eldrix.hermes.store :as store]
     [com.eldrix.hermes.snomed :as snomed])
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
@@ -18,6 +19,8 @@
   (let [ec (store/make-extended-concept store concept)
         ec' (dissoc ec :descriptions)
         preferred (store/get-preferred-synonym store (:id concept) language-refset-ids)]
+    (when-not preferred
+      (log/warn "could not determine preferred synonym for " (:id concept) " using refsets: " language-refset-ids))
     ;; turn concept inside out to focus on description instead
     (map #(assoc % :concept (merge (dissoc ec' :concept) (:concept ec'))
                    :preferred-term (:term preferred))
@@ -186,9 +189,11 @@
   (def store (store/open-store "snomed.db"))
   (def diabetes (store/get-concept store 73211009))
   (def langs (store/ordered-language-refsets-from-locale "en-GB" (store/get-installed-reference-sets store)))
+  (first (do-search searcher {:s "ataxia 11" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}})))
+
+
   ;; is-a 14679004 = occupations
-  (first (do-search searcher {:s "wegener granulo" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}}))
-  (do-search searcher {:s "neurol" :fuzzy 0 :fallback-fuzzy 1 :properties {snomed/IsA [14679004]}})
+  (do-search searcher {:s "consultant" :fuzzy 0 :fallback-fuzzy 1 :properties {snomed/IsA [14679004]}})
 
   (map :term (map #(store/get-preferred-synonym store (:concept-id %) langs) (do-search searcher {:s "neurologist" :properties {116680003 [14679004]}})))
   )
