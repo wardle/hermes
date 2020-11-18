@@ -48,5 +48,5 @@
   (store/get-concept st 24700007)
   (store/get-description-refsets st 41398015)
 
-  (search/build-search-index "snomed.db" "search.db")
+  (search/build-search-index "snomed.db" "search.db" "en-GB")
   )
