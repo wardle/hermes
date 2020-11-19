@@ -55,7 +55,7 @@
       expressionValue expressionValue
       stringValue stringValue
       numericValue (clojure.edn/read-string numericValue)
-      booleanValue (clojure.edn/read-string booleanValue))))
+      booleanValue [(Boolean/parseBoolean booleanValue)])))      ;; hide boolean in vector so we don't break zipper
 
 (defn parse-attribute
   "attribute = attributeName ws \"=\" ws attributeValue"
@@ -79,7 +79,7 @@
   (let [attributeSet (zx/xml-> refinement :attributeSet parse-attribute-set)
         attributeGroup (zx/xml-> refinement :attributeGroup parse-attribute-group)]
     (concat
-      (when (seq attributeSet)   attributeSet)
+      (when (seq attributeSet) attributeSet)
       (when (seq attributeGroup) attributeGroup)
       )))
 
@@ -119,6 +119,29 @@
       405813007 |procedure site - direct| =  113293009 |structure of left fallopian tube| }"))
   (def p (cg-parser "   373873005 |Pharmaceutical / biologic product| :
        411116001 |Has dose form|  = ( 421720008 |Spray dose form|  +  7946007 |Drug suspension| )"))
+  (def p (cg-parser "    243796009 |Situation with explicit context| :
+   {  408730004 |Procedure context|  =  385658003 |Done| ,
+      408731000 |Temporal context|  =  410512000 |Current or specified| ,
+      408732007 |Subject relationship context|  =  410604004 |Subject of record| ,
+      363589002 |Associated procedure|  =
+     (  397956004 |Prosthetic arthroplasty of the hip| :
+           405814001 |Procedure site - indirect|  = ( 24136001 |Hip joint structure| :
+              272741003 |Laterality|  =  7771000 |Left| )
+          {  363699004 |Direct device|  =  304120007 |Total hip replacement prosthesis| ,
+             260686004 |Method|  =  425362007 |Surgical insertion - action| } ) }"))
+  (def p (cg-parser "  774586009 |Amoxicillin only product| :
+       411116001 |Has manufactured dose form|  =  420692007 |Oral capsule| ,
+      {  127489000 |Has active ingredient|  =  372687004 |Amoxicillin| ,
+         179999999100 |Has basis of strength|  =  372687004 |Amoxicillin| ,
+         189999999103 |Has strength value|  = #500,  199999999101 |Has strength unit|  =  258684004 |mg| }"))
+  (def p (cg-parser " 91143003 |Albuterol| :
+       411116001 |Has manufactured dose form|  =  385023001 |oral solution| ,
+      { 127489000 |Has active ingredient|  =  372897005 |Albuterol| ,
+        179999999100 |Has basis of strength|  =  372897005 |Albuterol| ,
+        189999999103 |Has strength value|  = #0.083,  199999999101 |Has strength numerator unit|  =  118582008 |%| }"))
+  (def p (cg-parser "   322236009 |Paracetamol 500mg tablet| :  209999999104 |Has trade name|  = \"PANADOL\""))
+  (def p (cg-parser "318969005 |Irbesartan 150 mg oral tablet| :  859999999102 |Is in national benefit scheme|  = TRUE"))
+  (def p (cg-parser " <<<  73211009 |Diabetes mellitus| :  363698007 |Finding site|  =  113331007 |Endocrine system|"))
   (do
     (def root (zip/xml-zip p))
     (zx/xml1-> root :expression parse-expression))
