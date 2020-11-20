@@ -139,14 +139,15 @@
 
 (defn- render-value
   [config value]
-  (if (map? value)
-    (cond
-      (get value :conceptId) (render-concept config value)
-      (get value :focusConcepts) (str "(" (render-subexpression config value) ")")
-      :else (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value})))
-    (if (number? value)
-      (str "#" value)
-      (str value))))
+  (cond
+    (map? value) (cond
+                   (get value :conceptId) (render-concept config value)
+                   (get value :focusConcepts) (str "(" (render-subexpression config value) ")")
+                   :else (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value})))
+    (number? value) (str "#" value)
+    (boolean? value) (str value)
+    :else (str "\"" value "\"")
+    ))
 
 (defn- render-refinement-set
   [config refinements]
