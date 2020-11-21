@@ -7,10 +7,11 @@
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource BooleanClause Query ScoreDoc TopDocs)
+           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
-           (java.util Collection)))
+           (java.util Collection)
+           (java.nio.file Paths)))
 
 (set! *warn-on-reflection* true)
 
@@ -73,14 +74,14 @@
 (defn ^IndexWriter open-index-writer
   [filename]
   (let [analyzer (StandardAnalyzer.)
-        directory (FSDirectory/open (java.nio.file.Paths/get filename (into-array String [])))
+        directory (FSDirectory/open (Paths/get filename (into-array String [])))
         writer-config (doto (IndexWriterConfig. analyzer)
                         (.setOpenMode IndexWriterConfig$OpenMode/CREATE_OR_APPEND))]
     (IndexWriter. directory writer-config)))
 
 (defn ^IndexReader open-index-reader
   [filename]
-  (let [directory (FSDirectory/open (java.nio.file.Paths/get filename (into-array String [])))]
+  (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
     (DirectoryReader/open directory)))
 
 (defn build-search-index
@@ -150,7 +151,7 @@
 (defn ^Query make-search-query
   [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]}]
   (let [booster (DoubleValuesSource/fromDoubleField "length-boost")
-        query (cond-> (org.apache.lucene.search.BooleanQuery$Builder.)
+        query (cond-> (BooleanQuery$Builder.)
                       s
                       (.add (make-tokens-query s fuzzy) BooleanClause$Occur/MUST)
                       (not inactive-concepts?)
@@ -189,11 +190,23 @@
   (def store (store/open-store "snomed.db"))
   (def diabetes (store/get-concept store 73211009))
   (def langs (store/ordered-language-refsets-from-locale "en-GB" (store/get-installed-reference-sets store)))
-  (first (do-search searcher {:s "ataxia 11" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}})))
+  (first (do-search searcher {:s "ataxia 11" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}}))
 
 
   ;; is-a 14679004 = occupations
   (do-search searcher {:s "consultant" :fuzzy 0 :fallback-fuzzy 1 :properties {snomed/IsA [14679004]}})
 
-  (map :term (map #(store/get-preferred-synonym store (:concept-id %) langs) (do-search searcher {:s "neurologist" :properties {116680003 [14679004]}})))
+  ;;370135005 |Pathological process (attribute)|  =  441862004
+  (time (def one (into #{} (map :concept-id (do-search searcher {:max-hits 10000 :properties {snomed/PathologicalProcess 441862004}})))))
+
+  (def two (store/get-all-children store 441862004 snomed/PathologicalProcess))
+  (time (def three (into #{} (mapcat #(store/get-all-children store %) two))))
+  (count one)
+  (count two)
+  (count three)
+  (time (map :term (map (partial store/get-fully-specified-name store) three)))
+
+  (store/get-fully-specified-name store 441862004)
+
+
   )

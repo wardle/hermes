@@ -29,7 +29,8 @@
             [com.eldrix.hermes.verhoeff :as verhoeff]
             [clojure.string :as str])
   (:import [java.time LocalDate]
-           [java.time.format DateTimeFormatter]))
+           [java.time.format DateTimeFormatter]
+           (java.io File)))
 
 
 (defn ^LocalDate parse-date [^String s] (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)))
@@ -358,8 +359,8 @@
   Each filename should match the following pattern:
   [FileType]_[ContentType]_[ContentSubType]_[CountryNamespace]_[VersionDate].[FileExtension].
   Returns a map containing all the information from the filename."
-  [filename]
-  (let [nm (.getName (java.io.File. filename))]
+  [^String filename]
+  (let [nm (.getName (File. filename))]
     (when-let [m (re-matches snomed-file-pattern nm)]
       (let [component-name (str (m 12) (m 8))
             id (keyword (str "info.snomed/" component-name))]
@@ -557,5 +558,6 @@
   (verhoeff/valid? 24700002)
 
   (valid? {:wibble "Hi there" :flibble "Flibble"})
+
 
   (clojure.pprint/pprint (parse-batch {:type :info.snomed/Concept :data [["24700007" "20200101" "true" "0" "0"]]})))

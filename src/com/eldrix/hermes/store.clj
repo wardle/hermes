@@ -5,14 +5,15 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
-           (org.mapdb Serializer BTreeMap)
+           (org.mapdb Serializer BTreeMap DB DBMaker)
            (org.mapdb.serializer SerializerArrayTuple)
-           (java.util NavigableSet)
-           (com.eldrix.hermes.snomed Description)))
+           (java.util NavigableSet Locale$LanguageRange)
+           (com.eldrix.hermes.snomed Description)
+           (java.time LocalDate)))
 
 (set! *warn-on-reflection* true)
 
-(deftype MapDBStore [^org.mapdb.DB db
+(deftype MapDBStore [^DB db
                      ^BTreeMap concepts                     ;; conceptId -- concept
                      ^NavigableSet descriptionsConcept      ;; descriptionId -- conceptId
                      ^BTreeMap relationships                ;; relationshipId - relationship
@@ -27,20 +28,20 @@
   Closeable
   (close [_] (.close db)))
 
-(defn- ^org.mapdb.DB open-database
+(defn- ^DB open-database
   "Open a file-based key-value database from the file specified, optionally read only. Use in a with-open
   block or manually (.close) when done"
   [filename {:keys [read-only? skip-check?]}]
   (when (and read-only? (not (.exists (io/as-file filename))))
     (throw (FileNotFoundException. (str "file `" filename "` opened read-only but not found"))))
-  (.make (cond-> (-> (org.mapdb.DBMaker/fileDB ^String filename)
+  (.make (cond-> (-> (DBMaker/fileDB ^String filename)
                      (.fileMmapEnable)
                      (.closeOnJvmShutdown))
                  skip-check? (.checksumHeaderBypass)
                  read-only? (.readOnly))))
 
-(defn- ^org.mapdb.DB open-temp-database []
-  (-> (org.mapdb.DBMaker/tempFileDB)
+(defn- ^DB open-temp-database []
+  (-> (DBMaker/tempFileDB)
       (.fileMmapEnable)
       (.closeOnJvmShutdown)
       (.make)))
@@ -52,7 +53,7 @@
   - db               - mapdb database (org.mapdb.DB)
   - key-serializer   - serializer for key
   - value-serializer - serializer for value."
-  [^org.mapdb.DB db ^String nm ^Serializer key-serializer ^Serializer value-serializer]
+  [^DB db ^String nm ^Serializer key-serializer ^Serializer value-serializer]
   (.createOrOpen (.treeMap db nm key-serializer value-serializer)))
 
 (defn- ^NavigableSet open-index
@@ -60,9 +61,9 @@
   - db         : mapdb database
   - nm         : name of index
   - serializer : serializer to use, by default LONG_ARRAY"
-  ([^org.mapdb.DB db ^String nm]
+  ([^DB db ^String nm]
    (open-index db nm Serializer/LONG_ARRAY))
-  ([^org.mapdb.DB db ^String nm ^Serializer serializer]
+  ([^DB db ^String nm ^Serializer serializer]
    (.createOrOpen (.treeSet db nm serializer))))
 
 (defn- write-object
@@ -70,13 +71,13 @@
   Correctly handles atomicity and only writes the object if the effectiveTime of
   the entity is newer than the version that already exists in that bucket."
   ([^BTreeMap bucket o] (write-object bucket o (:id o)))
-  ([^org.mapdb.MapExtra bucket o k] (write-object bucket o k 0))
-  ([^org.mapdb.MapExtra bucket o k attempt]
+  ([^BTreeMap bucket o k] (write-object bucket o k 0))
+  ([^BTreeMap bucket o k attempt]
    (when-not (.putIfAbsentBoolean bucket k o)
      (let [old (.get bucket k)]
        (when (nil? old)
          (throw (ex-info "entity disappeared" {:entity o})))
-       (when (.isAfter ^java.time.LocalDate (:effectiveTime o) (:effectiveTime old))
+       (when (.isAfter ^LocalDate (:effectiveTime o) (:effectiveTime old))
          ;atomically replace old value with new value, returning false if old value has been changed in meantime
          (let [success (.replace bucket k old o)]
            (when-not success
@@ -419,7 +420,7 @@
   - installed-refsets : e.g. #{900000000000509007 900000000000508004}"
   [^String priority-list installed-refsets]
   (let [installed (select-language-reference-sets installed-refsets)
-        priority-list (try (java.util.Locale$LanguageRange/parse priority-list) (catch Exception _ []))
+        priority-list (try (Locale$LanguageRange/parse priority-list) (catch Exception _ []))
         locales (map #(java.util.Locale/forLanguageTag %) (keys installed))]
     (mapcat #(get installed %) (map #(.toLanguageTag ^java.util.Locale %) (java.util.Locale/filter priority-list locales)))))
 
@@ -457,7 +458,7 @@
   (.compact (.getStore ^BTreeMap (.concepts store))))
 
 (defn close [^MapDBStore store]
-  (.close ^org.mapdb.DB (.db store)))
+  (.close ^DB (.db store)))
 
 (defn status
   [^MapDBStore store]
