@@ -22,7 +22,10 @@
                                    "-m" "cognitect.test-runner"
                                    "-d" "test"]}
 
-           :uberjar {:extra-deps {uberdeps/uberdeps {:mvn/version "1.0.0"}}
+           :outdated {:extra-deps {antq/antq {:mvn/version "RELEASE"}}
+                      :main-opts  ["-m" "antq.core"]}
+
+           :uberjar {:extra-deps {uberdeps/uberdeps {:mvn/version "1.0.3"}}
                      :main-opts  ["-m" "uberdeps.uberjar"
                                   "--target" "target/hermes-0.1.0.jar"
                                   "--main-class" "com.eldrix.hermes.core"]}}}

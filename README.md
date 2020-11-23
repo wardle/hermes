@@ -14,8 +14,14 @@ clj -m com.eldrix.hermes.core
 
 #### Running tests
 ```
-clj -A:test
+clj -M:test
 ```   
+
+#### View outdated dependencies
+
+```
+clj -M:outdated
+```
 
 #### Building uberjar
 
@@ -27,7 +33,7 @@ clj -e "(compile 'com.eldrix.hermes.core)"
 This will generate class files to create a runnable jar. Now you can build an uberjar:
 
 ```
-clojure -A:uberjar
+clojure -M:uberjar
 ```
 
 #### Run arbitrary entry-points 
