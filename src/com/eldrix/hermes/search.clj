@@ -93,9 +93,9 @@
       (let [langs (store/ordered-language-refsets-from-locale locale-priorities (store/get-installed-reference-sets store))]
         (when-not (seq langs) (throw (ex-info "No language refset for any locale listed in priority list"
                                               {:priority-list locale-priorities :store-filename store-filename})))
-        (async/thread (store/stream-all-concepts store ch)) ;; start streaming all concepts
-        (async/<!!                                          ;; pipeline for side-effects
-          (async/pipeline
+        (store/stream-all-concepts store ch)                ;; start streaming all concepts
+        (async/<!!                                          ;; block until pipeline complete
+          (async/pipeline                                   ;; pipeline for side-effects
             (.availableProcessors (Runtime/getRuntime))     ;; Parallelism factor
             (doto (async/chan) (async/close!))              ;; Output channel - /dev/null
             (map (partial write-batch! store writer langs))
@@ -207,6 +207,5 @@
   (time (map :term (map (partial store/get-fully-specified-name store) three)))
 
   (store/get-fully-specified-name store 441862004)
-
 
   )
