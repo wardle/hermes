@@ -170,6 +170,12 @@
     (if refinements (str focus-concepts ":" (render-refinements config refinements)) focus-concepts)))
 
 (defn render
+  "Render an expression into string form.
+  Parameters:
+  - store         : SNOMED store
+  - hide-terms?   : do not include textual terms in output
+  - update-terms? : update terms for the preferred synonyms in locale(s) specified.
+  - locale-priorities : list of locale priorities (e.g. \"en-GB\")"
   [{:keys [store hide-terms? update-terms? locale-priorities] :as config} exp]
   (let [cfg (if (and store update-terms? locale-priorities)
               (if-let [langs (store/ordered-language-refsets-from-locale locale-priorities (store/get-installed-reference-sets store))]
@@ -199,6 +205,6 @@
         189999999103 |Has strength value|  = #0.083,  199999999101 |Has strength numerator unit|  =  118582008 |%| }"))
 
 
-  (def rs (get-in v [:subExpression :refinements]))
+  (def rs (get-in p [:subExpression :refinements]))
 
   )
