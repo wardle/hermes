@@ -1,14 +1,13 @@
 (ns com.eldrix.hermes.store
   "Store provides access to a key value store."
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.core.async :as async]
-            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker)
            (org.mapdb.serializer SerializerArrayTuple)
            (java.util NavigableSet Locale$LanguageRange)
-           (com.eldrix.hermes.snomed Description)
            (java.time LocalDate)))
 
 (set! *warn-on-reflection* true)
@@ -18,7 +17,7 @@
                      ^NavigableSet descriptionsConcept      ;; descriptionId -- conceptId
                      ^BTreeMap relationships                ;; relationshipId - relationship
                      ^BTreeMap refsets                      ;; refset-item-id -- refset-item
-                     ^BTreeMap descriptions          ;; conceptId--id--description
+                     ^BTreeMap descriptions                 ;; conceptId--id--description
                      ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- destinationId
                      ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- sourceId
                      ^NavigableSet installedRefsets         ;; refsetId
@@ -96,9 +95,14 @@
     (.remove bucket k)))
 
 (defn stream-all-concepts
-  [^MapDBStore store ch]
-  (let [concepts (iterator-seq (.valueIterator ^BTreeMap (.concepts store)))]
-    (async/onto-chan! ch concepts)))
+  "Asynchronously stream all concepts to the channel specified, and, by default,
+  closing the channel when done unless specified.
+  Returns a channel which *will* be closed when done."
+  ([^MapDBStore store ch]
+   (stream-all-concepts store ch true))
+  ([^MapDBStore store ch close?]
+   (let [concepts (iterator-seq (.valueIterator ^BTreeMap (.concepts store)))]
+     (async/onto-chan! ch concepts close?))))
 
 (defn build-description-index
   "Write a description into the descriptionId-conceptId index.
@@ -141,8 +145,7 @@
   | index                | compound key                                |
   | .componentRefsets    | referencedComponentId -- refsetId -- itemId |
   | .mapTargetComponent  | refsetId -- mapTarget -- itemId             |
-  ------------------------------------------------------------------------
-  "
+  ------------------------------------------------------------------------"
   [^MapDBStore store]
   (let [installed ^NavigableSet (.installedRefsets store)
         components ^NavigableSet (.componentRefsets store)
@@ -166,6 +169,7 @@
   (into #{} (.installedRefsets store)))
 
 (defn get-concept
+  "Returns the concept specified."
   [^MapDBStore store concept-id]
   (.get ^BTreeMap (.concepts store) concept-id))
 
@@ -184,18 +188,6 @@
   "Return the descriptions for the concept specified."
   [^MapDBStore store concept-id]
   (vals (.prefixSubMap ^BTreeMap (.descriptions store) (long-array [concept-id]))))
-
-(defn is-fully-specified-name?
-  [^Description d]
-  (= snomed/FullySpecifiedName (:typeId d)))
-
-(defn is-synonym?
-  [^Description d]
-  (= snomed/Synonym (:typeId d)))
-
-(defn get-fully-specified-name
-  [^MapDBStore store concept-id]
-  (first (filter is-fully-specified-name? (get-concept-descriptions store concept-id))))
 
 (defn get-relationship [^MapDBStore store relationship-id]
   (.get ^BTreeMap (.relationships store) relationship-id))
@@ -289,6 +281,13 @@
   "Is `child` a type of `parent`?"
   [^MapDBStore store child parent]
   (contains? (get-all-parents store child) parent))
+
+(defn get-leaves
+  "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
+  Parameters:
+  - concept-ids  : a collection of concept identifiers"
+  [^MapDBStore store concept-ids]
+  (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
 
 (defn get-component-refset-items
   "Get the refset items for the given component, optionally
@@ -388,6 +387,20 @@
 
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
   (some identity (map (partial get-preferred-description store concept-id snomed/FullySpecifiedName) language-refset-ids)))
+
+(defn get-fully-specified-name
+  "Return the fully specified name for the concept specified. If no language preferences are provided the first
+  description of type FSN will be returned. If language preferences are provided, but there is no
+  match *and* `fallback?` is true, then the first description of type FSN will be returned."
+  ([^MapDBStore store concept-id] (get-fully-specified-name store concept-id nil true))
+  ([^MapDBStore store concept-id language-refset-ids fallback?]
+   (if (nil? language-refset-ids)
+     (first (filter snomed/is-fully-specified-name? (get-concept-descriptions store concept-id)))
+     (let [preferred (get-preferred-fully-specified-name store concept-id language-refset-ids)]
+       (if (and fallback? (nil? preferred))
+         (get-fully-specified-name store concept-id)
+         preferred)))))
+
 
 (def language-reference-sets
   "Defines a mapping between ISO language tags and the language reference sets
@@ -541,8 +554,6 @@
 
 (comment
   (set! *warn-on-reflection* true)
-  (use 'clojure.repl)
-  (require '[clojure.java.javadoc :as javadoc])
 
   (def store (open-store "snomed.db" {:read-only? true :skip-check? false}))
   (close store)
@@ -559,7 +570,7 @@
   (with-open [st (open-store "snomed.db" {:read-only? true :skip-check? false})]
     (->> (get-concept-descriptions st 24700007)
          (filter :active)
-         (remove is-fully-specified-name?)
+         (remove snomed/is-fully-specified-name?)
          (map :term)
          (sort-by :term)))
 

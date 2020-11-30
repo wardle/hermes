@@ -40,12 +40,13 @@
           (is (= 24700007 (:conceptId fsn)))
           (is (= "Multiple sclerosis (disorder)" (:term fsn)))
           (is (:active fsn))
-          (is (store/is-fully-specified-name? fsn)))
+          (is (snomed/is-fully-specified-name? fsn)))
         (let [all-parents (store/get-all-parents store 24700007)]
           (is (contains? all-parents 6118003))              ;; it's a demyelinating disease
           (is (contains? all-parents 138875005)))           ;; its a SNOMED CT concept
         (is (store/is-a? store 24700007 6118003))
         (is (store/is-a? store 24700007 138875005))
+        (is (store/is-a? store 24700007 24700007))
         (is (not (store/is-a? store 24700007 95320005)))    ;; it's not a disorder of the skin
         ))))
 

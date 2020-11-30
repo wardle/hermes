@@ -8,9 +8,6 @@
   small additions, predominantly relating to valid enumerations, to aid
   computability.
 
-  The structures are not intended for use in a working terminology server which
-  needs optimised structures in order to be performant.
-
   These structures are designed to cope with importing any SNOMED-CT
   distribution, including full distributions, a snapshot or a delta.
 
@@ -175,6 +172,16 @@
                                      ^long referencedComponentId
                                      ^long valueId])
 
+;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
+;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
+(defrecord OWLExpressionRefsetItem [^String id
+                                    ^LocalDate effectiveTime
+                                    ^boolean active
+                                    ^long moduleId
+                                    ^long refsetId          ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
+                                    ^long referencedComponentId
+                                    ^String owlExpression])
+
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
 (defrecord ExtendedConcept [concept
@@ -299,6 +306,16 @@
     (Long/parseLong (v 5))                                  ;; referenced component id
     (Long/parseLong (v 6))))
 
+(defn parse-owl-expression-refset-item [v]
+  (->OWLExpressionRefsetItem
+    (v 0)                                                   ;; component id
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id
+    (v 6)))                                                 ;; OWL expression
+
 (def parsers
   {:info.snomed/Concept              parse-concept
    :info.snomed/Description          parse-description
@@ -311,7 +328,8 @@
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset    parse-extended-map-refset-item
-   :info.snomed/AttributeValueRefset parse-attribute-value-refset-item})
+   :info.snomed/AttributeValueRefset parse-attribute-value-refset-item
+   :info.snomed/OwlExpressionRefset  parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -340,6 +358,8 @@
 (derive :info.snomed/ComplexMapRefset :info.snomed/Refset)
 (derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
+(derive :info.snomed/OwlExpressionRefset :info.snomed/Refset)
+
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
@@ -349,6 +369,7 @@
 (derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
 (derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
+(derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
 
 (def snomed-file-pattern
   #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
@@ -411,35 +432,26 @@
    "02" :info.snomed/Relationship
    "12" :info.snomed/Relationship})
 
-(defn identifier->type [id]
+(defn identifier->type
   "Get the type of SNOMED CT entity from the identifier specified."
+  [id]
   (get partitions (partition-identifier id)))
 
-(defn term->lowercase
-  "Return the term of the description as a lower-case string,
-  if possible, as determined by the case significance flag."
-  [^Description d]
-  (case (:caseSignificanceId d)
-    ;; initial character is case-sensitive - we can make initial character lowercase
-    900000000000020002 (when (> (count (:term d)) 0)
-                         (str (str/lower-case (first (:term d)))
-                              (subs (:term d) 1)))
-    ;; entire term case insensitive - just make it all lower-case
-    900000000000448009 (str/lower-case (:term d))
-    ;; entire term is case sensitive - can't do anything
-    900000000000017005 (:term d)
-    ;; fallback option - don't do anything
-    (:term d)))
 
 
 (def Root 138875005)
 (def IsA 116680003)
 
 ;; Metadata concepts
+(def Primitive 900000000000074008) ;; Not sufficiently defined by necessary conditions definition status (core metadata concept
+(def Defined 900000000000073002 )  ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
 (def FullySpecifiedName 900000000000003001)
 (def Synonym 900000000000013009)
 (def Preferred 900000000000548007)
 (def Acceptable 900000000000549004)
+(def OnlyInitialCharacterCaseInsensitive 900000000000020002)
+(def EntireTermCaseSensitive 900000000000017005)
+(def EntireTermCaseInsensitive 900000000000448009)
 
 ;; Top level concepts
 (def BodyStructure 123037004)
@@ -541,6 +553,41 @@
 (def WasAReferenceSet 900000000000528000)
 
 
+(defn is-primitive?
+  "Is this concept primitive? ie not sufficiently defined by necessary conditions?"
+  [^Concept c]
+  (= Primitive (:definitionStatusId c)))
+
+(defn is-defined?
+  "Is this concept fully defined? ie sufficiently defined by necessary conditions?"
+  [^Concept c]
+  (= Defined (:definitionStatusId c)))
+
+(defn is-fully-specified-name?
+  [^Description d]
+  (= FullySpecifiedName (:typeId d)))
+
+(defn is-synonym?
+  [^Description d]
+  (= Synonym (:typeId d)))
+
+
+(defn term->lowercase
+  "Return the term of the description as a lower-case string,
+  if possible, as determined by the case significance flag."
+  [^Description d]
+  (case (:caseSignificanceId d)
+    ;; initial character is case-sensitive - we can make initial character lowercase
+    OnlyInitialCharacterCaseInsensitive (when (> (count (:term d)) 0)
+                                          (str (str/lower-case (first (:term d)))
+                                               (subs (:term d) 1)))
+    ;; entire term case insensitive - just make it all lower-case
+    EntireTermCaseInsensitive (str/lower-case (:term d))
+    ;; entire term is case sensitive - can't do anything
+    EntireTermCaseSensitive (:term d)
+    ;; fallback option - don't do anything
+    (:term d)))
+
 
 
 
@@ -550,7 +597,7 @@
   (and
     (verhoeff/valid? (:id m))
     (not (nil? (:effectiveDate m)))))
-(defmethod valid? :default [m] false)
+(defmethod valid? :default [_] false)
 
 (comment
   (identifier->type 24700007)
@@ -560,4 +607,4 @@
   (valid? {:wibble "Hi there" :flibble "Flibble"})
 
 
-  (clojure.pprint/pprint (parse-batch {:type :info.snomed/Concept :data [["24700007" "20200101" "true" "0" "0"]]})))
+  (parse-batch {:type :info.snomed/Concept :data [["24700007" "20200101" "true" "0" "0"]]}))
