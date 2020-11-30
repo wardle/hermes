@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.search
   (:require
     [clojure.core.async :as async]
+    [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
     [com.eldrix.hermes.store :as store]
     [com.eldrix.hermes.snomed :as snomed])
@@ -130,7 +131,7 @@
   ([s] (make-tokens-query s 0))
   ([s fuzzy]
    (when s
-     (let [qs (map #(make-token-query % fuzzy) (clojure.string/split (clojure.string/lower-case s) #"\s"))]
+     (let [qs (map #(make-token-query % fuzzy) (str/split (str/lower-case s) #"\s"))]
        (if (> (count qs) 1)
          (let [builder (BooleanQuery$Builder.)]
            (doseq [q qs]
