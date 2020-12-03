@@ -6,7 +6,8 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor.error :as errintc]
             [io.pedestal.http.content-negotiation :as conneg]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.terminology :as terminology])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (com.fasterxml.jackson.core JsonGenerator)

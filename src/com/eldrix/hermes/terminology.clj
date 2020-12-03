@@ -132,8 +132,7 @@
           file-size (Files/size (.resolve root-path (:store manifest)))
           heap-size (.maxMemory (Runtime/getRuntime))]
       (when (> file-size heap-size)
-        (log/warn "warning: compaction will likely need additional heap; consider using flag"
-                  (str "-Xmx" (int (/ file-size (* 1024 1024 1024))) "g")
+        (log/warn "warning: compaction will likely need additional heap; consider using flag -Xmx - e.g. -Xmx8g"
                   {:file-size (str (int (/ file-size (* 1024 1024))) "Mb")
                    :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
       (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]

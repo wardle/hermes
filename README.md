@@ -56,12 +56,13 @@ This will:
 * Build entity indices (about 15 minutes)
 * Build search index (about 10 minutes)
 
-#### 4. Compact database (optional)
+#### 4. Compact database (optional).
 
-This reduces the file size by around 20%. It takes considerable heap to do this.
+This reduces the file size by around 20%. 
+It takes considerable memory (heap) to do this although it takes only 3 minutes.
 
 ```
-clj -m com.eldrix.hermes.core -d snomed.db compact
+clj -J-X-mx8g com.eldrix.hermes.core -d snomed.db compact
 ```
 
 You will usually need to increase the heap space (by using -Xmx8g) in order to
