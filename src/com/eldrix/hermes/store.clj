@@ -485,16 +485,21 @@
 
 (defn status
   [^MapDBStore store]
-  {:concepts      (.size ^BTreeMap (.concepts store))
-   :descriptions  (.size ^BTreeMap (.descriptions store))
-   :relationships (.size ^BTreeMap (.relationships store))
-   :refsets       (.size ^BTreeMap (.refsets store))
-   :indices       {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
-                   :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
-                   :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
-                   :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
-                   :component-refsets            (.size ^NavigableSet (.componentRefsets store))
-                   :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))}})
+  (let [concepts (future (.size ^BTreeMap (.concepts store)))
+        descriptions (future (.size ^BTreeMap (.descriptions store)))
+        relationships (future (.size ^BTreeMap (.relationships store)))
+        refsets (future (.size ^BTreeMap (.refsets store)))
+        indices (future {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
+                         :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
+                         :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
+                         :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
+                         :component-refsets            (.size ^NavigableSet (.componentRefsets store))
+                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))})]
+    {:concepts      @concepts
+     :descriptions  @descriptions
+     :relationships @relationships
+     :refsets       @refsets
+     :indices       @indices}))
 
 (def default-opts
   {:read-only?  true
