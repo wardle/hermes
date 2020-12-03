@@ -12,7 +12,8 @@
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
-           (java.nio.file Paths)))
+           (java.nio.file Paths)
+           (javax.naming.directory SearchResult)))
 
 (set! *warn-on-reflection* true)
 
@@ -139,18 +140,9 @@
            (.build builder))
          (first qs))))))
 
-(def default-search-parameters
-  {:s                      nil
-   :max-hits               0
-   :fuzzy                  0
-   :fallback-fuzzy         0
-   :show-fsn?              false
-   :inactive-concepts?     false
-   :inactive-descriptions? false
-   :properties             {}})
-
 (defn ^Query make-search-query
-  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]}]
+  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]
+    :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
   (let [booster (DoubleValuesSource/fromDoubleField "length-boost")
         query (cond-> (BooleanQuery$Builder.)
                       s
@@ -168,15 +160,48 @@
               BooleanClause$Occur/FILTER)))
     (FunctionScoreQuery. (.build query) booster)))
 
-(defn do-search [^IndexSearcher searcher params]
+(defrecord Result
+  [^long id
+   ^long conceptId
+   ^String term
+   ^String preferredTerm])
+
+(defn scoredoc->result
+  "Convert a Lucene ScoreDoc (`score-doc`) into a Result."
+  [^IndexSearcher searcher ^ScoreDoc score-doc]
+  (let [doc (.doc searcher (.-doc score-doc))]
+    (->Result (Long/parseLong (.get doc "id"))
+              (Long/parseLong (.get doc "id"))
+              (.get doc "term")
+              (.get doc "preferred-term"))))
+
+(defn do-search
+  "Perform a search against the index.
+  Parameters:
+  - searcher : the IndexSearcher to use
+  - params   : a map of search parameters, which are:
+    |- :s                  : search string to use
+    |- :max-hits           : maximum hits (default, 200)
+    |- :fuzzy              : fuzziness (0-2, default 0)
+    |- :fallback-fuzzy     : if no results, try again with fuzzy search?
+    |- :show-fsn?          : show FSNs in results? (default: false)
+    |- :inactive-concepts? : search descriptions of inactive concepts?
+    |                      : (default: false).
+    |- :inactive-descriptions? : search inactive descriptions? (default, true)
+    |- :properties         : a map of properties and their possible values.
+
+  The properties map contains keys for a property and then either a single
+  identifier or vector of identifiers to limit search.
+
+  Example: to search for neurologist as an occupation ('IS-A' '14679004')
+  (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
+
+  A FSN is a fully-specified name and should generally be left out of search."
+  [^IndexSearcher searcher params]
   (let [query (make-search-query params)
         hits (seq (.-scoreDocs ^TopDocs (.search searcher query (int (or (:max-hits params) 200)))))]
     (if hits
-      (map #(hash-map :id (Long/parseLong (.get ^Document % "id"))
-                      :term (.get ^Document % "term")
-                      :concept-id (Long/parseLong (.get ^Document % "concept-id"))
-                      :preferred-term (.get ^Document % "preferred-term"))
-           (map #(.doc searcher %) (map #(.-doc ^ScoreDoc %) hits)))
+      (map (partial scoredoc->result searcher) hits)
       (let [fuzzy (or (:fuzzy params) 0)
             fallback (or (:fallback-fuzzy params) 0)]
         (when (and (= fuzzy 0) (> fallback 0))
@@ -184,7 +209,7 @@
 
 (comment
   (build-search-index "snomed.db" "search.db" "en-GB")
-  (def searcher (IndexSearcher. (open-index-reader "search.db")))
+  (def searcher (IndexSearcher. (open-index-reader "snomed.db/search.db")))
 
   (create-test-search "snomed.db" "test-search.db")
   (def searcher (IndexSearcher. (open-index-reader "test-search.db")))

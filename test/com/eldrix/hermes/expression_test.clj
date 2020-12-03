@@ -84,7 +84,7 @@
 
 (deftest updating-terms
   (when com.eldrix.hermes.store-test/has-live-database?
-    (with-open [st (store/open-store "snomed.db")]
+    (with-open [st (store/open-store "snomed.db/store.db")]
       (let [updated (->> (get-in example-expressions [:concrete-values :albuterol-0.083])
                          (expression/parse)
                          (expression/render {:store st :update-terms? true :locale-priorities "en-GB"})

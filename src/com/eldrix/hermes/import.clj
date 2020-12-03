@@ -141,10 +141,6 @@
           (merge-with + counts {(:type batch) (count (:data batch))})
           (async/<!! results-c))))))
 
-(defn -main [x]
-  (log/info "starting hermes...")
-  (examine-distribution-files x))
-
 (comment
   (require '[clojure.reflect :as reflect])
 

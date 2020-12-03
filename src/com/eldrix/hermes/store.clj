@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.core.async :as async]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker)
@@ -28,8 +29,8 @@
   (close [_] (.close db)))
 
 (defn- ^DB open-database
-  "Open a file-based key-value database from the file specified, optionally read only. Use in a with-open
-  block or manually (.close) when done"
+  "Open a file-based key-value database from the file specified, optionally read
+  only. Use in a `with-open` block or manually (.close) when done"
   [filename {:keys [read-only? skip-check?]}]
   (when (and read-only? (not (.exists (io/as-file filename))))
     (throw (FileNotFoundException. (str "file `" filename "` opened read-only but not found"))))
@@ -162,6 +163,21 @@
                                          (to-array [refsetId mapTarget id])
                                          active)))
                  all-refsets))))
+
+(defn compact [^MapDBStore store]
+  (.compact (.getStore ^BTreeMap (.concepts store))))
+
+(defn build-indices
+  [^MapDBStore store]
+  (log/info "building description index")
+  (build-description-index store)
+  (log/info "building relationship indices")
+  (build-relationship-indices store)
+  (log/info "building refset indices")
+  (build-refset-indices store)
+  (log/info "compacting database")
+  (compact store))
+
 
 (defn get-installed-reference-sets
   "Returns the installed reference sets"
@@ -466,9 +482,6 @@
       parent-relationships
       direct-parents
       refsets)))
-
-(defn compact [^MapDBStore store]
-  (.compact (.getStore ^BTreeMap (.concepts store))))
 
 (defn close [^MapDBStore store]
   (.close ^DB (.db store)))

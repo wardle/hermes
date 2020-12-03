@@ -29,10 +29,10 @@
       (is (= description (store/get-fully-specified-name st 24700007))))))
 
 (defn has-live-database? []
-  (.exists (File. "snomed.db")))
+  (.exists (File. "snomed.db/store.db")))
 
 (deftest live-store
-  (with-open [store (store/open-store "snomed.db")]
+  (with-open [store (store/open-store "snomed.db/store.db")]
     (testing "Multiple sclerosis"
       (let [ms (store/get-concept store 24700007)]
         (is (= 24700007 (:id ms)))
@@ -51,7 +51,7 @@
         ))))
 
 (deftest test-localisation
-  (with-open [store (store/open-store "snomed.db")]
+  (with-open [store (store/open-store "snomed.db/store.db")]
     (let [gb (store/get-preferred-synonym store 80146002 [999000691000001104 900000000000508004 999001261000000100])
           usa (store/get-preferred-synonym store 80146002 [900000000000509007])]
       (is (= "Appendicectomy" (:term gb)))

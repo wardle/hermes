@@ -26,11 +26,11 @@
             [com.eldrix.hermes.verhoeff :as verhoeff]
             [clojure.string :as str])
   (:import [java.time LocalDate]
-           [java.time.format DateTimeFormatter]
+           [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)))
 
 
-(defn ^LocalDate parse-date [^String s] (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)))
+(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _ )))
 (defn ^boolean parse-bool [^String s] (if (= "1" s) true false))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
