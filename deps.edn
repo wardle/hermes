@@ -49,8 +49,12 @@
                      {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
                       :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
-           :uberjar  {:extra-deps {uberdeps/uberdeps {:mvn/version "1.0.3"}}
-                      :main-opts  ["-m" "uberdeps.uberjar"
-                                   "--target" "target/hermes-0.1.0.jar"
-                                   "--main-class" "com.eldrix.hermes.core"]}}}
+           :jar      {:extra-deps {seancorfield/depstar {:mvn/version "1.1.128"}}
+                      :main-opts  ["-m" "hf.depstar.jar" "target/hermes-v0.1.0.jar"]}
+
+           :uberjar  {:extra-deps {seancorfield/depstar {:mvn/version "1.1.128"}}
+                      :exec-fn hf.depstar.uberjar/run
+                      :exec-args {:jar "target/hermes-full-v0.1.0.jar"
+                                  :aot true
+                                  :main-class "com.eldrix.hermes.core"}}}}
 

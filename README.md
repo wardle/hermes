@@ -132,13 +132,12 @@ clj -M:outdated
 
 #### Building uberjar
 
-Perform ahead-of-time (AOT) compilation (see [https://clojure.org/guides/deps_and_cli#aot_compilation](https://clojure.org/guides/deps_and_cli#aot_compilation))
+Create a POM from the dependencies 
+(or create manually - changing the groupId, artifactId and version):
 ```
-clj -M -e "(compile 'com.eldrix.hermes.core)"
+clj -Spom``
 ```
-
-This will generate class files to create a runnable jar. Now you can build an uberjar:
-
+Build the uberjar:
 ```
-clojure -M:uberjar
+clojure -X:uberjar
 ```
