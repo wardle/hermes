@@ -36,12 +36,12 @@ then you can use `hermes` to create a file-based database.
 If you are running using the jar file:
 
 ```
-java -jar hermes.jar import snomed.db ~/Downloads/snomed-2020
+java -jar hermes.jar -d snomed.db import ~/Downloads/snomed-2020
 ```
 
 If you are running from source code:
 ```
-clj -m com.eldrix.hermes.core import snomed.db ~/Downloads/snomed-2020/
+clj -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
 ```
 
 The import of distribution files takes about 50 minutes on my 8 year old laptop.
@@ -86,12 +86,12 @@ clj -A:dev
 #### 4. Run a terminology web service
 
 ```
-java -jar hermes.jar --db snomed.db server --port 8080
+java -jar hermes.jar -d snomed.db -p 8080 server 
 ```
 
 or
 ```
-clj -M -m com.eldrix.hermes.core --db snomed.db server --port 8080
+clj -M -m com.eldrix.hermes.core -db snomed.db -p 8080 server
 ```
 
 #### 5. Embed into another application
