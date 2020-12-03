@@ -174,10 +174,7 @@
   (log/info "building relationship indices")
   (build-relationship-indices store)
   (log/info "building refset indices")
-  (build-refset-indices store)
-  (log/info "compacting database")
-  (compact store))
-
+  (build-refset-indices store))
 
 (defn get-installed-reference-sets
   "Returns the installed reference sets"

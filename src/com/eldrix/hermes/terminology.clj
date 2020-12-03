@@ -127,17 +127,25 @@
 (defn compact
   [root]
   (let [manifest (open-manifest root false)]
-    (log/info "Compacting database at '" root "'...")
-    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
-      (store/compact st))))
+    (log/info "Compacting database at " root "...")
+    (let [root-path (Paths/get root (into-array String []))
+          file-size (Files/size (.resolve root-path (:store manifest)))
+          heap-size (.maxMemory (Runtime/getRuntime))]
+      (when (> file-size heap-size)
+        (log/warn "warning: compaction will likely need additional heap; consider using flag"
+                  (str "-Xmx" (int (/ file-size (* 1024 1024 1024))) "g")
+                  {:file-size (str (int (/ file-size (* 1024 1024))) "Mb")
+                   :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
+      (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
+        (store/compact st)))))
 
 (defn build-search-index
   ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
   ([root locale-preference-string]
    (let [manifest (open-manifest root false)]
-     (log/info "Building search index at '" root "' using languages " locale-preference-string "...")
+     (log/info "Building search index" {:root root :languages locale-preference-string})
      (search/build-search-index (get-absolute-filename root (:store manifest))
-                                (get-absolute-filename root (:seach manifest)) locale-preference-string))))
+                                (get-absolute-filename root (:search manifest)) locale-preference-string))))
 
 (defn get-status [root]
   (let [manifest (open-manifest root)]
@@ -145,32 +153,14 @@
       (log/info "Status information for database at '" root "'...")
       (store/status st))))
 
-
 (defn create-service
   "Create a monolithic terminology service combining both store and search functionality."
   ([root import-from] (create-service root import-from))
   ([root import-from locale-preference-string]
-   (let [path (Files/createDirectory (Paths/get root (into-array String [])) (into-array FileAttribute []))
-         manifest-path (.resolve path "manifest.edn")
-         store-filename (.toString (.toAbsolutePath (.resolve path (:store expected-manifest))))
-         search-filename (.toString (.toAbsolutePath (.resolve path (:search expected-manifest))))]
-     (log/info "creating SNOMED database at " path)
-     (spit (.toFile manifest-path) (pr-str (assoc expected-manifest
-                                             :locale locale-preference-string
-                                             :created (java.time.LocalDateTime/now)))) ;; write manifest file
-     (log/info "importing distribution from '" import-from "' to " store-filename)
-     (import-snomed store-filename import-from)             ;; 15 minutes
-     (log/info "starting indexing")
-     (with-open [st (store/open-store store-filename {:read-only? false})]
-       (store/build-indices st))
-     (log/info "compacting database")
-     (with-open [st (store/open-store store-filename {:read-only? false})]
-       (store/compact st))
-     (log/info "finished import and indexing: getting status")
-     (with-open [st (store/open-store store-filename {:read-only? false :skip-check? false})]
-       (store/status st))
-     (log/info "building search / autocompletion")
-     (search/build-search-index store-filename search-filename locale-preference-string))))
+   (import-snomed root import-from)
+   (build-indices root)
+   (compact root)
+   (build-search-index root locale-preference-string)))
 
 
 
