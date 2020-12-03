@@ -8,9 +8,11 @@
         </encoder>
     </appender>
 
-    <logger name="org.eclipse.aether.internal.impl.DefaultLocalRepositoryProvider" level="INFO"/>
-
-    <root level="info">
+    <root level="warn">
         <appender-ref ref="STDOUT" />
     </root>
+
+    <logger name="com.eldrix" level="info"/>
+    <logger name="org.eclipse.jetty.server.Server" level="info"/>
+
 </configuration>
