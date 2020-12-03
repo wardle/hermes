@@ -1,29 +1,32 @@
 (ns com.eldrix.hermes.terminology
   "Provides a terminology service, wrapping the SNOMED store and
   search implementations as a single unified service."
-  (:require
-    [integrant.core :as ig]
-    [com.eldrix.hermes.store :as store]
-    [com.eldrix.hermes.search :as search]
-    [com.eldrix.hermes.expression :as expression]
-    [clojure.tools.logging.readable :as log]
-    [com.eldrix.hermes.import :as import]
-    [clojure.core.async :as async])
+  (:require [clojure.core.async :as async]
+            [clojure.edn :as edn]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.store :as store]
+            [com.eldrix.hermes.search :as search]
+            [com.eldrix.hermes.expression :as expression]
+            [com.eldrix.hermes.import :as import])
   (:import (com.eldrix.hermes.store MapDBStore)
-           (java.io Closeable File)
+           (java.io Closeable)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
            (java.util Locale)))
 
+(set! *warn-on-reflection* true)
+
+
 (defprotocol SnomedService
-  (getConcept [_ concept-id])
-  (getExtendedConcept [_ concept-id])
-  (getDescriptions [_ concept-id])
+  (getConcept [_ ^long concept-id])
+  (getExtendedConcept [_ ^long concept-id])
+  (getDescriptions [_ ^long concept-id])
   (getReferenceSets [_ component-id])
-  (getPreferredSynonym [_ concept-id langs])
-  (subsumedBy? [_ concept-id subsumer-concept-id])
+  (getComponentRefsetItems [_ component-id refset-id])
+  (getPreferredSynonym [_ ^long concept-id langs])
+  (subsumedBy? [_ ^long concept-id ^long subsumer-concept-id])
   (parseExpression [_ s])
   (search [_ params]))
 
@@ -43,6 +46,8 @@
     (store/get-concept-descriptions store concept-id))
   (getReferenceSets [_ component-id]
     (store/get-component-refsets store component-id))
+  (getComponentRefsetItems [_ component-id refset-id]
+    (store/get-component-refset-items store component-id refset-id))
   (getPreferredSynonym [_ concept-id langs]
     (let [lang-refsets (store/ordered-language-refsets-from-locale langs (store/get-installed-reference-sets store))]
       (store/get-preferred-synonym store concept-id lang-refsets)))
@@ -68,7 +73,7 @@
          exists? (Files/exists manifest-path (into-array LinkOption []))]
      (cond
        exists?
-       (if-let [manifest (clojure.edn/read-string (slurp (.toFile manifest-path)))]
+       (if-let [manifest (edn/read-string (slurp (.toFile manifest-path)))]
          (if (= (:version manifest) (:version expected-manifest))
            manifest
            (throw (Exception. (str "error: incompatible database version. expected:'" (:version expected-manifest) "' got:'" (:version manifest) "'"))))
@@ -83,7 +88,7 @@
        (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
 
 (defn get-absolute-filename
-  [root filename]
+  [root ^String filename]
   (let [root-path (Paths/get root (into-array String []))]
     (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
 
@@ -129,7 +134,7 @@
   (let [manifest (open-manifest root false)]
     (log/info "Compacting database at " root "...")
     (let [root-path (Paths/get root (into-array String []))
-          file-size (Files/size (.resolve root-path (:store manifest)))
+          file-size (Files/size (.resolve root-path ^String (:store manifest)))
           heap-size (.maxMemory (Runtime/getRuntime))]
       (when (> file-size heap-size)
         (log/warn "warning: compaction will likely need additional heap; consider using flag -Xmx - e.g. -Xmx8g"
@@ -169,53 +174,7 @@
 
 
 
-;;;;
-;;;; Experiments with integrant
-;;;;
-;;;;
-
-
-
-(def config
-  {:com.eldrix.hermes/Service       {:store ig/ref :com.eldrix.hermes.snomed/Store
-                                            :search ig/ref :com.eldrix.hermes.snomed/Search}
-   :com.eldrix.hermes.snomed/Store  {:filename "snomed.db"}
-   :com.eldrix.hermes.snomed/Search {:filename "search.db"}})
-
-(defmethod ig/init-key :com.eldrix.hermes/Terminology [_ {:keys [path]}]
-  (open-service))
-
-(defmethod ig/init-key :com.eldrix.hermes.snomed/Store [_ {:keys [filename]}]
-  (store/open-store filename))
-
-(defmethod ig/halt-key! :com.eldrix.hermes.snomed/Store [_ store]
-  (.close store))
-
-(defmethod ig/init-key :com.eldrix.hermes.snomed/Search [_ {:keys [filename]}]
-  (let [reader (search/open-index-reader filename)
-        searcher (IndexSearcher. reader)]
-    {:reader   reader
-     :searcher searcher}))
-
-(defmethod ig/halt-key! :com.eldrix.hermes.snomed/Search [_ search]
-  (.close (:searcher search)))
-
-
-
 
 
 (comment
-  (def service (ig/init config))
-  (ig/halt! service)
-  (store/get-concept (:com.eldrix.hermes.snomed/Store service) 24700007)
-
-  (def svc (open-service "snomed.db" "search.db"))
-  (getConcept svc 24700007)
-  (search svc {"s" "multiple sclerosis" "max-hits" 1})
-  (.close svc)
-  )
-
-
-(comment
-
   )

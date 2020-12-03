@@ -102,17 +102,6 @@
       (async/merge chans)
       (recur (inc i) (conj chans (async/thread (apply f args)))))))
 
-(defn- counting-worker
-  "A worker that loops on a channel containing batches of work and simply counts the types of data.
-  Useful in testing and debugging"
-  [batch-c totals-atom]
-  (loop [batch (async/<!! batch-c)]
-    (when batch
-      (swap! totals-atom #(update % (:type batch) (fnil + 0) (count (:data batch))))
-      (snomed/parse-batch batch)
-      (log/debug "processed... " @totals-atom)
-      (recur (async/<!! batch-c)))))
-
 (defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."

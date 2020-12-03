@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.expression
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.edn :as edn]
             [instaparse.core :as insta]
             [clojure.data.zip.xml :as zx]
             [clojure.walk :as walk]
@@ -14,7 +15,7 @@
   (insta/parser (io/resource "ecl.abnf") :input-format :abnf :output-format :enlive))
 
 (defn- parse-sctId [sctId]
-  (clojure.edn/read-string (zx/xml1-> sctId zx/text)))
+  (edn/read-string (zx/xml1-> sctId zx/text)))
 
 (defn- parse-conceptId [conceptId]
   (zx/xml1-> conceptId :sctId parse-sctId))
@@ -53,7 +54,7 @@
     (cond
       expressionValue expressionValue
       stringValue stringValue
-      numericValue (clojure.edn/read-string numericValue)
+      numericValue (edn/read-string numericValue)
       booleanValue [(Boolean/parseBoolean booleanValue)]))) ;; hide boolean in vector so we don't break zipper
 
 (defn- parse-attribute

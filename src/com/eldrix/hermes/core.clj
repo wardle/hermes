@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.core
   (:gen-class)
-  (:require [clojure.string :as str]
+  (:require [clojure.pprint :as pp]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.tools.cli :as cli]
             [com.eldrix.hermes.import :as import]
@@ -22,7 +23,7 @@
             heading (str "| Distribution files in " dir ":" (count files) " |")
             banner (apply str (repeat (count heading) "="))]
         (println "\n" banner "\n" heading "\n" banner)
-        (clojure.pprint/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
+        (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
 
 (defn build-indices [{:keys [db]} _]
   (if db
@@ -38,14 +39,14 @@
 
 (defn status [{:keys [db]} _]
   (if db
-    (clojure.pprint/pprint (terminology/get-status db))
+    (pp/pprint (terminology/get-status db))
     (log/error "no database directory specified")))
 
 
 (defn serve [{:keys [db port]} args]
   (if db
     (let [svc (terminology/open-service db)]
-      (log/info "****** starting server; port:" port " db:" db)
+      (log/info "starting server; port:" port " db:" db)
       (server/start-server svc port))
     (log/error "no database directory specified")))
 
