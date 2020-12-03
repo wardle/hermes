@@ -12,8 +12,7 @@
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
-           (java.nio.file Paths)
-           (javax.naming.directory SearchResult)))
+           (java.nio.file Paths)))
 
 (set! *warn-on-reflection* true)
 
@@ -104,7 +103,7 @@
             ch))
         (.forceMerge writer 1)))))
 
-(defn create-test-search
+(defn- create-test-search
   ([store-filename search-filename] (create-test-search store-filename search-filename [73211009 46635009 195353004 232369001 711158005]))
   ([store-filename search-filename concept-ids]
    ;;(clojure.java.shell/sh "rm" "-rf" search-filename)
@@ -114,7 +113,7 @@
      (let [concepts (map (partial store/get-concept store) concept-ids)]
        (write-batch! store writer [] concepts)))))
 
-(defn make-token-query
+(defn- make-token-query
   [^String token fuzzy]
   (let [len (count token)
         term (Term. "term" token)
@@ -128,7 +127,7 @@
         (.build builder))
       tq)))
 
-(defn make-tokens-query
+(defn- make-tokens-query
   ([s] (make-tokens-query s 0))
   ([s fuzzy]
    (when s
@@ -140,7 +139,7 @@
            (.build builder))
          (first qs))))))
 
-(defn ^Query make-search-query
+(defn- ^Query make-search-query
   [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]
     :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
   (let [booster (DoubleValuesSource/fromDoubleField "length-boost")
@@ -166,7 +165,7 @@
    ^String term
    ^String preferredTerm])
 
-(defn scoredoc->result
+(defn- scoredoc->result
   "Convert a Lucene ScoreDoc (`score-doc`) into a Result."
   [^IndexSearcher searcher ^ScoreDoc score-doc]
   (let [doc (.doc searcher (.-doc score-doc))]
