@@ -4,10 +4,10 @@
             [cheshire.generate :as json-gen]
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
-            [io.pedestal.interceptor.error :as errintc]
+            [io.pedestal.interceptor.error :as err-intc]
             [io.pedestal.http.content-negotiation :as conneg]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.terminology :as terminology])
+            [com.eldrix.hermes.terminology])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (com.fasterxml.jackson.core JsonGenerator)
@@ -36,7 +36,7 @@
 
 (json-gen/add-encoder LocalDate
                       (fn [^LocalDate o ^JsonGenerator out]
-                     (.writeString out (.format (DateTimeFormatter/ISO_DATE) o))))
+                        (.writeString out (.format (DateTimeFormatter/ISO_DATE) o))))
 
 (defn transform-content
   [body content-type]
@@ -75,7 +75,7 @@
              context))})
 
 (def service-error-handler
-  (errintc/error-dispatch
+  (err-intc/error-dispatch
     [context err]
     [{:exception-type :java.lang.NumberFormatException :interceptor ::get-search}]
     (assoc context :response {:status 400
@@ -89,13 +89,35 @@
 (def get-concept
   {:name  ::get-concept
    :enter (fn [context]
-            (if-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (if-let [concept (.getConcept ^SnomedService (get-in context [:request :service]) concept-id)]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (when-let [concept (.getConcept ^SnomedService (get-in context [:request :service]) concept-id)]
                 (assoc context :result concept))))})
+
+(def get-extended-concept
+  {:name  ::get-extended-concept
+   :enter (fn [context]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (when-let [concept (.getExtendedConcept ^SnomedService (get-in context [:request :service]) concept-id)]
+                (assoc context :result concept))))})
+
+(def get-concept-descriptions
+  {:name  ::get-concept-descriptions
+   :enter (fn [context]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (when-let [ds (.getDescriptions ^SnomedService (get-in context [:request :service]) concept-id)]
+                (assoc context :result ds))))})
+
+(def get-map-to
+  {:name  ::get-map-to
+   :enter (fn [context]
+            (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
+                  refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
+              (when (and concept-id refset-id)
+                (when-let [rfs (.getComponentRefsetItems ^SnomedService (get-in context [:request :service]) concept-id refset-id)]
+                  (assoc context :result rfs)))))})
 
 (defn make-search-params [context]
   (let [{:keys [s maxHits isA] :as params} (get-in context [:request :params])]
-    (log/info "Parsing parameters:" params)
     (cond-> {}
             s (assoc :s s)
             maxHits (assoc :max-hits (Integer/parseInt maxHits))
@@ -107,13 +129,15 @@
    :enter (fn [context]
             (let [params (make-search-params context)
                   ^SnomedService svc (get-in context [:request :service])]
-              (log/info "search params: " params)
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
               (assoc context :result (.search svc params))))})
 
 (def routes
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get [coerce-body content-neg-intc entity-render svc-interceptor get-concept]]
+      ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render svc-interceptor get-concept-descriptions]]
+      ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render svc-interceptor get-extended-concept]]
+      ["/v1/snomed/concepts/:concept-id/map-to/:refset-id" :get [coerce-body content-neg-intc entity-render svc-interceptor get-map-to]]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render svc-interceptor get-search]]}))
 
 (def server-config
