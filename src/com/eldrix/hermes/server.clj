@@ -7,7 +7,8 @@
             [io.pedestal.interceptor.error :as err-intc]
             [io.pedestal.http.content-negotiation :as conneg]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.terminology])
+            [com.eldrix.hermes.terminology]
+            [clojure.string :as str])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (com.fasterxml.jackson.core JsonGenerator)
@@ -116,6 +117,15 @@
                 (when-let [rfs (.getComponentRefsetItems ^SnomedService (get-in context [:request :service]) concept-id refset-id)]
                   (assoc context :result rfs)))))})
 
+(def get-map-from
+  {:name  ::get-map-from
+   :enter (fn [context]
+            (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
+                  code (get-in context [:request :path-params :code])]
+              (when (and refset-id code)
+                (when-let [rfs (.reverseMap ^SnomedService (get-in context [:request :service]) refset-id (str/upper-case code))]
+                  (assoc context :result rfs)))))})
+
 (defn make-search-params [context]
   (let [{:keys [s maxHits isA] :as params} (get-in context [:request :params])]
     (cond-> {}
@@ -138,6 +148,7 @@
       ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render svc-interceptor get-concept-descriptions]]
       ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render svc-interceptor get-extended-concept]]
       ["/v1/snomed/concepts/:concept-id/map-to/:refset-id" :get [coerce-body content-neg-intc entity-render svc-interceptor get-map-to]]
+      ["/v1/snomed/crossmap/:refset-id/:code" :get [coerce-body content-neg-intc entity-render svc-interceptor get-map-from]]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render svc-interceptor get-search]]}))
 
 (def server-config

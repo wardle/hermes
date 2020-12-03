@@ -25,6 +25,7 @@
   (getDescriptions [_ ^long concept-id])
   (getReferenceSets [_ component-id])
   (getComponentRefsetItems [_ component-id refset-id])
+  (reverseMap [_ refset-id code])
   (getPreferredSynonym [_ ^long concept-id langs])
   (subsumedBy? [_ ^long concept-id ^long subsumer-concept-id])
   (parseExpression [_ s])
@@ -48,6 +49,8 @@
     (store/get-component-refsets store component-id))
   (getComponentRefsetItems [_ component-id refset-id]
     (store/get-component-refset-items store component-id refset-id))
+  (reverseMap [_ refset-id code]
+    (store/get-reverse-map store refset-id code))
   (getPreferredSynonym [_ concept-id langs]
     (let [lang-refsets (store/ordered-language-refsets-from-locale langs (store/get-installed-reference-sets store))]
       (store/get-preferred-synonym store concept-id lang-refsets)))
