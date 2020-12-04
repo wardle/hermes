@@ -27,10 +27,6 @@
 (def ok (partial response 200))
 (def not-found (partial response 404))
 
-(defn not-found []
-  {:status 404
-   :body   "Not found\n"})
-
 (defn accepted-type
   [context]
   (get-in context [:request :accept :field] "application/json"))
