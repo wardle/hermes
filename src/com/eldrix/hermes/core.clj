@@ -9,8 +9,7 @@
             [com.eldrix.hermes.config :as config]
             [com.eldrix.hermes.store :as store]
             [com.eldrix.hermes.search :as search]
-            [com.eldrix.hermes.terminology :as terminology]
-            [io.pedestal.http :as http]))
+            [com.eldrix.hermes.terminology :as terminology]))
 
 (defn import-from [{:keys [db]} args]
   (if db
@@ -38,12 +37,10 @@
     (terminology/compact db)
     (log/error "no database directory specified")))
 
-
 (defn status [{:keys [db]} _]
   (if db
     (pp/pprint (terminology/get-status db))
     (log/error "no database directory specified")))
-
 
 (defn serve [{:keys [db port]} args]
   (if db
