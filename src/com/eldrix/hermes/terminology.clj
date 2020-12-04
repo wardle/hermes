@@ -102,7 +102,11 @@
         st (store/open-store (get-absolute-filename root (:store manifest)))
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
         searcher (IndexSearcher. index-reader)]
+    (log/info "hermes terminology service opened " root manifest)
     (->Service st index-reader searcher)))
+
+(defn close-service [svc]
+  (.close svc))
 
 (defn do-import-snomed
   "Import a SNOMED distribution from the specified directory `dir` into a local
@@ -163,11 +167,11 @@
 (defn create-service
   "Create a monolithic terminology service combining both store and search functionality."
   ([root import-from] (create-service root import-from))
-  ([root import-from locale-preference-string]
-   (import-snomed root import-from)
-   (build-indices root)
-   (compact root)
-   (build-search-index root locale-preference-string)))
+  ([root import-from locale-preference-string]              ;; There are four steps:
+   (import-snomed root import-from)                         ;; import the files
+   (build-indices root)                                     ;; build the indexes
+   (compact root)                                           ;; compact the store
+   (build-search-index root locale-preference-string)))     ;; build the search index
 
 
 
