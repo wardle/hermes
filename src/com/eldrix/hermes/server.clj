@@ -4,7 +4,8 @@
             [cheshire.generate :as json-gen]
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
-            [io.pedestal.interceptor.error :as err-intc]
+            [io.pedestal.interceptor :as intc]
+            [io.pedestal.interceptor.error :as intc-err]
             [io.pedestal.http.content-negotiation :as conneg]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.terminology]
@@ -57,11 +58,9 @@
              context
              (update-in context [:response] coerce-to (accepted-type context))))})
 
-(defonce snomed-service (atom nil))
-
-(def svc-interceptor
-  {:name  :service-interceptor
-   :enter (fn [context] (update context :request assoc :service @snomed-service))})
+(defn inject-svc [svc]
+  {:name  ::inject-svc
+   :enter (fn [context] (update context :request assoc ::service svc))})
 
 (def entity-render
   {:name :entity-render
@@ -72,7 +71,7 @@
              context))})
 
 (def service-error-handler
-  (err-intc/error-dispatch
+  (intc-err/error-dispatch
     [context err]
     [{:exception-type :java.lang.NumberFormatException :interceptor ::get-search}]
     (assoc context :response {:status 400
@@ -87,21 +86,21 @@
   {:name  ::get-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (.getConcept ^SnomedService (get-in context [:request :service]) concept-id)]
+              (when-let [concept (.getConcept ^SnomedService (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
   {:name  ::get-extended-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (.getExtendedConcept ^SnomedService (get-in context [:request :service]) concept-id)]
+              (when-let [concept (.getExtendedConcept ^SnomedService (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (.getDescriptions ^SnomedService (get-in context [:request :service]) concept-id)]
+              (when-let [ds (.getDescriptions ^SnomedService (get-in context [:request ::service]) concept-id)]
                 (assoc context :result ds))))})
 
 (def get-map-to
@@ -110,7 +109,7 @@
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (when-let [rfs (.getComponentRefsetItems ^SnomedService (get-in context [:request :service]) concept-id refset-id)]
+                (when-let [rfs (.getComponentRefsetItems ^SnomedService (get-in context [:request ::service]) concept-id refset-id)]
                   (assoc context :result rfs)))))})
 
 (def get-map-from
@@ -119,7 +118,7 @@
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (.reverseMap ^SnomedService (get-in context [:request :service]) refset-id (str/upper-case code))]
+                (when-let [rfs (.reverseMap ^SnomedService (get-in context [:request ::service]) refset-id (str/upper-case code))]
                   (assoc context :result rfs)))))})
 
 (defn make-search-params [context]
@@ -134,43 +133,32 @@
   {:name  ::get-search
    :enter (fn [context]
             (let [params (make-search-params context)
-                  ^SnomedService svc (get-in context [:request :service])]
+                  ^SnomedService svc (get-in context [:request ::service])]
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
               (assoc context :result (.search svc params))))})
 
 (def routes
   (route/expand-routes
-    #{["/v1/snomed/concepts/:concept-id" :get [coerce-body content-neg-intc entity-render svc-interceptor get-concept]]
-      ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render svc-interceptor get-concept-descriptions]]
-      ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render svc-interceptor get-extended-concept]]
-      ["/v1/snomed/concepts/:concept-id/map-to/:refset-id" :get [coerce-body content-neg-intc entity-render svc-interceptor get-map-to]]
-      ["/v1/snomed/crossmap/:refset-id/:code" :get [coerce-body content-neg-intc entity-render svc-interceptor get-map-from]]
-      ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render svc-interceptor get-search]]}))
+    #{["/v1/snomed/concepts/:concept-id" :get [coerce-body content-neg-intc entity-render get-concept]]
+      ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render get-concept-descriptions]]
+      ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
+      ["/v1/snomed/concepts/:concept-id/map-to/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
+      ["/v1/snomed/crossmap/:refset-id/:code" :get [coerce-body content-neg-intc entity-render get-map-from]]
+      ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]}))
 
-(def server-config
+(def service-map
   {::http/routes routes
    ::http/type   :jetty
    ::http/port   8081})
 
-(defn start-server [svc port]
-  (reset! snomed-service svc)
-  (http/start (http/create-server (assoc server-config ::http/port port))))
+(defn start-server
+  ([svc port] (start-server svc port true))
+  ([svc port join?]
+   (http/start (http/create-server (-> service-map
+                                       (assoc ::http/port port)
+                                       (assoc ::http/join? join?)
+                                       (http/default-interceptors)
+                                       (update ::http/interceptors conj (intc/interceptor (inject-svc svc))))))))
 
-(defonce server (atom nil))
-
-(defn start-dev []
-  (reset! server (http/start (http/create-server (assoc server-config ::http/join? false)))))
-
-(defn stop-dev []
-  (http/stop @server))
-
-(defn restart []
-  (stop-dev)
-  (start-dev))
-
-(comment
-  (start-dev)
-  (stop-dev)
-  (restart)
-  (reset! snomed-service (com.eldrix.hermes.terminology/open-service "snomed.db"))
-  )
+(defn stop-server [server]
+  (http/stop server))

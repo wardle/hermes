@@ -4,11 +4,13 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.tools.cli :as cli]
+            [integrant.core :as ig]
             [com.eldrix.hermes.import :as import]
-            [com.eldrix.hermes.server :as server]
+            [com.eldrix.hermes.config :as config]
             [com.eldrix.hermes.store :as store]
             [com.eldrix.hermes.search :as search]
-            [com.eldrix.hermes.terminology :as terminology]))
+            [com.eldrix.hermes.terminology :as terminology]
+            [io.pedestal.http :as http]))
 
 (defn import-from [{:keys [db]} args]
   (if db
@@ -45,9 +47,12 @@
 
 (defn serve [{:keys [db port]} args]
   (if db
-    (let [svc (terminology/open-service db)]
-      (log/info "starting server; port:" port " db:" db)
-      (server/start-server svc port))
+    (let [conf (-> (:ig/system (config/config :live))
+                   (assoc-in [:terminology/service :path] db)
+                   (assoc-in [:http/server :port] port)
+                   (assoc-in [:http/server :join?] true))]
+      (log/info "starting terminology server " conf)
+      (ig/init conf))
     (log/error "no database directory specified")))
 
 (def cli-options
@@ -60,7 +65,6 @@
     :validate [string? "Missing database path"]]
 
    ["-h" "--help"]])
-
 
 (defn usage [options-summary]
   (->> ["Usage: hermes [options] command [parameters]"
@@ -119,4 +123,7 @@
   (store/get-description-refsets st 41398015)
 
   (search/build-search-index "snomed.db" "search.db" "en-GB")
+
+
+  (def system (ig/init (config/config :dev)))
   )
