@@ -85,7 +85,7 @@
           (when (and (not= 0 n) (not= n (count line)))
             (println "incorrect number of columns; expected" n " got:" (count line)) {})
           (recur (inc i)
-                 (if (= n 0) (count line) n)
+                 (if (= n 0) (long (count line)) n)
                  (next data))))
       (println "no parser for file: " filename))))
 
