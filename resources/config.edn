@@ -1,8 +1,6 @@
-{:secrets     #include #join [#env HOME "/.secrets.edn"]
- :server      {:port 8080}
- :terminology {:path "snomed.db"}
+{:secrets   #include #join [#env HOME "/.secrets.edn"]
 
  ;; integrant configuration
- :ig/system   {:http/server         {:port #ref [:server :port]
-                                     :svc  #ig/ref :terminology/service}
-               :terminology/service {:path #ref [:terminology :path]}}}
+ :ig/system {:http/server         {:port 8080
+                                   :svc  #ig/ref :terminology/service}
+             :terminology/service {:path "snomed.db"}}}
