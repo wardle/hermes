@@ -1,6 +1,13 @@
-# Hermes : intelligent terminology tools
+# Hermes : terminology tools and services
 
-`hermes` is a set terminology tools including a fast server with full-text search functionality.
+[![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/go-terminology/)
+[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/go-terminology/)
+
+`hermes` provides a set terminology tools built around SNOMED CT including:
+
+* a fast RESTful terminology server with full-text search functionality ideal for driving autocompletion in user interfaces
+* an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
+* cross-mapping to and from other code systems
 
 It is designed as both library for embedding into larger applications, or as a microservice. 
 
