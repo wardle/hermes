@@ -170,7 +170,7 @@
   [^IndexSearcher searcher ^ScoreDoc score-doc]
   (let [doc (.doc searcher (.-doc score-doc))]
     (->Result (Long/parseLong (.get doc "id"))
-              (Long/parseLong (.get doc "id"))
+              (Long/parseLong (.get doc "concept-id"))
               (.get doc "term")
               (.get doc "preferred-term"))))
 
@@ -215,7 +215,7 @@
   (def store (store/open-store "snomed.db"))
   (def diabetes (store/get-concept store 73211009))
   (def langs (store/ordered-language-refsets-from-locale "en-GB" (store/get-installed-reference-sets store)))
-  (first (do-search searcher {:s "ataxia 11" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}}))
+  (do-search searcher {:s "IIH" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}})
 
 
   ;; is-a 14679004 = occupations
