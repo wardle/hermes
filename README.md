@@ -3,7 +3,11 @@
 [![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/go-terminology/)
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/go-terminology/)
 
-`hermes` provides a set of terminology tools built around SNOMED CT including:
+>
+> Hermes:  "Herald of the gods."
+>
+
+Hermes provides a set of terminology tools built around SNOMED CT including:
 
 * a fast RESTful terminology server with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
@@ -16,7 +20,7 @@ with identifier resolution, mapping and semantics as first-class abstractions.
 
 ### How to use
 
-Ensure you have a pre-built jar file, or the source code checked out from github.
+Ensure you have a pre-built jar file, or the source code checked out from github. See below for build instructions.
 
 #### 1. Download SNOMED CT distribution file(s). 
 
