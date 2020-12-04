@@ -17,7 +17,7 @@
 (defmethod ig/halt-key! :http/server [_ sv]
   (server/stop-server sv))
 
-(defmethod aero/reader 'ig/ref [_ tag value]
+(defmethod aero/reader 'ig/ref [_ _ value]
   (ig/ref value))
 
 (defn config [profile]
