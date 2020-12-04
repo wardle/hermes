@@ -8,7 +8,7 @@
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker)
            (org.mapdb.serializer SerializerArrayTuple)
-           (java.util NavigableSet Locale$LanguageRange)
+           (java.util NavigableSet Locale$LanguageRange Locale)
            (java.time LocalDate)))
 
 (set! *warn-on-reflection* true)
@@ -226,6 +226,151 @@
                      (long-array [concept-id type-id 0])
                      (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
 
+(defn get-component-refset-items
+  "Get the refset items for the given component, optionally
+   limited to the refset specified.
+   - store        : MapDBStore
+   - component-id : id of the component (e.g concept-id or description-id)
+   - refset-id    : (optional) - limit to this refset."
+  ([^MapDBStore store component-id]
+   (get-component-refset-items store component-id nil))
+  ([^MapDBStore store component-id refset-id]
+   (->> (.subSet ^NavigableSet (.componentRefsets store)
+                 (to-array (if refset-id [component-id refset-id] [component-id])) ;; lower limit = first two elements of composite key
+                 (to-array [component-id refset-id nil]))   ;; upper limit = the three elements, with final nil = infinite
+        (map seq)
+        (map last)
+        (map (partial get-refset-item store)))))
+
+(defn get-component-refsets
+  "Return the refset-id's to which this component belongs."
+  [^MapDBStore store component-id]
+  (->> (.subSet ^NavigableSet (.componentRefsets store)
+                (to-array [component-id])                   ;; lower limit = first two elements of composite key
+                (to-array [component-id nil nil]))
+       (map seq)
+       (map second)))
+
+(defn get-reverse-map
+  "Returns the reverse mapping from the reference set and mapTarget specified."
+  [^MapDBStore store refset-id s]
+  (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
+                         (to-array [refset-id s])
+                         (to-array [refset-id s nil])))
+       (map last)
+       (map (partial get-refset-item store))))
+
+
+(defn- write-concepts [^MapDBStore store objects]
+  (doseq [o objects]
+    (write-object (.concepts store) o)))
+
+(defn- write-descriptions [^MapDBStore store objects]
+  (doseq [o objects]
+    (write-object (.descriptions store) o (long-array [(:conceptId o) (:id o)]))))
+
+(defn- write-relationships [^MapDBStore store objects]
+  (doseq [o objects]
+    (write-object (.relationships store) o)))
+
+(defn- write-refset-items [^MapDBStore store objects]
+  (doseq [o objects]
+    (write-object (.refsets store) o)))
+
+
+(defn close [^MapDBStore store]
+  (.close ^DB (.db store)))
+
+
+(defn status
+  [^MapDBStore store]
+  (let [concepts (future (.size ^BTreeMap (.concepts store)))
+        descriptions (future (.size ^BTreeMap (.descriptions store)))
+        relationships (future (.size ^BTreeMap (.relationships store)))
+        refsets (future (.size ^BTreeMap (.refsets store)))
+        indices (future {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
+                         :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
+                         :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
+                         :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
+                         :component-refsets            (.size ^NavigableSet (.componentRefsets store))
+                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))})]
+    {:concepts      @concepts
+     :descriptions  @descriptions
+     :relationships @relationships
+     :refsets       @refsets
+     :indices       @indices}))
+
+(def default-opts
+  {:read-only?  true
+   :skip-check? false})
+
+(defn ^Closeable open-store
+  ([] (open-store nil nil))
+  ([filename] (open-store filename nil))
+  ([filename opts]
+   (let [db (if filename
+              (open-database filename (merge default-opts opts))
+              (open-temp-database))
+         ;; core components - concepts, descriptions, relationships and refset items
+         concepts (open-bucket db "c" Serializer/LONG Serializer/JAVA)
+         descriptions-concept (open-index db "dc")
+         relationships (open-bucket db "r" Serializer/LONG Serializer/JAVA)
+         refsets (open-bucket db "rs" Serializer/STRING Serializer/JAVA)
+
+         ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
+         concept-descriptions (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
+
+         ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
+         ;; this optimises for the get IS-A relationships of xxx, for example
+         concept-parent-relationships (open-index db "c-pr")
+         concept-child-relationships (open-index db "c-cr")
+
+         ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
+         ;; a) determining whether a component is part of a refset, and
+         ;; b) returning the items for a given component from a specific refset.
+         component-refsets (open-index db "c-rs" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING])))
+
+         ;; cache a set of installed reference sets
+         installed-refsets (open-index db "installed-rs" Serializer/LONG)
+         ;; for any map refsets, we store (refsetid--mapTarget--itemId) to
+         ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
+
+         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/STRING])))]
+     (->MapDBStore db
+                   concepts
+                   descriptions-concept
+                   relationships
+                   refsets
+                   concept-descriptions
+                   concept-parent-relationships
+                   concept-child-relationships
+                   installed-refsets
+                   component-refsets
+                   map-target-component))))
+
+(defmulti write-batch :type)
+(defmethod write-batch :info.snomed/Concept [batch store]
+  (write-concepts store (:data batch)))
+(defmethod write-batch :info.snomed/Description [batch store]
+  (write-descriptions store (:data batch)))
+(defmethod write-batch :info.snomed/Relationship [batch store]
+  (write-relationships store (:data batch)))
+(defmethod write-batch :info.snomed/Refset [batch store]
+  (write-refset-items store (:data batch)))
+
+(defn write-batch-worker
+  "Write a batch from the channel 'c' specified into the backing store."
+  [store c]
+  (loop [batch (async/<!! c)]
+    (when-not (nil? batch)
+      (write-batch batch store)
+      (recur (async/<!! c)))))
+
+
+;;;;
+;;;;
+;;;;
+
 (defn get-all-parents
   "Returns all parent concepts for the concept.
    Parameters:
@@ -301,40 +446,6 @@
   - concept-ids  : a collection of concept identifiers"
   [^MapDBStore store concept-ids]
   (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
-
-(defn get-component-refset-items
-  "Get the refset items for the given component, optionally
-   limited to the refset specified.
-   - store        : MapDBStore
-   - component-id : id of the component (e.g concept-id or description-id)
-   - refset-id    : (optional) - limit to this refset."
-  ([^MapDBStore store component-id]
-   (get-component-refset-items store component-id nil))
-  ([^MapDBStore store component-id refset-id]
-   (->> (.subSet ^NavigableSet (.componentRefsets store)
-                 (to-array (if refset-id [component-id refset-id] [component-id])) ;; lower limit = first two elements of composite key
-                 (to-array [component-id refset-id nil]))   ;; upper limit = the three elements, with final nil = infinite
-        (map seq)
-        (map last)
-        (map (partial get-refset-item store)))))
-
-(defn get-component-refsets
-  "Return the refset-id's to which this component belongs."
-  [^MapDBStore store component-id]
-  (->> (.subSet ^NavigableSet (.componentRefsets store)
-                (to-array [component-id])                   ;; lower limit = first two elements of composite key
-                (to-array [component-id nil nil]))
-       (map seq)
-       (map second)))
-
-(defn get-reverse-map
-  "Returns the reverse mapping from the reference set and mapTarget specified."
-  [^MapDBStore store refset-id s]
-  (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
-                         (to-array [refset-id s])
-                         (to-array [refset-id s nil])))
-       (map last)
-       (map (partial get-refset-item store))))
 
 (defn get-description-refsets
   "Get the refsets and language applicability for a description.
@@ -447,24 +558,8 @@
   [^String priority-list installed-refsets]
   (let [installed (select-language-reference-sets installed-refsets)
         priority-list (try (Locale$LanguageRange/parse priority-list) (catch Exception _ []))
-        locales (map #(java.util.Locale/forLanguageTag %) (keys installed))]
-    (mapcat #(get installed %) (map #(.toLanguageTag ^java.util.Locale %) (java.util.Locale/filter priority-list locales)))))
-
-(defn- write-concepts [^MapDBStore store objects]
-  (doseq [o objects]
-    (write-object (.concepts store) o)))
-
-(defn- write-descriptions [^MapDBStore store objects]
-  (doseq [o objects]
-    (write-object (.descriptions store) o (long-array [(:conceptId o) (:id o)]))))
-
-(defn- write-relationships [^MapDBStore store objects]
-  (doseq [o objects]
-    (write-object (.relationships store) o)))
-
-(defn- write-refset-items [^MapDBStore store objects]
-  (doseq [o objects]
-    (write-object (.refsets store) o)))
+        locales (map #(Locale/forLanguageTag %) (keys installed))]
+    (mapcat #(get installed %) (map #(.toLanguageTag ^Locale %) (Locale/filter priority-list locales)))))
 
 (defn make-extended-concept [^MapDBStore store concept]
   (let [concept-id (:id concept)
@@ -479,93 +574,6 @@
       parent-relationships
       direct-parents
       refsets)))
-
-(defn close [^MapDBStore store]
-  (.close ^DB (.db store)))
-
-(defn status
-  [^MapDBStore store]
-  (let [concepts (future (.size ^BTreeMap (.concepts store)))
-        descriptions (future (.size ^BTreeMap (.descriptions store)))
-        relationships (future (.size ^BTreeMap (.relationships store)))
-        refsets (future (.size ^BTreeMap (.refsets store)))
-        indices (future {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
-                         :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
-                         :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
-                         :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
-                         :component-refsets            (.size ^NavigableSet (.componentRefsets store))
-                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))})]
-    {:concepts      @concepts
-     :descriptions  @descriptions
-     :relationships @relationships
-     :refsets       @refsets
-     :indices       @indices}))
-
-(def default-opts
-  {:read-only?  true
-   :skip-check? false})
-
-(defn ^Closeable open-store
-  ([] (open-store nil nil))
-  ([filename] (open-store filename nil))
-  ([filename opts]
-   (let [db (if filename
-              (open-database filename (merge default-opts opts))
-              (open-temp-database))
-         ;; core components - concepts, descriptions, relationships and refset items
-         concepts (open-bucket db "c" Serializer/LONG Serializer/JAVA)
-         descriptions-concept (open-index db "dc")
-         relationships (open-bucket db "r" Serializer/LONG Serializer/JAVA)
-         refsets (open-bucket db "rs" Serializer/STRING Serializer/JAVA)
-
-         ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
-         concept-descriptions (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
-
-         ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
-         ;; this optimises for the get IS-A relationships of xxx, for example
-         concept-parent-relationships (open-index db "c-pr")
-         concept-child-relationships (open-index db "c-cr")
-
-         ;; for refsets, we store a key [sctId--refsetId--itemId] = refset item to optimise
-         ;; a) determining whether a component is part of a refset, and
-         ;; b) returning the items for a given component from a specific refset.
-         component-refsets (open-index db "c-rs" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/LONG Serializer/STRING])))
-
-         ;; cache a set of installed reference sets
-         installed-refsets (open-index db "installed-rs" Serializer/LONG)
-         ;; for any map refsets, we store (refsetid--mapTarget--itemId) to
-         ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
-
-         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/STRING])))]
-     (->MapDBStore db
-                   concepts
-                   descriptions-concept
-                   relationships
-                   refsets
-                   concept-descriptions
-                   concept-parent-relationships
-                   concept-child-relationships
-                   installed-refsets
-                   component-refsets
-                   map-target-component))))
-
-(defmulti write-batch :type)
-(defmethod write-batch :info.snomed/Concept [batch store]
-  (write-concepts store (:data batch)))
-(defmethod write-batch :info.snomed/Description [batch store]
-  (write-descriptions store (:data batch)))
-(defmethod write-batch :info.snomed/Relationship [batch store]
-  (write-relationships store (:data batch)))
-(defmethod write-batch :info.snomed/Refset [batch store]
-  (write-refset-items store (:data batch)))
-
-(defn write-batch-worker
-  "Write a batch from the channel 'c' specified into the backing store."
-  [store c]
-  (loop [batch (async/<!! c)]
-    (when-not (nil? batch)
-      (write-batch batch store)
-      (recur (async/<!! c)))))
 
 (comment
   (set! *warn-on-reflection* true)
