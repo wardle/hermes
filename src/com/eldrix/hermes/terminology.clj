@@ -105,8 +105,9 @@
     (log/info "hermes terminology service opened " root manifest)
     (->Service st index-reader searcher)))
 
-(defn close-service [svc]
-  (.close svc))
+(defn close-service
+  [svc]
+  (.close ^SnomedService  svc))
 
 (defn do-import-snomed
   "Import a SNOMED distribution from the specified directory `dir` into a local
