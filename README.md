@@ -132,13 +132,19 @@ clj -M:test
 You will get help text.
 
 ```
-clj -m com.eldrix.hermes.core
+clj -M -m com.eldrix.hermes.core
 ```
 
 #### View outdated dependencies
 
 ```
 clj -M:outdated
+```
+
+You can view a complete list of dependencies; try:
+
+```
+clj -X:deps tree
 ```
 
 #### Building uberjar
