@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.server
-  (:require [clojure.tools.logging.readable :as log]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [cheshire.core :as json]
             [cheshire.generate :as json-gen]
             [io.pedestal.http :as http]
@@ -8,12 +9,10 @@
             [io.pedestal.interceptor.error :as intc-err]
             [io.pedestal.http.content-negotiation :as conneg]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.terminology]
-            [clojure.string :as str])
+            [com.eldrix.hermes.terminology :as terminology])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
-           (com.fasterxml.jackson.core JsonGenerator)
-           (com.eldrix.hermes.terminology SnomedService)))
+           (com.fasterxml.jackson.core JsonGenerator)))
 
 (set! *warn-on-reflection* true)
 
@@ -86,21 +85,21 @@
   {:name  ::get-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (.getConcept ^SnomedService (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (terminology/getConcept (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
   {:name  ::get-extended-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (.getExtendedConcept ^SnomedService (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (terminology/getExtendedConcept (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (.getDescriptions ^SnomedService (get-in context [:request ::service]) concept-id)]
+              (when-let [ds (terminology/getDescriptions (get-in context [:request ::service]) concept-id)]
                 (assoc context :result ds))))})
 
 (def get-map-to
@@ -109,7 +108,7 @@
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (when-let [rfs (.getComponentRefsetItems ^SnomedService (get-in context [:request ::service]) concept-id refset-id)]
+                (when-let [rfs (terminology/getComponentRefsetItems (get-in context [:request ::service]) concept-id refset-id)]
                   (assoc context :result rfs)))))})
 
 (def get-map-from
@@ -118,8 +117,17 @@
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (.reverseMap ^SnomedService (get-in context [:request ::service]) refset-id (str/upper-case code))]
+                (when-let [rfs (terminology/reverseMap (get-in context [:request ::service]) refset-id (str/upper-case code))]
                   (assoc context :result rfs)))))})
+
+(def subsumed-by?
+  {:name  ::subsumed-by
+   :enter (fn [context]
+            (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
+                  subsumer-id (Long/parseLong (get-in context [:request :path-params :subsumer-id]))
+                  svc (get-in context [:request ::service])]
+              (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
+              (assoc context :result {:subsumedBy (terminology/subsumedBy? svc concept-id subsumer-id)})))})
 
 (defn make-search-params [context]
   (let [{:keys [s maxHits isA] :as params} (get-in context [:request :params])]
@@ -133,16 +141,17 @@
   {:name  ::get-search
    :enter (fn [context]
             (let [params (make-search-params context)
-                  ^SnomedService svc (get-in context [:request ::service])]
+                  svc (get-in context [:request ::service])]
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
-              (assoc context :result (.search svc params))))})
+              (assoc context :result (terminology/search svc params))))})
 
 (def routes
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get [coerce-body content-neg-intc entity-render get-concept]]
       ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render get-concept-descriptions]]
       ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
-      ["/v1/snomed/concepts/:concept-id/map-to/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
+      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
+      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get [coerce-body content-neg-intc entity-render subsumed-by?]]
       ["/v1/snomed/crossmap/:refset-id/:code" :get [coerce-body content-neg-intc entity-render get-map-from]]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]}))
 

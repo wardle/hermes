@@ -6,7 +6,7 @@
             [clojure.data.zip.xml :as zx]
             [clojure.walk :as walk]
             [clojure.zip :as zip]
-            [com.eldrix.hermes.store :as store]))
+            [com.eldrix.hermes.impl.store :as store]))
 
 (def cg-parser
   (insta/parser (io/resource "cg-v2.4.abnf") :input-format :abnf :output-format :enlive))

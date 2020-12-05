@@ -4,12 +4,12 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.store :as store]
-            [com.eldrix.hermes.search :as search]
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.expression :as expression]
-            [com.eldrix.hermes.import :as import])
-  (:import (com.eldrix.hermes.store MapDBStore)
-           (java.io Closeable)
+            [com.eldrix.hermes.import :as import]
+            [com.eldrix.hermes.snomed])
+  (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
@@ -18,25 +18,22 @@
 
 (set! *warn-on-reflection* true)
 
-
 (defprotocol SnomedService
-  (getConcept [_ ^long concept-id])
-  (getExtendedConcept [_ ^long concept-id])
-  (getDescriptions [_ ^long concept-id])
-  (getReferenceSets [_ component-id])
-  (getComponentRefsetItems [_ component-id refset-id])
-  (reverseMap [_ refset-id code])
-  (getPreferredSynonym [_ ^long concept-id langs])
-  (subsumedBy? [_ ^long concept-id ^long subsumer-concept-id])
-  (parseExpression [_ s])
-  (search [_ params]))
+  (getConcept [svc concept-id])
+  (getExtendedConcept [svc concept-id])
+  (getDescriptions [svc concept-id])
+  (getReferenceSets [svc component-id])
+  (getComponentRefsetItems [svc component-id refset-id])
+  (reverseMap [svc refset-id code])
+  (getPreferredSynonym [svc concept-id langs])
+  (subsumedBy? [svc concept-id subsumer-concept-id])
+  (parseExpression [svc s])
+  (search [svc params])
+  (close [svc]))
 
 (deftype Service [^MapDBStore store
                   ^IndexReader index-reader
                   ^IndexSearcher searcher]
-  Closeable
-  (close [_] (.close store) (.close index-reader))
-
   SnomedService
   (getConcept [_ concept-id]
     (store/get-concept store concept-id))
@@ -59,15 +56,16 @@
   (parseExpression [_ s]
     (expression/parse s))
   (search [_ params]
-    (search/do-search searcher params)))
+    (search/do-search searcher params))
+  (close [_] (.close store) (.close index-reader)))
 
-(def expected-manifest
+(def ^:private expected-manifest
   "Defines the current expected manifest."
   {:version 0.1
    :store   "store.db"
    :search  "search.db"})
 
-(defn open-manifest
+(defn- open-manifest
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
   ([root] (open-manifest root false))
   ([root create?]
@@ -90,12 +88,12 @@
        :else
        (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
 
-(defn get-absolute-filename
+(defn- get-absolute-filename
   [root ^String filename]
   (let [root-path (Paths/get root (into-array String []))]
     (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
 
-(defn ^SnomedService open-service
+(defn ^SnomedService open
   "Open a (read-only) SNOMED service from the path `root`."
   [root]
   (let [manifest (open-manifest root)
@@ -105,11 +103,7 @@
     (log/info "hermes terminology service opened " root manifest)
     (->Service st index-reader searcher)))
 
-(defn close-service
-  [svc]
-  (.close ^SnomedService  svc))
-
-(defn do-import-snomed
+(defn- do-import-snomed
   "Import a SNOMED distribution from the specified directory `dir` into a local
    file-based database `store-filename`.
    Blocking; will return when done. "
@@ -166,7 +160,9 @@
       (store/status st))))
 
 (defn create-service
-  "Create a monolithic terminology service combining both store and search functionality."
+  "Create a terminology service combining both store and search functionality
+  in a single step. It would be unusual to use this; usually each step would be
+  performed interactively by an end-user."
   ([root import-from] (create-service root import-from))
   ([root import-from locale-preference-string]              ;; There are four steps:
    (import-snomed root import-from)                         ;; import the files

@@ -97,12 +97,12 @@ clj -A:dev
 #### 4. Run a terminology web service
 
 ```
-java -jar hermes.jar -d snomed.db -p 8080 server 
+java -jar hermes.jar -d snomed.db -p 8080 serve 
 ```
 
 or
 ```
-clj -M -m com.eldrix.hermes.core -db snomed.db -p 8080 server
+clj -M -m com.eldrix.hermes.core -d snomed.db -p 8080 serve
 ```
 
 #### 5. Embed into another application

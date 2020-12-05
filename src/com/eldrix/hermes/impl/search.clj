@@ -1,9 +1,9 @@
-(ns com.eldrix.hermes.search
+(ns com.eldrix.hermes.impl.search
   (:require
     [clojure.core.async :as async]
     [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
-    [com.eldrix.hermes.store :as store]
+    [com.eldrix.hermes.impl.store :as store]
     [com.eldrix.hermes.snomed :as snomed])
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
@@ -12,12 +12,13 @@
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
-           (java.nio.file Paths)))
+           (java.nio.file Paths)
+           (com.eldrix.hermes.impl.store MapDBStore)))
 
 (set! *warn-on-reflection* true)
 
 (defn make-extended-descriptions
-  [store language-refset-ids concept]
+  [^MapDBStore store language-refset-ids concept]
   (let [ec (store/make-extended-concept store concept)
         ec' (dissoc ec :descriptions)
         preferred (store/get-preferred-synonym store (:id concept) language-refset-ids)]

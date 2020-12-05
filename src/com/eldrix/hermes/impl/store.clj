@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.store
+(ns com.eldrix.hermes.impl.store
   "Store provides access to a key value store."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]

@@ -36,7 +36,7 @@
       (let [n (- ll i 1)                                    ;; get index rightmost digit
             v (mod (- (int (nth ss n)) (int \0)) 10)        ;; get digit from string and convert to integer value
             perm (get-in permutation-table [(mod (inc i) 8) v]) ;; lookup permutation table value
-            checksum (get-in multiplication-table [checksum perm])]
+            checksum (long (get-in multiplication-table [checksum perm]))]
         (recur ss ll (inc i) checksum)))))
 
 ;; The Verhoeff checksum calculation is performed as follows:
@@ -56,7 +56,7 @@
       (let [n (- ll i 1)
             v (mod (- (int (nth ss n)) (int \0)) 10)        ;; modulus of 10, so wrap in case of non-numeric characters
             perm (get-in permutation-table [(mod i 8) v])
-            checksum (get-in multiplication-table [checksum perm])]
+            checksum (long (get-in multiplication-table [checksum perm]))]
         (recur ss ll (inc i) checksum)))))
 
 (defn append

@@ -7,8 +7,6 @@
             [integrant.core :as ig]
             [com.eldrix.hermes.import :as import]
             [com.eldrix.hermes.config :as config]
-            [com.eldrix.hermes.store :as store]
-            [com.eldrix.hermes.search :as search]
             [com.eldrix.hermes.terminology :as terminology]))
 
 (defn import-from [{:keys [db]} args]
@@ -115,12 +113,7 @@
   (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z")
   (def filename "C:\\Users\\mark\\Dev\\downloads\\uk_sct2cl_30.0.0_20200805000001")
 
-  (def st (store/open-store "snomed.db"))
-  (store/get-concept st 24700007)
-  (store/get-description-refsets st 41398015)
+  (def svc (terminology/open "snomed.db"))
+  (terminology/getConcept svc 24700007)
 
-  (search/build-search-index "snomed.db" "search.db" "en-GB")
-
-
-  (def system (ig/init (config/config :dev)))
   )

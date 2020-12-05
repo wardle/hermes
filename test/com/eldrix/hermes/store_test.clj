@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.store-test
   (:require [clojure.test :refer :all]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.store :as store])
+            [com.eldrix.hermes.impl.store :as store])
   (:import (java.time LocalDate)
            (java.io File)))
 

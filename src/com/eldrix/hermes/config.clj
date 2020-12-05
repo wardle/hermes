@@ -3,13 +3,14 @@
             [clojure.java.io :as io]
             [integrant.core :as ig]
             [com.eldrix.hermes.terminology :as terminology]
-            [com.eldrix.hermes.server :as server]))
+            [com.eldrix.hermes.server :as server])
+  (:import (com.eldrix.hermes.terminology SnomedService)))
 
 (defmethod ig/init-key :terminology/service [_ {:keys [path]}]
-  (terminology/open-service path))
+  (terminology/open path))
 
-(defmethod ig/halt-key! :terminology/service [_ svc]
-  (terminology/close-service svc))
+(defmethod ig/halt-key! :terminology/service [_ ^SnomedService svc]
+  (terminology/close svc))
 
 (defmethod ig/init-key :http/server [_ {:keys [svc port]}]
   (server/start-server svc port false))

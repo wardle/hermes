@@ -5,8 +5,8 @@
     [clojure.tools.logging :as log]
     [clojure.core.async :as async]
     [com.eldrix.hermes.snomed :as snomed]
-    [clojure.string :as str]))
-
+    [clojure.string :as str])
+  (:import (java.io File)))
 
 (defn is-snomed-file? [f]
   (snomed/parse-snomed-filename (.getName (clojure.java.io/file f))))
@@ -22,7 +22,7 @@
   (->> dir
        clojure.java.io/file
        file-seq
-       (map #(snomed/parse-snomed-filename (.getPath %)))
+       (map #(snomed/parse-snomed-filename (.getPath ^File %)))
        (filter :component)))
 
 (defn importable-files
@@ -65,7 +65,7 @@
   [files-c out-c batchSize]
   (loop [f (async/<!! files-c)]
     (when f
-      (log/debug "Queuing   : " (.getPath f))
+      (log/debug "Queuing   : " (.getPath ^File f))
       (process-file f out-c (or batchSize 1000))
       (recur (async/<!! files-c)))))
 
