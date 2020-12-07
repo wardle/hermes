@@ -23,14 +23,14 @@
              component or a change to an existing component."
 
   (:require [clojure.spec.alpha :as s]
-            [com.eldrix.hermes.verhoeff :as verhoeff]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)))
 
 
-(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _ )))
+(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
 (defn ^boolean parse-bool [^String s] (if (= "1" s) true false))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
@@ -443,8 +443,8 @@
 (def IsA 116680003)
 
 ;; Metadata concepts
-(def Primitive 900000000000074008) ;; Not sufficiently defined by necessary conditions definition status (core metadata concept
-(def Defined 900000000000073002 )  ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
+(def Primitive 900000000000074008)                          ;; Not sufficiently defined by necessary conditions definition status (core metadata concept
+(def Defined 900000000000073002)                            ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
 (def FullySpecifiedName 900000000000003001)
 (def Synonym 900000000000013009)
 (def Preferred 900000000000548007)

@@ -1,0 +1,10 @@
+{:lint-as {io.pedestal.interceptor.error/error-dispatch clj-kondo.lint-as/def-catch-all}
+
+ :linters {:unsorted-required-namespaces {:level :warning}
+           :invalid-arity                {:level :error}
+           :missing-else-branch          {:level :off}
+
+           :unused-namespace             {:level   :warning
+                                          :exclude []}
+           :unused-referred-var          {:level   :warning
+                                          :exclude {}}}}

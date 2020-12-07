@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.expression-test
   (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.expression :as expression]
+            [com.eldrix.hermes.cg :as expression]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))
 
@@ -95,6 +95,5 @@
 
 (comment
   (run-tests)
-  (require '[com.eldrix.hermes.store :as store])
 
   )

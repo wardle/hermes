@@ -1,10 +1,11 @@
 (ns com.eldrix.hermes.config
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
-            [integrant.core :as ig]
+            [com.eldrix.hermes.server :as server]
+            [com.eldrix.hermes.service :as svc]
             [com.eldrix.hermes.terminology :as terminology]
-            [com.eldrix.hermes.server :as server])
-  (:import (com.eldrix.hermes.terminology SnomedService)))
+            [integrant.core :as ig])
+  (:import (com.eldrix.hermes.service SnomedService)))
 
 (defmethod ig/init-key :terminology/service [_ {:keys [path]}]
   (terminology/open path))

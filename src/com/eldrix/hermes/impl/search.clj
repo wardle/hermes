@@ -3,6 +3,7 @@
     [clojure.core.async :as async]
     [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
+    [com.eldrix.hermes.impl.language :as lang]
     [com.eldrix.hermes.impl.store :as store]
     [com.eldrix.hermes.snomed :as snomed])
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
@@ -88,13 +89,13 @@
 
 (defn build-search-index
   "Build a search index using the SNOMED CT store at `store-filename`."
-  [store-filename search-filename locale-priorities]
+  [store-filename search-filename language-priority-list]
   (let [ch (async/chan 1 (partition-all 1000))]             ;; chunk concepts into batches
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
-      (let [langs (store/ordered-language-refsets-from-locale locale-priorities (store/get-installed-reference-sets store))]
+      (let [langs (lang/match store language-priority-list)]
         (when-not (seq langs) (throw (ex-info "No language refset for any locale listed in priority list"
-                                              {:priority-list locale-priorities :store-filename store-filename})))
+                                              {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
         (async/<!!                                          ;; block until pipeline complete
           (async/pipeline                                   ;; pipeline for side-effects
@@ -208,30 +209,4 @@
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
 (comment
-  (build-search-index "snomed.db" "search.db" "en-GB")
-  (def searcher (IndexSearcher. (open-index-reader "snomed.db/search.db")))
-
-  (create-test-search "snomed.db" "test-search.db")
-  (def searcher (IndexSearcher. (open-index-reader "test-search.db")))
-  (def store (store/open-store "snomed.db"))
-  (def diabetes (store/get-concept store 73211009))
-  (def langs (store/ordered-language-refsets-from-locale "en-GB" (store/get-installed-reference-sets store)))
-  (do-search searcher {:s "IIH" :fuzzy 0 :fallback-fuzzy 1 :inactive-descriptions? true :properties {snomed/IsA snomed/ClinicalFinding}})
-
-
-  ;; is-a 14679004 = occupations
-  (do-search searcher {:s "consultant" :fuzzy 0 :fallback-fuzzy 1 :properties {snomed/IsA [14679004]}})
-
-  ;;370135005 |Pathological process (attribute)|  =  441862004
-  (time (def one (into #{} (map :concept-id (do-search searcher {:max-hits 10000 :properties {snomed/PathologicalProcess 441862004}})))))
-
-  (def two (store/get-all-children store 441862004 snomed/PathologicalProcess))
-  (time (def three (into #{} (mapcat #(store/get-all-children store %) two))))
-  (count one)
-  (count two)
-  (count three)
-  (time (map :term (map (partial store/get-fully-specified-name store) three)))
-
-  (store/get-fully-specified-name store 441862004)
-
   )

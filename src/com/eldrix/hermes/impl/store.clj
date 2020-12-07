@@ -1,14 +1,14 @@
 (ns com.eldrix.hermes.impl.store
   "Store provides access to a key value store."
-  (:require [clojure.java.io :as io]
+  (:require [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [clojure.set :as set]
-            [clojure.core.async :as async]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker)
            (org.mapdb.serializer SerializerArrayTuple)
-           (java.util NavigableSet Locale$LanguageRange Locale)
+           (java.util NavigableSet)
            (java.time LocalDate)))
 
 (set! *warn-on-reflection* true)
@@ -525,41 +525,6 @@
          (get-fully-specified-name store concept-id)
          preferred)))))
 
-
-(def language-reference-sets
-  "Defines a mapping between ISO language tags and the language reference sets
-  (possibly) installed as part of SNOMED CT. These can be used if a client
-  does not wish to specify a reference set (or set of reference sets) to be used
-  to derive preferred or acceptable terms, but instead wants some sane defaults
-  on the basis of locale as defined by IETF BCP 47."
-  {"en-GB" [999001261000000100                              ;; NHS realm language (clinical part)
-            999000691000001104                              ;; NHS realm language (pharmacy part)
-            900000000000508004                              ;; Great Britain English language reference set
-            ]
-   "en-US" [900000000000509007]})
-
-(defn- select-language-reference-sets
-  "Returns the known language reference sets that are in the `installed` set.
-  - installed : a set of refset identifiers reference sets."
-  [installed]
-  (reduce-kv (fn [m k v]
-               (if-let [filtered (seq (filter installed v))]
-                 (assoc m k filtered)
-                 (dissoc m k)))
-             {}
-             language-reference-sets))
-
-(defn ordered-language-refsets-from-locale
-  "Return an ordered list of language reference sets, as determined by
-  the priority list from the user and the set of installed reference sets.
-  Parameters
-  - priority-list     : e.g. en-GB;q=1.0,en-US;q=0.5,fr-FR;q=0.0
-  - installed-refsets : e.g. #{900000000000509007 900000000000508004}"
-  [^String priority-list installed-refsets]
-  (let [installed (select-language-reference-sets installed-refsets)
-        priority-list (try (Locale$LanguageRange/parse priority-list) (catch Exception _ []))
-        locales (map #(Locale/forLanguageTag %) (keys installed))]
-    (mapcat #(get installed %) (map #(.toLanguageTag ^Locale %) (Locale/filter priority-list locales)))))
 
 (defn make-extended-concept [^MapDBStore store concept]
   (let [concept-id (:id concept)

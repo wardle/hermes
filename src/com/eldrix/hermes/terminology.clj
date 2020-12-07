@@ -4,37 +4,28 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.cg :as cg]
+            [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
-            [com.eldrix.hermes.expression :as expression]
+            [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.import :as import]
+            [com.eldrix.hermes.service :as svc]
             [com.eldrix.hermes.snomed])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
-           (java.util Locale)))
+           (java.util Locale)
+           (com.eldrix.hermes.service SnomedService)))
 
 (set! *warn-on-reflection* true)
 
-(defprotocol SnomedService
-  (getConcept [svc concept-id])
-  (getExtendedConcept [svc concept-id])
-  (getDescriptions [svc concept-id])
-  (getReferenceSets [svc component-id])
-  (getComponentRefsetItems [svc component-id refset-id])
-  (reverseMap [svc refset-id code])
-  (getPreferredSynonym [svc concept-id langs])
-  (subsumedBy? [svc concept-id subsumer-concept-id])
-  (parseExpression [svc s])
-  (search [svc params])
-  (close [svc]))
-
 (deftype Service [^MapDBStore store
                   ^IndexReader index-reader
-                  ^IndexSearcher searcher]
-  SnomedService
+                  ^IndexSearcher searcher
+                  locale-match-fn]
+  svc/SnomedService
   (getConcept [_ concept-id]
     (store/get-concept store concept-id))
   (getExtendedConcept [_ concept-id]
@@ -49,12 +40,11 @@
   (reverseMap [_ refset-id code]
     (store/get-reverse-map store refset-id code))
   (getPreferredSynonym [_ concept-id langs]
-    (let [lang-refsets (store/ordered-language-refsets-from-locale langs (store/get-installed-reference-sets store))]
-      (store/get-preferred-synonym store concept-id lang-refsets)))
+    (store/get-preferred-synonym store concept-id (locale-match-fn langs)))
   (subsumedBy? [_ concept-id subsumer-concept-id]
     (store/is-a? store concept-id subsumer-concept-id))
   (parseExpression [_ s]
-    (expression/parse s))
+    (cg/parse s))
   (search [_ params]
     (search/do-search searcher params))
   (close [_] (.close store) (.close index-reader)))
@@ -99,9 +89,13 @@
   (let [manifest (open-manifest root)
         st (store/open-store (get-absolute-filename root (:store manifest)))
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-        searcher (IndexSearcher. index-reader)]
+        searcher (IndexSearcher. index-reader)
+        locale-match-fn (lang/match-fn st)]
     (log/info "hermes terminology service opened " root manifest)
-    (->Service st index-reader searcher)))
+    (->Service st index-reader searcher locale-match-fn)))
+
+(defn close [svc]
+  (svc/close svc))
 
 (defn- do-import-snomed
   "Import a SNOMED distribution from the specified directory `dir` into a local
@@ -147,11 +141,11 @@
 
 (defn build-search-index
   ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
-  ([root locale-preference-string]
+  ([root language-priority-list]
    (let [manifest (open-manifest root false)]
-     (log/info "Building search index" {:root root :languages locale-preference-string})
+     (log/info "Building search index" {:root root :languages language-priority-list})
      (search/build-search-index (get-absolute-filename root (:store manifest))
-                                (get-absolute-filename root (:search manifest)) locale-preference-string))))
+                                (get-absolute-filename root (:search manifest)) language-priority-list))))
 
 (defn get-status [root]
   (let [manifest (open-manifest root)]

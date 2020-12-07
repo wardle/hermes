@@ -1,11 +1,10 @@
 (ns com.eldrix.hermes.store-test
   (:require [clojure.test :refer :all]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.impl.store :as store])
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.impl.language :as lang])
   (:import (java.time LocalDate)
            (java.io File)))
-
-(compile 'com.eldrix.hermes.snomed)
 
 (deftest simple-store
   (with-open [st (store/open-store)]
@@ -56,9 +55,9 @@
           usa (store/get-preferred-synonym store 80146002 [900000000000509007])]
       (is (= "Appendicectomy" (:term gb)))
       (is (= "Appendectomy" (:term usa))))
-    (let [installed-refsets (store/get-installed-reference-sets store)]
-    (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (store/ordered-language-refsets-from-locale "en-GB" installed-refsets)))))
-    (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (store/ordered-language-refsets-from-locale "en-US" installed-refsets))))))))
+    (let [lang-match-fn (lang/match-fn store)]
+    (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
+    (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
 
 (defn test-ns-hook []
   (simple-store)

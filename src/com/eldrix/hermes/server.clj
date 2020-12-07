@@ -1,15 +1,15 @@
 (ns com.eldrix.hermes.server
-  (:require [clojure.string :as str]
-            [clojure.tools.logging.readable :as log]
-            [cheshire.core :as json]
+  (:require [cheshire.core :as json]
             [cheshire.generate :as json-gen]
+            [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.service :as svc]
+            [com.eldrix.hermes.snomed :as snomed]
             [io.pedestal.http :as http]
+            [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err]
-            [io.pedestal.http.content-negotiation :as conneg]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.terminology :as terminology])
+            [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (com.fasterxml.jackson.core JsonGenerator)))
@@ -85,21 +85,21 @@
   {:name  ::get-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (terminology/getConcept (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (svc/getConcept (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
   {:name  ::get-extended-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (terminology/getExtendedConcept (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (svc/getExtendedConcept (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (terminology/getDescriptions (get-in context [:request ::service]) concept-id)]
+              (when-let [ds (svc/getDescriptions (get-in context [:request ::service]) concept-id)]
                 (assoc context :result ds))))})
 
 (def get-map-to
@@ -108,7 +108,7 @@
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (when-let [rfs (terminology/getComponentRefsetItems (get-in context [:request ::service]) concept-id refset-id)]
+                (when-let [rfs (svc/getComponentRefsetItems (get-in context [:request ::service]) concept-id refset-id)]
                   (assoc context :result rfs)))))})
 
 (def get-map-from
@@ -117,7 +117,7 @@
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (terminology/reverseMap (get-in context [:request ::service]) refset-id (str/upper-case code))]
+                (when-let [rfs (svc/reverseMap (get-in context [:request ::service]) refset-id (str/upper-case code))]
                   (assoc context :result rfs)))))})
 
 (def subsumed-by?
@@ -127,10 +127,10 @@
                   subsumer-id (Long/parseLong (get-in context [:request :path-params :subsumer-id]))
                   svc (get-in context [:request ::service])]
               (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
-              (assoc context :result {:subsumedBy (terminology/subsumedBy? svc concept-id subsumer-id)})))})
+              (assoc context :result {:subsumedBy (svc/subsumedBy? svc concept-id subsumer-id)})))})
 
-(defn make-search-params [context]
-  (let [{:keys [s maxHits isA] :as params} (get-in context [:request :params])]
+(defn parse-search-params [context]
+  (let [{:keys [s maxHits isA]} (get-in context [:request :params])]
     (cond-> {}
             s (assoc :s s)
             maxHits (assoc :max-hits (Integer/parseInt maxHits))
@@ -140,10 +140,10 @@
 (def get-search
   {:name  ::get-search
    :enter (fn [context]
-            (let [params (make-search-params context)
+            (let [params (parse-search-params context)
                   svc (get-in context [:request ::service])]
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
-              (assoc context :result (terminology/search svc params))))})
+              (assoc context :result (svc/search svc params))))})
 
 (def routes
   (route/expand-routes

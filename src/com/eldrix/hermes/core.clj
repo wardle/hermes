@@ -2,12 +2,12 @@
   (:gen-class)
   (:require [clojure.pprint :as pp]
             [clojure.string :as str]
-            [clojure.tools.logging :as log]
             [clojure.tools.cli :as cli]
-            [integrant.core :as ig]
-            [com.eldrix.hermes.import :as import]
+            [clojure.tools.logging :as log]
             [com.eldrix.hermes.config :as config]
-            [com.eldrix.hermes.terminology :as terminology]))
+            [com.eldrix.hermes.import :as import]
+            [com.eldrix.hermes.terminology :as terminology]
+            [integrant.core :as ig]))
 
 (defn import-from [{:keys [db]} args]
   (if db
@@ -40,7 +40,7 @@
     (pp/pprint (terminology/get-status db))
     (log/error "no database directory specified")))
 
-(defn serve [{:keys [db port]} args]
+(defn serve [{:keys [db port]} _]
   (if db
     (let [conf (-> (:ig/system (config/config :live))
                    (assoc-in [:terminology/service :path] db)
@@ -110,10 +110,5 @@
       :else (invoke-command command options (rest arguments)))))
 
 (comment
-  (def filename "/Users/mark/Downloads/uk_sct2cl_30.0.0_20200805000001/SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z")
-  (def filename "C:\\Users\\mark\\Dev\\downloads\\uk_sct2cl_30.0.0_20200805000001")
-
-  (def svc (terminology/open "snomed.db"))
-  (terminology/getConcept svc 24700007)
 
   )

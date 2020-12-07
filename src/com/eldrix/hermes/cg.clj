@@ -1,12 +1,14 @@
-(ns com.eldrix.hermes.expression
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+(ns com.eldrix.hermes.cg
+  "Support for SNOMED CT compositional grammar."
+  (:require [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
-            [instaparse.core :as insta]
-            [clojure.data.zip.xml :as zx]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.walk :as walk]
             [clojure.zip :as zip]
-            [com.eldrix.hermes.impl.store :as store]))
+            [com.eldrix.hermes.impl.language :as lang]
+            [com.eldrix.hermes.impl.store :as store]
+            [instaparse.core :as insta]))
 
 (def cg-parser
   (insta/parser (io/resource "cg-v2.4.abnf") :input-format :abnf :output-format :enlive))
@@ -128,10 +130,10 @@
   [config concept]
   (str (:conceptId concept)
        (when-not (:hide-terms? config)
-         (let [has-term (or (:term concept) (:getPreferredSynonym config))]
+         (let [has-term (or (:term concept) (:get-preferred-synonym-fn config))]
            (str
              (when has-term "|")
-             (if-let [f (:getPreferredSynonym config)]
+             (if-let [f (:get-preferred-synonym-fn config)]
                (or (:term (f (:conceptId concept))) (:term concept))
                (:term concept))
              (when has-term "|"))))))
@@ -173,39 +175,17 @@
 (defn render
   "Render an expression into string form.
   Parameters:
-  - store         : SNOMED store
+  - st            : SNOMED store
   - hide-terms?   : do not include textual terms in output
   - update-terms? : update terms for the preferred synonyms in locale(s) specified.
   - locale-priorities : list of locale priorities (e.g. \"en-GB\")"
-  [{:keys [store hide-terms? update-terms? locale-priorities] :as config} exp]
-  (let [cfg (if (and store update-terms? locale-priorities)
-              (if-let [langs (store/ordered-language-refsets-from-locale locale-priorities (store/get-installed-reference-sets store))]
-                (assoc config :getPreferredSynonym #(store/get-preferred-synonym store % langs))
-                config)
+  [{:keys [store update-terms? locale-priorities] :as config} exp]
+  (let [lang-refsets (when store (lang/match store locale-priorities))
+        cfg (if (and store update-terms? (seq lang-refsets))
+              (assoc config :get-preferred-synonym-fn (fn [concept-id] (store/get-preferred-synonym store concept-id lang-refsets)))
               config)]
     (str (:definitionStatus exp) " " (render-subexpression cfg (:subExpression exp)))))
 
 
 (comment
-  (def p (parse "24700007"))
-  (def st (store/open-store "snomed.db"))
-  (render {:store st :update-terms? true :locale-priorities "en-GB"} p)
-  (def p (parse "80146002|appendectomy|:260870009|priority|=25876001|emergency|, 425391005|using access device|=86174004|laparoscope|"))
-  (render {:store st :update-terms? true :locale-priorities "en-GB"} p)
-  (simplify p)
-  (def p (parse "    71388002 |procedure| :
-   {  260686004 |method|  =  129304002 |excision - action| ,
-      405813007 |procedure site - direct| =  20837000 |structure of right ovary| ,
-      424226004 |using device|  =  122456005 |laser device| }
-   {  260686004 |method|  =  261519002 |diathermy excision - action| ,
-      405813007 |procedure site - direct| =  113293009 |structure of left fallopian tube| }"))
-  (def p (parse " 91143003 |Albuterol| :
-       411116001 |Has manufactured dose form|  =  385023001 |oral solution| ,
-      { 127489000 |Has active ingredient|  =  372897005 |Albuterol| ,
-        179999999100 |Has basis of strength|  =  372897005 |Albuterol| ,
-        189999999103 |Has strength value|  = #0.083,  199999999101 |Has strength numerator unit|  =  118582008 |%| }"))
-
-
-  (def rs (get-in p [:subExpression :refinements]))
-
   )
