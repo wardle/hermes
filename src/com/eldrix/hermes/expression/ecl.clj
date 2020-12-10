@@ -54,8 +54,26 @@
   [ctx q]
   (search/do-query (:searcher ctx) q 10000))
 
-(defn parse-compound-expression-constraint [loc])
 
+(defn parse-conjunction-expression-constraint
+  "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
+  [ctx loc]
+  (search/q-and (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
+
+
+(defn parse-disjunction-expression-constraint
+  "disjunctionExpressionConstraint = subExpressionConstraint 1*(ws disjunction ws subExpressionConstraint)"
+  [ctx loc]
+  (search/q-or (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
+
+(defn parse-exclusion-expression-constraint [ctx loc])
+
+(defn parse-compound-expression-constraint
+  "compoundExpressionConstraint = conjunctionExpressionConstraint / disjunctionExpressionConstraint / exclusionExpressionConstraint"
+  [ctx loc]
+  (or (zx/xml1-> loc :conjunctionExpressionConstraint (partial parse-conjunction-expression-constraint ctx))
+      (zx/xml1-> loc :disjunctionExpressionConstraint (partial parse-disjunction-expression-constraint ctx))
+      (zx/xml1-> loc :exclusionExpressionConstraint (partial parse-exclusion-expression-constraint ctx))))
 
 (defn- process-dotted
   "Sequentially resolve dotted attributes in sequence, evaluating from left to right.
@@ -143,7 +161,10 @@
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
         reverse-flag? (zx/xml1-> loc :reverseFlag zx/text)
         ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
-        attribute-concept-ids (when ecl-attribute-name (search/do-query (:searcher ctx) ecl-attribute-name 1000))
+        ;; resolve the attribute(s) - we logically AND to ensure all are valid attributes (ie descendants of 246061005 - snomed/Attribute)
+        ;; this means a wildcard (*) attribute doesn't accidentally bring in the whole >600000 concepts in SNOMED CT!
+        attribute-concept-ids (when ecl-attribute-name (search/do-query (:searcher ctx)
+                                                                        (search/q-and [(search/q-descendantOf snomed/Attribute) ecl-attribute-name]) 1000)) ;; realise the attributes in the expression
         expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
         string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
@@ -171,8 +192,10 @@
   [ctx loc]
   (let [ecl-attribute (zx/xml1-> loc :eclAttribute (partial parse-ecl-attribute ctx))
         ecl-attribute-set (zx/xml1-> loc :eclAttributeSet parse-ecl-attribute-set)]
-    {:ecl-attribute     ecl-attribute
-     :ecl-attribute-set ecl-attribute-set}))
+    (cond
+      (and ecl-attribute ecl-attribute-set) (search/q-and [ecl-attribute ecl-attribute-set])
+      ecl-attribute ecl-attribute
+      ecl-attribute-set ecl-attribute-set)))
 
 (defn parse-ecl-attribute-set
   "eclAttributeSet = subAttributeSet ws [conjunctionAttributeSet / disjunctionAttributeSet]"
@@ -307,7 +330,7 @@
   "expressionConstraint = ws ( refinedExpressionConstraint / compoundExpressionConstraint / dottedExpressionConstraint / subExpressionConstraint ) ws"
   [ctx loc]
   (let [refined (zx/xml1-> loc :refinedExpressionConstraint (partial parse-refined-expression-constraint ctx))
-        compound (zx/xml1-> loc :compoundExpressionConstraint parse-compound-expression-constraint)
+        compound (zx/xml1-> loc :compoundExpressionConstraint (partial parse-compound-expression-constraint ctx))
         dotted (zx/xml1-> loc :dottedExpressionConstraint (partial parse-dotted-expression-constraint ctx))
         subexpression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
     (cond
