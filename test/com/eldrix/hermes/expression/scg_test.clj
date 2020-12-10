@@ -1,6 +1,6 @@
-(ns com.eldrix.hermes.expression-test
+(ns com.eldrix.hermes.expression.scg-test
   (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.cg :as expression]
+            [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))
 
@@ -61,20 +61,20 @@
 
 
 (deftest simple-concept
-  (let [p (expression/parse "24700007")]
+  (let [p (scg/parse "24700007")]
     (is (= 24700007 (:conceptId (first (get-in p [:subExpression :focusConcepts])))))
     (is (= "===" (:definitionStatus p)))))
 
 (deftest refinements
-  (let [p (expression/parse "80146002|appendectomy|:260870009|priority|=25876001|emergency|, 425391005|using access device|=86174004|laparoscope|")
+  (let [p (scg/parse "80146002|appendectomy|:260870009|priority|=25876001|emergency|, 425391005|using access device|=86174004|laparoscope|")
         focus-concepts (map :conceptId (get-in p [:subExpression :focusConcepts]))]
     (is (= 1 (count focus-concepts)))
     (is (= 80146002 (first focus-concepts)))))
 
 (defn test-roundtrip [s]
-  (let [p1 (expression/parse s)
-        r (expression/render {} p1)
-        p2 (expression/parse r)]
+  (let [p1 (scg/parse s)
+        r (scg/render {} p1)
+        p2 (scg/parse r)]
     (is (= p1 p2))))
 
 (deftest render-round-tripping
@@ -86,9 +86,9 @@
   (when com.eldrix.hermes.store-test/has-live-database?
     (with-open [st (store/open-store "snomed.db/store.db")]
       (let [updated (->> (get-in example-expressions [:concrete-values :albuterol-0.083])
-                         (expression/parse)
-                         (expression/render {:store st :update-terms? true :locale-priorities "en-GB"})
-                         (expression/parse))
+                         (scg/parse)
+                         (scg/render {:store st :update-terms? true :locale-priorities "en-GB"})
+                         (scg/parse))
             has-active-ingredient {:conceptId 127489000, :term "Has active ingredient"}
             refinements-group2 (second (get-in updated [:subExpression :refinements]))]
         (is (= {:conceptId 372897005 :term "Salbutamol"} (get refinements-group2 has-active-ingredient  )) "Albuterol not updated to salbutamol for en-GB locale")))))

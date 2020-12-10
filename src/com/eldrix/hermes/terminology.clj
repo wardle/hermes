@@ -4,7 +4,7 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.cg :as cg]
+            [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
@@ -44,14 +44,14 @@
   (subsumedBy? [_ concept-id subsumer-concept-id]
     (store/is-a? store concept-id subsumer-concept-id))
   (parseExpression [_ s]
-    (cg/parse s))
+    (scg/parse s))
   (search [_ params]
     (search/do-search searcher params))
   (close [_] (.close store) (.close index-reader)))
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.1
+  {:version 0.2
    :store   "store.db"
    :search  "search.db"})
 

@@ -1,5 +1,6 @@
-(ns com.eldrix.hermes.cg
-  "Support for SNOMED CT compositional grammar."
+(ns com.eldrix.hermes.expression.scg
+  "Support for SNOMED CT compositional grammar.
+  See http://snomed.org/scg"
   (:require [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -12,9 +13,6 @@
 
 (def cg-parser
   (insta/parser (io/resource "cg-v2.4.abnf") :input-format :abnf :output-format :enlive))
-
-(def ecl-parser
-  (insta/parser (io/resource "ecl.abnf") :input-format :abnf :output-format :enlive))
 
 (defn- parse-sctId [sctId]
   (edn/read-string (zx/xml1-> sctId zx/text)))

@@ -8,7 +8,7 @@
     [com.eldrix.hermes.snomed :as snomed])
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
-           (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField)
+           (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
            (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
@@ -43,13 +43,17 @@
               (.add (LongPoint. "description-id" (long-array [(:id ed)]))) ;; for indexing and search
               (.add (StoredField. "id" ^long (:id ed)))     ;; stored field of same
               (.add (StoredField. "concept-id" ^long (get-in ed [:concept :id])))
+              (.add (LongPoint. "concept-id" (long-array [(get-in ed [:concept :id])])))
               (.add (StoredField. "preferred-term" (str (:preferred-term ed)))))]
     (doseq [[rel concept-ids] (get-in ed [:concept :parent-relationships])]
       (let [relationship (str rel)]                         ;; encode parent relationships as relationship type concept id
         (doseq [concept-id concept-ids]                     ;; and use a transitive closure table for the defining relationship
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
-    (doseq [parent (get-in ed [:concept :direct-parents])]
-      (.add doc (LongPoint. "direct-parents" (long-array [parent]))))
+    (doseq [[rel concept-ids] (get-in ed [:concept :direct-parent-relationships])]
+      (.add doc (IntPoint. (str "c" rel) (int-array [(count concept-ids)]))) ;; encode count of direct parent relationships by type as ("c" + relationship type = count)
+      (let [relationship (str "d" rel)]                     ;; encode direct parent relationships as ("d" + relationship type = concept id)
+        (doseq [concept-id concept-ids]
+          (.add doc (LongPoint. relationship (long-array [concept-id]))))))
     (doseq [preferred-in (:preferred-in ed)]
       (.add doc (LongPoint. "preferred-in" (long-array [preferred-in]))))
     (doseq [acceptable-in (:acceptable-in ed)]
@@ -176,6 +180,12 @@
               (.get doc "term")
               (.get doc "preferred-term"))))
 
+(defn- scoredoc->concept-id
+  "Convert a Lucene ScoreDoc ('score-doc' into a concept-id."
+  [^IndexSearcher searcher ^ScoreDoc score-doc]
+  (let [doc (.doc searcher (.-doc score-doc))]
+    (Long/parseLong (.get doc "concept-id"))))
+
 (defn do-search
   "Perform a search against the index.
   Parameters:
@@ -208,5 +218,162 @@
         (when (and (= fuzzy 0) (> fallback 0))
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
+
+(defn topdocs->concept-ids
+  [searcher ^TopDocs top-docs]
+  (->> (seq (.-scoreDocs top-docs))
+       (map (partial scoredoc->concept-id searcher))
+       (set)))
+
+(defn do-query
+  "Perform the query, returning results as a set of concept identifiers"
+  [^IndexSearcher searcher ^Query query max-hits]
+  (let [topdocs ^TopDocs (.search searcher query (int (or max-hits 200)))]
+    (topdocs->concept-ids searcher topdocs)))
+
+(defn q-or
+  [queries]
+  (let [builder (BooleanQuery$Builder.)]
+    (doseq [^Query query queries]
+      (.add builder query BooleanClause$Occur/SHOULD))
+    (.build builder)))
+
+(defn q-and
+  [queries]
+  (let [builder (BooleanQuery$Builder.)]
+    (doseq [^Query query queries]
+      (.add builder query BooleanClause$Occur/MUST))
+    (.build builder)))
+
+(defn q-self
+  "Returns a query that will only return documents for the concept specified."
+  [concept-id]
+  (LongPoint/newExactQuery "concept-id" concept-id))
+
+(defn q-concept-ids
+  "Returns a query that will return documents for the concepts specified."
+  [^Collection concept-ids]
+  (LongPoint/newSetQuery "concept-id" concept-ids))
+
+(defn q-descendantOf
+  "Returns a query that matches descendants of the specified concept."
+  [concept-id]
+  (LongPoint/newExactQuery (str snomed/IsA) concept-id))
+
+(defn q-descendantOrSelfOf
+  "Returns a query that matches descendants of the specified concept plus the specified concept itself."
+  [concept-id]
+  (-> (BooleanQuery$Builder.)
+      (.add (q-self concept-id) BooleanClause$Occur/SHOULD)
+      (.add (q-descendantOf concept-id) BooleanClause$Occur/SHOULD)
+      (.build)))
+
+(defn q-childOf
+  "A query for direct (proximal) children of the specified concept."
+  [concept-id]
+  (LongPoint/newExactQuery (str "d" snomed/IsA) concept-id))
+
+(defn q-childOrSelfOf
+  "A query for direct (proximal) children of the specified concept plus the concept itself."
+  [concept-id]
+  (-> (BooleanQuery$Builder.)
+      (.add (q-self concept-id) BooleanClause$Occur/SHOULD)
+      (.add (q-childOf concept-id) BooleanClause$Occur/SHOULD)
+      (.build)))
+
+(defn q-ancestorOf
+  "A query for concepts that are ancestors of the specified concept."
+  [store concept-id]
+  (let [^Collection parents (disj (store/get-all-parents store concept-id) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-ancestorOrSelfOf
+  "A query for concepts that are ancestors of the specified concept plus the concept itself."
+  [store concept-id]
+  (let [^Collection parents (store/get-all-parents store concept-id)]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-parentOf
+  [store concept-id]
+  (let [^Collection parents (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA))]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-parentOrSelfOf
+  [store concept-id]
+  (let [^Collection parents (conj (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA)) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-memberOf
+  "A query for concepts that are referenced by the given reference set."
+  [refset-id]
+  (LongPoint/newExactQuery "concept-refsets" refset-id))
+
+(defn q-memberOfAny
+  "A query for concepts that are a member of any reference set."
+  [store]
+  (LongPoint/newSetQuery "concept-refsets" ^Collection (store/get-installed-reference-sets store)))
+
+(defn q-any
+  "Returns a query that returns 'any' concept."
+  []
+  (q-descendantOrSelfOf snomed/Root))
+
+(defn q-attribute-descendantOrSelfOf
+  "Returns a query constraining to documents with the specified property and value.
+  It uses the 'descendantOrSelfOf' constraint."
+  [property value]
+  (LongPoint/newExactQuery (str property) value))
+
+(defn q-attribute-exactly-equal
+  "A query for documents with the property exactly equal to the value.
+  Usually, it would be more appropriate to use `q-attribute-descendantOrSelfOf`."
+  [property value]
+  (LongPoint/newExactQuery (str "d" property) value))
+
+(defn q-attribute-in-set
+  [property coll]
+  (LongPoint/newSetQuery (str property) ^Collection coll))
+
+(defn q-attribute-count
+  "A query for documents for a count direct properties (parent relationships) of
+  the type specified.
+  Parameters
+  - property    : concept-id of the attribute
+  - minimum     : minimum count
+  - maximum     : maximum count (use Integer/MAX_VALUE or zero for half-open range)
+  For example, get concepts with 4 or more active ingredients:
+  (q-attribute-count 127489000 4 0)"
+  [property minimum maximum]
+  (if (and (= 0 minimum) (or (= maximum 0) (= maximum Integer/MAX_VALUE)))
+    nil
+    (IntPoint/newRangeQuery (str "c" property) (int minimum) (int maximum))))
+
+(defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
+  (when q
+    (->> (.search searcher q max-hits)
+         (topdocs->concept-ids searcher)
+         (map (partial store/get-fully-specified-name store))
+         (map #(select-keys % [:conceptId :term])))))
+
 (comment
+  (build-search-index "snomed.db/store.db" "snomed.db/search.db" "en-GB")
+  (q-descendantOf 24700007)
+  (q-descendantOrSelfOf 24700007)
+  (q-childOrSelfOf 24700007)
+  (def store (store/open-store "snomed.db/store.db"))
+  (def index-reader (open-index-reader "snomed.db/search.db"))
+  (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
+  (q-ancestorOf store 24700007)
+
+  (def testq (comp clojure.pprint/print-table (partial test-query store searcher)))
+
+  (testq (q-ancestorOf store 24700007) 100000)
+  (testq (q-ancestorOrSelfOf store 24700007) 100000)
+  (testq (q-parentOrSelfOf store 24700007) 10000)
+  (testq (q-parentOf store 24700007) 10000)
+  (testq (q-memberOf 991411000000109) 10)
+  (testq (q-attribute-descendantOrSelfOf 246075003 387517004) 10000)
+  (testq (q-attribute-exactly-equal 246075003 387517004) 1000)
+  (testq (q-childOrSelfOf 404684003) 1000)
+  (testq (com.eldrix.hermes.expression.ecl/parse store "^  991411000000109 |Example problem list concepts reference set|") 1000)
   )

@@ -372,7 +372,7 @@
 ;;;;
 
 (defn get-all-parents
-  "Returns all parent concepts for the concept.
+  "Returns all parent concepts for the concept, including self.
    Parameters:
    - `store` the MapDBStore
    - `concept-id`
@@ -402,6 +402,16 @@
        (map rest)
        (map #(hash-map (first %) #{(second %)}))
        (apply merge-with into)))
+
+(defn get-parent-relationships-of-type
+  "Returns a collection of identifiers representing the parent relationships of
+  the specified type of the specified concept."
+  [store concept-id type-concept-id]
+  (map last (get-raw-parent-relationships store concept-id type-concept-id)))
+
+(defn get-parent-relationships-of-types
+  [store concept-id type-concept-ids]
+  (mapcat (partial get-parent-relationships-of-type store concept-id) type-concept-ids ))
 
 (defn get-parent-relationships-expanded
   "Returns all of the parent relationships, expanded to
@@ -531,13 +541,13 @@
         descriptions (map #(merge % (get-description-refsets store (:id %)))
                           (get-concept-descriptions store concept-id))
         parent-relationships (get-parent-relationships-expanded store concept-id)
-        direct-parents (get (get-parent-relationships store concept-id) snomed/IsA) ;; direct IS-A relationships ONLY
+        direct-parent-relationships (get-parent-relationships store concept-id)
         refsets (into #{} (get-component-refsets store concept-id))]
     (snomed/->ExtendedConcept
       concept
       descriptions
       parent-relationships
-      direct-parents
+      direct-parent-relationships
       refsets)))
 
 (comment
