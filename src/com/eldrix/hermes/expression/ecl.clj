@@ -15,7 +15,7 @@
   (:import (org.apache.lucene.search Query)))
 
 (def ecl-parser
-  (insta/parser (io/resource "ecl.abnf") :input-format :abnf :output-format :enlive))
+  (insta/parser (io/resource "ecl-v1.5.abnf") :input-format :abnf :output-format :enlive))
 
 (declare parse-ecl-attribute-set)
 (declare parse-ecl-refinement)
@@ -67,9 +67,13 @@
   [ctx loc]
   (search/q-or (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
-(defn parse-exclusion-expression-constraint [ctx loc]
+(defn parse-exclusion-expression-constraint
+  "Parse an exclusion expression contraint.
+  Unlike conjunction and disjunction constraints, exclusion constraints have
+  only two clauses.
+  subExpressionConstraint ws exclusion ws subExpressionConstraint"
+  [ctx loc]
   (let [[exp exclusion] (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
-    (println {:exp exp :exclusion exclusion})
     (search/q-not exp exclusion)))
 
 (defn parse-compound-expression-constraint
@@ -113,8 +117,38 @@
         (process-dotted ctx values dotted-expression-attributes))
       subexpression-constraint)))
 
-(defn parse-filter-constraint [loc]
-  (throw (ex-info "filter constraints not yet implemented" {:text (zx/text loc)})))
+(defn parse-term-filter
+  "termFilter = termKeyword ws booleanComparisonOperator ws (typedSearchTerm / typedSearchTermSet)"
+  [loc]
+  (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text) ;; "=" or "!="
+        typed-search-term (zx/xml1-> loc :typedSearchTerm zx/text)
+        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet zx/text)]
+    (throw (ex-info "to be implemented: term filter" {:text                  (zx/text loc)
+                                                      :boolean-comparison-op boolean-comparison-operator
+                                                      :typedSearchTerm       typed-search-term
+                                                      :typedSearchTermSet    typed-search-term-set}))))
+
+(defn parse-language-filter [loc]
+  (throw (ex-info "to be implemented: language filter" {:text (zx/text loc)})))
+
+(defn parse-type-filter [loc]
+  (throw (ex-info "to be implemented: type filter" {:text (zx/text loc)})))
+
+(defn parse-dialect-filter [loc]
+  (throw (ex-info "to be implemented: dialect filter" {:text (zx/text loc)})))
+
+(defn parse-filter
+  "filter = termFilter / languageFilter / typeFilter / dialectFilter"
+  [ctx loc]
+  (or (zx/xml1-> loc :termFilter parse-term-filter)
+      (zx/xml1-> loc :languageFilter parse-language-filter)
+      (zx/xml1-> loc :typeFilter parse-type-filter)
+      (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
+
+(defn parse-filter-constraint
+  "filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
+  [ctx loc]
+  (zx/xml1-> loc :filter (partial parse-filter ctx)))
 
 (defn parse-cardinality [loc]
   (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
@@ -254,7 +288,7 @@
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
-        filter-constraints (zx/xml-> loc :filterConstraint parse-filter-constraint)]
+        filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))]
     (cond
       ;; "*"
       (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
@@ -443,8 +477,6 @@
 
   (def loc (zx/xml1-> (zip/xml-zip (ecl-parser refinement)) :expressionConstraint))
   loc
-
-
 
   (def conjunction1 "<  19829001 |Disorder of lung|  AND     <  301867009 |Edema of trunk|")
   (pe conjunction1)
