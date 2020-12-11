@@ -1,7 +1,7 @@
 # Hermes : terminology tools and services
 
-[![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/go-terminology/)
-[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/go-terminology/)
+[![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/hermes/)
+[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/hermes/)
 
 >
 > Hermes:  "Herald of the gods."
