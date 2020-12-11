@@ -174,12 +174,10 @@
 (defn parse-filter
   "filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
-  (let [result (or (zx/xml1-> loc :termFilter parse-term-filter)
-                   (zx/xml1-> loc :languageFilter parse-language-filter)
-                   (zx/xml1-> loc :typeFilter parse-type-filter)
-                   (zx/xml1-> loc :dialectFilter parse-dialect-filter))]
-    (println "parse-filter result:" result)
-    result))
+  (or (zx/xml1-> loc :termFilter parse-term-filter)
+      (zx/xml1-> loc :languageFilter parse-language-filter)
+      (zx/xml1-> loc :typeFilter parse-type-filter)
+      (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
 
 (defn parse-filter-constraint
   "filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
