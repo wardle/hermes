@@ -241,8 +241,8 @@
 (defn q-and
   [queries]
   (let [builder (BooleanQuery$Builder.)]
-    (doseq [^Query query queries]
-      (.add builder query BooleanClause$Occur/MUST))
+    (doseq [query queries]
+      (.add builder ^Query query BooleanClause$Occur/MUST))
     (.build builder)))
 
 (defn q-self
@@ -260,6 +260,10 @@
   [concept-id]
   (LongPoint/newExactQuery (str snomed/IsA) concept-id))
 
+(defn q-descendantOfAny
+  [^Collection concept-ids]
+  (LongPoint/newSetQuery (str snomed/IsA) concept-ids))
+
 (defn q-descendantOrSelfOf
   "Returns a query that matches descendants of the specified concept plus the specified concept itself."
   [concept-id]
@@ -268,10 +272,22 @@
       (.add (q-descendantOf concept-id) BooleanClause$Occur/SHOULD)
       (.build)))
 
+(defn q-descendantOrSelfOfAny
+  [concept-ids]
+  (-> (BooleanQuery$Builder.)
+      (.add (q-concept-ids concept-ids) BooleanClause$Occur/SHOULD)
+      (.add (q-descendantOfAny concept-ids) BooleanClause$Occur/SHOULD)
+      (.build)))
+
+
 (defn q-childOf
   "A query for direct (proximal) children of the specified concept."
   [concept-id]
   (LongPoint/newExactQuery (str "d" snomed/IsA) concept-id))
+
+(defn q-childOfAny
+  [^Collection concept-ids]
+  (LongPoint/newSetQuery (str "d" snomed/IsA) concept-ids))
 
 (defn q-childOrSelfOf
   "A query for direct (proximal) children of the specified concept plus the concept itself."
@@ -281,10 +297,22 @@
       (.add (q-childOf concept-id) BooleanClause$Occur/SHOULD)
       (.build)))
 
+(defn q-childOrSelfOfAny
+  [^Collection concept-ids]
+  (-> (BooleanQuery$Builder.)
+      (.add (q-concept-ids concept-ids) BooleanClause$Occur/SHOULD)
+      (.add (q-childOfAny concept-ids) BooleanClause$Occur/SHOULD)
+      (.build)))
+
 (defn q-ancestorOf
   "A query for concepts that are ancestors of the specified concept."
   [store concept-id]
   (let [^Collection parents (disj (store/get-all-parents store concept-id) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-ancestorOfAny
+  [store ^Collection concept-ids]
+  (let [^Collection parents (into #{} (mapcat #(disj (store/get-all-parents store %) %) concept-ids))]
     (LongPoint/newSetQuery "concept-id" parents)))
 
 (defn q-ancestorOrSelfOf
@@ -293,14 +321,29 @@
   (let [^Collection parents (store/get-all-parents store concept-id)]
     (LongPoint/newSetQuery "concept-id" parents)))
 
+(defn q-ancestorOrSelfOfAny
+  [store ^Collection concept-ids]
+  (let [^Collection all-parents (into #{} (mapcat #(store/get-all-parents store %) concept-ids))]
+    (LongPoint/newSetQuery "concept-id" all-parents)))
+
 (defn q-parentOf
   [store concept-id]
   (let [^Collection parents (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA))]
     (LongPoint/newSetQuery "concept-id" parents)))
 
+(defn q-parentOfAny
+  [store ^Collection concept-ids]
+  (let [^Collection all-parents (into #{} (mapcat #(map last (#'store/get-raw-parent-relationships store % snomed/IsA)) concept-ids))]
+    (LongPoint/newSetQuery "concept-id" all-parents)))
+
 (defn q-parentOrSelfOf
   [store concept-id]
   (let [^Collection parents (conj (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA)) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parents)))
+
+(defn q-parentOrSelfOfAny
+  [store ^Collection concept-ids]
+  (let [^Collection parents (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %) concept-ids))]
     (LongPoint/newSetQuery "concept-id" parents)))
 
 (defn q-memberOf
@@ -309,6 +352,10 @@
   (LongPoint/newExactQuery "concept-refsets" refset-id))
 
 (defn q-memberOfAny
+  [^Collection refset-ids]
+  (LongPoint/newSetQuery "concept-refsets" refset-ids))
+
+(defn q-memberOfInstalledReferenceSet
   "A query for concepts that are a member of any reference set."
   [store]
   (LongPoint/newSetQuery "concept-refsets" ^Collection (store/get-installed-reference-sets store)))
