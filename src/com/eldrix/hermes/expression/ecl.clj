@@ -54,7 +54,7 @@
   "Realise a query as a set of concept identifiers.
   TODO: exception if results > max-hits"
   [ctx ^Query q]
-  (search/do-query (:searcher ctx) q 10000))
+  (search/do-query-for-concepts (:searcher ctx) q 10000))
 
 
 (defn parse-conjunction-expression-constraint
@@ -555,4 +555,6 @@
   (testq (search/q-and [
                         (search/q-attribute-count 127489000 4 4)
                         (search/q-attribute-in-set 127489000 (store/get-all-children store 387517004))]) 10000)
+
+  (map (partial #'search/scoredoc->result searcher) (seq (.-scoreDocs (.search  searcher (pe "<  56265001 |Heart disease|  {{ term = \"hypertension\", typeId =  900000000000013009 |synonym|  }}") 10000))))
   )

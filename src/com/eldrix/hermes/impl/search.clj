@@ -224,11 +224,15 @@
        (map (partial scoredoc->concept-id searcher))
        (set)))
 
-(defn do-query
+(defn do-query-for-concepts
   "Perform the query, returning results as a set of concept identifiers"
   [^IndexSearcher searcher ^Query query max-hits]
   (let [topdocs ^TopDocs (.search searcher query (int (or max-hits 200)))]
     (topdocs->concept-ids searcher topdocs)))
+
+(defn do-query-for-results
+  [^IndexSearcher searcher ^Query q max-hits]
+  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search  searcher q (int max-hits))))))
 
 (defn q-or
   [queries]
@@ -417,7 +421,7 @@
   (LongPoint/newExactQuery "type-id" type))
 
 (defn q-typeAny
-  [types]
+  [^Collection types]
   (LongPoint/newSetQuery "type-id" types))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
