@@ -462,7 +462,6 @@
                                       :focus-concept         focus-concept
                                       :expression-constraint expression-constraint
                                       :filter-constraints    filter-constraints})))]
-    (println "filter:" filter-constraints)
     (if filter-constraints
       (search/q-and (conj filter-constraints base-query))
       base-query)))
