@@ -179,11 +179,12 @@
       (and (= "=" boolean-comparison-operator) ecl-concept-references)
       (search/q-typeAny ecl-concept-references)
 
+      ;; for '!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
       (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
-      (disj (realise-concept-ids ctx (parse (:store ctx) (:search ctx) "< 900000000000446008")) ecl-concept-reference)
+      (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference)
 
       (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (clojure.set/difference (realise-concept-ids ctx (parse (:store ctx) (:search ctx) "< 900000000000446008")) ecl-concept-references)
+      (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references)
 
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
