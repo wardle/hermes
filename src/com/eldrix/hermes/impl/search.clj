@@ -293,7 +293,6 @@
       (.add (q-descendantOfAny concept-ids) BooleanClause$Occur/SHOULD)
       (.build)))
 
-
 (defn q-childOf
   "A query for direct (proximal) children of the specified concept."
   [concept-id]
@@ -408,6 +407,8 @@
   (if (and (= 0 minimum) (= maximum 0))
     (throw (ex-info "not yet implemented: cardinality [0..0]" {:property property}))
     (IntPoint/newRangeQuery (str "c" property) (int minimum) (int maximum))))
+
+(defn q-term [s] (make-tokens-query s))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q

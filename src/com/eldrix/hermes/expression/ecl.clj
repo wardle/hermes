@@ -117,16 +117,50 @@
         (process-dotted ctx values dotted-expression-attributes))
       subexpression-constraint)))
 
+(defn parse-match-search-term-set [loc]
+  (let [terms (zx/xml-> loc :matchSearchTerm zx/text)]
+    (search/q-and (map search/q-term terms))))
+
+(defn parse-wild-search-term-set
+  "wildSearchTermSet = QM wildSearchTerm QM"
+  [loc]
+  (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
+    (throw (ex-info "not implemented: wildcard term search:" {:term term :s (zx/text loc)}))))
+
+(declare parse-typed-search-term)
+
+(defn parse-typed-search-term-set
+  "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
+  [loc]
+  (let [terms (zx/xml-> loc :typedSearchTerm parse-typed-search-term)]
+    (search/q-and terms)))
+
+(defn parse-typed-search-term [loc]
+  (or (zx/xml1-> loc :matchSearchTermSet parse-match-search-term-set)
+      (zx/xml1-> loc :wildSearchTermSet parse-wild-search-term-set)))
+
 (defn parse-term-filter
   "termFilter = termKeyword ws booleanComparisonOperator ws (typedSearchTerm / typedSearchTermSet)"
   [loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text) ;; "=" or "!="
-        typed-search-term (zx/xml1-> loc :typedSearchTerm zx/text)
-        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet zx/text)]
-    (throw (ex-info "to be implemented: term filter" {:text                  (zx/text loc)
-                                                      :boolean-comparison-op boolean-comparison-operator
-                                                      :typedSearchTerm       typed-search-term
-                                                      :typedSearchTermSet    typed-search-term-set}))))
+        typed-search-term (zx/xml-> loc :typedSearchTerm parse-typed-search-term)
+        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet parse-typed-search-term-set)]
+    (comment
+      (println {:text                  (zx/text loc)
+                :boolean-comparison-op boolean-comparison-operator
+                :typedSearchTerm       typed-search-term
+                :typedSearchTermSet    typed-search-term-set
+                :loc                   loc}))
+    (cond
+      (and (= "=" boolean-comparison-operator) (seq typed-search-term))
+      typed-search-term
+
+      (and (= "=" boolean-comparison-operator) (seq typed-search-term-set))
+      typed-search-term-set
+
+      ;; TODO: support "!=" as a boolean comparison operator
+      :else
+      (throw (ex-info "unsupported term filter" {:s (zx/text loc)})))))
 
 (defn parse-language-filter [loc]
   (throw (ex-info "to be implemented: language filter" {:text (zx/text loc)})))
@@ -140,15 +174,17 @@
 (defn parse-filter
   "filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
-  (or (zx/xml1-> loc :termFilter parse-term-filter)
-      (zx/xml1-> loc :languageFilter parse-language-filter)
-      (zx/xml1-> loc :typeFilter parse-type-filter)
-      (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
+  (let [result (or (zx/xml1-> loc :termFilter parse-term-filter)
+                   (zx/xml1-> loc :languageFilter parse-language-filter)
+                   (zx/xml1-> loc :typeFilter parse-type-filter)
+                   (zx/xml1-> loc :dialectFilter parse-dialect-filter))]
+    (println "parse-filter result:" result)
+    result))
 
 (defn parse-filter-constraint
   "filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
   [ctx loc]
-  (zx/xml1-> loc :filter (partial parse-filter ctx)))
+  (search/q-and (zx/xml-> loc :filter (partial parse-filter ctx))))
 
 (defn parse-cardinality [loc]
   (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
@@ -279,7 +315,6 @@
       (search/q-or (conj disjunction-refinement-set sub-refinement))
       :else sub-refinement)))
 
-
 (defn parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws filterConstraint)"
   [ctx loc]
@@ -288,118 +323,122 @@
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
-        filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))]
-    (cond
-      ;; "*"
-      (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
-      (search/q-descendantOrSelfOf snomed/Root)             ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
+        filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))
+        base-query (cond
+                     ;; "*"
+                     (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
+                     (search/q-descendantOrSelfOf snomed/Root) ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
 
-      ;; "<< *"
-      (and (= :descendantOrSelfOf constraint-operator) wildcard?) ;; "<< *" = all concepts
-      (search/q-descendantOrSelfOf snomed/Root)
+                     ;; "<< *"
+                     (and (= :descendantOrSelfOf constraint-operator) wildcard?) ;; "<< *" = all concepts
+                     (search/q-descendantOrSelfOf snomed/Root)
 
-      ;; ">> *"
-      (and (= :ancestorOrSelfOf constraint-operator) wildcard?) ;; ">> *" = all concepts
-      (search/q-ancestorOrSelfOf ctx snomed/Root)
+                     ;; ">> *"
+                     (and (= :ancestorOrSelfOf constraint-operator) wildcard?) ;; ">> *" = all concepts
+                     (search/q-ancestorOrSelfOf ctx snomed/Root)
 
-      ;; "< *"
-      (and (= :descendantOf constraint-operator) wildcard?) ;; "< *" = all concepts except root
-      (search/q-descendantOf snomed/Root)
+                     ;; "< *"
+                     (and (= :descendantOf constraint-operator) wildcard?) ;; "< *" = all concepts except root
+                     (search/q-descendantOf snomed/Root)
 
-      ;; "<! *"
-      (and (= :childOf constraint-operator) wildcard?)      ;; "<! *" = all concepts except root
-      (search/q-descendantOf snomed/Root)
+                     ;; "<! *"
+                     (and (= :childOf constraint-operator) wildcard?) ;; "<! *" = all concepts except root
+                     (search/q-descendantOf snomed/Root)
 
-      ;; "> *"
-      (and (= :ancestorOf constraint-operator) wildcard?)   ;; TODO: support returning all non-leaf concepts
-      (throw (ex-info "wildcard expressions containing '> *' not yet supported" {:text (zx/text loc)}))
+                     ;; "> *"
+                     (and (= :ancestorOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
+                     (throw (ex-info "wildcard expressions containing '> *' not yet supported" {:text (zx/text loc)}))
 
-      ;; ">! *"
-      (and (= :parentOf constraint-operator) wildcard?)     ;; TODO: support returning all non-leaf concepts
-      (throw (ex-info "wildcard expressions containing '>! *' not yet supported" {:text (zx/text loc)}))
+                     ;; ">! *"
+                     (and (= :parentOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
+                     (throw (ex-info "wildcard expressions containing '>! *' not yet supported" {:text (zx/text loc)}))
 
-      ;; "^ *"
-      (and member-of wildcard?)                             ;; "^ *" = all concepts that are referenced by any reference set in the substrate:
-      (search/q-memberOfInstalledReferenceSet (:store ctx))
+                     ;; "^ *"
+                     (and member-of wildcard?)              ;; "^ *" = all concepts that are referenced by any reference set in the substrate:
+                     (search/q-memberOfInstalledReferenceSet (:store ctx))
 
-      ;; "^ conceptId"
-      (and member-of (:conceptId focus-concept))
-      (search/q-memberOf (:conceptId focus-concept))
+                     ;; "^ conceptId"
+                     (and member-of (:conceptId focus-concept))
+                     (search/q-memberOf (:conceptId focus-concept))
 
-      (and member-of expression-constraint)
-      (search/q-memberOfAny (realise-concept-ids ctx expression-constraint))
+                     (and member-of expression-constraint)
+                     (search/q-memberOfAny (realise-concept-ids ctx expression-constraint))
 
-      (and (nil? constraint-operator) expression-constraint)
-      expression-constraint
+                     (and (nil? constraint-operator) expression-constraint)
+                     expression-constraint
 
-      (and (= :descendantOf constraint-operator) expression-constraint)
-      (search/q-descendantOfAny (realise-concept-ids ctx expression-constraint))
+                     (and (= :descendantOf constraint-operator) expression-constraint)
+                     (search/q-descendantOfAny (realise-concept-ids ctx expression-constraint))
 
-      (and (= :descendentOrSelfOf constraint-operator) expression-constraint)
-      (search/q-descendantOrSelfOfAny (realise-concept-ids ctx expression-constraint))
+                     (and (= :descendentOrSelfOf constraint-operator) expression-constraint)
+                     (search/q-descendantOrSelfOfAny (realise-concept-ids ctx expression-constraint))
 
-      (and (= :childOf constraint-operator) expression-constraint)
-      (search/q-childOfAny (realise-concept-ids ctx expression-constraint))
+                     (and (= :childOf constraint-operator) expression-constraint)
+                     (search/q-childOfAny (realise-concept-ids ctx expression-constraint))
 
-      (and (= :childOrSelfOf constraint-operator) expression-constraint)
-      (search/q-childOrSelfOfAny (realise-concept-ids ctx expression-constraint))
+                     (and (= :childOrSelfOf constraint-operator) expression-constraint)
+                     (search/q-childOrSelfOfAny (realise-concept-ids ctx expression-constraint))
 
-      (and (= :ancestorOf constraint-operator) expression-constraint)
-      (search/q-ancestorOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (and (= :ancestorOf constraint-operator) expression-constraint)
+                     (search/q-ancestorOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
 
-      (and (= :ancestorOrSelfOf constraint-operator) expression-constraint)
-      (search/q-ancestorOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (and (= :ancestorOrSelfOf constraint-operator) expression-constraint)
+                     (search/q-ancestorOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
 
-      (and (= :parentOf constraint-operator) expression-constraint)
-      (search/q-parentOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (and (= :parentOf constraint-operator) expression-constraint)
+                     (search/q-parentOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
 
-      (and (= :parentOrSelfOf constraint-operator) expression-constraint)
-      (search/q-parentOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (and (= :parentOrSelfOf constraint-operator) expression-constraint)
+                     (search/q-parentOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
 
-      ;; "conceptId"  == SELF
-      (and (nil? constraint-operator) (:conceptId focus-concept))
-      (search/q-self (:conceptId focus-concept))
+                     ;; "conceptId"  == SELF
+                     (and (nil? constraint-operator) (:conceptId focus-concept))
+                     (search/q-self (:conceptId focus-concept))
 
-      ;; "< conceptId"
-      (and (= :descendantOf constraint-operator) (:conceptId focus-concept))
-      (search/q-descendantOf (:conceptId focus-concept))
+                     ;; "< conceptId"
+                     (and (= :descendantOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-descendantOf (:conceptId focus-concept))
 
-      ;; "<< conceptId"
-      (and (= :descendantOrSelfOf constraint-operator) (:conceptId focus-concept))
-      (search/q-descendantOrSelfOf (:conceptId focus-concept))
+                     ;; "<< conceptId"
+                     (and (= :descendantOrSelfOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-descendantOrSelfOf (:conceptId focus-concept))
 
-      ;; "<! conceptId"
-      (and (= :childOf constraint-operator) (:conceptId focus-concept))
-      (search/q-childOf (:conceptId focus-concept))
+                     ;; "<! conceptId"
+                     (and (= :childOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-childOf (:conceptId focus-concept))
 
-      ;; "<<! conceptId"
-      (and (= :childOrSelfOf constraint-operator) (:conceptId focus-concept))
-      (search/q-childOrSelfOf (:conceptId focus-concept))
+                     ;; "<<! conceptId"
+                     (and (= :childOrSelfOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-childOrSelfOf (:conceptId focus-concept))
 
-      ;; "> conceptId"
-      (and (= :ancestorOf constraint-operator) (:conceptId focus-concept))
-      (search/q-ancestorOf (:store ctx) (:conceptId focus-concept))
+                     ;; "> conceptId"
+                     (and (= :ancestorOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-ancestorOf (:store ctx) (:conceptId focus-concept))
 
-      ;; ">> conceptId"
-      (and (= :ancestorOrSelfOf constraint-operator) (:conceptId focus-concept))
-      (search/q-ancestorOrSelfOf (:store ctx) (:conceptId focus-concept))
+                     ;; ">> conceptId"
+                     (and (= :ancestorOrSelfOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-ancestorOrSelfOf (:store ctx) (:conceptId focus-concept))
 
-      ;; ">! conceptId"
-      (and (= :parentOf constraint-operator) (:conceptId focus-concept))
-      (search/q-parentOf (:store ctx) (:conceptId focus-concept))
+                     ;; ">! conceptId"
+                     (and (= :parentOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-parentOf (:store ctx) (:conceptId focus-concept))
 
-      ;; ">>! conceptId"
-      (and (= :parentOrSelfOf constraint-operator) (:conceptId focus-concept))
-      (search/q-parentOrSelfOf (:store ctx) (:conceptId focus-concept))
+                     ;; ">>! conceptId"
+                     (and (= :parentOrSelfOf constraint-operator) (:conceptId focus-concept))
+                     (search/q-parentOrSelfOf (:store ctx) (:conceptId focus-concept))
 
-      :else
-      (throw (ex-info "error: unimplemented expression fragment; use `(ex-data *e)` to see context."
-                      {:text                  (zx/text loc)
-                       :constraint-operator   constraint-operator
-                       :member-of             member-of
-                       :focus-concept         focus-concept
-                       :expression-constraint expression-constraint
-                       :filter-constraints    filter-constraints})))))
+                     :else
+                     (throw (ex-info "error: unimplemented expression fragment; use `(ex-data *e)` to see context."
+                                     {:text                  (zx/text loc)
+                                      :constraint-operator   constraint-operator
+                                      :member-of             member-of
+                                      :focus-concept         focus-concept
+                                      :expression-constraint expression-constraint
+                                      :filter-constraints    filter-constraints})))]
+    (println "filter:" filter-constraints)
+    (if filter-constraints
+      (search/q-and (conj filter-constraints base-query))
+      base-query)))
 
 (defn parse-refined-expression-constraint
   [ctx loc]
@@ -425,6 +464,7 @@
                                                    :searcher searcher})))
 
 (comment
+  ;; TODO: move into live service test suite
   (do
     (def store (store/open-store "snomed.db/store.db"))
     (def index-reader (search/open-index-reader "snomed.db/search.db"))
@@ -432,7 +472,6 @@
     (def testq (comp clojure.pprint/print-table (partial search/test-query store searcher)))
     (def pe (partial parse store searcher))
     )
-
 
   ;; this should be satisfied only by the specified concept
   (def self "404684003 |Clinical finding|")
