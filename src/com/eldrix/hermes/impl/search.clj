@@ -218,7 +218,6 @@
         (when (and (= fuzzy 0) (> fallback 0))
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
-
 (defn topdocs->concept-ids
   [searcher ^TopDocs top-docs]
   (->> (seq (.-scoreDocs top-docs))
@@ -412,6 +411,14 @@
 
 (defn q-wildcard [s]
   (WildcardQuery. (Term. "term" ^String s)))
+
+(defn q-type
+  [type]
+  (LongPoint/newExactQuery "type-id" type))
+
+(defn q-typeAny
+  [types]
+  (LongPoint/newSetQuery "type-id" types))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q

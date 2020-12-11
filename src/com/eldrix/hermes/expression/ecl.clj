@@ -17,6 +17,7 @@
 (def ecl-parser
   (insta/parser (io/resource "ecl-v1.5.abnf") :input-format :abnf :output-format :enlive))
 
+(declare parse)
 (declare parse-ecl-attribute-set)
 (declare parse-ecl-refinement)
 (declare parse-expression-constraint)
@@ -163,10 +164,38 @@
       (throw (ex-info "unsupported term filter" {:s (zx/text loc)})))))
 
 (defn parse-language-filter [loc]
-  (throw (ex-info "to be implemented: language filter" {:text (zx/text loc)})))
+  (throw (ex-info "language filters are not supported; use dialect filter / language reference sets" {:text (zx/text loc)})))
 
-(defn parse-type-filter [loc]
-  (throw (ex-info "to be implemented: type filter" {:text (zx/text loc)})))
+(defn parse-type-id-filter
+  "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
+  [ctx loc]
+  (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        ecl-concept-reference (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
+        ecl-concept-references (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId)]
+    (cond
+      (and (= "=" boolean-comparison-operator) ecl-concept-reference)
+      (search/q-type ecl-concept-reference)
+
+      (and (= "=" boolean-comparison-operator) ecl-concept-references)
+      (search/q-typeAny ecl-concept-references)
+
+      (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
+      (disj (realise-concept-ids ctx (parse (:store ctx) (:search ctx) "< 900000000000446008")) ecl-concept-reference)
+
+      (and (= "!=" boolean-comparison-operator) ecl-concept-references)
+      (clojure.set/difference (realise-concept-ids ctx (parse (:store ctx) (:search ctx) "< 900000000000446008")) ecl-concept-references)
+
+      :else
+      (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
+
+(defn parse-type-token-filter [loc]
+  (throw (ex-info "not implemented" {:s (zx/text loc)})))
+
+(defn parse-type-filter
+  "typeFilter = typeIdFilter / typeTokenFilter"
+  [ctx loc]
+  (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
+      (zx/xml1-> loc :typeTokenFilter parse-type-token-filter)))
 
 (defn parse-dialect-filter [loc]
   (throw (ex-info "to be implemented: dialect filter" {:text (zx/text loc)})))
@@ -176,7 +205,7 @@
   [ctx loc]
   (or (zx/xml1-> loc :termFilter parse-term-filter)
       (zx/xml1-> loc :languageFilter parse-language-filter)
-      (zx/xml1-> loc :typeFilter parse-type-filter)
+      (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
       (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
 
 (defn parse-filter-constraint
