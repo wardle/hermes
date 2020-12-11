@@ -233,17 +233,31 @@
 
 (defn q-or
   [queries]
-  (let [builder (BooleanQuery$Builder.)]
-    (doseq [^Query query queries]
-      (.add builder query BooleanClause$Occur/SHOULD))
-    (.build builder)))
+  (case (count queries)
+    0 nil
+    1 (first queries)
+    (let [builder (BooleanQuery$Builder.)]
+      (doseq [^Query query queries]
+        (.add builder query BooleanClause$Occur/SHOULD))
+      (.build builder))))
 
 (defn q-and
   [queries]
-  (let [builder (BooleanQuery$Builder.)]
-    (doseq [query queries]
-      (.add builder ^Query query BooleanClause$Occur/MUST))
-    (.build builder)))
+  (case (count queries)
+    0 nil
+    1 (first queries)
+    (let [builder (BooleanQuery$Builder.)]
+      (doseq [query queries]
+        (.add builder ^Query query BooleanClause$Occur/MUST))
+      (.build builder))))
+
+(defn q-not
+  "Returns the logical query of q1 NOT q2"
+  [^Query q1 ^Query q2]
+  (-> (BooleanQuery$Builder.)
+      (.add q1 BooleanClause$Occur/MUST)
+      (.add q2 BooleanClause$Occur/MUST_NOT)
+      (.build)))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."
@@ -387,12 +401,12 @@
   Parameters
   - property    : concept-id of the attribute
   - minimum     : minimum count
-  - maximum     : maximum count (use Integer/MAX_VALUE or zero for half-open range)
+  - maximum     : maximum count (use Integer/MAX_VALUE for half-open range)
   For example, get concepts with 4 or more active ingredients:
   (q-attribute-count 127489000 4 0)"
   [property minimum maximum]
-  (if (and (= 0 minimum) (or (= maximum 0) (= maximum Integer/MAX_VALUE)))
-    nil
+  (if (and (= 0 minimum) (= maximum 0))
+    (throw (ex-info "not yet implemented: cardinality [0..0]" {:property property}))
     (IntPoint/newRangeQuery (str "c" property) (int minimum) (int maximum))))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]

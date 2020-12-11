@@ -67,7 +67,10 @@
   [ctx loc]
   (search/q-or (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
-(defn parse-exclusion-expression-constraint [ctx loc])
+(defn parse-exclusion-expression-constraint [ctx loc]
+  (let [[exp exclusion] (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
+    (println {:exp exp :exclusion exclusion})
+    (search/q-not exp exclusion)))
 
 (defn parse-compound-expression-constraint
   "compoundExpressionConstraint = conjunctionExpressionConstraint / disjunctionExpressionConstraint / exclusionExpressionConstraint"
@@ -130,8 +133,9 @@
         attribute-query (search/q-or (map #(search/q-attribute-in-set % subexp-result) attribute-concept-ids))]
     (cond
       ;; we are not trying to implement edge case of an expression containing both cardinality and reversal, at least not yet
+      ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.3+Cardinality for how it *should* work
       (and cardinality reverse-flag?)
-      (throw (ex-info "expressions containing both cardinality and reverse flag not supported." {:text (zx/text loc)}))
+      (throw (ex-info "expressions containing both cardinality and reverse flag not yet supported." {:text (zx/text loc)}))
 
       ;; if reverse, we need to take the values (subexp-result), and for each take the value(s) of the property
       ;; specified to build a list of concept identifiers from which to build a query.
@@ -140,9 +144,9 @@
 
       ;; if we have cardinality, add a clause to ensure we have the right count for those properties
       cardinality
-      (search/q-and
-        (conj (map #(search/q-attribute-count % (:min-value cardinality) (:max-value cardinality)) attribute-concept-ids)
-              attribute-query))
+      (search/q-and (filter identity
+                            (conj (map #(search/q-attribute-count % (:min-value cardinality) (:max-value cardinality)) attribute-concept-ids)
+                                  attribute-query)))
 
       :else
       attribute-query)))
@@ -289,7 +293,7 @@
       (search/q-memberOf (:conceptId focus-concept))
 
       (and member-of expression-constraint)
-      (search/q-memberOf (realise-concept-ids ctx expression-constraint))
+      (search/q-memberOfAny (realise-concept-ids ctx expression-constraint))
 
       (and (nil? constraint-operator) expression-constraint)
       expression-constraint
@@ -419,6 +423,7 @@
 
   (def refinement " <  19829001 |Disorder of lung| :         116676008 |Associated morphology|  =  79654002 |Edema|")
   (pe refinement)
+  (testq (pe refinement) 1000)
 
   (pe "   <  19829001 |Disorder of lung| :          116676008 |Associated morphology|  = <<  79654002 |Edema|")
   (pe "<  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|")
@@ -429,9 +434,9 @@
 
   ;; this has descendants of associated with as a property so should match any of those with
   ;; any of the descendants of oedema.
-  (pe " <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|")
+  (testq (pe " <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|") 100000)
 
-  (pe "<  373873005 |Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|")
+  (testq (pe "<  373873005 |Pharmaceutical / biologic product| : [0..0]  127489000 |Has active ingredient|  = <  105590001 |Substance|") 10000)
 
 
   (pe "<  404684003 |Clinical finding| :   363698007 |Finding site|  =     <<  39057004 |Pulmonary valve structure| ,  116676008 |Associated morphology|  =     <<  415582006 |Stenosis|")
