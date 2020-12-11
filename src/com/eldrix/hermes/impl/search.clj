@@ -9,7 +9,7 @@
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs)
+           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
@@ -409,6 +409,9 @@
     (IntPoint/newRangeQuery (str "c" property) (int minimum) (int maximum))))
 
 (defn q-term [s] (make-tokens-query s))
+
+(defn q-wildcard [s]
+  (WildcardQuery. (Term. "term" ^String s)))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q

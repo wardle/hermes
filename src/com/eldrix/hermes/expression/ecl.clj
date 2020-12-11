@@ -125,7 +125,7 @@
   "wildSearchTermSet = QM wildSearchTerm QM"
   [loc]
   (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
-    (throw (ex-info "not implemented: wildcard term search:" {:term term :s (zx/text loc)}))))
+    (search/q-wildcard term)))
 
 (declare parse-typed-search-term)
 
