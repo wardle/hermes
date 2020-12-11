@@ -164,7 +164,7 @@
       (throw (ex-info "unsupported term filter" {:s (zx/text loc)})))))
 
 (defn parse-language-filter [loc]
-  (throw (ex-info "language filters are not supported; use dialect filter / language reference sets" {:text (zx/text loc)})))
+  (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
 
 (defn parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
