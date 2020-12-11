@@ -1,11 +1,11 @@
 # Hermes : terminology tools and services
 
-[![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/hermes/)
-[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/hermes/)
-
 >
 > Hermes:  "Herald of the gods."
 >
+
+[![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/hermes/)
+[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo)](https://github.com/wardle/hermes/)
 
 Hermes provides a set of terminology tools built around SNOMED CT including:
 
@@ -18,7 +18,7 @@ It is designed as both library for embedding into larger applications, or as a m
 It replaces previous similar tools written in java and golang and is designed to fit into a wider architecture
 with identifier resolution, mapping and semantics as first-class abstractions.
 
-### How to use
+### A. How to download and build a terminology service
 
 Ensure you have a pre-built jar file, or the source code checked out from github. See below for build instructions.
 
@@ -113,7 +113,13 @@ In your `deps.edn` file (make sure you change the commit-id):
                     :sha     "097e3094070587dc9362ca4564401a924bea952c"}
 ``` 
 
-### Running or building from source code
+### B. How to use a running service in your own applications
+
+The terminology server can be embedded into your own applications or, more
+commonly, you would use as a standalone web service. Further documentation
+will follow.
+
+### C. How to run or build from source code
 
 #### Run compilation checks (optional)
 
