@@ -181,24 +181,43 @@
 
       ;; for '!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
       (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
-      (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference)
+      (search/q-typeAny (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference))
 
       (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references)
+      (search/q-typeAny (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references))
 
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
 
-(defn parse-type-token-filter [loc]
-  (throw (ex-info "not implemented" {:s (zx/text loc)})))
+(def type-token->type-id
+  {:FSN 900000000000003001
+   :SYN 900000000000013009
+   :DEF 900000000000550004})
+
+(defn parse-type-token-filter
+  "type ws booleanComparisonOperator ws (typeToken / typeTokenSet)
+  typeToken = synonym / fullySpecifiedName / definition
+  typeTokenSet = \"(\" ws typeToken *(mws typeToken) ws \")\""
+  [ctx loc]
+  (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        type-token (keyword (zx/xml1-> loc :typeToken zx/text))
+        type-tokens (map keyword (zx/xml-> loc :typeTokenSet :typeToken zx/text))
+        types (map type-token->type-id (filter identity (conj type-tokens type-token)))
+        type-ids (case boolean-comparison-operator
+                     "=" types
+                     "!=" (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) types)
+                     (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
+    (search/q-typeAny type-ids)))
 
 (defn parse-type-filter
   "typeFilter = typeIdFilter / typeTokenFilter"
   [ctx loc]
   (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
-      (zx/xml1-> loc :typeTokenFilter parse-type-token-filter)))
+      (zx/xml1-> loc :typeTokenFilter (partial parse-type-token-filter ctx))))
 
-(defn parse-dialect-filter [loc]
+(defn parse-dialect-filter
+  "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
+  [loc]
   (throw (ex-info "to be implemented: dialect filter" {:text (zx/text loc)})))
 
 (defn parse-filter
@@ -538,7 +557,6 @@
 
   (testq (pe "<  373873005 |Pharmaceutical / biologic product| : [0..0]  127489000 |Has active ingredient|  = <  105590001 |Substance|") 10000)
 
-
   (pe "<  404684003 |Clinical finding| :   363698007 |Finding site|  =     <<  39057004 |Pulmonary valve structure| ,  116676008 |Associated morphology|  =     <<  415582006 |Stenosis|")
 
   (def loc (zx/xml1-> (zip/xml-zip (ecl-parser refinement)) :expressionConstraint))
@@ -557,5 +575,4 @@
                         (search/q-attribute-count 127489000 4 4)
                         (search/q-attribute-in-set 127489000 (store/get-all-children store 387517004))]) 10000)
 
-  (map (partial #'search/scoredoc->result searcher) (seq (.-scoreDocs (.search  searcher (pe "<  56265001 |Heart disease|  {{ term = \"hypertension\", typeId =  900000000000013009 |synonym|  }}") 10000))))
   )
