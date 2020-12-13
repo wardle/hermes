@@ -1,17 +1,17 @@
 (ns com.eldrix.hermes.expression.ecl
-  "Support for SNOMED CT expression constraint language.
+  "Implementation of the SNOMED CT expression constraint language.
   See http://snomed.org/ecl"
   (:require [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.string :as str]
-            [clojure.walk :as walk]
+            [clojure.set :as set]
             [clojure.zip :as zip]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
-            [instaparse.core :as insta])
+            [instaparse.core :as insta]
+            [clojure.string :as str])
   (:import (org.apache.lucene.search Query)))
 
 (def ecl-parser
@@ -184,7 +184,7 @@
       (search/q-typeAny (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference))
 
       (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (search/q-typeAny (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references))
+      (search/q-typeAny (set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references))
 
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
@@ -204,9 +204,9 @@
         type-tokens (map keyword (zx/xml-> loc :typeTokenSet :typeToken zx/text))
         types (map type-token->type-id (filter identity (conj type-tokens type-token)))
         type-ids (case boolean-comparison-operator
-                     "=" types
-                     "!=" (clojure.set/difference (store/get-all-children (:store ctx) 900000000000446008) types)
-                     (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
+                   "=" types
+                   "!=" (set/difference (store/get-all-children (:store ctx) 900000000000446008) types)
+                   (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
 (defn parse-type-filter
@@ -215,10 +215,134 @@
   (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
       (zx/xml1-> loc :typeTokenFilter (partial parse-type-token-filter ctx))))
 
+
+(def acceptability->kw
+  "Map a token or a concept identifier to a keyword."
+  {"accept"           :acceptable-in
+   "acceptable"       :acceptable-in
+   900000000000549004 :acceptable-in
+   "prefer"           :preferred-in
+   "preferred"        :preferred-in
+   900000000000548007 :preferred-in})
+
+(defn parse-acceptability-set->kws
+  "Parse acceptability set into a sequence of keywords.
+  Result is either ':acceptable-in' or ':preferred-in'
+  acceptabilitySet = acceptabilityIdSet / acceptabilityTokenSet
+  acceptabilityIdSet = eclConceptReferenceSet
+  acceptabilityTokenSet = ( ws acceptabilityToken *(mws acceptabilityToken) ws )
+  acceptabilityToken = acceptable / preferred"
+  [loc]
+  (let [ids (or (seq (zx/xml-> loc :acceptabilityIdSet :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))
+                (map str/lower-case (zx/xml-> loc :acceptabilityTokenSet :acceptabilityToken zx/text)))]
+    (map acceptability->kw ids)))
+
+
+(defn parse-dialect-set
+  "Parse either a dialect-alias-set or a dialect-id-set. Turns either a concept id or a dialect alias into
+  a refset identifier. Returns as a vector - dialect reference set id then acceptability and so on.
+
+  dialectAliasSet = \"(\" ws dialectAlias [ws acceptabilitySet] *(mws dialectAlias [ws acceptabilitySet] ) ws \")\"
+  dialectIdSet = \"(\" ws eclConceptReference [ws acceptabilitySet] *(mws eclConceptReference [ws acceptabilitySet] ) ws \")\""
+  [default-acceptability loc]
+  ;; A dialect set is tricky to parse as there are optional acceptability sets refining the acceptability for the
+  ;; alias/id in question, but a potential broad acceptability as defined at the filter level which should be applied to
+  ;; each alias/id unless one is explicitly stated at the dialect alias/id set level.
+  ;; So, here we get the components of the dialect alias/id set as a sequence of pairs, handling missing acceptabilities as
+  ;; needed.
+  (loop [tag (zip/down loc)
+         results []]
+    (if (zip/end? tag)
+      (let [c (count results)]
+        (cond (= c 0) nil
+              (even? c) results
+              :else (conj results default-acceptability)))
+      (let [alias (zx/xml1-> tag :dialectAlias zx/text)
+            mapped (lang/dialect->refset-id alias)          ;; doesn't matter if alias is nil
+            concept-id (zx/xml1-> tag :eclConceptReference :conceptId parse-conceptId)
+            acceptability (zx/xml1-> tag :acceptabilitySet parse-acceptability-set->kws)]
+        (recur
+          (zip/next tag)
+          (let [c (count results)]
+            (cond
+              (and (nil? alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
+              results
+
+              (and alias (nil? mapped))
+              (throw (ex-info "unknown dialect: '" alias "'"))
+
+              (and (even? c) mapped)                        ;; if it's an alias or id, and we're ready for it, add it
+              (conj results mapped)
+
+              (and (even? c) concept-id)
+              (conj results concept-id)
+
+              (and (odd? c) mapped)                         ;; if it's an alias or id, and we're not ready, insert an acceptability first
+              (apply conj results [default-acceptability mapped])
+
+              (and (odd? c) concept-id)
+              (apply conj results [default-acceptability concept-id])
+
+              (and (even? c) acceptability)                 ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
+              (throw (ex-info "parse error: acceptability before dialect alias" {:s (zx/text loc) :alias alias :acceptability acceptability :results results :count count}))
+
+              (and (odd? c) acceptability)                  ;; if it's an acceptability and we're ready, add it.
+              (conj results acceptability))))))))
+
+(defn parse-dialect-id-filter
+  "dialectIdFilter = dialectId ws booleanComparisonOperator ws (eclConceptReference / dialectIdSet)"
+  [acceptability-set loc]
+  (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        refset-id (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
+        refset-ids (zx/xml-> loc :dialectAliasSet (partial parse-dialect-set acceptability-set))]
+    (cond
+      (and (= "=" boolean-comparison-operator) refset-id acceptability-set)
+      (search/q-acceptability acceptability-set refset-id)
+
+      (and (= "=" boolean-comparison-operator) refset-id)
+      (search/q-description-memberOf refset-id)
+
+      (and (= "=" boolean-comparison-operator (seq refset-ids)))
+      (let [m (apply hash-map refset-ids)]
+        (search/q-or (map (fn [[refset-id accept]]
+                            (if accept
+                              (search/q-acceptability accept refset-id)
+                              (search/q-description-memberOf refset-id))) m))))))
+
+(defn parse-dialect-alias-filter
+  "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
+  [acceptability-set loc]
+  (let [op (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        dialect-alias (lang/dialect->refset-id (zx/xml1-> loc :dialectAlias zx/text))
+        dialect-aliases (zx/xml-> loc :dialectAliasSet (partial parse-dialect-set acceptability-set))]
+    (cond
+      (and (= "=" op) acceptability-set dialect-alias)
+      (search/q-acceptability acceptability-set dialect-alias)
+
+      (and (= "=" op) dialect-alias)
+      (search/q-description-memberOf dialect-alias)
+
+      (and (= "=" op) (seq dialect-aliases))
+      (let [m (apply hash-map dialect-aliases)]
+        (search/q-or (map (fn [[refset-id accept]]
+                            (if accept
+                              (search/q-acceptability accept refset-id)
+                              (search/q-description-memberOf refset-id))) m)))
+
+      :else
+      (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
+
+
 (defn parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
   [loc]
-  (throw (ex-info "to be implemented: dialect filter" {:text (zx/text loc)})))
+  ;; Pass the acceptability set to the parsers of dialectIdFilter or dialectAliasFilter
+  ;  because adding acceptability changes the generated query from one of concept
+  ;  refset membership to using the 'preferred-in' and 'acceptable-in' indexes
+  ;  specially designed for that purpose.
+  (let [acceptability-set (zx/xml1-> loc :acceptabilitySet parse-acceptability-set->kws)]
+    (or (zx/xml1-> loc :dialectIdFilter (partial parse-dialect-id-filter acceptability-set))
+        (zx/xml1-> loc :dialectAliasFilter (partial parse-dialect-alias-filter acceptability-set)))))
 
 (defn parse-filter
   "filter = termFilter / languageFilter / typeFilter / dialectFilter"
@@ -574,5 +698,12 @@
   (testq (search/q-and [
                         (search/q-attribute-count 127489000 4 4)
                         (search/q-attribute-in-set 127489000 (store/get-all-children store 387517004))]) 10000)
+
+  (def dialect-test "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
+  (def root (zip/xml-zip (ecl-parser dialect-test)))
+
+  (pe "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
+
+  (apply hash-map (zx/xml-> root :subExpressionConstraint :filterConstraint :filter :dialectFilter :dialectAliasFilter :dialectAliasSet (partial parse-dialect-alias-set nil)))
 
   )

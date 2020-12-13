@@ -371,6 +371,15 @@
   [^Collection refset-ids]
   (LongPoint/newSetQuery "concept-refsets" refset-ids))
 
+(defn q-description-memberOf
+  [refset-id]
+  (LongPoint/newExactQuery "description-refsets" refset-id))
+
+(defn q-description-memberOfAny
+  [^Collection refset-ids]
+  (LongPoint/newSetQuery "description-refsets" refset-ids))
+
+
 (defn q-memberOfInstalledReferenceSet
   "A query for concepts that are a member of any reference set."
   [store]
@@ -423,6 +432,20 @@
 (defn q-typeAny
   [^Collection types]
   (LongPoint/newSetQuery "type-id" types))
+
+(defn q-acceptability
+  [accept refset-id]
+  (case accept
+    :preferred-in (LongPoint/newExactQuery "preferred-in" refset-id)
+    :acceptable-in (LongPoint/newExactQuery "acceptable-in" refset-id)
+    (throw (IllegalArgumentException. (str "unknown acceptability '" accept "'")))))
+
+(defn q-acceptabilityAny
+  [accept ^Collection refset-ids]
+  (case accept
+    :preferred-in (LongPoint/newSetQuery "preferred-in" refset-ids)
+    :acceptable-in (LongPoint/newSetQuery "acceptable-in" refset-ids)
+    (throw (IllegalArgumentException. (str "unknown acceptability '" accept "'")))))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q
