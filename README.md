@@ -12,6 +12,7 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 * a fast RESTful terminology server with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
 * cross-mapping to and from other code systems
+* support for SNOMED CT compositional grammar and the SNOMED CT expression constraint language.
 
 It is designed as both library for embedding into larger applications, or as a microservice. 
 
