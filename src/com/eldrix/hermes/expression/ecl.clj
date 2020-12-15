@@ -651,10 +651,14 @@
   "Parse SNOMED-CT ECL, as defined by the expression constraint language
   See http://snomed.org/ecl"
   [store searcher s]
-  (zx/xml1-> (zip/xml-zip (ecl-parser s))
-             :expressionConstraint
-             (partial parse-expression-constraint {:store    store
-                                                   :searcher searcher})))
+  (let [p (ecl-parser s)]
+    (if (insta/failure? p)
+      (let [fail (insta/get-failure p)]
+        (throw (ex-info (str "invalid SNOMED ECL expression at line " (:line p) ", column " (:column p) ": '" (:text p) "'.") fail)))
+      (zx/xml1-> (zip/xml-zip p)
+                 :expressionConstraint
+                 (partial parse-expression-constraint {:store    store
+                                                       :searcher searcher})))))
 
 (comment
   ;; TODO: move into live service test suite
