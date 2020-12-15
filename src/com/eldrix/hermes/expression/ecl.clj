@@ -429,6 +429,8 @@
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
         string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
         boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+    (when-not (seq attribute-concept-ids)
+      (throw (ex-info "attribute expression resulted in no valid attributes" {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
     (cond
       expression-operator
       (case expression-operator
