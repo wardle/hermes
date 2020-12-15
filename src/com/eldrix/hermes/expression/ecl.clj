@@ -258,7 +258,7 @@
               results
 
               (and alias (nil? mapped))
-              (throw (ex-info "unknown dialect: '" alias "'"))
+              (throw (ex-info (str "unknown dialect: '" alias "'") {:s (zx/text loc)}))
 
               (and (even? c) mapped)                        ;; if it's an alias or id, and we're ready for it, add it
               (conj results mapped)
