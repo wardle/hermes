@@ -414,7 +414,7 @@
   [property coll]
   (if (= 0 (count coll))
     nil
-    (LongPoint/newSetQuery (str property) ^Collection coll)))
+    (LongPoint/newSetQuery (str "d" property) ^Collection coll)))
 
 (defn q-attribute-count
   "A query for documents for a count direct properties (parent relationships) of

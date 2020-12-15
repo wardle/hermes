@@ -9,7 +9,8 @@
            (org.mapdb Serializer BTreeMap DB DBMaker)
            (org.mapdb.serializer SerializerArrayTuple)
            (java.util NavigableSet)
-           (java.time LocalDate)))
+           (java.time LocalDate)
+           (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
 (set! *warn-on-reflection* true)
 
@@ -407,11 +408,11 @@
   "Returns a collection of identifiers representing the parent relationships of
   the specified type of the specified concept."
   [store concept-id type-concept-id]
-  (map last (get-raw-parent-relationships store concept-id type-concept-id)))
+  (set (map last (get-raw-parent-relationships store concept-id type-concept-id))))
 
 (defn get-parent-relationships-of-types
   [store concept-id type-concept-ids]
-  (mapcat (partial get-parent-relationships-of-type store concept-id) type-concept-ids ))
+  (set (mapcat (partial get-parent-relationships-of-type store concept-id) type-concept-ids)))
 
 (defn get-parent-relationships-expanded
   "Returns all of the parent relationships, expanded to
@@ -444,11 +445,6 @@
              children (if done-already? () (map last (get-raw-child-relationships store id type-id)))]
          (recur (apply conj (rest work) children)
                 (conj result id)))))))
-
-(defn is-a?
-  "Is `child` a type of `parent`?"
-  [^MapDBStore store child parent]
-  (contains? (get-all-parents store child) parent))
 
 (defn get-leaves
   "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
@@ -549,6 +545,29 @@
       parent-relationships
       direct-parent-relationships
       refsets)))
+
+
+(defmulti is-a? (fn [store concept parent-id] (class concept)))
+
+(defmethod is-a? Long [store concept-id parent-id]
+  (contains? (get-all-parents store concept-id) parent-id))
+
+(defmethod is-a? Concept [store concept parent-id]
+  (contains? (get-all-parents store (:id concept)) parent-id))
+
+(defmethod is-a? ExtendedConcept [store extended-concept parent-id]
+  (contains? (get-in extended-concept [:parent-relationships snomed/IsA]) parent-id))
+
+(defmulti has-property? (fn [store concept property-id value-id] (class concept)))
+
+(defmethod has-property? Long [store concept-id property-id value-id]
+  (contains? (get-parent-relationships-of-type store concept-id property-id) value-id))
+
+(defmethod has-property? Concept [store concept property-id value-id]
+  (contains? (get-parent-relationships-of-type store (:id concept) property-id) value-id))
+
+(defmethod has-property? ExtendedConcept [_ extended-concept property-id value-id]
+  (contains? (get-in extended-concept [:parent-relationships property-id]) value-id))
 
 (comment
   (set! *warn-on-reflection* true)
