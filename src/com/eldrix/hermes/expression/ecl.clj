@@ -5,13 +5,13 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.zip :as zip]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
-            [instaparse.core :as insta]
-            [clojure.string :as str])
+            [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query)))
 
 (def ecl-parser
@@ -35,19 +35,16 @@
     (merge {:conceptId conceptId}
            (when term {:term term}))))
 
-(defn parse-constraint-operator
+(defn- parse-constraint-operator
   "constraintOperator = childOf / childOrSelfOf / descendantOrSelfOf / descendantOf / parentOf / parentOrSelfOf / ancestorOrSelfOf / ancestorOf"
   [loc]
   (:tag (first (zip/down loc))))
 
-(defn parse-focus-concept
+(defn- parse-focus-concept
   "eclFocusConcept = eclConceptReference / wildCard"
   [loc]
-  (let [cr (zx/xml1-> loc :eclConceptReference parse-concept-reference)
-        wildcard (zx/xml1-> loc :wildCard zx/text)]
-    (if cr
-      cr
-      :wildcard)))
+  (let [cr (zx/xml1-> loc :eclConceptReference parse-concept-reference)]
+    (if cr cr :wildcard)))
 
 (defn realise-concept-ids
   "Realise a query as a set of concept identifiers.
@@ -56,18 +53,18 @@
   (search/do-query-for-concepts (:searcher ctx) q 10000))
 
 
-(defn parse-conjunction-expression-constraint
+(defn- parse-conjunction-expression-constraint
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
   [ctx loc]
   (search/q-and (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
 
-(defn parse-disjunction-expression-constraint
+(defn- parse-disjunction-expression-constraint
   "disjunctionExpressionConstraint = subExpressionConstraint 1*(ws disjunction ws subExpressionConstraint)"
   [ctx loc]
   (search/q-or (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
-(defn parse-exclusion-expression-constraint
+(defn- parse-exclusion-expression-constraint
   "Parse an exclusion expression contraint.
   Unlike conjunction and disjunction constraints, exclusion constraints have
   only two clauses.
@@ -76,7 +73,7 @@
   (let [[exp exclusion] (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
     (search/q-not exp exclusion)))
 
-(defn parse-compound-expression-constraint
+(defn- parse-compound-expression-constraint
   "compoundExpressionConstraint = conjunctionExpressionConstraint / disjunctionExpressionConstraint / exclusionExpressionConstraint"
   [ctx loc]
   (or (zx/xml1-> loc :conjunctionExpressionConstraint (partial parse-conjunction-expression-constraint ctx))
@@ -101,12 +98,11 @@
     (let [expression (first attributes)]
       (if-not expression
         (search/q-concept-ids concept-ids)                  ;; return result as a query against the concept identifiers.
-        (do
-          (let [attrs-concept-ids (realise-concept-ids ctx expression) ;; realise the concept-identifiers for the property (e.g. all descendants of "associated with")
-                result (into #{} (mapcat #(store/get-parent-relationships-of-types (:store ctx) % attrs-concept-ids) concept-ids))] ;; and get those values for all of our current concepts
-            (recur result (next attributes))))))))
+        (let [attrs-concept-ids (realise-concept-ids ctx expression) ;; realise the concept-identifiers for the property (e.g. all descendants of "associated with")
+              result (into #{} (mapcat #(store/get-parent-relationships-of-types (:store ctx) % attrs-concept-ids) concept-ids))] ;; and get those values for all of our current concepts
+          (recur result (next attributes)))))))
 
-(defn parse-dotted-expression-constraint
+(defn- parse-dotted-expression-constraint
   "dottedExpressionConstraint = subExpressionConstraint 1*(ws dottedExpressionAttribute)
   eg: <  19829001 |Disorder of lung| . < 47429007 |Associated with| . 363698007 |Finding site|"
   [ctx loc]
@@ -117,11 +113,11 @@
         (process-dotted ctx values dotted-expression-attributes))
       subexpression-constraint)))
 
-(defn parse-match-search-term-set [loc]
+(defn- parse-match-search-term-set [loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)]
     (search/q-and (map search/q-term terms))))
 
-(defn parse-wild-search-term-set
+(defn- parse-wild-search-term-set
   "wildSearchTermSet = QM wildSearchTerm QM"
   [loc]
   (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
@@ -129,17 +125,17 @@
 
 (declare parse-typed-search-term)
 
-(defn parse-typed-search-term-set
+(defn- parse-typed-search-term-set
   "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
   [loc]
   (let [terms (zx/xml-> loc :typedSearchTerm parse-typed-search-term)]
     (search/q-and terms)))
 
-(defn parse-typed-search-term [loc]
+(defn- parse-typed-search-term [loc]
   (or (zx/xml1-> loc :matchSearchTermSet parse-match-search-term-set)
       (zx/xml1-> loc :wildSearchTermSet parse-wild-search-term-set)))
 
-(defn parse-term-filter
+(defn- parse-term-filter
   "termFilter = termKeyword ws booleanComparisonOperator ws (typedSearchTerm / typedSearchTermSet)"
   [loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text) ;; "=" or "!="
@@ -156,10 +152,10 @@
       :else
       (throw (ex-info "unsupported term filter" {:s (zx/text loc)})))))
 
-(defn parse-language-filter [loc]
+(defn- parse-language-filter [loc]
   (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
 
-(defn parse-type-id-filter
+(defn- parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
   [ctx loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -182,12 +178,12 @@
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
 
-(def type-token->type-id
+(def ^:private type-token->type-id
   {:FSN 900000000000003001
    :SYN 900000000000013009
    :DEF 900000000000550004})
 
-(defn parse-type-token-filter
+(defn- parse-type-token-filter
   "type ws booleanComparisonOperator ws (typeToken / typeTokenSet)
   typeToken = synonym / fullySpecifiedName / definition
   typeTokenSet = \"(\" ws typeToken *(mws typeToken) ws \")\""
@@ -198,18 +194,18 @@
         types (map type-token->type-id (filter identity (conj type-tokens type-token)))
         type-ids (case boolean-comparison-operator
                    "=" types
-                   "!=" (set/difference (store/get-all-children (:store ctx) 900000000000446008) types)
+                   "!=" (set/difference (store/get-all-children (:store ctx) 900000000000446008) (set types))
                    (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
-(defn parse-type-filter
+(defn- parse-type-filter
   "typeFilter = typeIdFilter / typeTokenFilter"
   [ctx loc]
   (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
       (zx/xml1-> loc :typeTokenFilter (partial parse-type-token-filter ctx))))
 
 
-(def acceptability->kw
+(def ^:private acceptability->kw
   "Map a token or a concept identifier to a keyword."
   {"accept"           :acceptable-in
    "acceptable"       :acceptable-in
@@ -218,7 +214,7 @@
    "preferred"        :preferred-in
    900000000000548007 :preferred-in})
 
-(defn parse-acceptability-set->kws
+(defn- parse-acceptability-set->kws
   "Parse acceptability set into a sequence of keywords.
   Result is either ':acceptable-in' or ':preferred-in'
   acceptabilitySet = acceptabilityIdSet / acceptabilityTokenSet
@@ -231,7 +227,7 @@
     (map acceptability->kw ids)))
 
 
-(defn parse-dialect-set
+(defn- parse-dialect-set
   "Parse either a dialect-alias-set or a dialect-id-set. Turns either a concept id or a dialect alias into
   a refset identifier. Returns as a vector - dialect reference set id then acceptability and so on.
 
@@ -282,7 +278,7 @@
               (and (odd? c) acceptability)                  ;; if it's an acceptability and we're ready, add it.
               (conj results acceptability))))))))
 
-(defn parse-dialect-id-filter
+(defn- parse-dialect-id-filter
   "dialectIdFilter = dialectId ws booleanComparisonOperator ws (eclConceptReference / dialectIdSet)"
   [acceptability-set loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -304,7 +300,7 @@
       :else
       (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
 
-(defn parse-dialect-alias-filter
+(defn- parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
   [acceptability-set loc]
   (let [op (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -328,7 +324,7 @@
       (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
 
 
-(defn parse-dialect-filter
+(defn- parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
   [loc]
   ;; Pass the acceptability set to the parsers of dialectIdFilter or dialectAliasFilter
@@ -339,7 +335,7 @@
     (or (zx/xml1-> loc :dialectIdFilter (partial parse-dialect-id-filter acceptability-set))
         (zx/xml1-> loc :dialectAliasFilter (partial parse-dialect-alias-filter acceptability-set)))))
 
-(defn parse-filter
+(defn- parse-filter
   "filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
   (or (zx/xml1-> loc :termFilter parse-term-filter)
@@ -347,12 +343,12 @@
       (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
       (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
 
-(defn parse-filter-constraint
+(defn- parse-filter-constraint
   "filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
   [ctx loc]
   (search/q-and (zx/xml-> loc :filter (partial parse-filter ctx))))
 
-(defn parse-cardinality [loc]
+(defn- parse-cardinality [loc]
   (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
         max-value (zx/xml1-> loc :maxValue zx/text)]
     {:min-value min-value
@@ -360,7 +356,7 @@
                   0
                   (Long/parseLong max-value))}))
 
-(defn make-nested-query
+(defn- make-nested-query
   "Generate a nested query with the function 'f' specified. Each query
   is realised as a list of concept identifiers which are passed to `f`
   and then re-combined."
@@ -372,7 +368,7 @@
       (search/q-not (f incl-concepts) (f excl-concepts))
       incl)))
 
-(defn make-attribute-query
+(defn- make-attribute-query
   "Generate a nested query for the attributes specified, rewriting any
   exclusion clauses in the parent nested context. "
   [ctx query attribute-concept-ids]
@@ -384,7 +380,7 @@
                     (search/q-and (map #(search/q-attribute-in-set % excl-concepts) attribute-concept-ids)))
       (search/q-or (map #(search/q-attribute-in-set % incl-concepts) attribute-concept-ids)))))
 
-(defn parse-attribute--expression
+(defn- parse-attribute--expression
   [ctx cardinality reverse-flag? attribute-concept-ids loc]
   (let [
         sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
@@ -410,7 +406,7 @@
       :else
       attribute-query)))
 
-(defn parse-ecl-attribute
+(defn- parse-ecl-attribute
   "eclAttribute = [\"[\" cardinality \"]\" ws]
   [reverseFlag ws] eclAttributeName ws
   (expressionComparisonOperator ws subExpressionConstraint /
@@ -450,7 +446,7 @@
       :else
       (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:text (zx/text loc)})))))
 
-(defn parse-subattribute-set
+(defn- parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
   [ctx loc]
   (let [ecl-attribute (zx/xml1-> loc :eclAttribute (partial parse-ecl-attribute ctx))
@@ -462,7 +458,7 @@
       ecl-attribute ecl-attribute
       ecl-attribute-set ecl-attribute-set)))
 
-(defn parse-ecl-attribute-set
+(defn- parse-ecl-attribute-set
   "eclAttributeSet = subAttributeSet ws [conjunctionAttributeSet / disjunctionAttributeSet]"
   [ctx loc]
   (let [subattribute-set (zx/xml1-> loc :subAttributeSet (partial parse-subattribute-set ctx))
@@ -478,7 +474,7 @@
       :else
       subattribute-set)))
 
-(defn parse-ecl-attribute-group
+(defn- parse-ecl-attribute-group
   "eclAttributeGroup = [\"[\" cardinality \"]\" ws] \"{\" ws eclAttributeSet ws \"}\""
   [ctx loc]
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
@@ -490,14 +486,14 @@
                        :cardinality     cardinality
                        :eclAttributeSet ecl-attribute-set})))))
 
-(defn parse-sub-refinement
+(defn- parse-sub-refinement
   "subRefinement = eclAttributeSet / eclAttributeGroup / \"(\" ws eclRefinement ws \")\"\n"
   [ctx loc]
   (or (zx/xml1-> loc :eclAttributeSet (partial parse-ecl-attribute-set ctx))
       (zx/xml1-> loc :eclAttributeGroup (partial parse-ecl-attribute-group ctx))
       (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))))
 
-(defn parse-ecl-refinement
+(defn- parse-ecl-refinement
   "subRefinement ws [conjunctionRefinementSet / disjunctionRefinementSet]"
   [ctx loc]
   (let [sub-refinement (zx/xml1-> loc :subRefinement (partial parse-sub-refinement ctx))
@@ -511,7 +507,7 @@
       :else sub-refinement)))
 
 
-(defn parse-subexpression-constraint
+(defn- parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws filterConstraint)"
   [ctx loc]
   (let [constraint-operator (zx/xml1-> loc :constraintOperator parse-constraint-operator)
@@ -635,13 +631,13 @@
       (search/q-and (conj filter-constraints base-query))
       base-query)))
 
-(defn parse-refined-expression-constraint
+(defn- parse-refined-expression-constraint
   [ctx loc]
   (let [subexpression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         ecl-refinement (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))]
     (search/q-and [subexpression ecl-refinement])))
 
-(defn parse-expression-constraint
+(defn- parse-expression-constraint
   "expressionConstraint = ws ( refinedExpressionConstraint / compoundExpressionConstraint / dottedExpressionConstraint / subExpressionConstraint ) ws"
   [ctx loc]
   (or (zx/xml1-> loc :refinedExpressionConstraint (partial parse-refined-expression-constraint ctx))
@@ -668,20 +664,14 @@
     (def store (store/open-store "snomed.db/store.db"))
     (def index-reader (search/open-index-reader "snomed.db/search.db"))
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
-    (def testq (comp clojure.pprint/print-table (partial search/test-query store searcher)))
+    (require '[clojure.pprint :as pp])
+    (def testq (comp pp/print-table (partial search/test-query store searcher)))
     (def pe (partial parse store searcher))
     )
-
-  ;; this should be satisfied only by the specified concept
-  (def self "404684003 |Clinical finding|")
-  (pe self)
-
-  (def descendantOf "<  404684003 |Clinical finding|")
-  (pe descendantOf)
-
+  (pe "404684003 |Clinical finding|")
+  (pe "<  404684003 |Clinical finding|")
   (pe " <<  73211009 |Diabetes mellitus|")
   (pe " <  73211009 |Diabetes mellitus|")
-
   (pe "<!  404684003 |Clinical finding|")
   (pe "<<!  404684003 |Clinical finding|")
   (pe ">  40541001 |Acute pulmonary edema|")
@@ -689,54 +679,21 @@
   (pe ">!  40541001 |Acute pulmonary edema|")
   (pe ">>!  40541001 |Acute pulmonary edema|")
   (pe "^  700043003 |Example problem list concepts reference set|")
-
-  (pe "*")
-  (testq (pe "^*") 1000)
-
-  (def refinement " <  19829001 |Disorder of lung| :         116676008 |Associated morphology|  =  79654002 |Edema|")
-  (pe refinement)
-  (testq (pe refinement) 1000)
-
+  (pe " <  19829001 |Disorder of lung| :         116676008 |Associated morphology|  =  79654002 |Edema|")
+  (testq (pe " <  19829001 |Disorder of lung| :         116676008 |Associated morphology|  =  79654002 |Edema|") 1000)
   (pe "   <  19829001 |Disorder of lung| :          116676008 |Associated morphology|  = <<  79654002 |Edema|")
   (pe "<  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|")
-
   (pe "  <  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|")
-
   (pe "<  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|")
 
   ;; this has descendants of associated with as a property so should match any of those with
   ;; any of the descendants of oedema.
   (testq (pe " <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|") 100000)
-
   (testq (pe "<  373873005 |Pharmaceutical / biologic product| : [3..5]  127489000 |Has active ingredient|  = <  105590001 |Substance|") 10000)
-
   (pe "<  404684003 |Clinical finding| :   363698007 |Finding site|  =     <<  39057004 |Pulmonary valve structure| ,  116676008 |Associated morphology|  =     <<  415582006 |Stenosis|")
-
-  (def loc (zx/xml1-> (zip/xml-zip (ecl-parser refinement)) :expressionConstraint))
-  loc
-
-  (def conjunction1 "<  19829001 |Disorder of lung|  AND     <  301867009 |Edema of trunk|")
-  (pe conjunction1)
-
-  (testq (search/q-descendantOf 24700007) 1000)
-  (testq (search/q-descendantOrSelfOf 24700007) 1000)
-  (testq (search/q-childOf 24700007) 1000)
-  (testq (pe "<! 24700007|Multiple sclerosis|") 1000)
-  (testq (pe "^  991411000000109 |Emergency care diagnosis simple reference set|") 1000)
-  (testq (search/q-attribute-count 127489000 4 4) 1000)
-  (testq (search/q-and [
-                        (search/q-attribute-count 127489000 4 4)
-                        (search/q-attribute-in-set 127489000 (store/get-all-children store 387517004))]) 10000)
-
-  (def dialect-test "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
-  (def root (zip/xml-zip (ecl-parser dialect-test)))
-
+  (pe "<  19829001 |Disorder of lung|  AND     <  301867009 |Edema of trunk|")
   (pe "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
-
-
+  (pe "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
   (pe "<  404684003 |Clinical finding| : 116676008 |Associated morphology|  =
      ((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )")
-  (realise-concept-ids
-    {:store store :searcher searcher}
-    (pe "((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )"))
   )

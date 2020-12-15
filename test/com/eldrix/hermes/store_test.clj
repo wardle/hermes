@@ -2,7 +2,8 @@
   (:require [clojure.test :refer :all]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.impl.language :as lang])
+            [com.eldrix.hermes.impl.language :as lang]
+            [clojure.tools.logging.readable :as log])
   (:import (java.time LocalDate)
            (java.io File)))
 
@@ -62,7 +63,7 @@
 (defn test-ns-hook []
   (simple-store)
   (if-not (has-live-database?)
-    (println "Skipping live tests as no live database 'snomed.db' found.")
+    (log/warn "Skipping live tests as no live database 'snomed.db' found.")
     (do (live-store)
         (test-localisation))))
 

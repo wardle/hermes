@@ -466,7 +466,7 @@
   [^Query query]
   (if-not (instance? BooleanQuery query)
     (vector query nil)
-    (let [clauses (.clauses query)
+    (let [clauses (.clauses ^BooleanQuery query)
           incl (seq (filter #(not= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))
           excl (seq (filter #(= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))]
       (vector
@@ -492,23 +492,4 @@
 
 (comment
   (build-search-index "snomed.db/store.db" "snomed.db/search.db" "en-GB")
-  (q-descendantOf 24700007)
-  (q-descendantOrSelfOf 24700007)
-  (q-childOrSelfOf 24700007)
-  (def store (store/open-store "snomed.db/store.db"))
-  (def index-reader (open-index-reader "snomed.db/search.db"))
-  (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
-  (q-ancestorOf store 24700007)
-
-  (def testq (comp clojure.pprint/print-table (partial test-query store searcher)))
-
-  (testq (q-ancestorOf store 24700007) 100000)
-  (testq (q-ancestorOrSelfOf store 24700007) 100000)
-  (testq (q-parentOrSelfOf store 24700007) 10000)
-  (testq (q-parentOf store 24700007) 10000)
-  (testq (q-memberOf 991411000000109) 10)
-  (testq (q-attribute-descendantOrSelfOf 246075003 387517004) 10000)
-  (testq (q-attribute-exactly-equal 246075003 387517004) 1000)
-  (testq (q-childOrSelfOf 404684003) 1000)
-  (testq (com.eldrix.hermes.expression.ecl/parse store "^  991411000000109 |Example problem list concepts reference set|") 1000)
   )

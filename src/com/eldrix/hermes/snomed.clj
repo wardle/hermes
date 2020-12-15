@@ -454,7 +454,6 @@
 (def EntireTermCaseInsensitive 900000000000448009)
 
 ;; Top level concepts
-(def Root 138875005)
 (def BodyStructure 123037004)
 (def ClinicalFinding 404684003)
 (def EnvironmentGeographicLocation 308916002)

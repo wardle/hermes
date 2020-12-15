@@ -18,8 +18,8 @@
   to choose their locale and this should use IETF BCP 47. For any single
   service installation, there will need to be a choice in how a specific
   locale choice is met. "
-  (:require [com.eldrix.hermes.impl.store :as store]
-            [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [com.eldrix.hermes.impl.store :as store])
   (:import (java.util Locale$LanguageRange Locale)))
 
 (def language-reference-sets
