@@ -9,7 +9,7 @@
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery)
+           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery MatchAllDocsQuery BooleanQuery BooleanClause)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
@@ -145,11 +145,15 @@
            (.build builder))
          (first qs))))))
 
+(defn boost-length-query
+  "Returns a new query with scores boosted by the inverse of the length"
+  [^Query q]
+  (FunctionScoreQuery. q (DoubleValuesSource/fromDoubleField "length-boost")))
+
 (defn- ^Query make-search-query
   [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]
     :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
-  (let [booster (DoubleValuesSource/fromDoubleField "length-boost")
-        query (cond-> (BooleanQuery$Builder.)
+  (let [query (cond-> (BooleanQuery$Builder.)
                       s
                       (.add (make-tokens-query s fuzzy) BooleanClause$Occur/MUST)
                       (not inactive-concepts?)
@@ -163,7 +167,7 @@
         (.add query
               (LongPoint/newSetQuery (str k) vv)
               BooleanClause$Occur/FILTER)))
-    (FunctionScoreQuery. (.build query) booster)))
+    (boost-length-query (.build query))))
 
 (defrecord Result
   [^long id
@@ -232,7 +236,7 @@
 
 (defn do-query-for-results
   [^IndexSearcher searcher ^Query q max-hits]
-  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search  searcher q (int max-hits))))))
+  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits))))))
 
 (defn q-or
   [queries]
@@ -266,6 +270,10 @@
   "Returns a query that will only return documents for the concept specified."
   [concept-id]
   (LongPoint/newExactQuery "concept-id" concept-id))
+
+(defn q-match-all
+  []
+  (MatchAllDocsQuery.))
 
 (defn q-concept-ids
   "Returns a query that will return documents for the concepts specified."
@@ -404,7 +412,9 @@
 
 (defn q-attribute-in-set
   [property coll]
-  (LongPoint/newSetQuery (str property) ^Collection coll))
+  (if (= 0 (count coll))
+    nil
+    (LongPoint/newSetQuery (str property) ^Collection coll)))
 
 (defn q-attribute-count
   "A query for documents for a count direct properties (parent relationships) of
@@ -446,6 +456,32 @@
     :preferred-in (LongPoint/newSetQuery "preferred-in" refset-ids)
     :acceptable-in (LongPoint/newSetQuery "acceptable-in" refset-ids)
     (throw (IllegalArgumentException. (str "unknown acceptability '" accept "'")))))
+
+(defn rewrite-query
+  "Rewrites a query separating out any top-level 'inclusions' from 'exclusions'.
+  Returns a vector of two queries inclusions and the exclusions.
+  Exclusions will be rewritten from MUST_NOT to MUST.
+  Useful in a situation where exclusions need to be applied independently
+  to a substrate and the NOT will be specified in a parent clause."
+  [^Query query]
+  (if-not (instance? BooleanQuery query)
+    (vector query nil)
+    (let [clauses (.clauses query)
+          incl (seq (filter #(not= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))
+          excl (seq (filter #(= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))]
+      (vector
+        ;; build the inclusive clauses directly into a new query
+        (when incl
+          (let [builder (BooleanQuery$Builder.)]
+            (doseq [^BooleanClause clause incl]
+              (.add builder clause))
+            (.build builder)))
+        ;; extract the exclusive queries from each clause but rewrite
+        (when excl
+          (let [builder (BooleanQuery$Builder.)]
+            (doseq [^BooleanClause clause excl]
+              (.add builder (.getQuery clause) BooleanClause$Occur/MUST))
+            (.build builder)))))))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q

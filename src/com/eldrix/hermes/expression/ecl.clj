@@ -49,7 +49,6 @@
       cr
       :wildcard)))
 
-
 (defn realise-concept-ids
   "Realise a query as a set of concept identifiers.
   TODO: exception if results > max-hits"
@@ -146,12 +145,6 @@
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text) ;; "=" or "!="
         typed-search-term (zx/xml-> loc :typedSearchTerm parse-typed-search-term)
         typed-search-term-set (zx/xml1-> loc :typedSearchTermSet parse-typed-search-term-set)]
-    (comment
-      (println {:text                  (zx/text loc)
-                :boolean-comparison-op boolean-comparison-operator
-                :typedSearchTerm       typed-search-term
-                :typedSearchTermSet    typed-search-term-set
-                :loc                   loc}))
     (cond
       (and (= "=" boolean-comparison-operator) (seq typed-search-term))
       typed-search-term
@@ -307,7 +300,9 @@
         (search/q-or (map (fn [[refset-id accept]]
                             (if accept
                               (search/q-acceptability accept refset-id)
-                              (search/q-description-memberOf refset-id))) m))))))
+                              (search/q-description-memberOf refset-id))) m)))
+      :else
+      (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
 
 (defn parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
@@ -365,14 +360,37 @@
                   0
                   (Long/parseLong max-value))}))
 
+(defn make-nested-query
+  "Generate a nested query with the function 'f' specified. Each query
+  is realised as a list of concept identifiers which are passed to `f`
+  and then re-combined."
+  [ctx ^Query query f]
+  (let [[incl excl] (search/rewrite-query query)
+        incl-concepts (when incl (realise-concept-ids ctx incl))
+        excl-concepts (when excl (realise-concept-ids ctx excl))]
+    (if (and incl excl)
+      (search/q-not (f incl-concepts) (f excl-concepts))
+      incl)))
+
+(defn make-attribute-query
+  "Generate a nested query for the attributes specified, rewriting any
+  exclusion clauses in the parent nested context. "
+  [ctx query attribute-concept-ids]
+  (let [[incl excl] (search/rewrite-query query)
+        incl-concepts (when incl (realise-concept-ids ctx incl))
+        excl-concepts (when excl (realise-concept-ids ctx excl))]
+    (if (and incl excl)
+      (search/q-not (search/q-or (map #(search/q-attribute-in-set % incl-concepts) attribute-concept-ids))
+                    (search/q-and (map #(search/q-attribute-in-set % excl-concepts) attribute-concept-ids)))
+      (search/q-or (map #(search/q-attribute-in-set % incl-concepts) attribute-concept-ids)))))
+
 (defn parse-attribute--expression
   [ctx cardinality reverse-flag? attribute-concept-ids loc]
   (let [
-        ;; a list of concepts satisfying the subexpression constraint (ie the value of the property-value refinement)
-        subexp-result (realise-concept-ids ctx (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx)))
-        ;; a query of concepts
-        attribute-query (search/q-or (map #(search/q-attribute-in-set % subexp-result) attribute-concept-ids))]
+        sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+        attribute-query (make-attribute-query ctx sub-expression attribute-concept-ids)]
     (cond
+
       ;; we are not trying to implement edge case of an expression containing both cardinality and reversal, at least not yet
       ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.3+Cardinality for how it *should* work
       (and cardinality reverse-flag?)
@@ -381,7 +399,7 @@
       ;; if reverse, we need to take the values (subexp-result), and for each take the value(s) of the property
       ;; specified to build a list of concept identifiers from which to build a query.
       reverse-flag?
-      (process-dotted ctx subexp-result [(search/q-concept-ids attribute-concept-ids)])
+      (process-dotted ctx (realise-concept-ids ctx sub-expression) [(search/q-concept-ids attribute-concept-ids)])
 
       ;; if we have cardinality, add a clause to ensure we have the right count for those properties
       cardinality
@@ -413,7 +431,10 @@
         boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)]
     (cond
       expression-operator
-      (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc)
+      (case expression-operator
+        "=" (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc)
+        "!=" (search/q-not (search/q-match-all) (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
+        (throw (ex-info (str "unsupported expression operator " expression-operator) {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
 
       numeric-operator
       (throw (ex-info "expressions containing numeric concrete refinements not yet supported." {:text (zx/text loc)}))
@@ -425,8 +446,7 @@
       (throw (ex-info "expressions containing boolean concrete refinements not yet supported." {:text (zx/text loc)}))
 
       :else
-      (throw (ex-info "expression ECLAttribute does not have a supported operator (expression/numeric/string/boolean)." {:text (zx/text loc)})))))
-
+      (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:text (zx/text loc)})))))
 
 (defn parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
@@ -434,7 +454,9 @@
   (let [ecl-attribute (zx/xml1-> loc :eclAttribute (partial parse-ecl-attribute ctx))
         ecl-attribute-set (zx/xml1-> loc :eclAttributeSet parse-ecl-attribute-set)]
     (cond
-      (and ecl-attribute ecl-attribute-set) (search/q-and [ecl-attribute ecl-attribute-set])
+      (and ecl-attribute ecl-attribute-set)
+      (search/q-and [ecl-attribute ecl-attribute-set])
+
       ecl-attribute ecl-attribute
       ecl-attribute-set ecl-attribute-set)))
 
@@ -480,11 +502,12 @@
         conjunction-refinement-set (zx/xml-> loc :conjunctionRefinementSet :subRefinement (partial parse-sub-refinement ctx))
         disjunction-refinement-set (zx/xml-> loc :disjunctionRefinementSet :subRefinement (partial parse-sub-refinement ctx))]
     (cond
-      (and sub-refinement conjunction-refinement-set)
+      (and sub-refinement (seq conjunction-refinement-set))
       (search/q-and (conj conjunction-refinement-set sub-refinement))
-      (and sub-refinement disjunction-refinement-set)
+      (and sub-refinement (seq disjunction-refinement-set))
       (search/q-or (conj disjunction-refinement-set sub-refinement))
       :else sub-refinement)))
+
 
 (defn parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws filterConstraint)"
@@ -533,34 +556,34 @@
                      (search/q-memberOf (:conceptId focus-concept))
 
                      (and member-of expression-constraint)
-                     (search/q-memberOfAny (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint search/q-memberOfAny)
 
                      (and (nil? constraint-operator) expression-constraint)
                      expression-constraint
 
                      (and (= :descendantOf constraint-operator) expression-constraint)
-                     (search/q-descendantOfAny (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint search/q-descendantOfAny)
 
                      (and (= :descendentOrSelfOf constraint-operator) expression-constraint)
-                     (search/q-descendantOrSelfOfAny (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint search/q-descendantOrSelfOfAny)
 
                      (and (= :childOf constraint-operator) expression-constraint)
-                     (search/q-childOfAny (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint search/q-childOfAny)
 
                      (and (= :childOrSelfOf constraint-operator) expression-constraint)
-                     (search/q-childOrSelfOfAny (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint search/q-childOrSelfOfAny)
 
                      (and (= :ancestorOf constraint-operator) expression-constraint)
-                     (search/q-ancestorOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOfAny (:store ctx)))
 
                      (and (= :ancestorOrSelfOf constraint-operator) expression-constraint)
-                     (search/q-ancestorOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOrSelfOfAny (:store ctx)))
 
                      (and (= :parentOf constraint-operator) expression-constraint)
-                     (search/q-parentOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint (partial search/q-parentOfAny (:store ctx)))
 
                      (and (= :parentOrSelfOf constraint-operator) expression-constraint)
-                     (search/q-parentOrSelfOfAny (:store ctx) (realise-concept-ids ctx expression-constraint))
+                     (make-nested-query ctx expression-constraint (partial search/q-parentOrSelfOfAny (:store ctx)))
 
                      ;; "conceptId"  == SELF
                      (and (nil? constraint-operator) (:conceptId focus-concept))
@@ -679,7 +702,7 @@
   ;; any of the descendants of oedema.
   (testq (pe " <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|") 100000)
 
-  (testq (pe "<  373873005 |Pharmaceutical / biologic product| : [0..0]  127489000 |Has active ingredient|  = <  105590001 |Substance|") 10000)
+  (testq (pe "<  373873005 |Pharmaceutical / biologic product| : [3..5]  127489000 |Has active ingredient|  = <  105590001 |Substance|") 10000)
 
   (pe "<  404684003 |Clinical finding| :   363698007 |Finding site|  =     <<  39057004 |Pulmonary valve structure| ,  116676008 |Associated morphology|  =     <<  415582006 |Stenosis|")
 
@@ -704,6 +727,10 @@
 
   (pe "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
 
-  (apply hash-map (zx/xml-> root :subExpressionConstraint :filterConstraint :filter :dialectFilter :dialectAliasFilter :dialectAliasSet (partial parse-dialect-alias-set nil)))
 
+  (pe "<  404684003 |Clinical finding| : 116676008 |Associated morphology|  =
+     ((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )")
+  (realise-concept-ids
+    {:store store :searcher searcher}
+    (pe "((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )"))
   )
