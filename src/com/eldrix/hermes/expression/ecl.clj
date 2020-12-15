@@ -366,7 +366,7 @@
         excl-concepts (when excl (realise-concept-ids ctx excl))]
     (if (and incl excl)
       (search/q-not (f incl-concepts) (f excl-concepts))
-      incl)))
+      (f incl-concepts))))
 
 (defn- make-attribute-query
   "Generate a nested query for the attributes specified, rewriting any

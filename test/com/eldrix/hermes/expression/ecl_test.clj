@@ -9,6 +9,9 @@
 
 (defonce svc (atom {}))
 
+(defn parse [s]
+  (ecl/parse (:store @svc) (:searcher @svc) s))
+
 (defn live-test-fixture [f]
   (if-not (and (.exists (File. "snomed.db/store.db"))
                (.exists (File. "snomed.db/search.db")))
@@ -64,22 +67,80 @@
     :f   (fn [concept-ids]
            (is (contains? concept-ids 40541001)))}          ;; acute pulmonary oedema has morphology 'acute oedema' and should be included via this expression
    {:ecl "<  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|"
-    :f (fn [concept-ids]
-         (doseq [concept-id concept-ids]
-           (let [ec (store/make-extended-concept (:store @svc) (store/get-concept (:store @svc) concept-id))]
-             (is (store/is-a? nil ec 404684003))                  ;; are all a clinical finding?
-             (is (store/has-property? nil ec 363698007 39057004))   ;; are all affecting the pulmonary value?
-             (is (store/has-property? nil ec 116676008 415582006)))))}    ;; are all a stenosis?
+    :f2  (fn [ec]
+           (is (store/is-a? nil ec 404684003))              ;; are all a clinical finding?
+           (is (store/has-property? nil ec 363698007 39057004)) ;; are all affecting the pulmonary value?
+           (is (store/has-property? nil ec 116676008 415582006)))} ;; are all a stenosis?
+   {:ecl " * :  246075003 |Causative agent|  =  387517004 |Paracetamol|"
+    :f2  (fn [ec] (is (store/has-property? nil ec 246075003 387517004)))}
+
+   ;; attribute groups
+   {:ecl "<  404684003 |Clinical finding| :
+           {  363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| ,
+              116676008 |Associated morphology|  = <<  415582006 |Stenosis| },
+           {  363698007 |Finding site|  = <<  53085002 |Right ventricular structure| ,
+              116676008 |Associated morphology|  = <<  56246009 |Hypertrophy| }"
+    :f   (fn [concept-ids]
+           (is (contains? concept-ids 86299006)))}          ;; this should find tetralogy of Fallot
+
+   ;; attribute constraint operators
+   {:ecl "  <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|"}
+   {:ecl "<<  404684003 |Clinical finding| :\n        >>  246075003 |Causative agent|  = <<  267038008 |Edema|"}
+
+   ;; products with one, two, three active ingredients
+   {:ecl "<  373873005 |Pharmaceutical / biologic product| :\n        [1..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|"}
+
+   ;; products with exactly one active ingredient
+   {:ecl "   <  373873005 |Pharmaceutical / biologic product| :\n        [1..1]  127489000 |Has active ingredient|  = <  105590001 |Substance|"}
+
+   ;; compound expression constraints
+   {:ecl " <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|"}
+   {:ecl "<  19829001 |Disorder of lung|  OR <  301867009 |Edema of trunk|"}
+   {:ecl "  <  19829001 |Disorder of lung|  AND ^  700043003 |Example problem list concepts reference set|"}
+
+   ;; these two are equivalent expressions
+   {:ecl "  <  404684003 |Clinical finding| :\n          363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| ,\n          116676008 |Associated morphology|  = <<  415582006 |Stenosis|"}
+   {:ecl " <  404684003 |Clinical finding| :\n          363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure|  AND\n          116676008 |Associated morphology|  = <<  415582006 |Stenosis|"}
+   {:ecl "  <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  = <<  55641003 |Infarct|  OR\n          42752001 |Due to|  = <<  22298006 |Myocardial infarction|"}
+   {:ecl "  <  404684003 |Clinical finding| :\n          363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure|  AND\n          116676008 |Associated morphology|  = <<  415582006 |Stenosis|  AND\n          42752001 |Due to|  = <<  445238008 |Malignant carcinoid tumor|"}
+   {:ecl "   <  404684003 |Clinical finding|  :\n         ( 363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure|  AND\n           116676008 |Associated morphology|  = <<  415582006 |Stenosis| ) OR\n           42752001 |Due to|  = <<  445238008 |Malignant carcinoid tumor|"}
+   {:ecl "   <  404684003 |Clinical finding| :\n         { 363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| ,\n           116676008 |Associated morphology|  = <<  415582006 |Stenosis| } OR\n         { 363698007 |Finding site|  = <<  53085002 |Right ventricular structure| ,\n           116676008 |Associated morphology|  = <<  56246009 |Hypertrophy| }"}
+   {:ecl "   <<  19829001 |Disorder of lung|  MINUS <<  301867009 |Edema of trunk|"}
+   {:ecl " <<  19829001 |Disorder of lung|  MINUS <<  301867009 |Edema of trunk|"}
+   {:ecl "<  404684003 |Clinical finding| :  116676008 |Associated morphology|  =\n         ((<<  56208002 |Ulcer|  AND <<  50960005 |Hemorrhage| ) MINUS <<  26036001 |Obstruction| )"}
+   {:ecl "   <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  != <<  26036001 |Obstruction|"}
+
+
+  ;; {:ecl ""}
+  ;; {:ecl ""}
+  ;; {:ecl ""}
+  ;; {:ecl ""}
+
    ])
 
-;; 85628007
+(def not-yet-implemented
+  ;; need to implement cardinality - see https://confluence.ihtsdotools.org/display/DOCECL/6.5+Exclusion+and+Not+Equals
+  {:ecl " <  404684003 |Clinical finding| :\n         [0..0]  116676008 |Associated morphology|  != <<  26036001 |Obstruction|"})
+
+
+(deftest test-equivalence
+  (let [p1 (parse " < ( 125605004 |Fracture of bone| . 363698007 |Finding site| )")
+        p2 (parse "<  272673000 |Bone structure|")
+        r1 (ecl/realise-concept-ids @svc p1)
+        r2 (ecl/realise-concept-ids @svc p2)]
+    (is (= r1 r2))))
 
 (deftest do-simple-tests
   (doseq [t simple-tests]
-    (let [p (ecl/parse (:store @svc) (:searcher @svc) (:ecl t))
+    (let [st (:store @svc)
+          p (ecl/parse st (:searcher @svc) (:ecl t))
           results (ecl/realise-concept-ids @svc p)
-          f (:f t)]
-      (when f (f results)))))
+          f (:f t)
+          f2 (:f2 t)]
+      (when f (f results))
+      (when f2 (doseq [concept-id results]
+                 (let [ec (store/make-extended-concept st (store/get-concept st concept-id))]
+                   (f2 ec)))))))
 
 (comment
   (run-tests))

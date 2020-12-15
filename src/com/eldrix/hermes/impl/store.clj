@@ -555,7 +555,7 @@
 (defmethod is-a? Concept [store concept parent-id]
   (contains? (get-all-parents store (:id concept)) parent-id))
 
-(defmethod is-a? ExtendedConcept [store extended-concept parent-id]
+(defmethod is-a? ExtendedConcept [_ extended-concept parent-id]
   (contains? (get-in extended-concept [:parent-relationships snomed/IsA]) parent-id))
 
 (defmulti has-property? (fn [store concept property-id value-id] (class concept)))
