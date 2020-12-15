@@ -4,6 +4,7 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
@@ -46,7 +47,9 @@
   (parseExpression [_ s]
     (scg/parse s))
   (search [_ params]
-    (search/do-search searcher params))
+    (if-let [constraint (:constraint params)]
+      (search/do-search searcher (assoc params :query (ecl/parse store searcher constraint)))
+      (search/do-search searcher params)))
   (close [_] (.close store) (.close index-reader)))
 
 (def ^:private expected-manifest
@@ -167,12 +170,7 @@
 
 
 
-
-
-
-
-
-
-
 (comment
+  (def svc (open "snomed.db"))
+  (.search svc {:s "mult scl" :constraint "< 24700007"})
   )

@@ -145,6 +145,34 @@
            (.build builder))
          (first qs))))))
 
+(defn q-or
+  [queries]
+  (case (count queries)
+    0 nil
+    1 (first queries)
+    (let [builder (BooleanQuery$Builder.)]
+      (doseq [^Query query queries]
+        (.add builder query BooleanClause$Occur/SHOULD))
+      (.build builder))))
+
+(defn q-and
+  [queries]
+  (case (count queries)
+    0 nil
+    1 (first queries)
+    (let [builder (BooleanQuery$Builder.)]
+      (doseq [query queries]
+        (.add builder ^Query query BooleanClause$Occur/MUST))
+      (.build builder))))
+
+(defn q-not
+  "Returns the logical query of q1 NOT q2"
+  [^Query q1 ^Query q2]
+  (-> (BooleanQuery$Builder.)
+      (.add q1 BooleanClause$Occur/MUST)
+      (.add q2 BooleanClause$Occur/MUST_NOT)
+      (.build)))
+
 (defn boost-length-query
   "Returns a new query with scores boosted by the inverse of the length"
   [^Query q]
@@ -199,6 +227,7 @@
     |- :max-hits           : maximum hits (default, 200)
     |- :fuzzy              : fuzziness (0-2, default 0)
     |- :fallback-fuzzy     : if no results, try again with fuzzy search?
+    |- :query              : additional query to apply
     |- :show-fsn?          : show FSNs in results? (default: false)
     |- :inactive-concepts? : search descriptions of inactive concepts?
     |                      : (default: false).
@@ -213,8 +242,9 @@
 
   A FSN is a fully-specified name and should generally be left out of search."
   [^IndexSearcher searcher params]
-  (let [query (make-search-query params)
-        hits (seq (.-scoreDocs ^TopDocs (.search searcher query (int (or (:max-hits params) 200)))))]
+  (let [q1 (make-search-query params)
+        q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
+        hits (seq (.-scoreDocs ^TopDocs (.search searcher ^Query q2 (int (or (:max-hits params) 200)))))]
     (if hits
       (map (partial scoredoc->result searcher) hits)
       (let [fuzzy (or (:fuzzy params) 0)
@@ -237,34 +267,6 @@
 (defn do-query-for-results
   [^IndexSearcher searcher ^Query q max-hits]
   (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits))))))
-
-(defn q-or
-  [queries]
-  (case (count queries)
-    0 nil
-    1 (first queries)
-    (let [builder (BooleanQuery$Builder.)]
-      (doseq [^Query query queries]
-        (.add builder query BooleanClause$Occur/SHOULD))
-      (.build builder))))
-
-(defn q-and
-  [queries]
-  (case (count queries)
-    0 nil
-    1 (first queries)
-    (let [builder (BooleanQuery$Builder.)]
-      (doseq [query queries]
-        (.add builder ^Query query BooleanClause$Occur/MUST))
-      (.build builder))))
-
-(defn q-not
-  "Returns the logical query of q1 NOT q2"
-  [^Query q1 ^Query q2]
-  (-> (BooleanQuery$Builder.)
-      (.add q1 BooleanClause$Occur/MUST)
-      (.add q2 BooleanClause$Occur/MUST_NOT)
-      (.build)))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."

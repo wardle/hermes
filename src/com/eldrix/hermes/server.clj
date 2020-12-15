@@ -78,6 +78,9 @@
     [{:exception-type :java.lang.IllegalArgumentException :interceptor ::get-search}]
     (assoc context :response {:status 400 :body (str "invalid search parameters: " (ex-message (:exception (ex-data err))))})
 
+    [{:exception-type :clojure.lang.ExceptionInfo :interceptor ::get-search}]
+    (assoc context :response {:status 400 :body (str "invalid search parameters: " (ex-message (:exception (ex-data err))))})
+
     :else
     (assoc context :io.pedestal.interceptor.chain/error err)))
 
@@ -130,9 +133,10 @@
               (assoc context :result {:subsumedBy (svc/subsumedBy? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params [context]
-  (let [{:keys [s maxHits isA]} (get-in context [:request :params])]
+  (let [{:keys [s maxHits isA constraint]} (get-in context [:request :params])]
     (cond-> {}
             s (assoc :s s)
+            constraint (assoc :constraint constraint)
             maxHits (assoc :max-hits (Integer/parseInt maxHits))
             (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
             (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))}))))
