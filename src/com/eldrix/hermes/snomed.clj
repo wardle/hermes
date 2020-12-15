@@ -31,7 +31,7 @@
 
 
 (defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
-(defn ^boolean parse-bool [^String s] (if (= "1" s) true false))
+(defn ^Boolean parse-bool [^String s] (if (= "1" s) true false))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id

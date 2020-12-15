@@ -128,10 +128,12 @@ will follow.
 clj -M:check
 ```
 
-#### Run unit tests (optional)
+#### Run unit tests (optional) and linters
 
 ```
 clj -M:test
+clj -M:lint/kondo
+clj -M:lint/eastwood
 ```
 
 #### Run direct from the command-line

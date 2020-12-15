@@ -291,7 +291,7 @@
       (and (= "=" boolean-comparison-operator) refset-id)
       (search/q-description-memberOf refset-id)
 
-      (and (= "=" boolean-comparison-operator (seq refset-ids)))
+      (and (= "=" boolean-comparison-operator) (seq refset-ids))
       (let [m (apply hash-map refset-ids)]
         (search/q-or (map (fn [[refset-id accept]]
                             (if accept
@@ -465,7 +465,7 @@
         conjunction-attribute-set (zx/xml-> loc :conjunctionAttributeSet :subAttributeSet (partial parse-subattribute-set ctx))
         disjunction-attribute-set (zx/xml-> loc :disjunctionAttributeSet :subAttributeSet (partial parse-subattribute-set ctx))]
     (cond
-      (and (conj conjunction-attribute-set subattribute-set))
+      (and conjunction-attribute-set subattribute-set)
       (search/q-and (conj conjunction-attribute-set subattribute-set))
 
       (and subattribute-set disjunction-attribute-set)
