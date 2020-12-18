@@ -57,11 +57,14 @@
              context
              (update-in context [:response] coerce-to (accepted-type context))))})
 
-(defn inject-svc [svc]
+(defn inject-svc
+  "A simple interceptor to inject terminology service 'svc' into the context."
+  [svc]
   {:name  ::inject-svc
    :enter (fn [context] (update context :request assoc ::service svc))})
 
 (def entity-render
+  "Interceptor to render an entity '(:result context)' into the response."
   {:name :entity-render
    :leave
          (fn [context]
@@ -133,13 +136,15 @@
               (assoc context :result {:subsumedBy (svc/subsumedBy? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params [context]
-  (let [{:keys [s maxHits isA constraint]} (get-in context [:request :params])]
+  (let [{:keys [s maxHits isA refset constraint]} (get-in context [:request :params])]
     (cond-> {}
             s (assoc :s s)
             constraint (assoc :constraint constraint)
             maxHits (assoc :max-hits (Integer/parseInt maxHits))
             (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
-            (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))}))))
+            (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
+            (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
+            (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset))))))
 
 (def get-search
   {:name  ::get-search
@@ -149,10 +154,12 @@
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
               (assoc context :result (svc/search svc params))))})
 
+
+(def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
   (route/expand-routes
-    #{["/v1/snomed/concepts/:concept-id" :get [coerce-body content-neg-intc entity-render get-concept]]
-      ["/v1/snomed/concepts/:concept-id/descriptions" :get [coerce-body content-neg-intc entity-render get-concept-descriptions]]
+    #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
+      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj get-concept-descriptions)]
       ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get [coerce-body content-neg-intc entity-render subsumed-by?]]
@@ -175,3 +182,7 @@
 
 (defn stop-server [server]
   (http/stop server))
+
+
+(comment
+  )

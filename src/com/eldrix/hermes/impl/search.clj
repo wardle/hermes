@@ -179,17 +179,23 @@
   (FunctionScoreQuery. q (DoubleValuesSource/fromDoubleField "length-boost")))
 
 (defn- ^Query make-search-query
-  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? properties]
+  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? concept-refsets properties]
     :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
   (let [query (cond-> (BooleanQuery$Builder.)
                       s
                       (.add (make-tokens-query s fuzzy) BooleanClause$Occur/MUST)
+
                       (not inactive-concepts?)
                       (.add (TermQuery. (Term. "concept-active" "true")) BooleanClause$Occur/FILTER)
+
                       (not inactive-descriptions?)
                       (.add (TermQuery. (Term. "description-active" "true")) BooleanClause$Occur/FILTER)
+
                       (not show-fsn?)
-                      (.add (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName) BooleanClause$Occur/MUST_NOT))]
+                      (.add (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName) BooleanClause$Occur/MUST_NOT)
+
+                      (seq concept-refsets)
+                      (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]
     (doseq [[k v] properties]
       (let [^Collection vv (if (vector? v) v [v])]
         (.add query
@@ -233,6 +239,7 @@
     |                      : (default: false).
     |- :inactive-descriptions? : search inactive descriptions? (default, true)
     |- :properties         : a map of properties and their possible values.
+    |- :concept-refsets    : a collection of refset identifiers to limit search
 
   The properties map contains keys for a property and then either a single
   identifier or vector of identifiers to limit search.
