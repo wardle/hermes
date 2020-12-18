@@ -4,34 +4,36 @@
   This is, by definition, a UK-only module and will not give expected results for
   drugs outside of the UK Product root.
 
-  See https://www.nhsbsa.nhs.uk/sites/default/files/2018-10/doc_SnomedCTUKDrugExtensionModel%20-%20v1.0.pdf
+  See https://www.nhsbsa.nhs.uk/sites/default/files/2020-08/doc_SnomedCTUKDrugExtensionModel%20-%20v1.3_0.pdf
 
   The dm+d model consists of the following components:
-  VTM
-  VMP
-  VMPP
-  TF
-  AMP
-  AMPP
+  - VTM
+  - VMP
+  - VMPP
+  - TF
+  - AMP
+  - AMPP
 
   The relationships between these components are:
-  VMP <<- IS_A -> VTM
-  VMP <<- HAS_SPECIFIC_ACTIVE_INGREDIENT ->> SUBSTANCE
-  VMP <<- HAS_DISPENSED_DOSE_FORM ->> QUALIFIER
-  VMPP <<- HAS_VMP -> VMP
-  AMPP <<- IS_A -> VMPP
-  AMPP <<- HAS_AMP -> AMP
-  AMP <<- IS_A -> VMP
-  AMP <<- IS_A -> TF
-  AMP <<- HAS_EXCIPIENT ->> QUALIFIER
-  TF <<- HAS_TRADE_FAMILY_GROUP ->> QUALIFIER
+  - VMP <<- IS_A -> VTM
+  - VMP <<- HAS_SPECIFIC_ACTIVE_INGREDIENT ->> SUBSTANCE
+  - VMP <<- HAS_DISPENSED_DOSE_FORM ->> QUALIFIER
+  - VMPP <<- HAS_VMP -> VMP
+  - AMPP <<- IS_A -> VMPP
+  - AMPP <<- HAS_AMP -> AMP
+  - AMP <<- IS_A -> VMP
+  - AMP <<- IS_A -> TF
+  - AMP <<- HAS_EXCIPIENT ->> QUALIFIER
+  - TF <<- HAS_TRADE_FAMILY_GROUP ->> QUALIFIER
 
   Cardinality rules are: (see https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf)
-  The SNOMED dm+d data file documents the cardinality rules for AMP<->TF (https://www.nhsbsa.nhs.uk/sites/default/files/2017-04/doc_UKTCSnomedCTUKDrugExtensionEditorialPolicy_Current-en-GB_GB1000001_v7_0.pdf)"
+  The SNOMED dm+d data file documents the cardinality rules for AMP<->TF 
+  (https://www.nhsbsa.nhs.uk/sites/default/files/2017-04/doc_UKTCSnomedCTUKDrugExtensionEditorialPolicy_Current-en-GB_GB1000001_v7_0.pdf)"
   (:require [com.eldrix.hermes.service :as svc]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.impl.search :as search]
-            [com.eldrix.hermes.impl.store :as store])
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.expression.ecl :as ecl])
   (:import (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
 ;; Core concepts - types of dm+d product
@@ -42,6 +44,7 @@
 (def VirtualMedicinalProductPack 8653601000001108)
 (def VirtuaTherapeuticMoiety 10363701000001104)
 (def TradeFamily 9191801000001103)
+(def TradeFamilyGroup 9191901000001109)
 
 ;; dm+d reference sets - membership of a reference set tells us which of six types of product
 (def VtmReferenceSet 999000581000001102)
@@ -50,6 +53,7 @@
 (def AmppReferenceSet 999000551000001106)
 (def VmpReferenceSet 999000561000001109)
 (def VmppReferenceSet 999000571000001104)
+(def TfgReferenceSet 999000641000001107)
 
 (def refset-id->product
   {VtmReferenceSet  ::vtm
@@ -57,7 +61,8 @@
    AmpReferenceSet  ::amp
    AmppReferenceSet ::ampp
    VmpReferenceSet  ::vmp
-   VmppReferenceSet ::vmpp})
+   VmppReferenceSet ::vmpp
+   TfgReferenceSet ::tfg})
 
 (def product->refset-id
   (clojure.set/map-invert refset-id->product))
@@ -149,28 +154,80 @@
 (defn is-tf? [store concept]
   (= ::tf (product-type store concept)))
 
-(defmulti vmps (fn [store concept] [(class concept) (product-type store concept)]))
-(defmulti vtms (fn [store concept] [(class concept) (product-type store concept)]))
-(defmulti amps (fn [store concept] [(class concept) (product-type store concept)]))
-(defmulti tfs (fn [store concept] [(class concept) (product-type store concept)]))
+(defn is-tfg? [store concept]
+  (= ::tfg (product-type store concept)))
 
-(defmethod vmps [Long ::vtm] [store concept-id]
+;;
+;; Most dm+d logic depends on the product-type, so define
+;; polymorphism based on deriving the type.
+(defmulti vmps product-type)
+(defmulti vtms product-type)
+(defmulti amps product-type)
+(defmulti ampps product-type)
+(defmulti tfs product-type)
+(defmulti vmpps product-type)
+(defmulti tfgs product-type)
+
+(defmulti specific-active-ingredients product-type)
+(defmulti dispensed-dose-forms product-type)
+(defmulti non-availability-indicators product-type)
+(defmulti prescribing-statuses product-type)
+(defmulti basis-of-strength product-type)
+(defmulti unit-of-administration product-type)
+
+(defmethod vmps ::vtm [store concept-id]
   (filter (partial is-vmp? store) (store/get-all-children store concept-id)))
-(defmethod vtms [Long ::vtm] [store concept-id]
-  (filter (partial is-vtm? store) (store/get-all-children store concept-id)))
-(defmethod amps [Long ::vtm] [store concept-id]
+(defmethod vtms ::vmp [store concept-id]
+  (filter (partial is-vtm? store) (store/get-all-parents store concept-id)))
+(defmethod amps ::vtm [store concept-id]
   (filter (partial is-amp? store) (store/get-all-children store concept-id)))
-(defmethod tfs [Long ::amp] [store concept-id]
+(defmethod tfs ::amp [store concept-id]
   (filter (partial is-tf? store) (store/get-all-parents store concept-id)))
-(defmethod tfs [Long ::vtm] [store concept-id]
-  (mapcat (partial tfs store) (amps store concept-id)))
+(defmethod tfs ::vtm [store concept-id]
+  (set (mapcat (partial tfs store) (amps store concept-id))))
+(defmethod vmpps ::vmp [store concept-id]
+  (filter (partial is-vmpp? store) (store/get-all-children store concept-id HasVmp)))
+(defmethod ampps ::vmpp [store concept-id]
+  (filter (partial is-ampp? store) (store/get-all-children store concept-id)))
+(defmethod vmpps ::ampp [store concept-id]
+  (filter (partial is-vmpp? store) (store/get-all-parents store concept-id)))
+(defmethod ampps ::amp [store concept-id]
+  (filter (partial is-vmpp? store) (store/get-all-children store concept-id HasAmp)))
+(defmethod amps ::ampp [store concept-id]
+  (filter (partial is-ampp? store) (store/get-all-parents store concept-id HasAmp)))
+(defmethod tfgs ::tf [store concept-id]
+  (filter (partial is-tfg? store) (store/get-all-parents store concept-id HasTradeFamilyGroup)))
+(defmethod tfs ::tfg [store concept-id]
+  (filter (partial is-tf? store) (store/get-all-children store concept-id HasTradeFamilyGroup)))
+(defmethod tfgs ::vtm [store concept-id]
+  (set (mapcat (partial tfgs store) (tfs store concept-id))))
 
-(defmethod vmps [Concept ::vtm] [store concept]
-  (vmps store (:id concept)))
-(defmethod vmps [ExtendedConcept ::vtm] [store extended-concept]
-  (vmps store (get-in extended-concept :concept :id)))
+(defmethod dispensed-dose-forms ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasDispensedDoseForm))
+(defmethod specific-active-ingredients ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasSpecificActiveIngredient))
+(defmethod prescribing-statuses ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id PrescribingStatus))
+(defmethod non-availability-indicators ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id NonAvailabilityIndicator))
+(defmethod prescribing-statuses ::vtm [store concept-id]
+  (set (mapcat (partial prescribing-statuses store) (vmps store concept-id))))
+(defmethod non-availability-indicators ::vtm [store concept-id]
+  (set (mapcat (partial non-availability-indicators store) (vmps store concept-id))))
+(defmethod basis-of-strength ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasNHSdmdBasisOfStrength))
+(defmethod basis-of-strength ::vtm [store concept-id]
+  (set (mapcat (partial basis-of-strength store) (vmps store concept-id))))
+(defmethod unit-of-administration ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasUnitOfAdministration))
+(defmethod unit-of-administration ::vtm [store concept-id]
+  (set (mapcat (partial unit-of-administration store) (vmps store concept-id))))
 
-
+(defn search
+  "Search for a dm+d product by name and type."
+  [store searcher s product-type]
+  (if-let [refset-id (get product->refset-id product-type)]
+    (search/do-search searcher {:s s :query (ecl/parse store searcher (str "^" refset-id))})))
 
 (comment
   (do
@@ -179,18 +236,32 @@
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
     (require '[clojure.pprint :as pp])
     (require '[com.eldrix.hermes.expression.ecl :as ecl])
-    (defn search-dmd [s product]
-      (if-let [refset-id (get product->refset-id product)]
-        (search/do-search searcher {:s s :query (ecl/parse store searcher (str "^" refset-id))})))
+    (def search-dmd (partial search store searcher))
     (defn fsn [concept-id]
-      (:term (store/get-fully-specified-name store concept-id))))
+      (:term (store/get-fully-specified-name store concept-id)))
+    (defn ps [concept-id]
+      (:term (store/get-preferred-synonym store concept-id [NhsRealmPharmacyLanguageReferenceSet]))))
 
   (def amlodipine-vtms (set (map :conceptId (search-dmd "amlodipine" ::vtm))))
+  (group-by :conceptId (search-dmd "amlodipine" ::vtm))
   (every? true? (map (partial is-vtm? store) amlodipine-vtms))
   (map :term (map (partial store/get-fully-specified-name store) amlodipine-vtms))
   (def amlodipine-vtm (first amlodipine-vtms))
   (def amlodipine-vmps (vmps store amlodipine-vtm))
   (every? true? (map (partial is-vmp? store) amlodipine-vmps))
   (map fsn (mapcat (partial vmps store) amlodipine-vtms))
-  
+  (def amlodipine-vmp (first (vmps store amlodipine-vtm)))
+  (is-vmp? store amlodipine-vmp)
+  (not (is-vtm? store amlodipine-vmp))
+  (def amlodipine-vmpps (filter (partial is-vmpp? store) (store/get-all-children store amlodipine-vmp HasVmp)))
+  (map fsn amlodipine-vmpps)
+  (group-by :conceptId (search-dmd "3,4 diamino" ::vtm))
+  (def pyridostigmine-vtm (first (keys (group-by :conceptId (search-dmd "pyridostigmine" ::vtm)))))
+  (def pyridostigmine-tfs (tfs store pyridostigmine-vtm))
+  (map fsn pyridostigmine-tfs)
+  (time (->> (search-dmd "pantoprazole" ::vtm)
+       (map :conceptId)
+       (mapcat (partial tfs store))
+       (distinct)
+       (map ps)))
   )
