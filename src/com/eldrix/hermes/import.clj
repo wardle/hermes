@@ -60,7 +60,7 @@
   (let [base {:name (.getName (.getParentFile f))}]
     (try (merge base (json/parse-string (slurp f) true))
          (catch JsonParseException e
-           (log/error "invalid metadata in distribution file" (:name base))
+           (log/warn "invalid metadata in distribution file" (:name base))
            (assoc base :error "invalid metadata: invalid json in file")))))
 
 (defn metadata-files
