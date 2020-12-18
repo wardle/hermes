@@ -112,6 +112,13 @@
     (async/<!! done)
     (store/close store)))
 
+(defn log-metadata [dir]
+  (let [metadata (import/all-metadata dir)]
+    (log/info "importing " (count metadata) " distributions from " dir)
+    (doseq [dist metadata]
+      (log/info "distribution: " (:name dist))
+      (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : "(:error dist)))))))
+
 (defn import-snomed
   "Import SNOMED distribution files from the directories `dirs` specified into
   the database directory `root` specified."
@@ -119,6 +126,7 @@
   (let [manifest (open-manifest root true)
         store-filename (get-absolute-filename root (:store manifest))]
     (doseq [dir dirs]
+      (log-metadata dir)
       (do-import-snomed store-filename dir))))
 
 (defn build-indices

@@ -1,12 +1,14 @@
 (ns com.eldrix.hermes.import
   "Provides import functionality for processing directories of files"
   (:require
+    [cheshire.core :as json]
     [clojure.core.async :as async]
     [clojure.java.io :as io]
     [clojure.string :as str]
-    [clojure.tools.logging :as log]
+    [clojure.tools.logging.readable :as log]
     [com.eldrix.hermes.snomed :as snomed])
-  (:import (java.io File)))
+  (:import (java.io File)
+           (com.fasterxml.jackson.core JsonParseException)))
 
 (defn is-snomed-file? [f]
   (snomed/parse-snomed-filename (.getName (clojure.java.io/file f))))
@@ -31,6 +33,36 @@
   (->> (snomed-file-seq dir)
        (filter #(= (:release-type %) "Snapshot"))
        (filter :parser)))
+
+(defn read-metadata
+  "Reads the metadata from the file specified.
+  Unfortunately, some UK releases have invalid JSON in their metadata, so
+  we log an error and avoid throwing an exception.
+  Raised as issue #34057 with NHS Digital.
+  Unfortunately the *name* of the release is not included, but as the metadata file
+  exists at the root of the release, we can guess the name from the parent directory.
+  Raised as issue #32991 with Snomed International."
+  [^File f]
+  (let [base {:name (.getName (.getParentFile f))}]
+    (try (merge base (json/parse-string (slurp f) true))
+         (catch JsonParseException e
+           (log/error "invalid metadata in distribution file" (:name base))
+           (assoc base :error "invalid metadata: invalid json in file")))))
+
+(defn metadata-files
+  "Returns a list of release package information files from the directory.
+  Each entry returned in the list will be a java.io.File
+  These files have been issued since the July 2020 International edition release."
+  [dir]
+  (->> (File. dir)
+       (file-seq)
+       (filter #(= (.getName %) "release_package_information.json"))))
+
+(defn all-metadata
+  "Returns all release metadata from the directory specified"
+  [dir]
+  (doall (->> (metadata-files dir)
+              (map read-metadata))))
 
 (defn csv-data->maps
   "Turn CSV data into maps, assuming first row is the header"
@@ -106,15 +138,15 @@
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
   [dir & {:keys [nthreads batch-size]}]
-  (let [files-c (async/chan)                                      ;; list of files
-        raw-c (async/chan)                                        ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        processed-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
+  (let [files-c (async/chan)                                ;; list of files
+        raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+        processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (importable-files dir)
         done (create-workers (or nthreads 4) file-worker files-c raw-c (or batch-size 5000))]
     (log/info "importing files from " dir)
     (when-not (seq files) (log/warn "no files found to import in " dir))
     (async/onto-chan!! files-c (map :path files) true)      ;; stream list of files into work channel
-    (async/thread (async/<!! done) (async/close! raw-c))                      ;; watch for completion and close output channel
+    (async/thread (async/<!! done) (async/close! raw-c))    ;; watch for completion and close output channel
     (async/pipeline (or nthreads 4) processed-c (map snomed/parse-batch) raw-c true)
     processed-c))
 
