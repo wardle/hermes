@@ -29,11 +29,11 @@
   Cardinality rules are: (see https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf)
   The SNOMED dm+d data file documents the cardinality rules for AMP<->TF 
   (https://www.nhsbsa.nhs.uk/sites/default/files/2017-04/doc_UKTCSnomedCTUKDrugExtensionEditorialPolicy_Current-en-GB_GB1000001_v7_0.pdf)"
-  (:require [com.eldrix.hermes.service :as svc]
-            [com.eldrix.hermes.snomed :as snomed]
+  (:require [clojure.set :as set]
+            [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.expression.ecl :as ecl])
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
 ;; Core concepts - types of dm+d product
@@ -62,10 +62,10 @@
    AmppReferenceSet ::ampp
    VmpReferenceSet  ::vmp
    VmppReferenceSet ::vmpp
-   TfgReferenceSet ::tfg})
+   TfgReferenceSet  ::tfg})
 
 (def product->refset-id
-  (clojure.set/map-invert refset-id->product))
+  (set/map-invert refset-id->product))
 
 ;;  Language reference sets
 (def NhsDmdRealmLanguageReferenceSet 999000671000001103)
@@ -175,6 +175,7 @@
 (defmulti basis-of-strength product-type)
 (defmulti unit-of-administration product-type)
 
+;; TODO: take advantage of cardinality rules to optimise walking the products
 (defmethod vmps ::vtm [store concept-id]
   (filter (partial is-vmp? store) (store/get-all-children store concept-id)))
 (defmethod vtms ::vmp [store concept-id]
@@ -235,7 +236,6 @@
     (def index-reader (search/open-index-reader "snomed.db/search.db"))
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
     (require '[clojure.pprint :as pp])
-    (require '[com.eldrix.hermes.expression.ecl :as ecl])
     (def search-dmd (partial search store searcher))
     (defn fsn [concept-id]
       (:term (store/get-fully-specified-name store concept-id)))
@@ -260,8 +260,8 @@
   (def pyridostigmine-tfs (tfs store pyridostigmine-vtm))
   (map fsn pyridostigmine-tfs)
   (time (->> (search-dmd "pantoprazole" ::vtm)
-       (map :conceptId)
-       (mapcat (partial tfs store))
-       (distinct)
-       (map ps)))
+             (map :conceptId)
+             (mapcat (partial tfs store))
+             (distinct)
+             (map ps)))
   )

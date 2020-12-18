@@ -159,7 +159,7 @@
 (def routes
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
-      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj get-concept-descriptions)]
+      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
       ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get [coerce-body content-neg-intc entity-render subsumed-by?]]
