@@ -128,7 +128,7 @@ will follow.
 clj -M:check
 ```
 
-#### Run unit tests (optional) and linters
+#### Run unit tests and linters (optional)
 
 ```
 clj -M:test
