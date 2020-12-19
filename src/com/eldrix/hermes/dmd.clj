@@ -41,7 +41,7 @@
   - TF <<- HAS_TRADE_FAMILY_GROUP ->> QUALIFIER
 
   Cardinality rules are: (see https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf)
-  The SNOMED dm+d data file documents the cardinality rules for AMP<->TF 
+  The SNOMED dm+d data file documents the cardinality rules for AMP<->TF
   (https://www.nhsbsa.nhs.uk/sites/default/files/2017-04/doc_UKTCSnomedCTUKDrugExtensionEditorialPolicy_Current-en-GB_GB1000001_v7_0.pdf)"
   (:require [clojure.set :as set]
             [com.eldrix.hermes.expression.ecl :as ecl]
@@ -60,7 +60,7 @@
 (def TradeFamily 9191801000001103)
 (def TradeFamilyGroup 9191901000001109)
 
-;; dm+d reference sets - membership of a reference set tells us which of six types of product
+;; dm+d reference sets - membership of a reference set tells us which product
 (def VtmReferenceSet 999000581000001102)
 (def TfReferenceSet 999000631000001100)
 (def AmpReferenceSet 999000541000001108)
@@ -132,11 +132,11 @@
 (def VrpValidAsPrescribableProduct 12223601000001104)
 
 (defmulti product-type
-          "Return the dm+d product type of the concept specified.
-          Parameters:
-          - store : MapDBStore
-          - concept : a concept, either identifier, concept or extended concept."
-          (fn [store concept] (class concept)))
+  "Return the dm+d product type of the concept specified.
+  Parameters:
+   - store : MapDBStore
+  - concept : a concept, either identifier, concept or extended concept."
+  (fn [store concept] (class concept)))
 
 (defmethod product-type Long [store concept-id]
   (let [refsets (store/get-component-refsets store concept-id)]
@@ -217,6 +217,8 @@
 (defmethod tfgs ::vtm [store concept-id]
   (set (mapcat (partial tfgs store) (tfs store concept-id))))
 
+
+;;;; core properties for VMPs
 (defmethod dispensed-dose-forms ::vmp [store concept-id]
   (store/get-parent-relationships-of-type store concept-id HasDispensedDoseForm))
 (defmethod specific-active-ingredients ::vmp [store concept-id]
@@ -225,16 +227,19 @@
   (store/get-parent-relationships-of-type store concept-id PrescribingStatus))
 (defmethod non-availability-indicators ::vmp [store concept-id]
   (store/get-parent-relationships-of-type store concept-id NonAvailabilityIndicator))
+(defmethod basis-of-strength ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasNHSdmdBasisOfStrength))
+(defmethod unit-of-administration ::vmp [store concept-id]
+  (store/get-parent-relationships-of-type store concept-id HasUnitOfAdministration))
+
+;;;; and now derive properties for other product types, if that makes sense
+
 (defmethod prescribing-statuses ::vtm [store concept-id]
   (set (mapcat (partial prescribing-statuses store) (vmps store concept-id))))
 (defmethod non-availability-indicators ::vtm [store concept-id]
   (set (mapcat (partial non-availability-indicators store) (vmps store concept-id))))
-(defmethod basis-of-strength ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasNHSdmdBasisOfStrength))
 (defmethod basis-of-strength ::vtm [store concept-id]
   (set (mapcat (partial basis-of-strength store) (vmps store concept-id))))
-(defmethod unit-of-administration ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasUnitOfAdministration))
 (defmethod unit-of-administration ::vtm [store concept-id]
   (set (mapcat (partial unit-of-administration store) (vmps store concept-id))))
 
@@ -277,5 +282,4 @@
              (map :conceptId)
              (mapcat (partial tfs store))
              (distinct)
-             (map ps)))
-  )
+             (map ps))))
