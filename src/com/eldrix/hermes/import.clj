@@ -53,15 +53,16 @@
   Unfortunately, some UK releases have invalid JSON in their metadata, so
   we log an error and avoid throwing an exception.
   Raised as issue #34057 with NHS Digital.
-  Unfortunately the *name* of the release is not included, but as the metadata file
-  exists at the root of the release, we can guess the name from the parent directory.
+  Unfortunately the *name* of the release is not included currently, but as the
+  metadata file exists at the root of the release, we can guess the name from
+  the parent directory and use that if a 'name' isn't in the metadata.
   Raised as issue #32991 with Snomed International."
   [^File f]
-  (let [base {:name (.getName (.getParentFile f))}]
-    (try (merge base (json/parse-string (slurp f) true))
+  (let [default {:name (.getName (.getParentFile f))}]
+    (try (merge default (json/parse-string (slurp f) true))
          (catch JsonParseException e
-           (log/warn "invalid metadata in distribution file" (:name base))
-           (assoc base :error "invalid metadata: invalid json in file")))))
+           (log/warn "invalid metadata in distribution file" (:name default))
+           (assoc default :error "invalid metadata: invalid json in file")))))
 
 (defn metadata-files
   "Returns a list of release package information files from the directory.

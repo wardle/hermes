@@ -30,7 +30,9 @@
     (log/error "no database directory specified")))
 
 (defn list-from [_ args]
-  (let [dirs (if (= 0 (count args)) ["."] args)]
+  (let [dirs (if (= 0 (count args)) ["."] args)
+        metadata (map #(select-keys % [:name :effectiveTime :deltaFromDate :deltaToDate]) (mapcat import/all-metadata dirs))]
+    (pp/print-table metadata)
     (doseq [dir dirs]
       (let [files (import/importable-files dir)
             heading (str "| Distribution files in " dir ":" (count files) " |")
