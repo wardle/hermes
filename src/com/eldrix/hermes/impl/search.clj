@@ -150,15 +150,15 @@
       tq)))
 
 (defn tokenize [^Analyzer analyzer ^String field-name ^String s]
-  (let [tokenStream (.tokenStream analyzer field-name s)
-        termAtt (.addAttribute tokenStream CharTermAttribute)]
-    (.reset tokenStream)
-    (loop [has-more (.incrementToken tokenStream)
-           result []]
-      (if-not has-more
-        result
-        (let [s (.toString termAtt)]
-          (recur (.incrementToken tokenStream) (conj result s)))))))
+  (with-open [tokenStream (.tokenStream analyzer field-name s)]
+    (let [termAtt (.addAttribute tokenStream CharTermAttribute)]
+      (.reset tokenStream)
+      (loop [has-more (.incrementToken tokenStream)
+             result []]
+        (if-not has-more
+          result
+          (let [term (.toString termAtt)]
+            (recur (.incrementToken tokenStream) (conj result term))))))))
 
 (defn- make-tokens-query
   ([s] (make-tokens-query s 0))
