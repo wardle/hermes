@@ -15,7 +15,6 @@
 (ns com.eldrix.hermes.impl.search
   (:require
     [clojure.core.async :as async]
-    [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
     [com.eldrix.hermes.impl.language :as lang]
     [com.eldrix.hermes.impl.store :as store]
@@ -149,7 +148,9 @@
         (.build builder))
       tq)))
 
-(defn tokenize [^Analyzer analyzer ^String field-name ^String s]
+(defn tokenize
+  "Tokenize the string 's' according the 'analyzer' and field specified."
+  [^Analyzer analyzer ^String field-name ^String s]
   (with-open [tokenStream (.tokenStream analyzer field-name s)]
     (let [termAtt (.addAttribute tokenStream CharTermAttribute)]
       (.reset tokenStream)
@@ -163,7 +164,7 @@
 (defn- make-tokens-query
   ([s] (make-tokens-query s 0))
   ([s fuzzy]
-   (let [analyzer (StandardAnalyzer.)]
+   (with-open [analyzer (StandardAnalyzer.)]
      (when s
        (let [qs (map #(make-token-query % fuzzy) (tokenize analyzer "term" s))]
          (if (> (count qs) 1)
