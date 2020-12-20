@@ -28,7 +28,9 @@
            (org.apache.lucene.analysis.standard StandardAnalyzer)
            (java.util Collection)
            (java.nio.file Paths)
-           (com.eldrix.hermes.impl.store MapDBStore)))
+           (com.eldrix.hermes.impl.store MapDBStore)
+           (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
+           (org.apache.lucene.analysis Analyzer)))
 
 (set! *warn-on-reflection* true)
 
@@ -147,17 +149,29 @@
         (.build builder))
       tq)))
 
+(defn tokenize [^Analyzer analyzer ^String field-name ^String s]
+  (let [tokenStream (.tokenStream analyzer field-name s)
+        termAtt (.addAttribute tokenStream CharTermAttribute)]
+    (.reset tokenStream)
+    (loop [has-more (.incrementToken tokenStream)
+           result []]
+      (if-not has-more
+        result
+        (let [s (.toString termAtt)]
+          (recur (.incrementToken tokenStream) (conj result s)))))))
+
 (defn- make-tokens-query
   ([s] (make-tokens-query s 0))
   ([s fuzzy]
-   (when s
-     (let [qs (map #(make-token-query % fuzzy) (str/split (str/lower-case s) #"\s"))]
-       (if (> (count qs) 1)
-         (let [builder (BooleanQuery$Builder.)]
-           (doseq [q qs]
-             (.add builder q BooleanClause$Occur/MUST))
-           (.build builder))
-         (first qs))))))
+   (let [analyzer (StandardAnalyzer.)]
+     (when s
+       (let [qs (map #(make-token-query % fuzzy) (tokenize analyzer "term" s))]
+         (if (> (count qs) 1)
+           (let [builder (BooleanQuery$Builder.)]
+             (doseq [q qs]
+               (.add builder q BooleanClause$Occur/MUST))
+             (.build builder))
+           (first qs)))))))
 
 (defn q-or
   [queries]
@@ -515,4 +529,5 @@
 
 (comment
   (build-search-index "snomed.db/store.db" "snomed.db/search.db" "en-GB")
+
   )
