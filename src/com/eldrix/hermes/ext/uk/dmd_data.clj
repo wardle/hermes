@@ -2,7 +2,7 @@
   "Support the UK NHS dm+d XML data files.
   This namespace provides a thin wrapper over the data files, keeping the
   original structures as much as possible and thus facilitating adapting
-  to changes in those definitions as they occur..
+  to changes in those definitions as they occur.
   For more information see
   https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
   (:require [clojure.data.xml :as xml]
@@ -52,17 +52,6 @@
 (defn ^:private make-dmd-keyword [valueset code]
   (keyword "uk.nhs.dmd" (str (name valueset) "-" code)))
 
-(def known-codesystems
-  "Declarative mapping from a dm+d codesystem into SNOMED. "
-  {:ONT_FORM_ROUTE              {:map-from 13088601000001101}
-   :FLAVOUR                     {:map-from 8941201000001106}
-   :CONTROL_DRUG_CATEGORY       {:map-from 13089201000001109}
-   :VIRTUAL_PRODUCT_PRES_STATUS {:map-from 8653201000001106}
-   :UNIT_OF_MEASURE             {:is-native? true}
-   :FORM                        {:is-native? true}
-   :SUPPLIER                    {:is-native? true}
-   :ROUTE                       {:is-native? true}})
-
 (def property-parsers
   {[:UNIT_OF_MEASURE :CD]     parse-long
    [:UNIT_OF_MEASURE :CDPREV] parse-long
@@ -105,39 +94,20 @@
          content (:content node)]
      (reduce into (if type {:TYPE type} {}) (map #(parse-property type (:tag %) (first (:content %))) content)))))
 
-;; todo: remove... as unnecessary?
-(defn code->snomed
-  "Map a codesystem value into a SNOMED identifier, if possible.
-  Returns a concept identifier or nil."
-  [^IndexSearcher searcher v]
-  (let [config (get known-codesystems (:TYPE v))]
-    (cond
-      (:is-native? config)
-      (:CD v)
-      (:map-from config)
-      (if-let [results (seq (search/do-search searcher {:s (:DESC v) :max-hits 1 :properties {snomed/IsA (:map-from config)}}))]
-        (:id (first results))
-        (log/warn "unable but expected to map dm+d code into SNOMED. Mismatched releases?" v)))))
-
 (defn parse-lookup-xml
   "Extracts lookup (value set) data from the dm+d 'lookup' file.
   The Lookup XML contains multiple value set (codesystem) definitions.
-
   Turns each value into a map with :TYPE and :CD and :DESC as a minimum.
+  Returns a map keyed to a dm+d keyword of the form described in
+  `make-dmd-keyword`: :uk.nhs.dmd/TYPE-CODE
+
+  Parameters:
   - root : a tree of element records from (clojure.data.xml/parse)."
   [root]
   (let [zipper (zip/xml-zip root)
-        tags (map :tag (zip/children zipper))]
-    (mapcat #(zx/xml-> zipper :LOOKUP % :INFO (partial parse-simple-xml %)) tags)))
-
-;; TODO: remove... as unnecessary?
-(defn assoc-snomed-mapping
-  "Add a concept identifier to any codes that can be mapped to SNOMED CT.
-  Parameters:
-   - codes - the result of '(parse-lookup-xml root)'"
-  [searcher codes]
-  (map #(if-let [concept-id (code->snomed searcher %)] (assoc % :CONCEPTID concept-id) %) codes))
-
+        tags (map :tag (zip/children zipper))
+        lookups (mapcat #(zx/xml-> zipper :LOOKUP % :INFO (partial parse-simple-xml %)) tags)]
+    (into {} (map #(vector (make-dmd-keyword (:TYPE %) (:CD %)) %)) lookups)))
 
 (defn parse-vtm-xml
   "The VTM XML structure is very simple containing only VTM entities."
