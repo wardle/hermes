@@ -3,9 +3,12 @@
   This namespace provides a thin wrapper over the data files, keeping the
   original structures as much as possible and thus facilitating adapting
   to changes in those definitions as they occur.
+  Does not import the dm+d ingredients file; these data already exist in SNOMED.
+
   For more information see
   https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
-  (:require [clojure.data.xml :as xml]
+  (:require [clojure.core.async :as a]
+            [clojure.data.xml :as xml]
             [clojure.data.zip.xml :as zx]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -193,7 +196,36 @@
                 (vmp-drug-routes zipper)
                 (vmp-controlled-drug-info zipper))))
 
+(def file-parsers
+  {:LOOKUP parse-lookup-xml
+   :VTM    parse-vtm-xml
+   :VMP    parse-vmp-xml})
 
+(defn import-file
+  [dmd-file]
+  (if-let [parser (get file-parsers (:type dmd-file))]
+    (let [rdr (io/reader (:file dmd-file))
+          root (xml/parse rdr :skip-whitespace true)]
+      (parser root))
+    (log/warn "skipping file " dmd-file ": no parser")))
+
+(defn import-dmd
+  "Streams a lazy sequence of data imported from UK dm+d to the channel.
+  Parameters:
+  - dir  : directory from which to import files
+  - ch   : clojure.core.async channel to which to send data
+  - close? : whether to close the channel when done (default true)
+
+  Each result is a key value pair.
+  A numeric key is always a SNOMED concept identifier.
+  A keyword key is a namespaced identifier representing a value in a valueset.
+  For all, the value is a close representation of the dm+d data structure."
+  ([dir ch] (import-dmd dir ch true))
+  ([dir ch close?]
+  (let [files (dmd-file-seq dir)]
+    (doseq [f files]
+      (a/onto-chan!! ch (import-file f) false))
+    (when close? (a/close! ch)))))
 
 ;;;;;
 ;;;;;
@@ -206,6 +238,7 @@
 
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
+  (def data (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001"))
   (def filename "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001/f_vtm2_3101220.xml")
   (def filename "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001/f_vmp2_3101220.xml")
   (def filename "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001/f_lookup2_3101220.xml")
