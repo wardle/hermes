@@ -1,9 +1,8 @@
-(ns com.eldrix.hermes.ext.uk.import-dmd
+(ns com.eldrix.hermes.ext.uk.dmd.import
   "Support the UK NHS dm+d XML data files.
   This namespace provides a thin wrapper over the data files, keeping the
   original structures as much as possible and thus facilitating adapting
   to changes in those definitions as they occur.
-  Does not import the dm+d ingredients file; these data already exist in SNOMED.
 
   For more information see
   https://www.nhsbsa.nhs.uk/sites/default/files/2017-02/Technical_Specification_of_data_files_R2_v3.1_May_2015.pdf"
@@ -13,25 +12,22 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [clojure.zip :as zip]
-            [com.eldrix.hermes.impl.search :as search]
-            [com.eldrix.hermes.snomed :as snomed])
+            [clojure.zip :as zip])
   (:import [java.time LocalDate]
-           (java.time.format DateTimeFormatter DateTimeParseException)
-           (org.apache.lucene.search IndexSearcher)))
+           (java.time.format DateTimeFormatter DateTimeParseException)))
 
 ;; dm+d date format = CCYY-MM-DD
-(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
-(defn ^Long parse-long [^String s] (Long/parseLong s))
-(defn ^Boolean parse-invalidity [^String s] (= "1" s))
+(defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
+(defn- ^Long parse-long [^String s] (Long/parseLong s))
+(defn- ^Boolean parse-invalidity [^String s] (= "1" s))
 
-(def file-matcher #"^f_([a-z]*)2_(\d*)\.xml$")
+(def ^:private file-matcher #"^f_([a-z]*)2_(\d*)\.xml$")
 
-(def file-ordering
+(def ^:private file-ordering
   "Order of file import for relational integrity."
   [:LOOKUP :INGREDIENT :VTM :VMP :AMP :VMPP :AMPP])
 
-(defn parse-dmd-filename
+(defn ^:private parse-dmd-filename
   [f]
   (let [f2 (clojure.java.io/as-file f)]
     (when-let [[_ nm _] (re-matches file-matcher (.getName f2))]
@@ -60,7 +56,7 @@
   (keyword "uk.nhs.dmd" (name kw)))
 
 
-(def property-parsers
+(def ^:private property-parsers
   {[:UNIT_OF_MEASURE :CD]     parse-long
    [:UNIT_OF_MEASURE :CDPREV] parse-long
    [:FORM :CD]                parse-long
@@ -96,7 +92,7 @@
    :REIMB_STATDT              parse-date
    :DISCDT                    parse-date})
 
-(defn parse-property [kind k v]
+(defn- parse-property [kind k v]
   (let [kw (make-dmd-keyword k)]
     (if-let [parser (get property-parsers [kind k])]
       {kw (parser v)}
@@ -104,7 +100,7 @@
         {kw (fallback v)}
         {kw v}))))
 
-(defn parse-dmd-component
+(defn- parse-dmd-component
   "Parse a fragment of XML into a simple flat map, adding an optional ':TYPE'
   parameter if specified. Does not process nested XML but that is not required
   for the dm+d XML."
@@ -115,7 +111,7 @@
      (if type {:uk.nhs.dmd/TYPE (make-dmd-keyword kind)} {})
      (map #(parse-property type (:tag %) (first (:content %))) (:content node)))))
 
-(defn resolve-in-xml
+(defn- resolve-in-xml
   "Generic resolution of a node given a path.
   Parameters:
    - root  : a root from 'clojure.data.xml/parse'
@@ -129,17 +125,17 @@
     (let [item (first path)]
       (resolve-in-xml (first (filter #(= item (:tag %)) (:content root))) (rest path)))))
 
-(defn import-component
+(defn- import-component
   [kind path root]
   (map (partial parse-dmd-component kind) (resolve-in-xml root path)))
 
-(defn stream-component
-  [kind path dmd-product-key root ch]
+(defn- stream-component
+  [kind path root ch]
   (loop [components (import-component kind path root)]
     (when (and (first components) (a/>!! ch (first components)))
       (recur (next components)))))
 
-(defn parse-lookup-xml
+(defn- parse-lookup-xml
   [root ch]
   (let [zipper (zip/xml-zip root)
         tags (map :tag (zip/children zipper))
@@ -154,7 +150,7 @@
 
 (def file-configuration
   {:VTM        [{:name :VTM :path []}]
-   :VMP        [;;{:name :VMP :path [:VMPS]}
+   :VMP        [{:name :VMP :path [:VMPS]}
                 {:path [:VIRTUAL_PRODUCT_INGREDIENT]}
                 {:path [:ONT_DRUG_FORM]}
                 {:path [:DRUG_FORM]}
@@ -176,14 +172,14 @@
    :INGREDIENT [{:name :INGREDIENT :path []}]
    :LOOKUP     {:fn parse-lookup-xml}})
 
-(defn parse-configuration
+(defn- parse-configuration
   [{:keys [name path product-key fn] :or {path []}}]
   (if fn
     fn
     (let [nm (or name (first path))]
       (partial stream-component nm path product-key))))
 
-(defn do-import
+(defn- do-import
   [dmd-file f ch]
   (with-open [rdr (io/reader (:file dmd-file))]
     (let [root (xml/parse rdr :skip-whitespace true)]
