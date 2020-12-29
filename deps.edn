@@ -67,15 +67,16 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:extra-deps {seancorfield/depstar {:mvn/version "1.1.136"}}
-            :main-opts  ["-m" "hf.depstar.jar" "target/hermes-v0.1.0.jar"]}
+           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.165"}}
+            :exec-fn      hf.depstar/jar
+            :exec-args    {:jar "target/hermes-v0.1.0.jar"}}
 
            :uberjar
-           {:extra-deps {seancorfield/depstar {:mvn/version "1.1.136"}}
-            :exec-fn    hf.depstar.uberjar/run
-            :exec-args  {:jar        "target/hermes-full-v0.1.0.jar"
-                         :aot        true
-                         :main-class "com.eldrix.hermes.core"}}
+           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.165"}}
+            :exec-fn      hf.depstar/uberjar
+            :exec-args    {:jar        "target/hermes-full-v0.1.0.jar"
+                           :aot        true
+                           :main-class "com.eldrix.hermes.core"}}
 
            :rebl                                            ;; for JDK 11+
            {:extra-deps {com.cognitect/rebl          {:mvn/version "0.9.242"}

@@ -114,6 +114,8 @@ In your `deps.edn` file (make sure you change the commit-id):
                     :sha     "097e3094070587dc9362ca4564401a924bea952c"}
 ``` 
 
+Or, build a library jar (see below)
+
 ### B. How to use a running service in your own applications
 
 The terminology server can be embedded into your own applications or, more
@@ -161,9 +163,17 @@ clj -X:deps tree
 Create a POM from the dependencies 
 (or create manually - changing the groupId, artifactId and version):
 ```
-clj -Spom``
+clj -Spom
 ```
 Build the uberjar:
 ```
 clojure -X:uberjar
+```
+
+#### Building library jar
+
+A library jar contains only hermes-code, and none of the bundled dependencies.  
+
+```
+clojure -X:jar
 ```
