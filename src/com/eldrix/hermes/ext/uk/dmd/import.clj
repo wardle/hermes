@@ -9,6 +9,7 @@
   (:require [clojure.core.async :as a]
             [clojure.data.xml :as xml]
             [clojure.data.zip.xml :as zx]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
@@ -77,9 +78,9 @@
    :ISIDPREV                  parse-long
    :ISIDDT                    parse-date
    :BS_SUBID                  parse-long
-   :STRNT_NMRTR_VAL           clojure.edn/read-string
+   :STRNT_NMRTR_VAL           edn/read-string
    :STRNT_NMRTR_UOMCD         parse-long
-   :STRNT_DNMTR_VAL           clojure.edn/read-string
+   :STRNT_DNMTR_VAL           edn/read-string
    :STRNT_DNMTR_UOMCD         parse-long
    :ROUTECD                   parse-long
    :CATDT                     parse-date
