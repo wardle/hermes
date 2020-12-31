@@ -113,7 +113,7 @@
 (defn stream-all-concepts
   "Asynchronously stream all concepts to the channel specified, and, by default,
   closing the channel when done unless specified.
-  Returns a channel which *will* be closed when done."
+  Returns a channel which, by default, will be closed when done."
   ([^MapDBStore store ch]
    (stream-all-concepts store ch true))
   ([^MapDBStore store ch close?]
@@ -274,7 +274,6 @@
                          (to-array [refset-id s nil])))
        (map last)
        (map (partial get-refset-item store))))
-
 
 (defn- write-concepts [^MapDBStore store objects]
   (doseq [o objects]
