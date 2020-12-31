@@ -53,10 +53,6 @@
 ;;;; Generic dm+d parsing functionality
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn ^:private make-dmd-keyword [kw]
-  (keyword "uk.nhs.dmd" (name kw)))
-
-
 (def ^:private property-parsers
   {[:UNIT_OF_MEASURE :CD]     parse-long
    [:UNIT_OF_MEASURE :CDPREV] parse-long
@@ -73,6 +69,8 @@
    :VTMIDDT                   parse-date
    :VPID                      parse-long
    :VPIDPREV                  parse-long
+   :UDFS                      edn/read-string
+   :UDFS_UOMCD                parse-long
    :UNIT_DOSE_UOMCD           parse-long
    :ISID                      parse-long
    :ISIDPREV                  parse-long
@@ -88,29 +86,26 @@
    :SUPPCD                    parse-long
    :APID                      parse-long
    :VPPID                     parse-long
+   :QTYVAL                    edn/read-string
    :QTY_UOMCD                 parse-long
    :APPID                     parse-long
    :REIMB_STATDT              parse-date
    :DISCDT                    parse-date})
 
-(defn- parse-property [kind k v]
-  (let [kw (make-dmd-keyword k)]
-    (if-let [parser (get property-parsers [kind k])]
-      {kw (parser v)}
-      (if-let [fallback (get property-parsers k)]
-        {kw (fallback v)}
-        {kw v}))))
+(defn- parse-property [kind kw v]
+  (if-let [parser (get property-parsers [kind kw])]
+    {kw (parser v)}
+    (if-let [fallback (get property-parsers kw)]
+      {kw (fallback v)}
+      {kw v})))
 
 (defn- parse-dmd-component
-  "Parse a fragment of XML into a simple flat map, adding an optional ':TYPE'
-  parameter if specified. Does not process nested XML but that is not required
-  for the dm+d XML."
+  "Parse a fragment of XML.
+  Does not process nested XML but that is not required for the dm+d XML."
   ([node] (parse-dmd-component nil node))
   ([kind node]
-   (reduce
-     into
-     (if type {:uk.nhs.dmd/TYPE (make-dmd-keyword kind)} {})
-     (map #(parse-property type (:tag %) (first (:content %))) (:content node)))))
+   (reduce into (if kind {:TYPE kind} {})
+           (map #(parse-property kind (:tag %) (first (:content %))) (:content node)))))
 
 (defn- resolve-in-xml
   "Generic resolution of a node given a path.
@@ -126,21 +121,49 @@
     (let [item (first path)]
       (resolve-in-xml (first (filter #(= item (:tag %)) (:content root))) (rest path)))))
 
-(defn- import-component
-  [kind path root]
-  (map (partial parse-dmd-component kind) (resolve-in-xml root path)))
+(defn xf-component
+  "A transducer to manipulate a first class dm+d component (VTM/VMP/AMP etc).
+  Adds an ID that is the component ID."
+  [kind id-key]
+  (comp
+    (map (partial parse-dmd-component kind))
+    (map #(assoc % :ID (get % id-key)))))
 
 (defn- stream-component
-  [kind path root ch]
-  (loop [components (import-component kind path root)]
+  [kind path id root ch]
+  (loop [components (sequence (xf-component kind id) (resolve-in-xml root path))]
     (when (and (first components) (a/>!! ch (first components)))
       (recur (next components)))))
+
+(defn xf-property
+  "A transducer to manipulate a nested dm+d component.
+  Adds an ID that is a tuple of the parent component ID and the property type."
+  [kind fk-key]
+  (comp
+    (map (partial parse-dmd-component kind))
+    (map #(assoc % :ID (vector (get % fk-key) kind)))))
+
+(defn- stream-property
+  [kind path fk-key root ch]
+  (loop [components (sequence (xf-property kind fk-key) (resolve-in-xml root path))]
+    (when (and (first components) (a/>!! ch (first components)))
+      (recur (next components)))))
+
+(defn xf-lookup
+  "A transducer to process LOOKUP dm+d components.
+  Adds an ID made up of the type and code."
+  [kind]
+  (comp
+    (map (partial parse-dmd-component kind))
+    (map #(assoc % :ID (keyword (str (name kind) "-" (:CD %)))))))
 
 (defn- parse-lookup-xml
   [root ch]
   (let [zipper (zip/xml-zip root)
         tags (map :tag (zip/children zipper))
-        lookups (mapcat #(map (partial parse-dmd-component %) (zx/xml-> zipper :LOOKUP % :INFO zip/node)) tags)]
+        lookups (mapcat
+                  #(sequence (xf-lookup %) (zx/xml-> zipper :LOOKUP % :INFO zip/node))
+                  tags)]
     (loop [result lookups]
       (if (and result (a/>!! ch (first result)))
         (recur (next result))))))
@@ -150,35 +173,48 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def file-configuration
-  {:VTM        [{:name :VTM :path []}]
-   :VMP        [{:name :VMP :path [:VMPS]}
-                {:path [:VIRTUAL_PRODUCT_INGREDIENT]}
-                {:path [:ONT_DRUG_FORM]}
-                {:path [:DRUG_FORM]}
-                {:path [:DRUG_ROUTE]}
-                {:path [:CONTROL_DRUG_INFO]}]
-   :AMP        [{:name :AMP :path [:AMPS]}
-                {:path [:AP_INGREDIENT]}
-                {:path [:LICENSED_ROUTE]}
-                {:path [:AP_INFORMATION]}]
-   :VMPP       [{:name :VMPP :path [:VMPPS]}
-                {:path [:DRUG_TARIFF_INFO]}
-                {:path [:COMB_CONTENT]}]
-   :AMPP       [{:name :AMPP :path [:AMPPS]}
-                {:path [:APPLIANCE_PACK_INFO]}
-                {:path [:DRUG_PRODUCT_PRESCRIB_INFO]}
-                {:path [:MEDICINAL_PRODUCT_PRICE]}
-                {:path [:REIMBURSEMENT_INFO]}
-                {:path [:COMB_CONTENT]}]
-   :INGREDIENT [{:name :INGREDIENT :path []}]
-   :LOOKUP     {:fn parse-lookup-xml}})
+  {:VTM        [{:nm :VTM :path [] :id :VTMID}]
+   :VMP        [{:nm :VMP :path [:VMPS] :id :VPID}
+                {:path [:VIRTUAL_PRODUCT_INGREDIENT] :fk :VPID}
+                {:path [:ONT_DRUG_FORM] :fk :VPID}
+                {:path [:DRUG_FORM] :fk :VPID}
+                {:path [:DRUG_ROUTE] :fk :VPID}
+                {:path [:CONTROL_DRUG_INFO] :fk :VPID}]
+   :AMP        [{:nm :AMP :path [:AMPS] :id :APID}
+                {:path [:AP_INGREDIENT] :fk :APID}
+                {:path [:LICENSED_ROUTE] :fk :APID}
+                {:path [:AP_INFORMATION] :fk :APID}]
+   :VMPP       [{:nm :VMPP :path [:VMPPS] :id :VPPID}
+                {:path [:DRUG_TARIFF_INFO] :fk :VPPID}
+                {:path [:COMB_CONTENT]} :fk :PRNTVPPID]
+   :AMPP       [{:nm :AMPP :path [:AMPPS] :id :APPID}
+                {:path [:APPLIANCE_PACK_INFO] :fk :APPID}
+                {:path [:DRUG_PRODUCT_PRESCRIB_INFO] :fk :APPID}
+                {:path [:MEDICINAL_PRODUCT_PRICE] :fk :APPID}
+                {:path [:REIMBURSEMENT_INFO] :fk :APPID}
+                {:path [:COMB_CONTENT]} :fk :PRNTAPPID]
+   :INGREDIENT [{:nm :INGREDIENT :path []} :id :ISID]
+   :LOOKUP     {:func parse-lookup-xml}})
 
 (defn- parse-configuration
-  [{:keys [name path product-key fn] :or {path []}}]
-  (if fn
-    fn
-    (let [nm (or name (first path))]
-      (partial stream-component nm path product-key))))
+  "Generates a function from the given configuration.
+
+  A function will be generated that can take parsed XML and stream the result
+  to the channel supplied. '(fn [root ch] ...)'
+
+  Each product is exported as a first class key value pair using the ':id'
+  Each property is exported as a compound key made up of the product
+  identifier (':fk') and the relationship name (':nm').
+  The relationship name defaults to the first entry in the path."
+  [{:keys [nm path id fk func] :as config}]
+  (if func
+    func
+    (let [nm' (or nm (first path))]
+      (cond
+        (and id fk) (throw (ex-info "cannot specify both 'id' and 'fk'" config))
+        id (partial stream-component nm' path id)
+        fk (partial stream-property nm' path fk)
+        :else (partial stream-component nm' path nil)))))
 
 (defn- do-import
   [dmd-file f ch]
@@ -209,9 +245,13 @@
   The default comprises all known dm+d file types except Ingredients as that
   component is redundant in the context of a wider SNOMED terminology server.
 
-  Each streamed result is a key value pair.
-  A numeric key is always a SNOMED concept identifier.
-  A keyword key is a namespaced identifier representing a value in a valueset.
+  Each streamed result is a key value pair of three types:
+  - A numeric key is always a SNOMED concept identifier; used for first-class
+    dm+d components.
+  - A keyword key is an identifier representing a value in a valueset.
+  - A vector key represents a relation of a core concept, consisting of a tuple
+  of the parent concept and a keyword representing the relationship type.
+
   For all, the value is a close representation of the dm+d data structure.
 
   Example:
@@ -227,7 +267,6 @@
      (when close?
        (a/close! ch)))))
 
-
 (defn statistics-dmd
   "Return statistics for dm+d data in the specified directory."
   [dir]
@@ -238,12 +277,12 @@
       (if-not item
         counts
         (recur (a/<!! ch)
-               (update counts (:uk.nhs.dmd/TYPE item) (fnil inc 0)))))))
+               (update counts (:TYPE item) (fnil inc 0)))))))
 
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   (def ch (a/chan))
-  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch {:types #{:VMP}}))
+  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch {:types #{:LOOKUP}}))
   (a/<!! ch)
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   )
