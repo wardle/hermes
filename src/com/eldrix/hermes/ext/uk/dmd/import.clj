@@ -1,3 +1,17 @@
+; Copyright 2020 Mark Wardle and Eldrix Ltd
+;
+;   Licensed under the Apache License, Version 2.0 (the "License");
+;   you may not use this file except in compliance with the License.
+;   You may obtain a copy of the License at
+;
+;       http://www.apache.org/licenses/LICENSE-2.0
+;
+;   Unless required by applicable law or agreed to in writing, software
+;   distributed under the License is distributed on an "AS IS" BASIS,
+;   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;   See the License for the specific language governing permissions and
+;   limitations under the License.
+;;;;
 (ns com.eldrix.hermes.ext.uk.dmd.import
   "Support the UK NHS dm+d XML data files.
   This namespace provides a thin wrapper over the data files, keeping the
@@ -90,7 +104,11 @@
    :QTY_UOMCD                 parse-long
    :APPID                     parse-long
    :REIMB_STATDT              parse-date
-   :DISCDT                    parse-date})
+   :DISCDT                    parse-date
+   :PRNTVPPID                 parse-long
+   :CHLDVPPID                 parse-long
+   :PRNTAPPID                 parse-long
+   :CHLDAPPID                 parse-long})
 
 (defn- parse-property [kind kw v]
   (if-let [parser (get property-parsers [kind kw])]
@@ -104,7 +122,7 @@
   Does not process nested XML but that is not required for the dm+d XML."
   ([node] (parse-dmd-component nil node))
   ([kind node]
-   (reduce into (if kind {:TYPE kind} {})
+   (reduce into (if kind {:TYPE (keyword "uk.nhs.dmd" (name kind))} {})
            (map #(parse-property kind (:tag %) (first (:content %))) (:content node)))))
 
 (defn- resolve-in-xml
@@ -155,7 +173,8 @@
   [kind]
   (comp
     (map (partial parse-dmd-component kind))
-    (map #(assoc % :ID (keyword (str (name kind) "-" (:CD %)))))))
+    (map #(assoc % :TYPE :uk.nhs.dmd/LOOKUP
+                   :ID (keyword (str (name kind) "-" (:CD %)))))))
 
 (defn- parse-lookup-xml
   [root ch]
@@ -186,17 +205,33 @@
                 {:path [:AP_INFORMATION] :fk :APID}]
    :VMPP       [{:nm :VMPP :path [:VMPPS] :id :VPPID}
                 {:path [:DRUG_TARIFF_INFO] :fk :VPPID}
-                {:path [:COMB_CONTENT]} :fk :PRNTVPPID]
+                {:path [:COMB_CONTENT] :fk :PRNTVPPID}]
    :AMPP       [{:nm :AMPP :path [:AMPPS] :id :APPID}
                 {:path [:APPLIANCE_PACK_INFO] :fk :APPID}
                 {:path [:DRUG_PRODUCT_PRESCRIB_INFO] :fk :APPID}
                 {:path [:MEDICINAL_PRODUCT_PRICE] :fk :APPID}
                 {:path [:REIMBURSEMENT_INFO] :fk :APPID}
-                {:path [:COMB_CONTENT]} :fk :PRNTAPPID]
-   :INGREDIENT [{:nm :INGREDIENT :path []} :id :ISID]
-   :LOOKUP     {:func parse-lookup-xml}})
+                {:path [:COMB_CONTENT] :fk :PRNTAPPID}]
+   :INGREDIENT [{:nm :INGREDIENT :path [] :id :ISID}]
+   :LOOKUP     [{:nm :LOOKUP :func parse-lookup-xml}]})
 
-(defn- parse-configuration
+(defn- filter-configurations
+  "Return the selected configurations for the specified file-type.
+  Parameters:
+  - configs - base file configurations
+  - file-type - file type or :all for all (useful at REPL)
+  - opts - a map of options:
+    |- include - if given, tuples of file type/component type to be included.
+    |- exclude - if given, tuples of file type/component type to be excluded."
+  [configs file-type {:keys [include exclude]}]
+  (let [flattened (mapcat (fn [[k vs]] (map #(assoc % :component [k (or (:nm %) (first (:path %)))]) vs)) configs)
+        available (map :component flattened)
+        base (or include available)
+        cfgs (set (if (and file-type (not= :all file-type)) (filter #(= file-type (first %)) base) base))
+        selected (if exclude (clojure.set/difference cfgs (set exclude)) cfgs)]
+    (filter #(contains? selected (:component %)) flattened)))
+
+(defn- parse-configuration-item
   "Generates a function from the given configuration.
 
   A function will be generated that can take parsed XML and stream the result
@@ -207,14 +242,13 @@
   identifier (':fk') and the relationship name (':nm').
   The relationship name defaults to the first entry in the path."
   [{:keys [nm path id fk func] :as config}]
-  (if func
-    func
-    (let [nm' (or nm (first path))]
-      (cond
-        (and id fk) (throw (ex-info "cannot specify both 'id' and 'fk'" config))
-        id (partial stream-component nm' path id)
-        fk (partial stream-property nm' path fk)
-        :else (partial stream-component nm' path nil)))))
+  (let [nm' (or nm (first path))]
+    (cond
+      func func
+      (and id fk) (throw (ex-info "cannot specify both 'id' and 'fk'" config))
+      id (partial stream-component nm' path id)
+      fk (partial stream-property nm' path fk)
+      :else (throw (ex-info "must provide either 'id' or 'fk'" config)))))
 
 (defn- do-import
   [dmd-file f ch]
@@ -223,11 +257,9 @@
       (f root ch))))
 
 (defn import-file
-  [dmd-file ch close?]
-  (if-let [configs (get file-configuration (:type dmd-file))]
-    (if (map? configs)
-      (do-import dmd-file (parse-configuration configs) ch)
-      (doseq [cfg configs] (do-import dmd-file (parse-configuration cfg) ch)))
+  [dmd-file ch {:keys [close?] :as opts}]
+  (if-let [configs (filter-configurations file-configuration (:type dmd-file) opts)]
+    (doseq [cfg configs] (do-import dmd-file (parse-configuration-item cfg) ch))
     (log/warn "skipping file " dmd-file ": no implemented parser"))
   (when close? (a/close! ch)))
 
@@ -239,31 +271,38 @@
   - dir  : directory from which to import files
   - ch   : clojure.core.async channel to which to send data
   - opts : map of optional options including
-    |- :close? : whether to close the channel when done (default true)
-    |- :types  : a set of dm+d filetypes to include if different from default.
+    |- :close?  : whether to close the channel when done (default true)
+    |- :include : a set of dm+d file / component types to include.
+    |- :exclude : a set of dm+d file / component types to exclude.
 
-  The default comprises all known dm+d file types except Ingredients as that
-  component is redundant in the context of a wider SNOMED terminology server.
+  Inclusions and exclusions should be of the form of a set of tuples made up
+  of the filetype (e.g. :VTM, :VMP, :AMP, :VMPP :AMPP, :LOOKUP etc) and component
+  type (e.g. :VIRTUAL_PRODUCT_INGREDIENT, :ONT_DRUG_FORM etc)
+  #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}. The naming of components is as the
+  dm+d standard, in the singular.
 
-  Each streamed result is a key value pair of three types:
-  - A numeric key is always a SNOMED concept identifier; used for first-class
-    dm+d components.
-  - A keyword key is an identifier representing a value in a valueset.
-  - A vector key represents a relation of a core concept, consisting of a tuple
-  of the parent concept and a keyword representing the relationship type.
+  As INGREDIENTS data is redundant in the context of a wider SNOMED terminology
+  server, it would be usual to use
+     {:exclude #{[:INGREDIENT :INGREDIENT]}}
+  to exclude the import of ingredient data from dm+d XML files.
 
-  For all, the value is a close representation of the dm+d data structure.
+  Each streamed result is a map containing a dm+d component and an extra ':ID'
+  property. The identifier is one of three types:
+  - numeric: always a SNOMED concept identifier; used for first-class high-level
+             dm+d components such as VTM/VMP/AMP etc.
+  - keyword: a keyword key is an identifier representing a value in a valueset.
+  - vector : a vector key represents a relation of a core concept, consisting of
+   a tuple of the parent concept and a keyword representing relationship type.
 
   Example:
     (def ch (a/chan 1 (partition-all 500)))
     (thread (import-dmd \"dir\" ch))
     (a/<!! ch)"
   ([dir ch] (import-dmd dir ch nil))
-  ([dir ch {:keys [close? types] :or {close? true, types #{:LOOKUP :VTM :VMP :AMP :VMPP :AMPP}}}]
+  ([dir ch {:keys [close? include exclude] :or {close? true, exclude #{[:INGREDIENT :INGREDIENT]}} :as opts}]
    (let [files (dmd-file-seq dir)]
      (doseq [f files]
-       (when (contains? types (:type f))
-         (import-file f ch false)))
+         (import-file f ch (assoc opts :close? false)))  ;; force 'close?' to be false
      (when close?
        (a/close! ch)))))
 
@@ -282,7 +321,8 @@
 (comment
   (dmd-file-seq "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   (def ch (a/chan))
-  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch {:types #{:LOOKUP}}))
+  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
+                        {:exclude #{[:INGREDIENT :INGREDIENT]}}))
   (a/<!! ch)
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   )
