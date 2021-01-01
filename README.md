@@ -177,3 +177,14 @@ A library jar contains only hermes-code, and none of the bundled dependencies.
 ```
 clojure -X:jar
 ```
+
+### C. Extensions
+
+There is now nascent support for building SNOMED extensions. 
+
+The first is an implementation of the UK dm+d (dictionary of medicines and 
+devices) database.
+While some dm+d data is already incorporated into the UK SNOMED release, it 
+is missing some useful additional dm+d, most notably, the concrete data
+needed to safely roundtrip between dose-based and product-based prescribing.
+
