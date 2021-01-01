@@ -25,6 +25,7 @@
             [clojure.data.zip.xml :as zx]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [clojure.zip :as zip])
@@ -94,6 +95,7 @@
    :STRNT_NMRTR_UOMCD         parse-long
    :STRNT_DNMTR_VAL           edn/read-string
    :STRNT_DNMTR_UOMCD         parse-long
+   :FORMCD                    parse-long
    :ROUTECD                   parse-long
    :CATDT                     parse-date
    :NMDT                      parse-date
@@ -159,7 +161,8 @@
   [kind fk-key]
   (comp
     (map (partial parse-dmd-component kind))
-    (map #(assoc % :ID (vector (get % fk-key) kind)))))
+    (map #(assoc % :ID (vector (get % fk-key) kind)))
+    (map #(dissoc % fk-key))))
 
 (defn- stream-property
   [kind path fk-key root ch]
@@ -228,7 +231,7 @@
         available (map :component flattened)
         base (or include available)
         cfgs (set (if (and file-type (not= :all file-type)) (filter #(= file-type (first %)) base) base))
-        selected (if exclude (clojure.set/difference cfgs (set exclude)) cfgs)]
+        selected (if exclude (set/difference cfgs (set exclude)) cfgs)]
     (filter #(contains? selected (:component %)) flattened)))
 
 (defn- parse-configuration-item
@@ -259,7 +262,9 @@
 (defn import-file
   [dmd-file ch {:keys [close?] :as opts}]
   (if-let [configs (filter-configurations file-configuration (:type dmd-file) opts)]
-    (doseq [cfg configs] (do-import dmd-file (parse-configuration-item cfg) ch))
+    (doseq [cfg configs]
+      (log/debug "importing from " dmd-file "; cfg:" cfg)
+      (do-import dmd-file (parse-configuration-item cfg) ch))
     (log/warn "skipping file " dmd-file ": no implemented parser"))
   (when close? (a/close! ch)))
 
@@ -302,7 +307,7 @@
   ([dir ch {:keys [close? include exclude] :or {close? true, exclude #{[:INGREDIENT :INGREDIENT]}} :as opts}]
    (let [files (dmd-file-seq dir)]
      (doseq [f files]
-         (import-file f ch (assoc opts :close? false)))  ;; force 'close?' to be false
+       (import-file f ch (assoc opts :close? false)))       ;; force 'close?' to be false
      (when close?
        (a/close! ch)))))
 
@@ -323,6 +328,8 @@
   (def ch (a/chan))
   (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
                         {:exclude #{[:INGREDIENT :INGREDIENT]}}))
+  (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
+                        {:include #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}}))
   (a/<!! ch)
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   )
