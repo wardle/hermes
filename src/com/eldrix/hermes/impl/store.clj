@@ -544,8 +544,9 @@
          (get-fully-specified-name store concept-id)
          preferred)))))
 
-
 (defn make-extended-concept [^MapDBStore store concept]
+  (when-not (map? concept)
+    (throw (IllegalArgumentException. "invalid concept")))
   (let [concept-id (:id concept)
         descriptions (map #(merge % (get-description-refsets store (:id %)))
                           (get-concept-descriptions store concept-id))
@@ -559,6 +560,8 @@
       direct-parent-relationships
       refsets)))
 
+(defn get-extended-concept [^MapDBStore store concept-id]
+  (make-extended-concept store (get-concept store concept-id)))
 
 (defmulti is-a? (fn [store concept parent-id] (class concept)))
 
