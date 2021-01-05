@@ -95,7 +95,7 @@
    :STRNT_NMRTR_UOMCD         parse-long
    :STRNT_DNMTR_VAL           edn/read-string
    :STRNT_DNMTR_UOMCD         parse-long
-   :FORMCD                    parse-long
+   [:DRUG_FORM :FORMCD]       parse-long
    :ROUTECD                   parse-long
    :CATDT                     parse-date
    :NMDT                      parse-date
@@ -282,9 +282,10 @@
 
   Inclusions and exclusions should be of the form of a set of tuples made up
   of the filetype (e.g. :VTM, :VMP, :AMP, :VMPP :AMPP, :LOOKUP etc) and component
-  type (e.g. :VIRTUAL_PRODUCT_INGREDIENT, :ONT_DRUG_FORM etc)
-  #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}. The naming of components is as the
-  dm+d standard, in the singular.
+  type (e.g. :VIRTUAL_PRODUCT_INGREDIENT, :ONT_DRUG_FORM etc).
+  e.g.  {:include #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}}.
+
+  The naming of components is, as the dm+d standard, in the singular.
 
   As INGREDIENTS data is redundant in the context of a wider SNOMED terminology
   server, it would be usual to use
