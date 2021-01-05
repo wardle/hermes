@@ -34,8 +34,8 @@
                      ^BTreeMap relationships                ;; relationshipId - relationship
                      ^BTreeMap refsets                      ;; refset-item-id -- refset-item
                      ^BTreeMap descriptions                 ;; conceptId--id--description
-                     ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- destinationId
-                     ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- sourceId
+                     ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- group -- destinationId
+                     ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- group -- sourceId
                      ^NavigableSet installedRefsets         ;; refsetId
                      ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
                      ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
@@ -136,21 +136,21 @@
 (defn build-relationship-indices
   "Build the relationship indices.
    Populates the child and parent relationship indices.
-   -----------------------------------------------------------------------
-  | index                         | compound key                          |
-  | .conceptChildRelationships    | destinationId -- typeId -- sourceId   |
-  | .conceptParentRelationships   | sourceId -- typeId -- destinationId   |
-  ------------------------------------------------------------------------"
+   ----------------------------------------------------------------------------
+  | index                       | compound key                                 |
+  | .conceptChildRelationships  | destinationId -- typeId -- group -- sourceId |
+  | .conceptParentRelationships | sourceId -- typeId -- group -- destinationId |
+  -----------------------------------------------------------------------------"
   [^MapDBStore store]
   (let [all-relationships (iterator-seq (.valueIterator ^BTreeMap (.relationships store)))
         child-bucket (.conceptChildRelationships store)
         parent-bucket (.conceptParentRelationships store)]
     (dorun (pmap #(let [active? (:active %)]
                     (write-index-entry parent-bucket
-                                       (long-array [(:sourceId %) (:typeId %) (:destinationId %)])
+                                       (long-array [(:sourceId %) (:typeId %) (:relationshipGroup %) (:destinationId %)])
                                        active?)
                     (write-index-entry child-bucket
-                                       (long-array [(:destinationId %) (:typeId %) (:sourceId %)])
+                                       (long-array [(:destinationId %) (:typeId %) (:relationshipGroup %) (:sourceId %)])
                                        active?))
                  all-relationships))))
 
@@ -225,21 +225,21 @@
 
 (defn- get-raw-parent-relationships
   "Return the parent relationships of the given concept.
-  Returns a list of tuples (from--type--to)."
+  Returns a list of tuples (from--type--group--to)."
   ([^MapDBStore store concept-id] (get-raw-parent-relationships store concept-id 0))
   ([^MapDBStore store concept-id type-id]
    (map seq (.subSet ^NavigableSet (.conceptParentRelationships store)
-                     (long-array [concept-id type-id 0])
-                     (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
+                     (long-array [concept-id type-id 0 0])
+                     (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE Long/MAX_VALUE])))))
 
 (defn- get-raw-child-relationships
   "Return the child relationships of the given concept.
-  Returns a list of tuples (from--type--to)."
+  Returns a list of tuples (from--type--group--to)."
   ([^MapDBStore store concept-id] (get-raw-child-relationships store concept-id 0))
   ([^MapDBStore store concept-id type-id]
    (map seq (.subSet ^NavigableSet (.conceptChildRelationships store)
-                     (long-array [concept-id type-id 0])
-                     (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE])))))
+                     (long-array [concept-id type-id 0 0])
+                     (long-array [concept-id (if (pos? type-id) type-id Long/MAX_VALUE) Long/MAX_VALUE Long/MAX_VALUE])))))
 
 (defn get-component-refset-items
   "Get the refset items for the given component, optionally
@@ -334,7 +334,7 @@
          ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
          concept-descriptions (open-bucket db "c-ds" Serializer/LONG_ARRAY Serializer/JAVA)
 
-         ;; for relationships we store a triple [concept-id type-id destination-id] of *only* active relationships
+         ;; for relationships we store a tuple [concept-id type-id group destination-id] of *only* active relationships
          ;; this optimises for the get IS-A relationships of xxx, for example
          concept-parent-relationships (open-index db "c-pr")
          concept-child-relationships (open-index db "c-cr")
@@ -413,8 +413,7 @@
   transitive closure tables."
   [store concept-id]
   (->> (get-raw-parent-relationships store concept-id)
-       (map rest)
-       (map #(hash-map (first %) #{(second %)}))
+       (map #(hash-map (second %) #{(last %)}))             ;; tuple [concept-id type-id group destination-id] so return indices 1+3
        (apply merge-with into)))
 
 (defn get-parent-relationships-of-type
@@ -434,8 +433,7 @@
   with, for example, a common finding site at any level of granularity."
   [store concept-id]
   (->> (get-raw-parent-relationships store concept-id)
-       (map rest)
-       (map #(hash-map (first %) (get-all-parents store (second %))))
+       (map #(hash-map (second %) (get-all-parents store (last %))))
        (apply merge-with into)))
 
 (defn get-all-children
@@ -458,6 +456,23 @@
              children (if done-already? () (map last (get-raw-child-relationships store id type-id)))]
          (recur (apply conj (rest work) children)
                 (conj result id)))))))
+
+(defn get-grouped-properties
+  "Return a concept's properties as a collection of maps, each map representing
+  related properties in a 'relationshipGroup'. By default, all groups are
+  returned, but this can optionally be limited to those containing a specific
+  relationship type."
+  ([store concept-id]
+   (->> (get-raw-parent-relationships store concept-id)     ;; tuples concept--type--group--destination
+        (map rest)                                          ;; turn into tuple of type--group--destination
+        (group-by second)                                   ;; now group by 'group'
+        (reduce-kv                                          ;; and turn each into a map of type--destination, still grouped by group
+          (fn [m k v] (assoc m k (into {} (map #(hash-map (first %) (last %)) v))))
+          {})
+        vals))
+  ([store concept-id type-id]
+   (->> (get-grouped-properties store concept-id)
+        (filter #(contains? % type-id)))))
 
 (defn get-leaves
   "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
@@ -587,37 +602,40 @@
 
 (comment
   (set! *warn-on-reflection* true)
-
-  (def store (open-store "snomed.db" {:read-only? true :skip-check? false}))
+  (def filename "snomed.db/store.db")
+  (def store (open-store filename {:read-only? true :skip-check? false}))
   (close store)
 
-  (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? false})]
+  (with-open [st (open-store filename {:read-only? false :skip-check? false})]
     (.compact (.getStore (.concepts st))))
 
-  (with-open [st (open-store "snomed.db" {:read-only? false :skip-check? true})]
+  (with-open [st (open-store filename {:read-only? false :skip-check? false})]
+    (build-relationship-indices st))
+
+  (with-open [st (open-store filename {:read-only? false :skip-check? true})]
     (.compact (.getStore (.concepts st))))
 
-  (with-open [db (open-store "snomed.db" {:read-only? true :skip-check? false})]
+  (with-open [db (open-store filename {:read-only? true :skip-check? false})]
     (status db))
 
-  (with-open [st (open-store "snomed.db" {:read-only? true :skip-check? false})]
+  (with-open [st (open-store filename {:read-only? true :skip-check? false})]
     (->> (get-concept-descriptions st 24700007)
          (filter :active)
          (remove snomed/is-fully-specified-name?)
          (map :term)
          (sort-by :term)))
 
-  (with-open [st (open-store "snomed.db" {:read-only? true :skip-check? false})]
+  (with-open [st (open-store filename {:read-only? true :skip-check? false})]
     (get-component-refset-items st 24700007 900000000000497000))
 
-  (with-open [st (open-store "snomed.db" {:read-only? true :skip-check? false})]
+  (with-open [st (open-store filename {:read-only? true :skip-check? false})]
     (get-reverse-map st 900000000000497000 "F20.."))
 
-  (with-open [db (open-store "snomed.db" {:read-only? false})]
+  (with-open [db (open-store filename {:read-only? false})]
     (.getAllNames (.db db)))
 
   (def ch (async/chan))
-  (async/thread (with-open [st (open-store "snomed.db" {:read-only? true})]
+  (async/thread (with-open [st (open-store filename {:read-only? true})]
                   (async/<!! (stream-all-concepts st ch))))
   )
 
