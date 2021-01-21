@@ -188,6 +188,7 @@
 (defn start-server
   ([svc port] (start-server svc port true))
   ([svc port join?]
+   (log/info "starting server on port " port)
    (http/start (http/create-server (-> service-map
                                        (assoc ::http/port port)
                                        (assoc ::http/join? join?)
