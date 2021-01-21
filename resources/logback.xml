@@ -13,6 +13,7 @@
     </root>
 
     <logger name="com.eldrix" level="info"/>
+    <logger name="com.eldrix.hermes.ext.uk.dmd" level="debug"/>
     <logger name="org.eclipse.jetty.server.Server" level="info"/>
 
 </configuration>
