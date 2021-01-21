@@ -36,6 +36,7 @@
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/ISO_LOCAL_DATE)) (catch DateTimeParseException _)))
 (defn- ^Long parse-long [^String s] (Long/parseLong s))
 (defn- ^Boolean parse-invalidity [^String s] (= "1" s))
+(defn parse-lookup [kind code] (keyword (str (name kind) "-" code)))
 
 (def ^:private file-matcher #"^f_([a-z]*)2_(\d*)\.xml$")
 
@@ -177,7 +178,7 @@
   (comp
     (map (partial parse-dmd-component kind))
     (map #(assoc % :TYPE :uk.nhs.dmd/LOOKUP
-                   :ID (keyword (str (name kind) "-" (:CD %)))))))
+                   :ID (parse-lookup kind (:CD %))))))
 
 (defn- parse-lookup-xml
   [root ch]
@@ -330,7 +331,7 @@
   (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
                         {:exclude #{[:INGREDIENT :INGREDIENT]}}))
   (a/thread (import-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001" ch
-                        {:include #{[:VMP :VIRTUAL_PRODUCT_INGREDIENT]}}))
+                        {:include #{[:VMP :DRUG_FORM]}}))
   (a/<!! ch)
   (statistics-dmd "/Users/mark/Downloads/nhsbsa_dmd_12.1.0_20201214000001")
   )
