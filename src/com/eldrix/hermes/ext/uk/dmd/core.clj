@@ -59,9 +59,11 @@
   (https://www.nhsbsa.nhs.uk/sites/default/files/2017-04/doc_UKTCSnomedCTUKDrugExtensionEditorialPolicy_Current-en-GB_GB1000001_v7_0.pdf)"
   (:require [clojure.set :as set]
             [com.eldrix.hermes.expression.ecl :as ecl]
+            [com.eldrix.hermes.ext.uk.dmd.store :as dmd-store]
             [com.eldrix.hermes.impl.search :as search]
-            [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.impl.store :as snomed-store]
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.impl.language :as lang])
   (:import (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
 ;; Core concepts - types of dm+d product
@@ -153,7 +155,7 @@
           (fn [store concept] (class concept)))
 
 (defmethod product-type Long [store concept-id]
-  (let [refsets (store/get-component-refsets store concept-id)]
+  (let [refsets (snomed-store/get-component-refsets store concept-id)]
     (some identity (map refset-id->product refsets))))
 
 (defmethod product-type nil [_ _] nil)
@@ -205,50 +207,50 @@
 
 ;; TODO: take advantage of cardinality rules to optimise walking the products
 (defmethod vmps ::vtm [store concept-id]
-  (filter (partial is-vmp? store) (store/get-all-children store concept-id)))
+  (filter (partial is-vmp? store) (snomed-store/get-all-children store concept-id)))
 (defmethod vtms ::vmp [store concept-id]
-  (filter (partial is-vtm? store) (store/get-all-parents store concept-id)))
+  (filter (partial is-vtm? store) (snomed-store/get-all-parents store concept-id)))
 (defmethod amps ::vmp [store concept-id]
-  (filter (partial is-amp? store) (store/get-all-children store concept-id)))
+  (filter (partial is-amp? store) (snomed-store/get-all-children store concept-id)))
 (defmethod vmps ::amp [store concept-id]
-  (filter (partial is-vmp? store) (store/get-all-parents store concept-id)))
+  (filter (partial is-vmp? store) (snomed-store/get-all-parents store concept-id)))
 (defmethod amps ::vtm [store concept-id]
-  (filter (partial is-amp? store) (store/get-all-children store concept-id)))
+  (filter (partial is-amp? store) (snomed-store/get-all-children store concept-id)))
 (defmethod tfs ::amp [store concept-id]
-  (filter (partial is-tf? store) (store/get-all-parents store concept-id)))
+  (filter (partial is-tf? store) (snomed-store/get-all-parents store concept-id)))
 (defmethod tfs ::vtm [store concept-id]
   (set (mapcat (partial tfs store) (amps store concept-id))))
 (defmethod vmpps ::vmp [store concept-id]
-  (filter (partial is-vmpp? store) (store/get-all-children store concept-id HasVmp)))
+  (filter (partial is-vmpp? store) (snomed-store/get-all-children store concept-id HasVmp)))
 (defmethod ampps ::vmpp [store concept-id]
-  (filter (partial is-ampp? store) (store/get-all-children store concept-id)))
+  (filter (partial is-ampp? store) (snomed-store/get-all-children store concept-id)))
 (defmethod vmpps ::ampp [store concept-id]
-  (filter (partial is-vmpp? store) (store/get-all-parents store concept-id)))
+  (filter (partial is-vmpp? store) (snomed-store/get-all-parents store concept-id)))
 (defmethod ampps ::amp [store concept-id]
-  (filter (partial is-vmpp? store) (store/get-all-children store concept-id HasAmp)))
+  (filter (partial is-vmpp? store) (snomed-store/get-all-children store concept-id HasAmp)))
 (defmethod amps ::ampp [store concept-id]
-  (filter (partial is-ampp? store) (store/get-all-parents store concept-id HasAmp)))
+  (filter (partial is-ampp? store) (snomed-store/get-all-parents store concept-id HasAmp)))
 (defmethod tfgs ::tf [store concept-id]
-  (filter (partial is-tfg? store) (store/get-all-parents store concept-id HasTradeFamilyGroup)))
+  (filter (partial is-tfg? store) (snomed-store/get-all-parents store concept-id HasTradeFamilyGroup)))
 (defmethod tfs ::tfg [store concept-id]
-  (filter (partial is-tf? store) (store/get-all-children store concept-id HasTradeFamilyGroup)))
+  (filter (partial is-tf? store) (snomed-store/get-all-children store concept-id HasTradeFamilyGroup)))
 (defmethod tfgs ::vtm [store concept-id]
   (set (mapcat (partial tfgs store) (tfs store concept-id))))
 
 
 ;;;; core properties for VMPs
 (defmethod dispensed-dose-forms ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasDispensedDoseForm))
+  (snomed-store/get-parent-relationships-of-type store concept-id HasDispensedDoseForm))
 (defmethod specific-active-ingredients ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasSpecificActiveIngredient))
+  (snomed-store/get-parent-relationships-of-type store concept-id HasSpecificActiveIngredient))
 (defmethod prescribing-statuses ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id PrescribingStatus))
+  (snomed-store/get-parent-relationships-of-type store concept-id PrescribingStatus))
 (defmethod non-availability-indicators ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id NonAvailabilityIndicator))
+  (snomed-store/get-parent-relationships-of-type store concept-id NonAvailabilityIndicator))
 (defmethod basis-of-strength ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasNHSdmdBasisOfStrength))
+  (snomed-store/get-parent-relationships-of-type store concept-id HasNHSdmdBasisOfStrength))
 (defmethod unit-of-administration ::vmp [store concept-id]
-  (store/get-parent-relationships-of-type store concept-id HasUnitOfAdministration))
+  (snomed-store/get-parent-relationships-of-type store concept-id HasUnitOfAdministration))
 
 ;;;; and now derive properties for other product types, if that makes sense
 
@@ -267,22 +269,26 @@
   (if-let [refset-id (get product->refset-id product-type)]
     (search/do-search searcher {:s s :query (ecl/parse store searcher (str "^" refset-id))})))
 
+(defn get-dmd-extended-concept [sct-store])
+
 (comment
   (do
-    (def store (store/open-store "snomed.db/store.db"))
+    (def store (snomed-store/open-store "snomed.db/store.db"))
     (def index-reader (search/open-index-reader "snomed.db/search.db"))
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
     (require '[clojure.pprint :as pp])
+    (require '[com.eldrix.hermes.impl.language :as lang])
     (def search-dmd (partial search store searcher))
     (defn fsn [concept-id]
-      (:term (store/get-fully-specified-name store concept-id)))
+      (:term (snomed-store/get-fully-specified-name store concept-id)))
     (defn ps [concept-id]
-      (:term (store/get-preferred-synonym store concept-id [NhsRealmPharmacyLanguageReferenceSet]))))
-
+      (:term (snomed-store/get-preferred-synonym store concept-id [NhsRealmPharmacyLanguageReferenceSet])))
+    (defn pps [concept-id]
+      (:term (snomed-store/get-preferred-synonym store concept-id [900000000000508004]))))
   (def amlodipine-vtms (set (map :conceptId (search-dmd "amlodipine" ::vtm))))
   (group-by :conceptId (search-dmd "amlodipine" ::vtm))
   (every? true? (map (partial is-vtm? store) amlodipine-vtms))
-  (map :term (map (partial store/get-fully-specified-name store) amlodipine-vtms))
+  (map :term (map (partial snomed-store/get-fully-specified-name store) amlodipine-vtms))
   (def amlodipine-vtm (first amlodipine-vtms))
   (def amlodipine-vmps (vmps store amlodipine-vtm))
   (every? true? (map (partial is-vmp? store) amlodipine-vmps))
@@ -290,7 +296,7 @@
   (def amlodipine-vmp (first (vmps store amlodipine-vtm)))
   (is-vmp? store amlodipine-vmp)
   (not (is-vtm? store amlodipine-vmp))
-  (def amlodipine-vmpps (filter (partial is-vmpp? store) (store/get-all-children store amlodipine-vmp HasVmp)))
+  (def amlodipine-vmpps (filter (partial is-vmpp? store) (snomed-store/get-all-children store amlodipine-vmp HasVmp)))
   (map fsn amlodipine-vmpps)
   (group-by :conceptId (search-dmd "3,4 diamino" ::vtm))
   (def pyridostigmine-vtm (first (keys (group-by :conceptId (search-dmd "pyridostigmine" ::vtm)))))
@@ -305,11 +311,35 @@
   (search-dmd "bendrofluazide 2.5" ::vmp)
   (vtms store 317919004)
   (map #(hash-map :fsn (fsn %) :id %) (vmps store 91135008))
-  (map ps (store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthNumerator))
-  (map ps (store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthNumeratorUnit))
-  (map fsn (store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthDenominator))
+  (map ps (snomed-store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthNumerator))
+  (map ps (snomed-store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthNumeratorUnit))
+  (map fsn (snomed-store/get-parent-relationships-of-type store 317919004 HasPresentationStrengthDenominator))
 
   (search-dmd "sinemet" ::amp)
-  (def sinemet-vmp (vmps store 242011000001103)
+  (def sinemet-vmp (vmps store 242011000001103))
+  (def sinemet-concept (snomed-store/get-concept store 110871000001108))
+  (snomed-store/make-extended-concept store sinemet-concept)
+  (def dstore (dmd-store/open-dmd-store "dmd3.db"))
+  (snomed-store/make-extended-concept store (snomed-store/get-concept store 111841000001109))
+  (snomed-store/get-concept store 111841000001109)
+  (product-type store 111841000001109)
+  (product-type store 319283006)
+
+  (def caf-vmp (first (search-dmd "co-amilofruse 5mg/40mg" ::vmp)))
+  (.get (.core dstore) (:conceptId caf-vmp))
+  (snomed-store/get-extended-concept store (:conceptId caf-vmp))
+  (snomed-store/get-parent-relationships store (:conceptId caf-vmp))
+  ;; get precise active ingredients and related information
+  (snomed-store/get-grouped-properties store (:conceptId caf-vmp) 762949000)
+  (map #(reduce-kv (fn [m k v] (assoc m (fsn k) (pps v))) {} %) (snomed-store/get-grouped-properties store (:conceptId caf-vmp) 762949000))
+
+  (defn parse-active-ingredient
+    [m]
+    {:preciseActiveIngredient })
+
+  (defn precise-active-ingredients
+    [store product-id]
+    (let [ingreds (snomed-store/get-grouped-properties store product-id HasSpecificActiveIngredient)]
+      )
     )
   )
