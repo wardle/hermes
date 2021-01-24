@@ -396,11 +396,9 @@
 
 (defn- parse-attribute--expression
   [ctx cardinality reverse-flag? attribute-concept-ids loc]
-  (let [
-        sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+  (let [sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         attribute-query (make-attribute-query ctx sub-expression attribute-concept-ids)]
     (cond
-
       ;; we are not trying to implement edge case of an expression containing both cardinality and reversal, at least not yet
       ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.3+Cardinality for how it *should* work
       (and cardinality reverse-flag?)
