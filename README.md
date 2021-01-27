@@ -106,6 +106,29 @@ or
 clj -M -m com.eldrix.hermes.core -d snomed.db -p 8080 serve
 ```
 
+Example usage of search endpoint:
+```shell
+curl "http://localhost:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5" -H "Accept: application/json"  | jq
+```
+
+Results:
+```shell
+[
+  {
+    "id": 486696014,
+    "conceptId": 37340000,
+    "term": "MND - Motor neurone disease",
+    "preferredTerm": "Motor neuron disease"
+  }
+]
+
+```
+
+Further documentation will follow. 
+
+There are endpoints for crossmapping to and from SNOMED, as well as obtaining
+an extended concept with much of the information required for rapid inference.
+
 #### 5. Embed into another application
 
 In your `deps.edn` file (make sure you change the commit-id):
