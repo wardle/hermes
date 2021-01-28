@@ -183,7 +183,9 @@
 (def service-map
   {::http/routes routes
    ::http/type   :jetty
-   ::http/port   8081})
+   ::http/port   8081
+   ::http/host "0.0.0.0"
+   })
 
 (defn start-server
   ([svc port] (start-server svc port true))
