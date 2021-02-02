@@ -481,6 +481,17 @@
   [^MapDBStore store concept-ids]
   (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
 
+(defn all-transitive-synonyms
+  "Returns all of the synonyms of the specified concept, including those
+   of its descendants."
+  ([store concept-id] (all-transitive-synonyms store concept-id {}))
+  ([store concept-id {:keys [include-inactive?]}]
+   (let [concepts (conj (get-all-children store concept-id) concept-id)
+         ds (mapcat (partial get-concept-descriptions store) concepts)
+         ds' (if include-inactive? ds (filter :active ds))]
+     (filter #(= snomed/Synonym (:typeId %)) ds'))))
+
+
 (defn get-description-refsets
   "Get the refsets and language applicability for a description.
   Returns a map containing:

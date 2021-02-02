@@ -64,6 +64,8 @@
     (if-let [constraint (:constraint params)]
       (search/do-search searcher (assoc params :query (ecl/parse store searcher constraint)))
       (search/do-search searcher params)))
+  (synonyms [_ s]
+    (mapcat (partial store/all-transitive-synonyms store) (map :conceptId (search/do-search searcher {:s s}))))
   (close [_] (.close store) (.close index-reader)))
 
 (def ^:private expected-manifest

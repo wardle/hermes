@@ -25,4 +25,5 @@
   (subsumedBy? [svc concept-id subsumer-concept-id])
   (parseExpression [svc s])
   (search [svc params])
+  (synonyms [svc s])
   (close [svc]))
