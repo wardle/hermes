@@ -33,7 +33,7 @@ as part of TRUD pack 26/subpack 101.
 * [https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/101/releases](https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/101/releases)
 
 Optionally, you can also download the UK SNOMED CT drug extension, that contains the dictionary of medicines and devices (dm+d) is available
-as part of TRUD pack 26/subpack 101.
+as part of TRUD pack 26/subpack 105.
 
 * [https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/105/releases](https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/105/releases)
 
@@ -53,7 +53,7 @@ java -jar hermes.jar -d snomed.db import ~/Downloads/snomed-2020
 
 If you are running from source code:
 ```
-clj -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
+clj -M -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
 ```
 
 The import of distribution files takes about 50 minutes on my 8 year old laptop.
@@ -62,7 +62,7 @@ The import of distribution files takes about 50 minutes on my 8 year old laptop.
 
 Run 
 ```
-clj -m com.eldrix.hermes.core -d snomed.db index
+clj -M -m com.eldrix.hermes.core -d snomed.db index
 ```
 This will:
 * Build entity indices (about 15 minutes)
