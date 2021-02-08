@@ -19,6 +19,7 @@
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [com.eldrix.hermes.config :as config]
+            [com.eldrix.hermes.download :as download]
             [com.eldrix.hermes.import :as import]
             [com.eldrix.hermes.terminology :as terminology]
             [integrant.core :as ig]))
@@ -39,6 +40,12 @@
             banner (apply str (repeat (count heading) "="))]
         (println "\n" banner "\n" heading "\n" banner)
         (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
+
+(defn download [opts args]
+  (let [provider (first args)
+        params (rest args)]
+    (when-let [unzipped-path (download/download provider params)]
+        (import-from opts [(.toString unzipped-path)]))))
 
 (defn build-indices [{:keys [db]} _]
   (if db
@@ -86,6 +93,7 @@
         "Commands:"
         " import [paths] Import SNOMED distribution files from paths specified."
         " list [paths]   List importable files from the paths specified."
+        " download [provider] [opts] Download a distribution from a provider."
         " index          Build indexes"
         " compact        Compact database"
         " serve          Start a terminology server"
@@ -93,12 +101,13 @@
        (str/join \newline)))
 
 (def commands
-  {"import"  {:fn import-from}
-   "list"    {:fn list-from}
-   "index"   {:fn build-indices}
-   "compact" {:fn compact}
-   "serve"   {:fn serve}
-   "status"  {:fn status}})
+  {"import"   {:fn import-from}
+   "list"     {:fn list-from}
+   "download" {:fn download}
+   "index"    {:fn build-indices}
+   "compact"  {:fn compact}
+   "serve"    {:fn serve}
+   "status"   {:fn status}})
 
 (defn exit [status msg]
   (println msg)

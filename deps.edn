@@ -6,12 +6,15 @@
            org.clojure/data.xml             {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip             {:mvn/version "1.0.0"}
            org.clojure/tools.cli            {:mvn/version "1.0.194"}
-
            org.clojure/tools.logging        {:mvn/version "1.1.0"}
            ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
+           com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
+                                             :sha     "5008d976becd43d8a11e078526d47e499fbaf8ae"}
+
            aero/aero                        {:mvn/version "1.1.6"}
            cheshire/cheshire                {:mvn/version "5.10.0"}
+           expound/expound                  {:mvn/version "0.8.7"}
            instaparse/instaparse            {:mvn/version "1.4.10"}
            integrant/integrant              {:mvn/version "0.8.0"}
 

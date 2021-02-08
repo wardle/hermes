@@ -23,9 +23,77 @@ with identifier resolution, mapping and semantics as first-class abstractions.
 
 Ensure you have a pre-built jar file, or the source code checked out from github. See below for build instructions.
 
-#### 1. Download SNOMED CT distribution file(s). 
+#### 1. Download and install at least one distribution.
 
-In the UK, we can obtain these from [TRUD](ttps://isd.digital.nhs.uk). 
+You can either do this automatically, if your local distributor is supported,
+or manually.
+
+##### i) Use a registered SNOMED CT distributor to automatically download and import
+
+There is currently only support for automatic download and import for the UK,
+but other distribution sources can be added.
+
+The basic command is:
+
+```shell
+clj -M:run --db snomed.db download <distribution-identifier> [properties] 
+```
+
+or if you are using a precompiled jar:
+```shell
+java -jar hermes.jar --db snomed.db download <distribution-identifier> [properties]
+```
+
+The distribution, as defined by `distribution-identifier`, will be downloaded
+and imported to the file-baed database `snomed.db`. 
+
+| Distribution-identifier | Description                                        |
+|-------------------------|--------------------------------------------------- |
+| uk.nhs/sct-clinical     | UK SNOMED CT clinical - incl international release |
+| uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
+|
+
+Each distribution might require custom configuration options. These
+can be given as key value pairs after the command, and their use will depend
+on which distribution you are using.
+
+For example, the UK releases use the NHS Digital TRUD API, and so you need to
+pass in the following parameters:
+
+- api-key   : your NHS Digital TRUD api key
+- cache-dir : directory to use for downloading and caching releases 
+
+For example,
+```shell
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key xxx cache-dir /tmp/trud
+```
+
+`hermes` will tell you what configuration parameters are required:
+
+```shell
+clj -M:run download uk.nhs/sct-drug-ext
+```
+Will result in:
+```
+Invalid parameters for provider ' uk.nhs/sct-drug-ext ':
+
+should contain keys: :api-key, :cache-dir
+
+| key        | spec    |
+|============+=========|
+| :api-key   | string? |
+|------------+---------|
+| :cache-dir | string? |
+
+```
+So we know we need to pass in `api-key` and `cache-dir` as above.
+
+##### ii) Download and install SNOMED CT distribution file(s) manually
+
+Depending on where you live in the World, download the most appropriate
+distribution(s) for your needs.
+
+In the UK, we can obtain these from [TRUD](ttps://isd.digital.nhs.uk).
 
 For example, you can download the UK "Clinical Edition", containing the International and UK clinical distributions 
 as part of TRUD pack 26/subpack 101.
@@ -36,11 +104,6 @@ Optionally, you can also download the UK SNOMED CT drug extension, that contains
 as part of TRUD pack 26/subpack 105.
 
 * [https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/105/releases](https://isd.digital.nhs.uk/trud3/user/authenticated/group/0/pack/26/subpack/105/releases)
-
-Depending on where you live in the World, download the most appropriate 
-distribution(s) for your needs.
-
-#### 2. Import 
 
 Once you have downloaded what you need, unzip them to a common directory and 
 then you can use `hermes` to create a file-based database. 
@@ -58,7 +121,7 @@ clj -M -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
 
 The import of distribution files takes about 50 minutes on my 8 year old laptop.
 
-#### 3. Build indexes
+#### 2. Build indexes
 
 Run 
 ```
@@ -68,7 +131,7 @@ This will:
 * Build entity indices (about 15 minutes)
 * Build search index (about 10 minutes)
 
-#### 4. Compact database (optional).
+#### 3. Compact database (optional).
 
 This reduces the file size by around 20%. 
 It takes considerable memory (heap) to do this although it takes only 3 minutes.
@@ -95,7 +158,7 @@ Run a REPL and use the terminology services interactively.
 clj -A:dev
 ```
 
-#### 4. Run a terminology web service
+#### 5. Run a terminology web service
 
 ```
 java -jar hermes.jar -d snomed.db -p 8080 serve 
@@ -129,7 +192,7 @@ Further documentation will follow.
 There are endpoints for crossmapping to and from SNOMED, as well as obtaining
 an extended concept with much of the information required for rapid inference.
 
-#### 5. Embed into another application
+#### 6. Embed into another application
 
 In your `deps.edn` file (make sure you change the commit-id):
 ```
