@@ -51,7 +51,7 @@ and imported to the file-baed database `snomed.db`.
 |-------------------------|--------------------------------------------------- |
 | uk.nhs/sct-clinical     | UK SNOMED CT clinical - incl international release |
 | uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
-|
+
 
 Each distribution might require custom configuration options. These
 can be given as key value pairs after the command, and their use will depend
