@@ -2,7 +2,8 @@
   (:require [clojure.spec.alpha :as s]
             [expound.alpha :as expound]
             [com.eldrix.trud.core :as trud]
-            [com.eldrix.trud.zip :as zip]))
+            [com.eldrix.trud.zip :as zip]
+            [clojure.pprint :as pprint]))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
@@ -16,6 +17,12 @@
                           :spec ::uk-trud}})
 
 (s/def ::provider-parameters (s/* (s/cat ::key string? ::value string?)))
+
+(defn print-providers
+  "Placeholder for a more sophisticated future method of printing available
+  providers."
+  []
+  (clojure.pprint/print-table  (map #(hash-map :identifier %) (keys registry))))
 
 (defn download
   "Download the named distribution.
@@ -42,4 +49,5 @@
   (download "uk.nhs/sct-clinical" ["api-key" "7daa48e2a26f3afeef6f6c2a2feb00b62bcbe68b" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-drug-ext" ["api-key" "7daa48e2a26f3afeef6f6c2a2feb00b62bcbe68b" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-clinical" [])
-  )
+
+                      )

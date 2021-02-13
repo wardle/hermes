@@ -42,10 +42,11 @@
         (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
 
 (defn download [opts args]
-  (let [provider (first args)
-        params (rest args)]
+  (if-let [[provider & params] (seq args)]
     (when-let [unzipped-path (download/download provider params)]
-        (import-from opts [(.toString unzipped-path)]))))
+      (import-from opts [(.toString unzipped-path)]))
+    (do (println "No provider specified. Available providers:")
+        (download/print-providers))))
 
 (defn build-indices [{:keys [db]} _]
   (if db
