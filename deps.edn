@@ -1,6 +1,6 @@
 {:paths   ["src" "resources" "classes"]
 
- :deps    {org.clojure/clojure              {:mvn/version "1.10.1"}
+ :deps    {org.clojure/clojure              {:mvn/version "1.10.2"}
            org.clojure/core.async           {:mvn/version "1.3.610"}
            org.clojure/data.csv             {:mvn/version "1.0.0"}
            org.clojure/data.xml             {:mvn/version "0.2.0-alpha6"}
@@ -10,7 +10,7 @@
            ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
-                                             :sha     "5008d976becd43d8a11e078526d47e499fbaf8ae"}
+                                             :sha     "5053d9dfa6d928454b1a3c8c931d20aba9434257"}
 
            aero/aero                        {:mvn/version "1.1.6"}
            cheshire/cheshire                {:mvn/version "5.10.0"}
@@ -18,8 +18,8 @@
            instaparse/instaparse            {:mvn/version "1.4.10"}
            integrant/integrant              {:mvn/version "0.8.0"}
 
-           org.apache.lucene/lucene-core    {:mvn/version "8.7.0"}
-           org.apache.lucene/lucene-queries {:mvn/version "8.7.0"}
+           org.apache.lucene/lucene-core    {:mvn/version "8.8.0"}
+           org.apache.lucene/lucene-queries {:mvn/version "8.8.0"}
 
            org.mapdb/mapdb                  {:mvn/version "3.0.8"}
 
@@ -70,28 +70,13 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.165"}}
+           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.171"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/hermes-v0.1.0.jar"}}
 
            :uberjar
-           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.165"}}
+           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.171"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/hermes-full-v0.1.0.jar"
                            :aot        true
-                           :main-class "com.eldrix.hermes.core"}}
-
-           :rebl                                            ;; for JDK 11+
-           {:extra-deps {com.cognitect/rebl          {:mvn/version "0.9.242"}
-                         org.openjfx/javafx-fxml     {:mvn/version "16-ea+5"}
-                         org.openjfx/javafx-controls {:mvn/version "16-ea+5"}
-                         org.openjfx/javafx-swing    {:mvn/version "16-ea+5"}
-                         org.openjfx/javafx-base     {:mvn/version "16-ea+5"}
-                         org.openjfx/javafx-web      {:mvn/version "16-ea+5"}}
-            :main-opts  ["-m" "cognitect.rebl"]}
-
-           :rebl-jdk8                                       ;; for JDK 8
-           {:extra-deps {com.cognitect/rebl {:mvn/version "0.9.242"}}
-            :main-opts  ["-m" "cognitect.rebl"]}
-
-           }}
+                           :main-class "com.eldrix.hermes.core"}}}}
