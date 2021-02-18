@@ -46,8 +46,8 @@
 
 (comment
 
-  (download "uk.nhs/sct-clinical" ["api-key" "7daa48e2a26f3afeef6f6c2a2feb00b62bcbe68b" "cache-dir" "/tmp/trud"])
-  (download "uk.nhs/sct-drug-ext" ["api-key" "7daa48e2a26f3afeef6f6c2a2feb00b62bcbe68b" "cache-dir" "/tmp/trud"])
+  (download "uk.nhs/sct-clinical" ["api-key" "xxx" "cache-dir" "/tmp/trud"])
+  (download "uk.nhs/sct-drug-ext" ["api-key" "xxx" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-clinical" [])
 
                       )
