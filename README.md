@@ -1,4 +1,4 @@
-# Hermes : terminology tools and services
+# Hermes : terminology tools, library and microservice.
 
 >
 > Hermes:  "Herald of the gods."
