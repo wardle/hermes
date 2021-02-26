@@ -64,7 +64,8 @@
                         ^String term
                         ^long caseSignificanceId])
 
-(defrecord Relationship [^long id effectiveTime
+(defrecord Relationship [^long id
+                         ^LocalDate effectiveTime
                          ^boolean active
                          ^long moduleId
                          ^long sourceId
