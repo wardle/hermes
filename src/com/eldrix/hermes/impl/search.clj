@@ -13,25 +13,46 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.hermes.impl.search
-  (:require
-    [clojure.core.async :as async]
-    [clojure.tools.logging.readable :as log]
-    [com.eldrix.hermes.impl.language :as lang]
-    [com.eldrix.hermes.impl.store :as store]
-    [com.eldrix.hermes.snomed :as snomed])
+  (:require [clojure.core.async :as async]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.impl.language :as lang]
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery MatchAllDocsQuery BooleanQuery BooleanClause)
+           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
+                                     BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery
+                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)
            (org.apache.lucene.queries.function FunctionScoreQuery)
            (org.apache.lucene.analysis.standard StandardAnalyzer)
-           (java.util Collection)
+           (java.util Collection List ArrayList)
            (java.nio.file Paths)
            (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
            (org.apache.lucene.analysis Analyzer)))
 
 (set! *warn-on-reflection* true)
+
+;; A Lucene results collector that collects *all* results into the mutable
+;; java collection 'coll'.
+(deftype IntoArrayCollector [^List coll]
+  Collector
+  (getLeafCollector [_ ctx]
+    (let [base-id (.-docBase ctx)]
+      (reify LeafCollector
+        (setScorer [_ _scorer])                             ;; NOP
+        (collect [_ doc-id]
+          (.add coll (+ base-id doc-id))))))
+  (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
+
+(defn search-all
+  "Search a lucene index and return *all* results.
+  Results are returned as a sequence of Lucene document ids."
+  [^IndexSearcher searcher ^Query q]
+  (let [coll (ArrayList.)]
+    (.search searcher q (IntoArrayCollector. coll))
+    (seq coll)))
 
 (defn make-extended-descriptions
   [^MapDBStore store language-refset-ids concept]
@@ -46,7 +67,8 @@
          (:descriptions ec))))
 
 (defn extended-description->document
-  "Turn an extended description into a Lucene document."
+  "Turn an extended description into a tuple of description-id and Lucene document.
+  Result : [description-id doc]"
   [ed]
   (let [doc (doto (Document.)
               (.add (TextField. "term" (:term ed) Field$Store/YES))
@@ -98,7 +120,7 @@
   (let [analyzer (StandardAnalyzer.)
         directory (FSDirectory/open (Paths/get filename (into-array String [])))
         writer-config (doto (IndexWriterConfig. analyzer)
-                        (.setOpenMode IndexWriterConfig$OpenMode/CREATE_OR_APPEND))]
+                        (.setOpenMode IndexWriterConfig$OpenMode/CREATE))]
     (IndexWriter. directory writer-config)))
 
 (defn ^IndexReader open-index-reader
@@ -238,20 +260,29 @@
    ^String term
    ^String preferredTerm])
 
+(defn doc->result [^Document doc]
+  (->Result (.numericValue (.getField doc "id"))
+            (.numericValue (.getField doc "concept-id"))
+            (.get doc "term")
+            (.get doc "preferred-term")))
+
 (defn- scoredoc->result
   "Convert a Lucene ScoreDoc (`score-doc`) into a Result."
   [^IndexSearcher searcher ^ScoreDoc score-doc]
-  (let [doc (.doc searcher (.-doc score-doc))]
-    (->Result (Long/parseLong (.get doc "id"))
-              (Long/parseLong (.get doc "concept-id"))
-              (.get doc "term")
-              (.get doc "preferred-term"))))
+  (when-let [doc (.doc searcher (.-doc score-doc))]
+    (doc->result doc)))
+
+(defn- doc->concept-id [^Document doc]
+  (Long/parseLong (.get doc "concept-id")))
+
+(defn- doc-id->concept-id [^IndexSearcher searcher doc-id]
+  (when-let [doc (.doc searcher doc-id)]
+    (doc->concept-id doc)))
 
 (defn- scoredoc->concept-id
   "Convert a Lucene ScoreDoc ('score-doc' into a concept-id."
   [^IndexSearcher searcher ^ScoreDoc score-doc]
-  (let [doc (.doc searcher (.-doc score-doc))]
-    (Long/parseLong (.get doc "concept-id"))))
+  (doc-id->concept-id searcher (.-doc score-doc)))
 
 (defn do-search
   "Perform a search against the index.
@@ -296,13 +327,20 @@
 
 (defn do-query-for-concepts
   "Perform the query, returning results as a set of concept identifiers"
-  [^IndexSearcher searcher ^Query query max-hits]
-  (let [topdocs ^TopDocs (.search searcher query (int (or max-hits 200)))]
-    (topdocs->concept-ids searcher topdocs)))
+  ([^IndexSearcher searcher ^Query query]
+   (let [doc-ids (search-all searcher query)]
+     (into #{} (map (partial doc-id->concept-id searcher) doc-ids))))
+  ([^IndexSearcher searcher ^Query query max-hits]
+  (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
+    (topdocs->concept-ids searcher topdocs))))
 
 (defn do-query-for-results
-  [^IndexSearcher searcher ^Query q max-hits]
-  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits))))))
+  ([^IndexSearcher searcher ^Query q]
+     (->> (search-all searcher q)
+          (map #(.doc searcher %))
+          (map doc->result)))
+  ([^IndexSearcher searcher ^Query q max-hits]
+  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."

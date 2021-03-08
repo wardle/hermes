@@ -61,11 +61,9 @@
     (if cr cr :wildcard)))
 
 (defn realise-concept-ids
-  "Realise a query as a set of concept identifiers.
-  TODO: exception if results > max-hits"
+  "Realise a query as a set of concept identifiers."
   [ctx ^Query q]
-  (search/do-query-for-concepts (:searcher ctx) q 10000))
-
+  (search/do-query-for-concepts (:searcher ctx) q))
 
 (defn- parse-conjunction-expression-constraint
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
