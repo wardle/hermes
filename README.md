@@ -26,6 +26,8 @@ with identifier resolution, mapping and semantics as first-class abstractions.
 
 Ensure you have a pre-built jar file, or the source code checked out from github. See below for build instructions.
 
+I'd recommend installing clojure and running using source code.
+
 #### 1. Download and install at least one distribution.
 
 You can either do this automatically, if your local distributor is supported,
@@ -114,13 +116,14 @@ then you can use `hermes` to create a file-based database.
 
 If you are running using the jar file:
 
-```
-java -jar hermes.jar -d snomed.db import ~/Downloads/snomed-2020
+```shell
+java -jar hermes.jar --db snomed.db import ~/Downloads/snomed-2020
 ```
 
 If you are running from source code:
-```
-clj -M -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
+
+```shell
+clj -M:run --db snomed.db import ~/Downloads/snomed-2020/
 ```
 
 The import of both International and UK distribution files takes
@@ -131,15 +134,27 @@ a total of less than 15 minutes on my 8 year old laptop.
 This reduces the file size by around 20% and takes about 1 minute.
 This is an optional step. 
 
+```shell
+java -jar hermes.jar --db snomed.db compact
 ```
-clj com.eldrix.hermes.core -d snomed.db compact
+
+or
+
+```shell
+clj -M:run --db snomed.db compact
 ```
 
 #### 3. Build search index
 
 Run 
+```shell
+java -jar hermes.jar --db snomed.db index
 ```
-clj -M -m com.eldrix.hermes.core -d snomed.db index
+
+or
+
+```
+clj -M:run --db snomed.db index
 ```
 This will build the search index; it takes about 5 minutes.
 
@@ -161,12 +176,12 @@ clj -A:dev
 #### 5. Run a terminology web service
 
 ```
-java -jar hermes.jar -d snomed.db -p 8080 serve 
+java -jar hermes.jar --db snomed.db --port 8080 serve 
 ```
 
 or
 ```
-clj -M -m com.eldrix.hermes.core -d snomed.db -p 8080 serve
+clj -M:run --db snomed.db --port 8080 serve
 ```
 
 Example usage of search endpoint:
