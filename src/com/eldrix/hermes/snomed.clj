@@ -41,11 +41,13 @@
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter DateTimeParseException]
-           (java.io File)))
+           (java.io File)
+           (java.util UUID)))
 
 
 (defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
 (defn ^Boolean parse-bool [^String s] (if (= "1" s) true false))
+(defn ^UUID parse-uuid [^String s] (UUID/fromString s))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -82,7 +84,7 @@
 ;; RefSetDescriptorRefsetItem is a type of reference set that provides information about a different reference set
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.11+Reference+Set+Descriptor
 ;; It provides the additional structure for a given reference set.
-(defrecord RefsetDescriptorRefsetItem [^String id
+(defrecord RefsetDescriptorRefsetItem [^UUID id
                                        ^LocalDate effectiveTime
                                        ^boolean active
                                        ^long moduleId
@@ -94,7 +96,7 @@
 
 ;; SimpleReferenceSet is a simple reference set usable for defining subsets
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.1+Simple+Reference+Set
-(defrecord SimpleRefsetItem [^String id
+(defrecord SimpleRefsetItem [^UUID id
                              ^LocalDate effectiveTime
                              ^boolean active
                              ^long moduleId
@@ -122,7 +124,7 @@
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4+Language+Reference+Set
 ;; - acceptabilityId is a subtype of 900000000000511003 |Acceptability| indicating whether the description is acceptable
 ;; or preferred for use in the specified language or dialect .
-(defrecord LanguageRefsetItem [^String id
+(defrecord LanguageRefsetItem [^UUID id
                                ^LocalDate effectiveTime
                                ^boolean active
                                ^long moduleId
@@ -133,7 +135,7 @@
 ;; SimpleMapReferenceSet is a straightforward one-to-one map between SNOMED-CT concepts and another
 ;; coding system. This is appropriate for simple maps.
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.9+Simple+Map+Reference+Set
-(defrecord SimpleMapRefsetItem [^String id
+(defrecord SimpleMapRefsetItem [^UUID id
                                 ^LocalDate effectiveTime
                                 ^boolean active
                                 ^long moduleId
@@ -148,7 +150,7 @@
 ;; The type of reference set supports the general set of mapping data required to enable a
 ;; target code to be selected at run-time from a number of alternate codes. It supports
 ;; target code selection by accommodating the inclusion of machine readable rules and/or human readable advice.
-(defrecord ComplexMapRefsetItem [^String id
+(defrecord ComplexMapRefsetItem [^UUID id
                                  ^LocalDate effectiveTime
                                  ^boolean active
                                  ^long moduleId
@@ -163,7 +165,7 @@
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
 ;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
-(defrecord ExtendedMapRefsetItem [^String id
+(defrecord ExtendedMapRefsetItem [^UUID id
                                   ^LocalDate effectiveTime
                                   ^boolean active
                                   ^long moduleId
@@ -179,7 +181,7 @@
 
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
-(defrecord AttributeValueRefsetItem [^String id
+(defrecord AttributeValueRefsetItem [^UUID id
                                      ^LocalDate effectiveTime
                                      ^boolean active
                                      ^long moduleId
@@ -189,7 +191,7 @@
 
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
-(defrecord OWLExpressionRefsetItem [^String id
+(defrecord OWLExpressionRefsetItem [^UUID id
                                     ^LocalDate effectiveTime
                                     ^boolean active
                                     ^long moduleId
@@ -240,7 +242,7 @@
 
 (defn parse-simple-refset-item [v]
   (->SimpleRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -249,7 +251,7 @@
 
 (defn parse-language-refset-item [v]
   (->LanguageRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -259,7 +261,7 @@
 
 (defn parse-refset-descriptor-item [v]
   (->RefsetDescriptorRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -271,7 +273,7 @@
 
 (defn parse-simple-map-refset-item [v]
   (->SimpleMapRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -281,7 +283,7 @@
 
 (defn parse-complex-map-refset-item [v]
   (->ComplexMapRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -296,7 +298,7 @@
 
 (defn parse-extended-map-refset-item [v]
   (->ExtendedMapRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -313,7 +315,7 @@
 
 (defn parse-attribute-value-refset-item [v]
   (->AttributeValueRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -323,7 +325,7 @@
 
 (defn parse-owl-expression-refset-item [v]
   (->OWLExpressionRefsetItem
-    (v 0)                                                   ;; component id
+    (parse-uuid (v 0))                                      ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -369,8 +371,9 @@
 (derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
 (derive :info.snomed/LanguageRefset :info.snomed/Refset)
-(derive :info.snomed/SimpleMapRefset :info.snomed/Refset)
-(derive :info.snomed/ComplexMapRefset :info.snomed/Refset)
+(derive :info.snomed/MapRefset :info.snomed/Refset)
+(derive :info.snomed/SimpleMapRefset :info.snomed/MapRefset)
+(derive :info.snomed/ComplexMapRefset :info.snomed/MapRefset)
 (derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
 (derive :info.snomed/OwlExpressionRefset :info.snomed/Refset)
@@ -384,7 +387,7 @@
 (derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
 (derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
-(derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
+(derive OWLExpressionRefsetItem :info.snomed/OwlExpressionRefset)
 
 (def snomed-file-pattern
   #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
@@ -621,5 +624,6 @@
 
   (valid? {:wibble "Hi there" :flibble "Flibble"})
 
+  (isa? (class (->Concept 24700007 (LocalDate/now) true 0 0)) :info.snomed/Concept)
 
   (parse-batch {:type :info.snomed/Concept :data [["24700007" "20200101" "true" "0" "0"]]}))

@@ -5,7 +5,8 @@
             [com.eldrix.hermes.impl.language :as lang]
             [clojure.tools.logging.readable :as log])
   (:import (java.time LocalDate)
-           (java.io File)))
+           (java.io File)
+           (org.mapdb Serializer)))
 
 (deftest simple-store
   (with-open [st (store/open-store)]
@@ -24,9 +25,26 @@
                                                 :caseSignificanceId 900000000000448009})]
       (store/write-batch {:type :info.snomed/Description
                           :data [description]} st)
-      (store/build-description-index st)
       (is (= description (store/get-description st 754365011)))
       (is (= description (store/get-fully-specified-name st 24700007))))))
+
+
+(deftest write-object-test
+  (with-open [st (store/open-store)]
+    (is (nil? (store/get-concept st 24700007)))
+    (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 1 0)]
+      (store/write-batch {:type :info.snomed/Concept
+                          :data [concept]} st)
+      (is (= concept (store/get-concept st 24700007)))
+      (let [older-concept (snomed/->Concept 24700007 (LocalDate/of 2020 10 01) true 0 0)]
+        (store/write-batch {:type :info.snomed/Concept
+                            :data [older-concept]} st)
+        (is (not= older-concept (store/get-concept st 24700007)))
+        (is (= concept (store/get-concept st 24700007))))
+      (let [newer-concept (snomed/->Concept 24700007 (LocalDate/of 2021 01 01) true 0 0)]
+        (store/write-batch {:type :info.snomed/Concept
+                            :data [newer-concept]} st)
+        (is (= newer-concept (store/get-concept st 24700007)))))))
 
 (defn has-live-database? []
   (.exists (File. "snomed.db/store.db")))
@@ -57,8 +75,8 @@
       (is (= "Appendicectomy" (:term gb)))
       (is (= "Appendectomy" (:term usa))))
     (let [lang-match-fn (lang/match-fn store)]
-    (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
-    (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
+      (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
+      (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
 
 (defn test-ns-hook []
   (simple-store)
@@ -71,4 +89,6 @@
 (comment
   (has-live-database?)
   (run-tests)
+  (live-store)
+  (write-object-test)
   )

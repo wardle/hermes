@@ -16,6 +16,9 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 
 It is designed as both library for embedding into larger applications, or as a microservice. 
 
+It is extremely fast using memory-mapped files and a file-based database of 1.7Gb,
+small enough to fit into memory on a server. 
+
 It replaces previous similar tools written in java and golang and is designed to fit into a wider architecture
 with identifier resolution, mapping and semantics as first-class abstractions.
 
@@ -65,6 +68,7 @@ pass in the following parameters:
 
 For example,
 ```shell
+clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key xxx cache-dir /tmp/trud
 clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key xxx cache-dir /tmp/trud
 ```
 
@@ -119,29 +123,25 @@ If you are running from source code:
 clj -M -m com.eldrix.hermes.core -d snomed.db import ~/Downloads/snomed-2020/
 ```
 
-The import of distribution files takes about 50 minutes on my 8 year old laptop.
+The import of both International and UK distribution files takes
+a total of less than 15 minutes on my 8 year old laptop.
 
-#### 2. Build indexes
+#### 2. Compact database (optional).
+
+This reduces the file size by around 20% and takes about 1 minute.
+This is an optional step. 
+
+```
+clj com.eldrix.hermes.core -d snomed.db compact
+```
+
+#### 3. Build search index
 
 Run 
 ```
 clj -M -m com.eldrix.hermes.core -d snomed.db index
 ```
-This will:
-* Build entity indices (about 15 minutes)
-* Build search index (about 10 minutes)
-
-#### 3. Compact database (optional).
-
-This reduces the file size by around 20%. 
-It takes considerable memory (heap) to do this although it takes only 3 minutes.
-
-```
-clj -J-X-mx8g com.eldrix.hermes.core -d snomed.db compact
-```
-
-You will usually need to increase the heap space (by using -Xmx8g) in order to
-complete the compaction step which will reduce the database size by up to 20%.
+This will build the search index; it takes about 5 minutes.
 
 #### 4. Run a REPL (optional)
 
@@ -175,7 +175,7 @@ curl "http://localhost:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits
 ```
 
 Results:
-```shellof course.
+```shell.
 [
   {
     "id": 486696014,

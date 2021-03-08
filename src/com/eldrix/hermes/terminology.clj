@@ -70,7 +70,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.3
+  {:version 0.4
    :store   "store.db"
    :search  "search.db"})
 
@@ -145,13 +145,6 @@
       (log-metadata dir)
       (do-import-snomed store-filename dir))))
 
-(defn build-indices
-  [root]
-  (let [manifest (open-manifest root false)]
-    (log/info "Building indices for database at '" root "'...")
-    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
-      (store/build-indices st))))
-
 (defn compact
   [root]
   (let [manifest (open-manifest root false)]
@@ -164,7 +157,8 @@
                   {:file-size (str (int (/ file-size (* 1024 1024))) "Mb")
                    :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
       (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
-        (store/compact st)))))
+        (store/compact st))
+      (log/info "Compacting database... complete."))))
 
 (defn build-search-index
   ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
@@ -172,7 +166,8 @@
    (let [manifest (open-manifest root false)]
      (log/info "Building search index" {:root root :languages language-priority-list})
      (search/build-search-index (get-absolute-filename root (:store manifest))
-                                (get-absolute-filename root (:search manifest)) language-priority-list))))
+                                (get-absolute-filename root (:search manifest)) language-priority-list)
+     (log/info "Building search index... complete."))))
 
 (defn get-status [root]
   (let [manifest (open-manifest root)]
@@ -187,7 +182,6 @@
   ([root import-from] (create-service root import-from))
   ([root import-from locale-preference-string]              ;; There are four steps:
    (import-snomed root import-from)                         ;; import the files
-   (build-indices root)                                     ;; build the indexes
    (compact root)                                           ;; compact the store
    (build-search-index root locale-preference-string)))     ;; build the search index
 
@@ -196,5 +190,5 @@
 
 (comment
   (def svc (open "snomed.db"))
-  (.search svc {:s "mult scl" :constraint "< 24700007"})
+  (svc/search svc {:s "mult scl" :constraint "<< 24700007"})
   )

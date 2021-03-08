@@ -48,10 +48,9 @@
     (do (println "No provider specified. Available providers:")
         (download/print-providers))))
 
-(defn build-indices [{:keys [db]} _]
+(defn build-index [{:keys [db]} _]
   (if db
-    (do (terminology/build-indices db)
-        (terminology/build-search-index db))
+    (terminology/build-search-index db)
     (log/error "no database directory specified")))
 
 (defn compact [{:keys [db]} _]
@@ -94,8 +93,8 @@
         "Commands:"
         " import [paths] Import SNOMED distribution files from paths specified."
         " list [paths]   List importable files from the paths specified."
-        " download [provider] [opts] Download a distribution from a provider."
-        " index          Build indexes"
+        " download [provider] [opts] Download and install distribution from a provider."
+        " index          Build search index."
         " compact        Compact database"
         " serve          Start a terminology server"
         " status         Displays status information"]
@@ -105,7 +104,7 @@
   {"import"   {:fn import-from}
    "list"     {:fn list-from}
    "download" {:fn download}
-   "index"    {:fn build-indices}
+   "index"    {:fn build-index}
    "compact"  {:fn compact}
    "serve"    {:fn serve}
    "status"   {:fn status}})
