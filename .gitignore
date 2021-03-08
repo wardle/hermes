@@ -7,3 +7,4 @@ snomed.db
 search.db
 hermes.iml
 .clj-kondo/.cache
+.eastwood
