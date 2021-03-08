@@ -645,9 +645,6 @@
   (with-open [st (open-store filename {:read-only? false :skip-check? false})]
     (.compact (.getStore (.concepts st))))
 
-  (with-open [st (open-store filename {:read-only? false :skip-check? false})]
-    (build-relationship-indices st))
-
   (with-open [st (open-store filename {:read-only? false :skip-check? true})]
     (.compact (.getStore (.concepts st))))
 
@@ -695,7 +692,5 @@
 
   (get-description store 82816014)
   (map #(get-preferred-synonym store % [999000691000001104 900000000000508004 999001261000000100]) (map :refsetId (get-component-refset-items store 82816014)))
-
-  (test store 24700007)
   )
 
