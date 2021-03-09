@@ -505,7 +505,7 @@ Or, what about all disorders of the lung that are associated with oedema?
 http -j 'localhost:8080/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|'
 ```
 
-The ECL can be written in a more verbose fashion:
+The ECL can be written in a more concise fashion:
 
 ```shell
 http -j 'localhost:8080/v1/snomed/search?constraint= <19829001 AND <301867009'
