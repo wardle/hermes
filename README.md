@@ -181,6 +181,10 @@ clj -A:dev
 
 #### 5. Run a terminology web service
 
+By default, data are returned using [edn](https://github.com/edn-format/edn) but
+of course, simply add "Accept:application/json" in the request header and it
+will return JSON instead. You can see examples below. 
+
 ```
 java -jar hermes.jar --db snomed.db --port 8080 serve 
 ```
