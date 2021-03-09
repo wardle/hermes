@@ -256,9 +256,9 @@
 
 (defn doc->result [^Document doc]
   (snomed/->Result (.numericValue (.getField doc "id"))
-            (.numericValue (.getField doc "concept-id"))
-            (.get doc "term")
-            (.get doc "preferred-term")))
+                   (.numericValue (.getField doc "concept-id"))
+                   (.get doc "term")
+                   (.get doc "preferred-term")))
 
 (defn- scoredoc->result
   "Convert a Lucene ScoreDoc (`score-doc`) into a Result."
@@ -325,16 +325,16 @@
    (let [doc-ids (search-all searcher query)]
      (into #{} (map (partial doc-id->concept-id searcher) doc-ids))))
   ([^IndexSearcher searcher ^Query query max-hits]
-  (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
-    (topdocs->concept-ids searcher topdocs))))
+   (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
+     (topdocs->concept-ids searcher topdocs))))
 
 (defn do-query-for-results
   ([^IndexSearcher searcher ^Query q]
-     (->> (search-all searcher q)
-          (map #(.doc searcher %))
-          (map doc->result)))
+   (->> (search-all searcher q)
+        (map #(.doc searcher %))
+        (map doc->result)))
   ([^IndexSearcher searcher ^Query q max-hits]
-  (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
+   (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."
