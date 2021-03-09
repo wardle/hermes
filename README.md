@@ -149,6 +149,18 @@ or
 clj -M:run --db snomed.db compact
 ```
 
+You may need to give java more memory for compaction; I only need to do so after 
+importing three different distributions, but it will depend on the size of each.
+
+For example
+```shell
+java -Xmx8g -jar hermes.jar --db snomed.db compact
+```
+
+```shell 
+clj -J-Xmx8g -M:run --db snomed.db compact
+```
+
 #### 3. Build search index
 
 Run 
