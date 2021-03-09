@@ -60,7 +60,7 @@
   [^File f]
   (let [default {:name (.getName (.getParentFile f))}]
     (try (merge default (json/parse-string (slurp f) true))
-         (catch JsonParseException e
+         (catch JsonParseException _e
            (log/warn "invalid metadata in distribution file" (:name default))
            (assoc default :error "invalid metadata: invalid json in file")))))
 
@@ -71,7 +71,7 @@
   [dir]
   (->> (File. dir)
        (file-seq)
-       (filter #(= (.getName %) "release_package_information.json"))))
+       (filter #(= (.getName ^String %) "release_package_information.json"))))
 
 (defn all-metadata
   "Returns all release metadata from the directory specified"
