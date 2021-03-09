@@ -1,21 +1,12 @@
 (ns com.eldrix.hermes.impl.ser
   "Optimised hand-crafted serialization of SNOMED entities."
-  (:require [com.eldrix.hermes.snomed :as snomed]
-            [clojure.string :as str])
+  (:require [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.snomed Concept Description Relationship SimpleRefsetItem SimpleMapRefsetItem RefsetDescriptorRefsetItem LanguageRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AttributeValueRefsetItem OWLExpressionRefsetItem)
            (java.time LocalDate)
            (java.io DataInput DataOutput)
            (java.util UUID)))
 
 (set! *warn-on-reflection* true)
-
-(defn read-effective-time
-  "Optimised fetch of only the effectiveTime of a SNOMED component.
-  Core SNOMED concepts have an identifier of 8 bytes (64-bit unsigned long).
-  Refset items have an identifier of 16 bytes (128-bit UUID)."
-  [^DataInput in read-offset]
-  (.skipBytes in read-offset)
-  (LocalDate/ofEpochDay (.readLong in)))
 
 (defn write-concept [^DataOutput out ^Concept o]
   (.writeLong out (.-id o))
@@ -323,6 +314,15 @@
     6 (read-owl-expression-refset-item in)
     7 (read-attribute-value-refset-item in)
     8 (read-refset-descriptor-refset-item in)))
+
+
+(defn read-effective-time
+  "Optimised fetch of only the effectiveTime of a SNOMED component.
+  Core SNOMED concepts have an identifier of 8 bytes (64-bit unsigned long).
+  Refset items have an identifier of 16 bytes (128-bit UUID)."
+  [^DataInput in read-offset]
+  (.skipBytes in read-offset)
+  (LocalDate/ofEpochDay (.readLong in)))
 
 
 (comment
