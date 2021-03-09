@@ -254,14 +254,8 @@
               BooleanClause$Occur/FILTER)))
     (boost-length-query (.build query))))
 
-(defrecord Result
-  [^long id
-   ^long conceptId
-   ^String term
-   ^String preferredTerm])
-
 (defn doc->result [^Document doc]
-  (->Result (.numericValue (.getField doc "id"))
+  (snomed/->Result (.numericValue (.getField doc "id"))
             (.numericValue (.getField doc "concept-id"))
             (.get doc "term")
             (.get doc "preferred-term")))
