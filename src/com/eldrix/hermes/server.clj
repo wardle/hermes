@@ -183,17 +183,16 @@
               (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
               (assoc context :result (svc/search svc params))))})
 
-
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
       ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
       ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
-      ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
-      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
-      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get [coerce-body content-neg-intc entity-render subsumed-by?]]
-      ["/v1/snomed/crossmap/:refset-id/:code" :get [coerce-body content-neg-intc entity-render get-map-from]]
+      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes  get-extended-concept)]
+      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to)]
+      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?)]
+      ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]}))
 
 (def service-map
