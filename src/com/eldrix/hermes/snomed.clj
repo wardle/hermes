@@ -389,6 +389,13 @@
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
 (derive OWLExpressionRefsetItem :info.snomed/OwlExpressionRefset)
 
+
+(defrecord Result
+  [^long id
+   ^long conceptId
+   ^String term
+   ^String preferredTerm])
+
 (def snomed-file-pattern
   #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
 

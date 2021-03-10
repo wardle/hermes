@@ -18,8 +18,8 @@
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.impl.ser :as ser])
+            [com.eldrix.hermes.impl.ser :as ser]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker DataOutput2)
            (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)
@@ -554,13 +554,6 @@
         preferred (:referencedComponentId refset-item)]
     (when preferred (get-description store preferred))))
 
-(comment
-  (get-preferred-description store 49723003 snomed/Synonym 999001261000000100)
-  (->> (get-concept-descriptions store 49723003)
-       (filter :active)
-       (filter #(= snomed/Synonym (:typeId %)))))
-
-
 (defn get-preferred-synonym
   "Returns the preferred synonym for the concept specified, looking in the language reference sets
   specified in order, returning the first 'preferred' value. The ordering of the reference
@@ -614,7 +607,7 @@
 (defn get-extended-concept [^MapDBStore store concept-id]
   (make-extended-concept store (get-concept store concept-id)))
 
-(defmulti is-a? (fn [store concept parent-id] (class concept)))
+(defmulti is-a? (fn [_store concept _parent-id] (class concept)))
 
 (defmethod is-a? Long [store concept-id parent-id]
   (contains? (get-all-parents store concept-id) parent-id))
@@ -625,7 +618,7 @@
 (defmethod is-a? ExtendedConcept [_ extended-concept parent-id]
   (contains? (get-in extended-concept [:parent-relationships snomed/IsA]) parent-id))
 
-(defmulti has-property? (fn [store concept property-id value-id] (class concept)))
+(defmulti has-property? (fn [_store concept _property-id _value-id] (class concept)))
 
 (defmethod has-property? Long [store concept-id property-id value-id]
   (contains? (get-parent-relationships-of-type store concept-id property-id) value-id))
@@ -674,7 +667,6 @@
   (def store (open-store "snomed.db/store.db" {:read-only? false}))
   (.close store)
   (require '[com.eldrix.hermes.import :as imp])
-  (require '[clojure.core.async :as a])
   (imp/importable-files "/Users/mark/Downloads/snomed-2021-01")
   (imp/all-metadata "/Users/mark/Downloads/snomed-2021-01")
   (def ch (imp/load-snomed "/Users/mark/Downloads/snomed-2021-01"))
