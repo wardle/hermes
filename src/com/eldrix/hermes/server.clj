@@ -23,10 +23,12 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err])
+            [io.pedestal.interceptor.error :as intc-err]
+            [com.eldrix.hermes.terminology :as terminology])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
-           (com.fasterxml.jackson.core JsonGenerator)))
+           (com.fasterxml.jackson.core JsonGenerator)
+           (java.util Locale)))
 
 (set! *warn-on-reflection* true)
 
@@ -111,9 +113,12 @@
 (def get-extended-concept
   {:name  ::get-extended-concept
    :enter (fn [context]
-            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (svc/getExtendedConcept (get-in context [:request ::service]) concept-id)]
-                (assoc context :result concept))))})
+            (let [svc (get-in context [:request ::service])]
+              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+                (when-let [concept (svc/getExtendedConcept svc concept-id)]
+                  (let [langs (or (get-in context [:request :headers "accept-language"] (.toLanguageTag (Locale/getDefault))))
+                        preferred (svc/getPreferredSynonym svc concept-id langs)]
+                    (assoc context :result (assoc concept :preferred-description preferred)))))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
@@ -121,6 +126,16 @@
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
               (when-let [ds (svc/getDescriptions (get-in context [:request ::service]) concept-id)]
                 (assoc context :result ds))))})
+
+(def get-concept-preferred-description
+  {:name  ::get-concept-preferred-description
+   :enter (fn [context]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))]
+                (when-let [ds (svc/getPreferredSynonym (get-in context [:request ::service])
+                                                       concept-id
+                                                       langs)]
+                  (assoc context :result ds)))))})
 
 (def get-map-to
   {:name  ::get-map-to
@@ -174,6 +189,7 @@
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
       ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
+      ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
       ["/v1/snomed/concepts/:concept-id/extended" :get [coerce-body content-neg-intc entity-render get-extended-concept]]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get [coerce-body content-neg-intc entity-render get-map-to]]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get [coerce-body content-neg-intc entity-render subsumed-by?]]
@@ -199,6 +215,19 @@
 (defn stop-server [server]
   (http/stop server))
 
+;; For interactive development
+(defonce server (atom nil))
+
+(defn start-dev [svc port]
+  (reset! server
+          (start-server svc port false)))
+
+(defn stop-dev []
+  (http/stop @server))
 
 (comment
+  (require '[com.eldrix.hermes.terminology])
+  (def svc (com.eldrix.hermes.terminology/open "snomed.db"))
+  (start-dev svc 8080)
+  (stop-dev)
   )
