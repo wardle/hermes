@@ -79,7 +79,7 @@
   (when (and read-only? (not (.exists (io/as-file filename))))
     (throw (FileNotFoundException. (str "file `" filename "` opened read-only but not found"))))
   (.make (cond-> (-> (DBMaker/fileDB ^String filename)
-                     (.fileMmapEnable)
+                     (.fileMmapEnableIfSupported)
                      (.closeOnJvmShutdown))
                  skip-check? (.checksumHeaderBypass)
                  read-only? (.readOnly))))
