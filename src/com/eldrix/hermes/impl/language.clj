@@ -33,7 +33,9 @@
   service installation, there will need to be a choice in how a specific
   locale choice is met. "
   (:require [clojure.string :as str]
-            [com.eldrix.hermes.impl.store :as store])
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (java.util Locale$LanguageRange Locale)))
 
 (def language-reference-sets
@@ -118,12 +120,38 @@
              {}
              mapping))
 
+(defn parse-accept-language-refset-id
+  "Parse an 'Accept-Language' header specifying a refset identifier.
+  This header should be of the form 'en-x-12345678902'
+  Returns the refset specified or nil if the header isn't suitable."
+  [s]
+  (let [[_ _ concept-id] (re-matches #"^\w\w-(x|X)-(\d++)$" (or s ""))]
+    (when (and (= :info.snomed/Concept (snomed/identifier->type concept-id))
+               (verhoeff/valid? concept-id))
+      (Long/parseLong concept-id))))
+
+(defn installed-language-reference-sets
+  "Return a map of installed language reference sets keyed by `Locale`.
+  For example
+  {#object[java.util.Locale 0x31e2875 \"en_GB\"] (999001261000000100 900000000000508004),
+   #object[java.util.Locale 0x7d55b894 \"en_US\"] (900000000000509007)}"
+  [store]
+  (let [installed-refsets (store/get-installed-reference-sets store)]
+    (filter-language-reference-sets language-reference-sets installed-refsets)))
+
 (defn- do-match
+  "Performs a locale match given the installed locales and a language priority list.
+  Parameters:
+  - installed : a map of installed reference sets. See `installed-language-reference-sets`
+  - language-priority-list : an 'Accept-Language' header (e.g. 'en-GB')"
   [installed-language-reference-sets language-priority-list]
-  (let [installed-locales (keys installed-language-reference-sets) ;; list of java.util.Locales
-        priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
-        filtered (Locale/filter priority-list installed-locales)]
-    (mapcat #(get installed-language-reference-sets %) filtered)))
+  (if-let [specific-refset-id (parse-accept-language-refset-id language-priority-list)]
+    (let [installed-refsets (into #{} (flatten (vals installed-language-reference-sets)))]
+      (filter installed-refsets [specific-refset-id]))
+    (let [installed-locales (keys installed-language-reference-sets) ;; list of java.util.Locales
+          priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
+          filtered (Locale/filter priority-list installed-locales)]
+      (mapcat #(get installed-language-reference-sets %) filtered))))
 
 (defn match-fn
   " Generate a locale matching function to return the best refsets to use given a
@@ -133,18 +161,24 @@
   Returns:
   - a function that takes a single string containing a list of comma-separated
   language ranges or a list of language ranges in the form of the
-  \"Accept-Language \" header defined in RFC 2616.
+  \"Accept-Language \" header defined in RFC 2616. That function will return a
+  list of best-matched reference identifiers given those priorities.
 
   This closes over the installed reference sets at the time of function
-  generation and so does not take into account of changes made since
+  generation and so does not take into account changes made since
   it was generated. "
   [store]
-  (let [installed-refsets (store/get-installed-reference-sets store)
-        installed-language-reference-sets (filter-language-reference-sets language-reference-sets installed-refsets)]
-    (partial do-match installed-language-reference-sets)))
+  (partial do-match (installed-language-reference-sets store)))
 
 (defn match
   "Convenience method to match a language-priority-list to the installed
-  language reference sets in the store specified. "
+  language reference sets in the store specified.
+  Returns a sequence refset identifiers."
   [store language-priority-list]
   ((match-fn store) language-priority-list))
+
+(comment
+  (parse-accept-language-refset-id "en-x-999001261000000100")
+  (parse-accept-language-refset-id "fr-x-999001261000000102")
+  (match store "en-GB")
+  )
