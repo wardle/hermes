@@ -69,14 +69,14 @@ on which distribution you are using.
 For example, the UK releases use the NHS Digital TRUD API, and so you need to
 pass in the following parameters:
 
-- api-key   : your NHS Digital TRUD api key
+- api-key   : path to a file containing your NHS Digital TRUD api key
 - cache-dir : directory to use for downloading and caching releases 
 
 For example, these commands will download, cache and install the International
 release, the UK clinical edition and the UK drug extension:
 ```shell
-clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key xxx cache-dir /tmp/trud
-clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key xxx cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud
 ```
 
 `hermes` will tell you what configuration parameters are required:
