@@ -17,7 +17,7 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 It is designed as both library for embedding into larger applications, or as a microservice. 
 
 It is fast, both for import and for use. It imports and indexes the International
-and UK editions of SNOMED CT in a total of 7 minutes; you can have a server
+and UK editions of SNOMED CT in less than 5 minutes; you can have a server
 running seconds after that. 
 
 It replaces previous similar tools written in java and golang and is designed to fit into a wider architecture
