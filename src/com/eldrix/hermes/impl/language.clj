@@ -123,9 +123,12 @@
 (defn parse-accept-language-refset-id
   "Parse an 'Accept-Language' header specifying a refset identifier.
   This header should be of the form 'en-x-12345678902'
+  The prefix should be any [BCP 47 language tag](https://tools.ietf.org/html/bcp47),
+  but this information will be ignored in favour of the specified refset
+  identifier.
   Returns the refset specified or nil if the header isn't suitable."
   [s]
-  (let [[_ _ concept-id] (re-matches #"^\w\w-(x|X)-(\d++)$" (or s ""))]
+  (let [[_ _ concept-id] (re-matches #"^.+-(x|X)-(\d++)$" (or s ""))]
     (when (and (= :info.snomed/Concept (snomed/identifier->type concept-id))
                (verhoeff/valid? concept-id))
       (Long/parseLong concept-id))))
@@ -179,5 +182,7 @@
 
 (comment
   (parse-accept-language-refset-id "en-x-999001261000000100")
+  (parse-accept-language-refset-id "en-gb-x-999001261000000100")
+  (parse-accept-language-refset-id "zh-yue-HK-x-999001261000000100")
   (parse-accept-language-refset-id "fr-x-999001261000000102")
   )
