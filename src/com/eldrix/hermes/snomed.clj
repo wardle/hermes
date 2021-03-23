@@ -577,6 +577,8 @@
 (def SameAsReferenceSet 900000000000527005)
 (def WasAReferenceSet 900000000000528000)
 
+;; SNOMED CT 'core' module
+(def CoreModule 900000000000207008)
 
 (defn is-primitive?
   "Is this concept primitive? ie not sufficiently defined by necessary conditions?"

@@ -174,6 +174,9 @@
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
       (log/info "Status information for database at '" root "'...")
       (store/status st))))
+      (merge
+        {:installed-releases (map :term (store/get-release-information st))}
+        (store/status st)))))
 
 (defn create-service
   "Create a terminology service combining both store and search functionality

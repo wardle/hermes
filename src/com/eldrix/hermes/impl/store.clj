@@ -607,6 +607,18 @@
 (defn get-extended-concept [^MapDBStore store concept-id]
   (make-extended-concept store (get-concept store concept-id)))
 
+(defn get-release-information
+  "Returns descriptions representing the installed distributions.
+  Ordering will be by date except that the description for the 'core' module
+  will always be first.
+  See https://confluence.ihtsdotools.org/display/DOCTIG/4.1.+Root+and+top-level+Concepts"
+  [^MapDBStore st]
+  (let [root-synonyms (sort-by :effectiveTime (filter :active (get-concept-descriptions st snomed/Root)))
+        ;; get core date by looking for descriptions in 'CORE' module and get the latest
+        core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
+        others  (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
+    (cons core others)))
+
 (defmulti is-a? (fn [_store concept _parent-id] (class concept)))
 
 (defmethod is-a? Long [store concept-id parent-id]

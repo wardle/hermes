@@ -180,5 +180,4 @@
 (comment
   (parse-accept-language-refset-id "en-x-999001261000000100")
   (parse-accept-language-refset-id "fr-x-999001261000000102")
-  (match store "en-GB")
   )
