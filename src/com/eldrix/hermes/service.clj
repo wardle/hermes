@@ -22,6 +22,7 @@
   (getComponentRefsetItems [svc component-id refset-id])
   (reverseMap [svc refset-id code])
   (getPreferredSynonym [svc concept-id langs])
+  (getReleaseInformation [svc])
   (subsumedBy? [svc concept-id subsumer-concept-id])
   (parseExpression [svc s])
   (search [svc params])

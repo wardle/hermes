@@ -57,6 +57,8 @@
     (store/get-reverse-map store refset-id code))
   (getPreferredSynonym [_ concept-id langs]
     (store/get-preferred-synonym store concept-id (locale-match-fn langs)))
+  (getReleaseInformation [_]
+    (store/get-release-information store))
   (subsumedBy? [_ concept-id subsumer-concept-id]
     (store/is-a? store concept-id subsumer-concept-id))
   (parseExpression [_ s]
