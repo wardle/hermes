@@ -134,7 +134,7 @@
     (log/info "importing " (count metadata) " distributions from " dir)
     (doseq [dist metadata]
       (log/info "distribution: " (:name dist))
-      (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : "(:error dist)))))))
+      (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))))
 
 (defn import-snomed
   "Import SNOMED distribution files from the directories `dirs` specified into
@@ -174,7 +174,6 @@
   (let [manifest (open-manifest root)]
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
       (log/info "Status information for database at '" root "'...")
-      (store/status st))))
       (merge
         {:installed-releases (map :term (store/get-release-information st))}
         (store/status st)))))
