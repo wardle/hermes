@@ -14,6 +14,9 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 * cross-mapping to and from other code systems
 * support for SNOMED CT compositional grammar and the SNOMED CT expression constraint language.
 
+A HL7 FHIR terminology facade is under development : [hades](https://github.com/wardle/hades). 
+This exposes the functionality available in `hermes` via a FHIR terminology API.
+
 It is designed as both library for embedding into larger applications, or as a microservice. 
 
 It is fast, both for import and for use. It imports and indexes the International
