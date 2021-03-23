@@ -24,15 +24,16 @@
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.import :as import]
-            [com.eldrix.hermes.service :as svc]
-            [com.eldrix.hermes.snomed])
+            [com.eldrix.hermes.service :as svc])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
            (java.util Locale)
-           (com.eldrix.hermes.service SnomedService)))
+           (com.eldrix.hermes.service SnomedService)
+           (java.time.format DateTimeFormatter)
+           (java.time LocalDateTime)))
 
 (set! *warn-on-reflection* true)
 
@@ -90,7 +91,7 @@
          (throw (Exception. (str "error: unable to read manifest from " root))))
        create?
        (let [manifest (assoc expected-manifest
-                        :created (.format (java.time.format.DateTimeFormatter/ISO_DATE_TIME) (java.time.LocalDateTime/now)))]
+                        :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
          (Files/createDirectory root-path (into-array FileAttribute []))
          (spit (.toFile manifest-path) (pr-str manifest))
          manifest)
@@ -98,13 +99,13 @@
        (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
 
 (defn- get-absolute-filename
-  [root ^String filename]
+  [^String root ^String filename]
   (let [root-path (Paths/get root (into-array String []))]
     (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
 
 (defn ^SnomedService open
   "Open a (read-only) SNOMED service from the path `root`."
-  [root]
+  [^String root]
   (let [manifest (open-manifest root)
         st (store/open-store (get-absolute-filename root (:store manifest)))
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
