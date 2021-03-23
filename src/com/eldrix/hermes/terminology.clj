@@ -110,7 +110,7 @@
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
         searcher (IndexSearcher. index-reader)
         locale-match-fn (lang/match-fn st)]
-    (log/info "hermes terminology service opened " root manifest)
+    (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
     (->Service st index-reader searcher locale-match-fn)))
 
 (defn close [svc]
