@@ -20,6 +20,7 @@
   (getDescriptions [svc concept-id])
   (getReferenceSets [svc component-id])
   (getComponentRefsetItems [svc component-id refset-id])
+  (getInstalledReferenceSets [svc])
   (reverseMap [svc refset-id code])
   (getPreferredSynonym [svc concept-id langs])
   (getReleaseInformation [svc])

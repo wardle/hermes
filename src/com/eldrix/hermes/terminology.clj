@@ -53,6 +53,8 @@
     (store/get-component-refsets store component-id))
   (getComponentRefsetItems [_ component-id refset-id]
     (store/get-component-refset-items store component-id refset-id))
+  (getInstalledReferenceSets [_]
+    (store/get-installed-reference-sets store))
   (reverseMap [_ refset-id code]
     (store/get-reverse-map store refset-id code))
   (getPreferredSynonym [_ concept-id langs]
