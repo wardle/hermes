@@ -287,7 +287,7 @@
     |- :max-hits           : maximum hits (default, 200)
     |- :fuzzy              : fuzziness (0-2, default 0)
     |- :fallback-fuzzy     : if no results, try again with fuzzy search?
-    |- :query              : additional query to apply
+    |- :query              : additional ^Query to apply
     |- :show-fsn?          : show FSNs in results? (default: false)
     |- :inactive-concepts? : search descriptions of inactive concepts?
     |                      : (default: false).
