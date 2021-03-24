@@ -160,7 +160,15 @@
   (.compact (.getStore ^BTreeMap (.concepts store))))
 
 (defn get-installed-reference-sets
-  "Returns the installed reference sets"
+  "Returns the installed reference sets.
+  While it is possible to use the SNOMED ontology to find all reference sets:
+    ```
+    (get-leaves store (get-all-children store 900000000000455006))
+    ```
+  This will return reference sets with no actual members in the installed
+  edition. Instead, we keep track of installed reference sets as we import
+  reference set items, thus ensuring we have a list that contains only
+  reference sets with members."
   [^MapDBStore store]
   (into #{} (.installedRefsets store)))
 
@@ -696,5 +704,11 @@
 
   (get-description store 82816014)
   (map #(get-preferred-synonym store % [999000691000001104 900000000000508004 999001261000000100]) (map :refsetId (get-component-refset-items store 82816014)))
+
+  (def refsets (get-all-children store 900000000000455006))
+  (count refsets)
+  (count (get-leaves store refsets))
+  (count (get-installed-reference-sets store))
+  (clojure.set/difference (set refsets) (set (get-installed-reference-sets store)))
   )
 
