@@ -10,7 +10,7 @@
            ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
-                                             :sha     "4dc20687de11e817ce2d949eceb024678467debc"}
+                                             :sha     "e24261d0afcd65e07018224741e65f805d7934ca"}
 
            aero/aero                        {:mvn/version "1.1.6"}
            cheshire/cheshire                {:mvn/version "5.10.0"}
@@ -18,7 +18,7 @@
            instaparse/instaparse            {:mvn/version "1.4.10"}
            integrant/integrant              {:mvn/version "0.8.0"}
 
-           io.netty/netty-buffer            {:mvn/version "4.1.59.Final"}
+           io.netty/netty-buffer            {:mvn/version "4.1.60.Final"}
 
            org.apache.lucene/lucene-core    {:mvn/version "8.8.1"}
            org.apache.lucene/lucene-queries {:mvn/version "8.8.1"}
@@ -43,13 +43,13 @@
                           "-d" "test"]}
 
            :outdated
-           {:extra-deps {antq/antq {:mvn/version "RELEASE"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
             :main-opts  ["-m" "antq.core"]}
 
            :check
            {:extra-deps {athos/clj-check
                          {:git/url "https://github.com/athos/clj-check.git"
-                          :sha     "cd1f25456de5eebda0a69602dd3445905382b3a4"}}
+                          :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
             :main-opts  ["-m" "clj-check.check"]}
 
            :test/cloverage
@@ -71,12 +71,12 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.193"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.206"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/hermes-lib.jar"}}
 
            :uberjar
-           {:replace-deps {seancorfield/depstar {:mvn/version "2.0.193"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.206"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/hermes.jar"
                            :aot        true
