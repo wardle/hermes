@@ -18,8 +18,6 @@
            instaparse/instaparse            {:mvn/version "1.4.10"}
            integrant/integrant              {:mvn/version "0.8.0"}
 
-           io.netty/netty-buffer            {:mvn/version "4.1.60.Final"}
-
            org.apache.lucene/lucene-core    {:mvn/version "8.8.1"}
            org.apache.lucene/lucene-queries {:mvn/version "8.8.1"}
 
