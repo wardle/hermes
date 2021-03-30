@@ -203,8 +203,8 @@
 ;; convenient structure, that can then be cached and used for inference.
 (defrecord ExtendedConcept [concept
                             descriptions
-                            parent-relationships
-                            direct-parent-relationships
+                            parentRelationships
+                            directParentRelationships
                             refsets])
 
 (defn parse-concept [v]

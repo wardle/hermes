@@ -34,6 +34,10 @@ to be composed with other services.
 It is part of my PatientCare v4 development; previous versions have been operational within NHS Wales
 since 2007.
 
+You can have a working terminology server running by typing only a few lines at a terminal. There's no need
+for any special hardware, or any special dependencies such as setting up your own elasticsearch or solr cluster.
+You just need a filesystem! Many other tools take hours to import the SNOMED data; you'll be finished in less than
+10 minutes!
 
 ### A. How to download and build a terminology service
 
@@ -275,9 +279,10 @@ or is a disease affecting the central nervous system without further
 server round-trips. Each relationship also includes the transitive closure tables for that
 relationship, making it easier to execute logical inference.
 Note how the list of descriptions includes a convenient
-`acceptable-in` and `preferred-in` so you can easily display the preferred
-term for your locale.
-
+`acceptableIn` and `preferredIn` so you can easily display the preferred
+term for your locale. If you provide an Accept-Language header, then 
+you will also get a preferredDescription that is the best choice for those
+language preferences given what is installed.
 
 ```shell
 HTTP/1.1 200 OK
@@ -294,7 +299,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
     },
     "descriptions": [
         {
-            "acceptable-in": [],
+            "acceptableIn": [],
             "active": true,
             "caseSignificanceId": 900000000000448009,
             "conceptId": 24700007,
@@ -302,7 +307,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 41398015,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [
+            "preferredIn": [
                 900000000000509007,
                 900000000000508004,
                 999001261000000100
@@ -316,7 +321,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [],
+            "acceptableIn": [],
             "active": false,
             "caseSignificanceId": 900000000000020002,
             "conceptId": 24700007,
@@ -324,13 +329,13 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 41399011,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [],
             "term": "Multiple sclerosis, NOS",
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [],
+            "acceptableIn": [],
             "active": false,
             "caseSignificanceId": 900000000000020002,
             "conceptId": 24700007,
@@ -338,13 +343,13 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 41400016,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [],
             "term": "Generalized multiple sclerosis",
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [],
+            "acceptableIn": [],
             "active": false,
             "caseSignificanceId": 900000000000020002,
             "conceptId": 24700007,
@@ -352,13 +357,13 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 481990016,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [],
             "term": "Generalised multiple sclerosis",
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [],
+            "acceptableIn": [],
             "active": true,
             "caseSignificanceId": 900000000000448009,
             "conceptId": 24700007,
@@ -366,7 +371,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 754365011,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [
+            "preferredIn": [
                 900000000000509007,
                 900000000000508004,
                 999001261000000100
@@ -380,7 +385,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "typeId": 900000000000003001
         },
         {
-            "acceptable-in": [
+            "acceptableIn": [
                 900000000000509007,
                 900000000000508004,
                 999001261000000100
@@ -392,7 +397,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 1223979019,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [
                 900000000000509007,
                 900000000000508004,
@@ -402,7 +407,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [
+            "acceptableIn": [
                 900000000000509007,
                 900000000000508004,
                 999001261000000100
@@ -414,7 +419,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 1223980016,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [
                 900000000000509007,
                 900000000000508004,
@@ -424,7 +429,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "typeId": 900000000000013009
         },
         {
-            "acceptable-in": [
+            "acceptableIn": [
                 900000000000509007,
                 900000000000508004,
                 999001261000000100
@@ -436,7 +441,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "id": 1223981017,
             "languageCode": "en",
             "moduleId": 900000000000207008,
-            "preferred-in": [],
+            "preferredIn": [],
             "refsets": [
                 900000000000509007,
                 900000000000508004,
@@ -446,7 +451,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             "typeId": 900000000000013009
         }
     ],
-    "direct-parent-relationships": {
+    "directParentRelationships": {
         "116676008": [
             409774005,
             32693004
@@ -463,7 +468,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
             769247005
         ]
     },
-    "parent-relationships": {
+    "parentRelationships": {
         "116676008": [
             138875005,
             107669003,

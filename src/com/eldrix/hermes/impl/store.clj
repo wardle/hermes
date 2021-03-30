@@ -522,8 +522,8 @@
   "Get the refsets and language applicability for a description.
   Returns a map containing:
   - refsets       : a set of refsets to which this description is a member
-  - preferred-in  : refsets for which this description is preferred
-  - acceptable-in : refsets for which this description is acceptable.
+  - preferredIn  : refsets for which this description is preferred
+  - acceptableIn : refsets for which this description is acceptable.
 
   Example:
   (map #(merge % (get-description-refsets store (:id %)))
@@ -534,8 +534,8 @@
         preferred-in (into #{} (map :refsetId (filter #(= snomed/Preferred (:acceptabilityId %)) refset-items)))
         acceptable-in (into #{} (map :refsetId (filter #(= snomed/Acceptable (:acceptabilityId %)) refset-items)))]
     {:refsets       refsets
-     :preferred-in  preferred-in
-     :acceptable-in acceptable-in}))
+     :preferredIn  preferred-in
+     :acceptableIn acceptable-in}))
 
 (defn get-preferred-description
   "Return the preferred description for the concept specified as defined by
@@ -636,7 +636,7 @@
   (contains? (get-all-parents store (:id concept)) parent-id))
 
 (defmethod is-a? ExtendedConcept [_ extended-concept parent-id]
-  (contains? (get-in extended-concept [:parent-relationships snomed/IsA]) parent-id))
+  (contains? (get-in extended-concept [:parentRelationships snomed/IsA]) parent-id))
 
 (defmulti has-property? (fn [_store concept _property-id _value-id] (class concept)))
 
@@ -647,7 +647,7 @@
   (contains? (get-parent-relationships-of-type store (:id concept) property-id) value-id))
 
 (defmethod has-property? ExtendedConcept [_ extended-concept property-id value-id]
-  (contains? (get-in extended-concept [:parent-relationships property-id]) value-id))
+  (contains? (get-in extended-concept [:parentRelationships property-id]) value-id))
 
 (comment
   (set! *warn-on-reflection* true)

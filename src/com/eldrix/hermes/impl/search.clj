@@ -82,18 +82,18 @@
               (.add (StoredField. "concept-id" ^long (get-in ed [:concept :id])))
               (.add (LongPoint. "concept-id" (long-array [(get-in ed [:concept :id])])))
               (.add (StoredField. "preferred-term" (str (:preferred-term ed)))))]
-    (doseq [[rel concept-ids] (get-in ed [:concept :parent-relationships])]
+    (doseq [[rel concept-ids] (get-in ed [:concept :parentRelationships])]
       (let [relationship (str rel)]                         ;; encode parent relationships as relationship type concept id
         (doseq [concept-id concept-ids]                     ;; and use a transitive closure table for the defining relationship
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
-    (doseq [[rel concept-ids] (get-in ed [:concept :direct-parent-relationships])]
+    (doseq [[rel concept-ids] (get-in ed [:concept :directParentRelationships])]
       (.add doc (IntPoint. (str "c" rel) (int-array [(count concept-ids)]))) ;; encode count of direct parent relationships by type as ("c" + relationship type = count)
       (let [relationship (str "d" rel)]                     ;; encode direct parent relationships as ("d" + relationship type = concept id)
         (doseq [concept-id concept-ids]
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
-    (doseq [preferred-in (:preferred-in ed)]
+    (doseq [preferred-in (:preferredIn ed)]
       (.add doc (LongPoint. "preferred-in" (long-array [preferred-in]))))
-    (doseq [acceptable-in (:acceptable-in ed)]
+    (doseq [acceptable-in (:acceptableIn ed)]
       (.add doc (LongPoint. "acceptable-in" (long-array [acceptable-in]))))
     (doseq [refset (get-in ed [:concept :refsets])]
       (.add doc (LongPoint. "concept-refsets" (long-array [refset]))))

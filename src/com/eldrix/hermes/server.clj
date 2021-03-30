@@ -118,7 +118,7 @@
                 (when-let [concept (svc/getExtendedConcept svc concept-id)]
                   (let [langs (or (get-in context [:request :headers "accept-language"] (.toLanguageTag (Locale/getDefault))))
                         preferred (svc/getPreferredSynonym svc concept-id langs)]
-                    (assoc context :result (assoc concept :preferred-description preferred)))))))})
+                    (assoc context :result (assoc concept :preferredDescription preferred)))))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
