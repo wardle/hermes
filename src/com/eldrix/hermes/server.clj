@@ -179,9 +179,11 @@
   {:name  ::get-search
    :enter (fn [context]
             (let [params (parse-search-params context)
-                  svc (get-in context [:request ::service])]
-              (when (= (:max-hits params) 0) (throw (IllegalArgumentException. "invalid parameter: 0 maxHits")))
-              (assoc context :result (svc/search svc params))))})
+                  svc (get-in context [:request ::service])
+                  max-hits (or (:max-hits params) 200)]
+              (if (< 0 max-hits 10000)
+                (assoc context :result (svc/search svc (assoc params :max-hits max-hits)))
+                (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
 
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
@@ -189,7 +191,7 @@
     #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
       ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
       ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
-      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes  get-extended-concept)]
+      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept)]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to)]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?)]
       ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]

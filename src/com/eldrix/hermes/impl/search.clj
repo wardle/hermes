@@ -278,13 +278,21 @@
   [^IndexSearcher searcher ^ScoreDoc score-doc]
   (doc-id->concept-id searcher (.-doc score-doc)))
 
+(defn do-query-for-results
+  ([^IndexSearcher searcher ^Query q]
+   (->> (search-all searcher q)
+        (map #(.doc searcher %))
+        (map doc->result)))
+  ([^IndexSearcher searcher ^Query q max-hits]
+   (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
+
 (defn do-search
   "Perform a search against the index.
   Parameters:
   - searcher : the IndexSearcher to use
   - params   : a map of search parameters, which are:
     |- :s                  : search string to use
-    |- :max-hits           : maximum hits (default, 200)
+    |- :max-hits           : maximum hits (if omitted returns unlimited results)
     |- :fuzzy              : fuzziness (0-2, default 0)
     |- :fallback-fuzzy     : if no results, try again with fuzzy search?
     |- :query              : additional ^Query to apply
@@ -302,12 +310,14 @@
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
 
   A FSN is a fully-specified name and should generally be left out of search."
-  [^IndexSearcher searcher params]
+  [^IndexSearcher searcher {:keys [max-hits] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
-        hits (seq (.-scoreDocs ^TopDocs (.search searcher ^Query q2 (int (or (:max-hits params) 200)))))]
-    (if hits
-      (map (partial scoredoc->result searcher) hits)
+        results (if max-hits
+                  (do-query-for-results searcher q2 (int max-hits))
+                  (do-query-for-results searcher q2))]
+    (if results
+      results
       (let [fuzzy (or (:fuzzy params) 0)
             fallback (or (:fallback-fuzzy params) 0)]
         (when (and (= fuzzy 0) (> fallback 0))
@@ -327,14 +337,6 @@
   ([^IndexSearcher searcher ^Query query max-hits]
    (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
      (topdocs->concept-ids searcher topdocs))))
-
-(defn do-query-for-results
-  ([^IndexSearcher searcher ^Query q]
-   (->> (search-all searcher q)
-        (map #(.doc searcher %))
-        (map doc->result)))
-  ([^IndexSearcher searcher ^Query q max-hits]
-   (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."
