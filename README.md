@@ -199,8 +199,37 @@ REPL from within my IDE.
 ```
 clj -A:dev
 ```
+#### 5. Get the status of your installed index
 
-#### 5. Run a terminology web service
+You can obtain status information about any index by using:
+
+```shell
+clj -M:run --db snomed.db status
+```
+
+Result:
+
+```shell
+{:installed-releases
+ ("SNOMED Clinical Terms version: 20200731 [R] (July 2020 Release)"
+  "31.3.0_20210120000001 UK clinical extension"),
+ :concepts 574414,
+ :descriptions 1720404,
+ :relationships 3263996,
+ :refsets 9424174,
+ :indices
+ {:descriptions-concept 1720404,
+  :concept-parent-relationships 1210561,
+  :concept-child-relationships 1210561,
+  :installed-refsets 293,
+  :component-refsets 6094742,
+  :map-target-component 1125516}}
+```
+
+The result will be different after I also import the UK dm+d 
+(dictionary of medicines and devices) distribution.
+
+#### 6. Run a terminology web service
 
 By default, data are returned using [edn](https://github.com/edn-format/edn) but
 of course, simply add "Accept:application/json" in the request header and it
@@ -573,7 +602,7 @@ http -j localhost:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
 
-#### 6. Embed into another application
+#### 7. Embed into another application
 
 In your `deps.edn` file (make sure you change the commit-id):
 ```
