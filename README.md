@@ -661,11 +661,6 @@ clj -X:deps tree
 
 #### Building uberjar
 
-Create a POM from the dependencies 
-(or create manually - changing the groupId, artifactId and version):
-```
-clj -Spom
-```
 Build the uberjar:
 ```
 clojure -X:uberjar
