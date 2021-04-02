@@ -40,6 +40,119 @@ A HL7 FHIR terminology facade is under development : [hades](https://github.com/
 This exposes the functionality available in `hermes` via a FHIR terminology API. This already
 supports search and autocompletion using the $expand operation. 
 
+# Quickstart
+
+You can have a terminology server running in minutes.
+Full documentation is below, but here is a quickstart. 
+
+1. Install clojure
+
+e.g on Mac OS X
+```shell
+brew install clojure
+```
+
+2. Clone the repository and change directory
+```shell
+git clone https://github.com/wardle/hermes
+cd hermes
+```   
+
+3. Download and install a distribution 
+
+If you're a UK user, you can do this. Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
+
+```shell
+clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
+```
+
+4. Compact and index
+```shell
+clj -M:run --db snomed.db compact
+clj -M:run --db snomed.db index
+```
+
+5. Run a server!
+```shell
+clj -M:run --db snomed.db --port 8080 serve
+```
+
+You can use [hades](https://github.com/wardle/hades) with the 'snomed.db' index
+to give you a FHIR terminology server.
+
+
+# Common questions
+
+### What is the use of `hermes`?
+
+`hermes` provides a simple library, and optionally a microservice, to help
+you make use of the SNOMED CT.
+
+A library can be embedded into your application; this is easy using Clojure or
+Java. You make calls using the dmd API just as you'd use any regular library.
+
+A microservice runs independently and you make use of the data and software
+by making an API call over the network. 
+
+Like all `PatientCare` components, you can use `hermes` in either way.
+Usually, when you're starting out, it's best to use as a library but larger
+projects and larger installations will want to run their software components
+independently, optimising for usage patterns, resilience, reliability and
+rate of change.
+
+Most people who use a terminology run a server and make calls over the network.
+
+### How is this different to a national terminology service?
+
+Previously, I implemented SNOMED CT within an EPR. 
+Later I realised how important it was to build it as a separate module; 
+I created terminology servers in java, and then later in golang; 
+`hermes` is written in clojure. 
+While I support the provision
+of a national terminology server for convenience, I think it's important to
+recognise that it is the *data* that matters most. We need to cooperate and collaborate
+on semantic interoperability, but the software services that make use of those
+data can be centralised or distributed; when I do analytics, I can't see me
+making server round-trips for every check of subsumption! That would be 
+silly; I've been using SNOMED for analytics for longer than most; you need
+flexibility in provisioning terminology services. I want tooling that can both
+ provide services at scale, while is capable of running on my home computer as well.
+
+Unlike other available terminology servers, `hermes` is lightweight and has no other dependencies 
+except a filesystem, which can be read-only when in operation.
+
+I don't believe in the idea of uploading codesystems and value sets in place. 
+My approach to versioning is to run different services; I simply switch 
+API endpoints. 
+
+### Why are you building so many small repositories?
+
+Small modules of functionality are easier to develop, easier to understand,
+easier to test and easier to maintain. I design modules to be composable so that I can
+stitch different components together in order to solve problems.
+
+In larger systems, it is easy to see code rotting. Dependencies become outdated and
+the software becomes difficult to change easily because of software that depend
+on it. Small, well-defined modules are much easier to build and are less likely
+to need ongoing changes over time; my goal is to need to update modules only
+in response to changes in *domain* not software itself. 
+I aim for an accretion of functionality.
+
+It is very difficult to 'prove' software is working as designed when there are
+lots of moving parts.
+
+### What are you using `hermes` for?
+
+I have embedded it into clinical systems; I use it for a fast autocompletion
+service so users start typing and the diagnosis, or procedure, or occupation,
+or ethnicity, or whatever, pops up. Users don't generally know they're using
+SNOMED CT. I use it to populate pop-ups and drop-down controls, and I use it
+for decision support to switch functionality on and off in my user interface -
+e.g. does this patient have a type of 'x' such as motor neurone disease - as well
+as analytics. A large number of my academic publications are as a result of
+using SNOMED in analytics.
+
+# Documentation
 
 ### A. How to download and build a terminology service
 
