@@ -60,10 +60,17 @@ cd hermes
 
 3. Download and install a distribution 
 
-If you're a UK user, you can do this. Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
+If you're a UK user and want to use automatic downloads, you can do this: 
 
 ```shell
 clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
+```
+Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
+
+If you've downloaded a distribution manually, import like this:
+
+```shell
+clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
 4. Compact and index
