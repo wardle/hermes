@@ -10,7 +10,7 @@
            ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
-                                             :sha     "e24261d0afcd65e07018224741e65f805d7934ca"}
+                                             :sha     "eb8b7d567a4a81dd970623fe2ac3380f4ce3f722"}
 
            aero/aero                        {:mvn/version "1.1.6"}
            cheshire/cheshire                {:mvn/version "5.10.0"}
@@ -18,8 +18,8 @@
            instaparse/instaparse            {:mvn/version "1.4.10"}
            integrant/integrant              {:mvn/version "0.8.0"}
 
-           org.apache.lucene/lucene-core    {:mvn/version "8.8.1"}
-           org.apache.lucene/lucene-queries {:mvn/version "8.8.1"}
+           org.apache.lucene/lucene-core    {:mvn/version "8.8.2"}
+           org.apache.lucene/lucene-queries {:mvn/version "8.8.2"}
 
            org.mapdb/mapdb                  {:mvn/version "3.0.8"}
 
@@ -69,12 +69,12 @@
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.206"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
             :exec-fn      hf.depstar/jar
             :exec-args    {:jar "target/hermes-lib.jar"}}
 
            :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.206"}}
+           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/hermes.jar"
                            :aot        true
