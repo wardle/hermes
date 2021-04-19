@@ -298,10 +298,10 @@
   Processes each refset item, recording an index to allow lookup of items in the
   following buckets using the defined keys:
   -----------------------------------------------------------------------------
-  | index               | simple or compound key                                         |
+  | index               | simple or compound key                               |
   | .componentRefsets   | referencedComponentId - refsetId - itemId1 - itemId2 |
   | .mapTargetComponent | refsetId -- mapTarget - itemId1 - itemId2            |
-  | .installedRefsets   | refsetId
+  | .installedRefsets   | refsetId                                             |
   -----------------------------------------------------------------------------
   An itemID is a 128 bit integer (UUID) so is stored as two longs."
   [^MapDBStore store objects]
