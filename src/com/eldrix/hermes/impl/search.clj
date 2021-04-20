@@ -158,17 +158,14 @@
 
 (defn- make-token-query
   [^String token fuzzy]
-  (let [len (count token)
-        term (Term. "term" token)
+  (let [term (Term. "term" token)
         tq (TermQuery. term)]
-    (if (> len 2)
       (let [builder (BooleanQuery$Builder.)]
         (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
         (if (and fuzzy (> fuzzy 0)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
                                     (.add builder tq BooleanClause$Occur/SHOULD))
         (.setMinimumNumberShouldMatch builder 1)
-        (.build builder))
-      tq)))
+        (.build builder))))
 
 (defn tokenize
   "Tokenize the string 's' according the 'analyzer' and field specified."
@@ -292,7 +289,8 @@
   - searcher : the IndexSearcher to use
   - params   : a map of search parameters, which are:
     |- :s                  : search string to use
-    |- :max-hits           : maximum hits (if omitted returns unlimited results)
+    |- :max-hits           : maximum hits (if omitted returns unlimited but
+    |                        *unsorted* results)
     |- :fuzzy              : fuzziness (0-2, default 0)
     |- :fallback-fuzzy     : if no results, try again with fuzzy search?
     |- :query              : additional ^Query to apply
@@ -565,4 +563,7 @@
 (comment
   (build-search-index "snomed.db/store.db" "snomed.db/search.db" "en-GB")
 
+  (def reader (open-index-reader "snomed.db/search.db"))
+  (def searcher (IndexSearcher. reader))
+  (do-search searcher {:s "abdom p" :properties {snomed/IsA 404684003}})
   )
