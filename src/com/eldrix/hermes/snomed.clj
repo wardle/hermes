@@ -465,7 +465,6 @@
 
 
 (def Root 138875005)
-(def IsA 116680003)
 
 ;; Metadata concepts
 (def Primitive 900000000000074008)                          ;; Not sufficiently defined by necessary conditions definition status (core metadata concept
@@ -530,6 +529,7 @@
 (def HasInterpretation 363713009)
 (def HasSpecimen 116686009)
 (def Interprets 363714003)
+(def IsA 116680003)
 (def Laterality 272741003)
 (def MeasurementMethod 370129005)
 (def Method 260686004)
@@ -605,18 +605,18 @@
   [^Description d]
   (case (:caseSignificanceId d)
     ;; initial character is case-sensitive - we can make initial character lowercase
-    OnlyInitialCharacterCaseInsensitive (when (> (count (:term d)) 0)
-                                          (str (str/lower-case (first (:term d)))
-                                               (subs (:term d) 1)))
+    900000000000020002
+    (when (> (count (:term d)) 0)
+      (str (str/lower-case (first (:term d)))
+           (subs (:term d) 1)))
     ;; entire term case insensitive - just make it all lower-case
-    EntireTermCaseInsensitive (str/lower-case (:term d))
+    900000000000448009
+    (str/lower-case (:term d))
     ;; entire term is case sensitive - can't do anything
-    EntireTermCaseSensitive (:term d)
+    900000000000017005
+    (:term d)
     ;; fallback option - don't do anything
     (:term d)))
-
-
-
 
 ;; just an experiment with multimethods...
 (defmulti valid? #(identifier->type (:id %)))
