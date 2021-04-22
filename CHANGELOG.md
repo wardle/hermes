@@ -2,6 +2,15 @@
 
 This log documents significant changes for each release.
 
+## [0.6.2] - 2021-04-20
+
+* Permit prefix search to run with one character or more, rather than minimum of three, for better autocompletion functionality.
+
+## [0.6.1] - 2021-04-19
+
+* Upgrade dependencies
+* Temporarily bind to 0.0.0.0 pending more complete server configuration options
+
 ## [0.6.0] - 2021-03-31
 
 * Support for unlimited results when used as a library, and when processing expressions
