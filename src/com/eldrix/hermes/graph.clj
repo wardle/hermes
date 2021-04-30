@@ -45,7 +45,7 @@
 
 (pco/defresolver concept-by-id
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
-  [{:keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output concept-properties}
   (record->map "info.snomed.Concept" (svc/getConcept svc id)))
 
@@ -61,14 +61,14 @@
 
 (pco/defresolver concept-descriptions
   "Return the descriptions for a given concept."
-  [{:keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/descriptions description-properties}]}
   {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (svc/getDescriptions svc id))})
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
-  [{:keys [svc]} {:info.snomed.Concept/keys [moduleId]}]
+  [{::keys [svc]} {:info.snomed.Concept/keys [moduleId]}]
   {::pco/output [{:info.snomed.Concept/module concept-properties}]}
   {:info.snomed.Concept/module {:info.snomed.Concept/id moduleId}})
 
@@ -84,7 +84,7 @@
      '(:info.snomed.Concept/preferred-description {:accept-language \"en-GB\"})
      {:info.snomed.Concept/descriptions
       [:info.snomed.Description/active :info.snomed.Description/term]}])"
-  [{:keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
@@ -111,19 +111,19 @@
 
 (pco/defresolver concept-refset-ids
   "Returns a concept's reference set identifiers."
-  [{:keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [:info.snomed.Concept/refsetIds]}
   {:info.snomed.Concept/refsetIds (set (svc/getReferenceSets svc id))})
 
 (pco/defresolver concept-refsets
   "Returns the refset items for a concept."
-  [{:keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (svc/getComponentRefsetItems svc id 0))})
 
 (pco/defresolver concept-relationships
-  [{:keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
   (let [ec (svc/getExtendedConcept svc id)
@@ -146,7 +146,7 @@
     |- :constraint         : SNOMED ECL constraint to apply
     |- :max-hits           : maximum hits (if omitted returns unlimited but
                              *unsorted* results)."
-  [{:keys [svc]} params]
+  [{::keys [svc]} params]
   {::pco/op-name 'info.snomed.Search/search
    ::pco/params  [:s :constraint :max-hits]
    ::pco/output  [[:info.snomed.Description/id
@@ -161,6 +161,8 @@
        (svc/search svc (select-keys params [:s :constraint :max-hits]))))
 
 (def all-resolvers
+  "SNOMED resolvers; each expects an environment that contains
+  a key :com.eldrix.hermes.graph/svc representing a SNOMED svc."
   [concept-by-id
    concept-defined?
    concept-primitive?
@@ -190,7 +192,7 @@
   (preferred-description {:svc svc} {:info.snomed.Concept/id 24700007})
 
   (def registry (-> (pci/register all-resolvers)
-                    (assoc :svc svc)))
+                    (assoc ::svc svc)))
   (p.connector/connect-env registry {::pvc/parser-id 'registry})
 
   (p.eql/process registry

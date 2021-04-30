@@ -35,7 +35,7 @@
            {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
 
            :pathom-viz
-           {:extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.03.21"}}}
+           {:extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
