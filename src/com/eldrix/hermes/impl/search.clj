@@ -292,7 +292,7 @@
     |- :max-hits           : maximum hits (if omitted returns unlimited but
     |                        *unsorted* results)
     |- :fuzzy              : fuzziness (0-2, default 0)
-    |- :fallback-fuzzy     : if no results, try again with fuzzy search?
+    |- :fallback-fuzzy     : if no results, try fuzzy search (0-2, default 0).
     |- :query              : additional ^Query to apply
     |- :show-fsn?          : show FSNs in results? (default: false)
     |- :inactive-concepts? : search descriptions of inactive concepts?
@@ -314,7 +314,7 @@
         results (if max-hits
                   (do-query-for-results searcher q2 (int max-hits))
                   (do-query-for-results searcher q2))]
-    (if results
+    (if (seq results)
       results
       (let [fuzzy (or (:fuzzy params) 0)
             fallback (or (:fallback-fuzzy params) 0)]
@@ -566,4 +566,5 @@
   (def reader (open-index-reader "snomed.db/search.db"))
   (def searcher (IndexSearcher. reader))
   (do-search searcher {:s "abdom p" :properties {snomed/IsA 404684003}})
+  (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
   )
