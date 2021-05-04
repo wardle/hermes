@@ -164,8 +164,8 @@
               (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
               (assoc context :result {:subsumedBy (svc/subsumedBy? svc concept-id subsumer-id)})))})
 
-(defn parse-search-params [context]
-  (let [{:keys [s maxHits isA refset constraint]} (get-in context [:request :params])]
+(defn parse-search-params [params]
+  (let [{:keys [s maxHits isA refset constraint fuzzy fallbackFuzzy]} params]
     (cond-> {}
             s (assoc :s s)
             constraint (assoc :constraint constraint)
@@ -173,12 +173,14 @@
             (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
             (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
             (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
-            (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset))))))
+            (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset)))
+            (#{"true" "1"} fuzzy) (assoc :fuzzy 2)
+            (#{"true" "1"} fallbackFuzzy) (assoc :fallback-fuzzy 2))))
 
 (def get-search
   {:name  ::get-search
    :enter (fn [context]
-            (let [params (parse-search-params context)
+            (let [params (parse-search-params (get-in context [:request :params]))
                   svc (get-in context [:request ::service])
                   max-hits (or (:max-hits params) 200)]
               (if (< 0 max-hits 10000)
