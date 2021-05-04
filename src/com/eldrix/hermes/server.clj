@@ -204,12 +204,13 @@
   {::http/routes routes
    ::http/type   :jetty
    ::http/port   8081
-   ::http/host   "0.0.0.0"})
+   ::http/host   "0.0.0.0"})                                ;; TODO: this is a security risk so must be a configuration option
 
 (defn start-server
   ([svc port] (start-server svc port true))
   ([svc port join?]
    (log/info "starting server on port " port)
+   (log/warn "binding to 0.0.0.0 - this will be changed in a future release")
    (http/start (http/create-server (-> service-map
                                        (assoc ::http/port port)
                                        (assoc ::http/join? join?)
