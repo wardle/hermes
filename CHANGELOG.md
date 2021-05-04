@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [] - HEAD - not yet released
+
+* New graph API using declarative approach permitting clients to ask for exactly what they need
+* Expose fuzzy search in REST API.
+
 ## [0.6.2] - 2021-04-20
 
 * Permit prefix search to run with one character or more, rather than minimum of three, for better autocompletion functionality.
