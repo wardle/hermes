@@ -159,13 +159,13 @@
 (defn- make-token-query
   [^String token fuzzy]
   (let [term (Term. "term" token)
-        tq (TermQuery. term)]
-      (let [builder (BooleanQuery$Builder.)]
-        (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
-        (if (and fuzzy (> fuzzy 0)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
-                                    (.add builder tq BooleanClause$Occur/SHOULD))
-        (.setMinimumNumberShouldMatch builder 1)
-        (.build builder))))
+        tq (TermQuery. term)
+        builder (BooleanQuery$Builder.)]
+    (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
+    (if (and fuzzy (> fuzzy 0)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
+                                (.add builder tq BooleanClause$Occur/SHOULD))
+    (.setMinimumNumberShouldMatch builder 1)
+    (.build builder)))
 
 (defn tokenize
   "Tokenize the string 's' according the 'analyzer' and field specified."
