@@ -533,7 +533,7 @@
         refsets (into #{} (map :refsetId refset-items))
         preferred-in (into #{} (map :refsetId (filter #(= snomed/Preferred (:acceptabilityId %)) refset-items)))
         acceptable-in (into #{} (map :refsetId (filter #(= snomed/Acceptable (:acceptabilityId %)) refset-items)))]
-    {:refsets       refsets
+    {:refsets      refsets
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
@@ -624,7 +624,7 @@
   (let [root-synonyms (sort-by :effectiveTime (filter :active (get-concept-descriptions st snomed/Root)))
         ;; get core date by looking for descriptions in 'CORE' module and get the latest
         core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
-        others  (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
+        others (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
     (cons core others)))
 
 (defmulti is-a? (fn [_store concept _parent-id] (class concept)))
@@ -690,10 +690,10 @@
   (imp/importable-files "/Users/mark/Downloads/snomed-2021-01")
   (imp/all-metadata "/Users/mark/Downloads/snomed-2021-01")
   (def ch (imp/load-snomed "/Users/mark/Downloads/snomed-2021-01"))
-  (loop [batch (a/<!! ch)]
+  (loop [batch (async/<!! ch)]
     (when batch
       (write-batch batch store)
-      (recur (a/<!! ch))))
+      (recur (async/<!! ch))))
 
   (def store (open-store "snomed.db/store.db" {:read-only? true}))
   (get-concept store 24700007)

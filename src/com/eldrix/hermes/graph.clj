@@ -1,17 +1,14 @@
 (ns com.eldrix.hermes.graph
   "Provides a graph API around SNOMED CT structures."
-  (:require [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.terminology :as hermes]
-            [com.eldrix.hermes.service :as svc]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.runner :as pcr]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
-            [com.wsscode.pathom.viz.ws-connector.core :as pvc]
-            [com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector]
-            [com.eldrix.hermes.snomed :as snomed]
-            [clojure.string :as str]))
+            [com.wsscode.pathom3.interface.eql :as p.eql]))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -47,7 +44,7 @@
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output concept-properties}
-  (record->map "info.snomed.Concept" (svc/getConcept svc id)))
+  (record->map "info.snomed.Concept" (hermes/get-concept svc id)))
 
 (pco/defresolver concept-defined?
   "Is a concept fully defined?"
@@ -64,7 +61,7 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/descriptions description-properties}]}
-  {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (svc/getDescriptions svc id))})
+  {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc id))})
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
@@ -89,7 +86,7 @@
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
   (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (java.util.Locale/getDefault)))]
-    {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (svc/getPreferredSynonym svc id lang))}))
+    {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/get-preferred-synonym svc id lang))}))
 
 (pco/defresolver lowercase-term
   "Returns a SNOMED description as a lowercase term."
@@ -114,19 +111,19 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [:info.snomed.Concept/refsetIds]}
-  {:info.snomed.Concept/refsetIds (set (svc/getReferenceSets svc id))})
+  {:info.snomed.Concept/refsetIds (set (hermes/get-reference-sets svc id))})
 
 (pco/defresolver concept-refsets
   "Returns the refset items for a concept."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
-  {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (svc/getComponentRefsetItems svc id 0))})
+  {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id 0))})
 
 (pco/defresolver concept-relationships
   [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
-  (let [ec (svc/getExtendedConcept svc id)
+  (let [ec (hermes/get-extended-concept svc id)
         rel-type (:type (pco/params env))
         parents (if rel-type {rel-type (get-in ec [:parentRelationships rel-type])}
                              (:parentRelationships ec))
@@ -158,7 +155,7 @@
                      :info.snomed.Concept/id                   (:conceptId result)
                      :info.snomed.Description/term             (:term result)
                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-       (svc/search svc (select-keys params [:s :constraint :max-hits]))))
+       (hermes/search svc (select-keys params [:s :constraint :max-hits]))))
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
@@ -178,22 +175,25 @@
 
 (comment
   (def svc (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
-  (svc/getConcept svc 24700007)
-  (svc/getExtendedConcept svc 24700007)
-  (svc/search svc {:s          "amyliod"
-                   :fuzzy      2
-                   :constraint "<404684003"
-                   :max-hits   10})
-  (map (partial record->map "info.snomed.Description") (svc/getDescriptions svc 24700007))
+  svc
+  (hermes/get-concept svc 24700007)
+  (hermes/get-extended-concept svc 24700007)
+  (hermes/search svc {:s          "amyliod"
+                      :fuzzy      2
+                      :constraint "<404684003"
+                      :max-hits   10})
+  (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc 24700007))
 
   concept-by-id
-  (concept-by-id {:svc svc} {:id 24700007})
-  (concept-descriptions {:svc svc} {:info.snomed.Concept/id 24700007})
-  (preferred-description {:svc svc} {:info.snomed.Concept/id 24700007})
+  (concept-by-id {::svc svc} {:info.snomed.Concept/id 24700007})
+  (concept-descriptions {::svc svc} {:info.snomed.Concept/id 24700007})
+  (preferred-description {::svc svc} {:info.snomed.Concept/id 24700007})
 
   (def registry (-> (pci/register all-resolvers)
                     (assoc ::svc svc)))
-  (p.connector/connect-env registry {::pvc/parser-id 'registry})
+  (require '[com.wsscode.pathom.viz.ws-connector.core :as pvc]
+           '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
+  (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'registry})
 
   (p.eql/process registry
                  {:info.snomed.Concept/id 80146002}
@@ -212,9 +212,9 @@
 
   (p.eql/process registry
                  [{'(info.snomed.Search/search
-                     {:s "mult scl"
-                      :constraint "<404684003"
-                      :max-hits 10})
+                      {:s          "mult scl"
+                       :constraint "<404684003"
+                       :max-hits   10})
                    [:info.snomed.Concept/id
                     :info.snomed.Description/id
                     :info.snomed.Description/term

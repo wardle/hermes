@@ -13,127 +13,207 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.hermes.core
-  (:gen-class)
-  (:require [clojure.pprint :as pp]
-            [clojure.string :as str]
-            [clojure.tools.cli :as cli]
-            [clojure.tools.logging :as log]
-            [com.eldrix.hermes.config :as config]
-            [com.eldrix.hermes.download :as download]
-            [com.eldrix.hermes.import :as import]
-            [com.eldrix.hermes.terminology :as terminology]
-            [integrant.core :as ig]))
+  "Provides a terminology service, wrapping the SNOMED store and
+  search implementations as a single unified service."
+  (:require [clojure.core.async :as async]
+            [clojure.edn :as edn]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.expression.ecl :as ecl]
+            [com.eldrix.hermes.expression.scg :as scg]
+            [com.eldrix.hermes.impl.language :as lang]
+            [com.eldrix.hermes.impl.search :as search]
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.import :as import])
+  (:import (com.eldrix.hermes.impl.store MapDBStore)
+           (org.apache.lucene.search IndexSearcher)
+           (org.apache.lucene.index IndexReader)
+           (java.nio.file Paths Files LinkOption)
+           (java.nio.file.attribute FileAttribute)
+           (java.util Locale)
+           (java.time.format DateTimeFormatter)
+           (java.time LocalDateTime)
+           (java.io Closeable)))
 
-(defn import-from [{:keys [db]} args]
-  (if db
-    (let [dirs (if (= 0 (count args)) ["."] args)]
-      (terminology/import-snomed db dirs))
-    (log/error "no database directory specified")))
+(set! *warn-on-reflection* true)
 
-(defn list-from [_ args]
-  (let [dirs (if (= 0 (count args)) ["."] args)
-        metadata (map #(select-keys % [:name :effectiveTime :deltaFromDate :deltaToDate]) (mapcat import/all-metadata dirs))]
-    (pp/print-table metadata)
+(deftype Service [^MapDBStore store
+                  ^IndexReader index-reader
+                  ^IndexSearcher searcher
+                  locale-match-fn]
+  Closeable
+  (close [_] (.close store) (.close index-reader)))
+
+(defn get-concept [^Service svc concept-id]
+  (store/get-concept (.-store svc) concept-id))
+
+(defn get-extended-concept [^Service svc concept-id]
+  (when-let [concept (store/get-concept (.-store svc) concept-id)]
+    (store/make-extended-concept (.-store svc) concept)))
+
+(defn get-descriptions [^Service svc concept-id]
+  (store/get-concept-descriptions (.-store svc) concept-id))
+
+(defn get-reference-sets [^Service svc component-id]
+  (store/get-component-refsets (.-store svc) component-id))
+
+(defn get-component-refset-items [^Service svc component-id refset-id]
+  (store/get-component-refset-items (.-store svc) component-id refset-id))
+
+(defn get-installed-reference-sets [^Service svc]
+  (store/get-installed-reference-sets (.-store svc)))
+
+(defn reverse-map [^Service svc refset-id code]
+  (store/get-reverse-map (.-store svc) refset-id code))
+
+(defn get-preferred-synonym [^Service svc concept-id langs]
+  (let [locale-match-fn (.-locale_match_fn svc)]
+    (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn langs))))
+
+(defn get-release-information [^Service svc]
+  (store/get-release-information (.-store svc)))
+
+(defn subsumed-by? [^Service svc concept-id subsumer-concept-id]
+  (store/is-a? (.-store svc) concept-id subsumer-concept-id))
+
+(defn parse-expression [^Service svc s]
+  (scg/parse s))
+
+(defn search [^Service svc params]
+  (if-let [constraint (:constraint params)]
+    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
+    (search/do-search (.-searcher svc) params)))
+
+(defn synonyms [^Service svc params]
+  (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
+
+(def ^:private expected-manifest
+  "Defines the current expected manifest."
+  {:version 0.4
+   :store   "store.db"
+   :search  "search.db"})
+
+(defn- open-manifest
+  "Open or, if it doesn't exist, optionally create a manifest at the location specified."
+  ([root] (open-manifest root false))
+  ([root create?]
+   (let [root-path (Paths/get root (into-array String []))
+         manifest-path (.resolve root-path "manifest.edn")
+         exists? (Files/exists manifest-path (into-array LinkOption []))]
+     (cond
+       exists?
+       (if-let [manifest (edn/read-string (slurp (.toFile manifest-path)))]
+         (if (= (:version manifest) (:version expected-manifest))
+           manifest
+           (throw (Exception. (str "error: incompatible database version. expected:'" (:version expected-manifest) "' got:'" (:version manifest) "'"))))
+         (throw (Exception. (str "error: unable to read manifest from " root))))
+       create?
+       (let [manifest (assoc expected-manifest
+                        :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
+         (Files/createDirectory root-path (into-array FileAttribute []))
+         (spit (.toFile manifest-path) (pr-str manifest))
+         manifest)
+       :else
+       (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
+
+(defn- get-absolute-filename
+  [^String root ^String filename]
+  (let [root-path (Paths/get root (into-array String []))]
+    (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
+
+(defn ^Service open
+  "Open a (read-only) SNOMED service from the path `root`."
+  [^String root]
+  (let [manifest (open-manifest root)
+        st (store/open-store (get-absolute-filename root (:store manifest)))
+        index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
+        searcher (IndexSearcher. index-reader)
+        locale-match-fn (lang/match-fn st)]
+    (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
+    (->Service st index-reader searcher locale-match-fn)))
+
+(defn close [^Service svc]
+  (.close svc))
+
+(defn- do-import-snomed
+  "Import a SNOMED distribution from the specified directory `dir` into a local
+   file-based database `store-filename`.
+   Blocking; will return when done. "
+  [store-filename dir]
+  (let [nthreads (.availableProcessors (Runtime/getRuntime))
+        store (store/open-store store-filename {:read-only? false})
+        data-c (import/load-snomed dir)
+        done (import/create-workers nthreads store/write-batch-worker store data-c)]
+    (async/<!! done)
+    (store/close store)))
+
+(defn log-metadata [dir]
+  (let [metadata (import/all-metadata dir)]
+    (log/info "importing " (count metadata) " distributions from " dir)
+    (doseq [dist metadata]
+      (log/info "distribution: " (:name dist))
+      (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))))
+
+(defn import-snomed
+  "Import SNOMED distribution files from the directories `dirs` specified into
+  the database directory `root` specified."
+  [root dirs]
+  (let [manifest (open-manifest root true)
+        store-filename (get-absolute-filename root (:store manifest))]
     (doseq [dir dirs]
-      (let [files (import/importable-files dir)
-            heading (str "| Distribution files in " dir ":" (count files) " |")
-            banner (apply str (repeat (count heading) "="))]
-        (println "\n" banner "\n" heading "\n" banner)
-        (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
+      (log-metadata dir)
+      (do-import-snomed store-filename dir))))
 
-(defn download [opts args]
-  (if-let [[provider & params] (seq args)]
-    (when-let [unzipped-path (download/download provider params)]
-      (import-from opts [(.toString unzipped-path)]))
-    (do (println "No provider specified. Available providers:")
-        (download/print-providers))))
+(defn compact
+  [root]
+  (let [manifest (open-manifest root false)]
+    (log/info "Compacting database at " root "...")
+    (let [root-path (Paths/get root (into-array String []))
+          file-size (Files/size (.resolve root-path ^String (:store manifest)))
+          heap-size (.maxMemory (Runtime/getRuntime))]
+      (when (> file-size heap-size)
+        (log/warn "warning: compaction will likely need additional heap; consider using flag -Xmx - e.g. -Xmx8g"
+                  {:file-size (str (int (/ file-size (* 1024 1024))) "Mb")
+                   :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
+      (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
+        (store/compact st))
+      (log/info "Compacting database... complete."))))
 
-(defn build-index [{:keys [db]} _]
-  (if db
-    (terminology/build-search-index db)
-    (log/error "no database directory specified")))
+(defn build-search-index
+  ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
+  ([root language-priority-list]
+   (let [manifest (open-manifest root false)]
+     (log/info "Building search index" {:root root :languages language-priority-list})
+     (search/build-search-index (get-absolute-filename root (:store manifest))
+                                (get-absolute-filename root (:search manifest)) language-priority-list)
+     (log/info "Building search index... complete."))))
 
-(defn compact [{:keys [db]} _]
-  (if db
-    (terminology/compact db)
-    (log/error "no database directory specified")))
+(defn get-status [root]
+  (let [manifest (open-manifest root)]
+    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
+      (log/info "Status information for database at '" root "'...")
+      (merge
+        {:installed-releases (map :term (store/get-release-information st))}
+        (store/status st)))))
 
-(defn status [{:keys [db]} _]
-  (if db
-    (pp/pprint (terminology/get-status db))
-    (log/error "no database directory specified")))
+(defn create-service
+  "Create a terminology service combining both store and search functionality
+  in a single step. It would be unusual to use this; usually each step would be
+  performed interactively by an end-user."
+  ([root import-from] (create-service root import-from))
+  ([root import-from locale-preference-string]              ;; There are four steps:
+   (import-snomed root import-from)                         ;; import the files
+   (compact root)                                           ;; compact the store
+   (build-search-index root locale-preference-string)))     ;; build the search index
 
-(defn serve [{:keys [db port]} _]
-  (if db
-    (let [conf (-> (:ig/system (config/config :live))
-                   (assoc-in [:terminology/service :path] db)
-                   (assoc-in [:http/server :port] port)
-                   (assoc-in [:http/server :join?] true))]
-      (log/info "starting terminology server " conf)
-      (ig/init conf))
-    (log/error "no database directory specified")))
 
-(def cli-options
-  [["-p" "--port PORT" "Port number"
-    :default 8080
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
-   ["-d" "--db PATH" "Path to database directory"
-    :validate [string? "Missing database path"]]
-
-   ["-h" "--help"]])
-
-(defn usage [options-summary]
-  (->> ["Usage: hermes [options] command [parameters]"
-        ""
-        "Options:"
-        options-summary
-        ""
-        "Commands:"
-        " import [paths] Import SNOMED distribution files from paths specified."
-        " list [paths]   List importable files from the paths specified."
-        " download [provider] [opts] Download and install distribution from a provider."
-        " index          Build search index."
-        " compact        Compact database"
-        " serve          Start a terminology server"
-        " status         Displays status information"]
-       (str/join \newline)))
-
-(def commands
-  {"import"   {:fn import-from}
-   "list"     {:fn list-from}
-   "download" {:fn download}
-   "index"    {:fn build-index}
-   "compact"  {:fn compact}
-   "serve"    {:fn serve}
-   "status"   {:fn status}})
-
-(defn exit [status msg]
-  (println msg)
-  (System/exit status))
-
-(defn invoke-command [cmd opts args]
-  (if-let [f (:fn cmd)]
-    (f opts args)
-    (exit 1 "error: not implemented")))
-
-(defn -main [& args]
-  (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)
-        command (get commands ((fnil str/lower-case "") (first arguments)))]
-    (cond
-      ;; asking for help?
-      (:help options)
-      (println (usage summary))
-      ;; if we have any errors, exit with error message(s)
-      errors
-      (exit 1 (str/join \newline errors))
-      ;; if we have no command, exit with error message
-      (not command)
-      (exit 1 (str "invalid command\n" (usage summary)))
-      ;; invoke command
-      :else (invoke-command command options (rest arguments)))))
 
 (comment
+  (def svc (open "snomed.db"))
+  (search svc {:s "mult scl" :constraint "<< 24700007"})
+  (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
+  (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
+
+  (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
 
   )

@@ -6,6 +6,7 @@ This log documents significant changes for each release.
 
 * New graph API using declarative approach permitting clients to ask for exactly what they need
 * Expose fuzzy search in REST API.
+* Restructure - separate library code from cli commands / server
 
 ## [0.6.2] - 2021-04-20
 

@@ -5,7 +5,8 @@
             [clojure.walk :as walk]
             [com.eldrix.trud.core :as trud]
             [com.eldrix.trud.zip :as zip]
-            [expound.alpha :as expound]))
+            [expound.alpha :as expound])
+  (:import (java.nio.file Path)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
@@ -41,7 +42,7 @@
   []
   (clojure.pprint/print-table (map #(hash-map :identifier %) (keys registry))))
 
-(defn ^java.nio.file.Path download
+(defn ^Path download
   "Download the named distribution.
   Parameters:
   - nm         : name of the provider   e.g. \"uk.nhs/sct-clinical\"

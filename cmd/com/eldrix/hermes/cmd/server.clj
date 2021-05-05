@@ -12,23 +12,23 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.server
+(ns com.eldrix.hermes.cmd.server
   (:require [cheshire.core :as json]
             [cheshire.generate :as json-gen]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.service :as svc]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.snomed :as snomed]
             [io.pedestal.http :as http]
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err]
-            [com.eldrix.hermes.terminology :as terminology])
+            [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (com.fasterxml.jackson.core JsonGenerator)
-           (java.util Locale)))
+           (java.util Locale)
+           (com.eldrix.hermes.core Service)))
 
 (set! *warn-on-reflection* true)
 
@@ -107,7 +107,7 @@
   {:name  ::get-concept
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (svc/getConcept (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (hermes/get-concept (get-in context [:request ::service]) concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
@@ -115,16 +115,16 @@
    :enter (fn [context]
             (let [svc (get-in context [:request ::service])]
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (when-let [concept (svc/getExtendedConcept svc concept-id)]
+                (when-let [concept (hermes/get-extended-concept svc concept-id)]
                   (let [langs (or (get-in context [:request :headers "accept-language"] (.toLanguageTag (Locale/getDefault))))
-                        preferred (svc/getPreferredSynonym svc concept-id langs)]
+                        preferred (hermes/get-preferred-synonym svc concept-id langs)]
                     (assoc context :result (assoc concept :preferredDescription preferred)))))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (svc/getDescriptions (get-in context [:request ::service]) concept-id)]
+              (when-let [ds (hermes/get-descriptions (get-in context [:request ::service]) concept-id)]
                 (assoc context :result ds))))})
 
 (def get-concept-preferred-description
@@ -132,9 +132,9 @@
    :enter (fn [context]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
               (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))]
-                (when-let [ds (svc/getPreferredSynonym (get-in context [:request ::service])
-                                                       concept-id
-                                                       langs)]
+                (when-let [ds (hermes/get-preferred-synonym (get-in context [:request ::service])
+                                                            concept-id
+                                                            langs)]
                   (assoc context :result ds)))))})
 
 (def get-map-to
@@ -143,7 +143,7 @@
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (when-let [rfs (svc/getComponentRefsetItems (get-in context [:request ::service]) concept-id refset-id)]
+                (when-let [rfs (hermes/get-component-refset-items (get-in context [:request ::service]) concept-id refset-id)]
                   (assoc context :result rfs)))))})
 
 (def get-map-from
@@ -152,7 +152,7 @@
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (svc/reverseMap (get-in context [:request ::service]) refset-id (str/upper-case code))]
+                (when-let [rfs (hermes/reverse-map (get-in context [:request ::service]) refset-id (str/upper-case code))]
                   (assoc context :result rfs)))))})
 
 (def subsumed-by?
@@ -162,7 +162,7 @@
                   subsumer-id (Long/parseLong (get-in context [:request :path-params :subsumer-id]))
                   svc (get-in context [:request ::service])]
               (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
-              (assoc context :result {:subsumedBy (svc/subsumedBy? svc concept-id subsumer-id)})))})
+              (assoc context :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params [params]
   (let [{:keys [s maxHits isA refset constraint fuzzy fallbackFuzzy]} params]
@@ -184,7 +184,7 @@
                   svc (get-in context [:request ::service])
                   max-hits (or (:max-hits params) 200)]
               (if (< 0 max-hits 10000)
-                (assoc context :result (svc/search svc (assoc params :max-hits max-hits)))
+                (assoc context :result (hermes/search svc (assoc params :max-hits max-hits)))
                 (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
 
 (def common-routes [coerce-body content-neg-intc entity-render])
@@ -203,19 +203,19 @@
 (def service-map
   {::http/routes routes
    ::http/type   :jetty
-   ::http/port   8081
-   ::http/host   "0.0.0.0"})                                ;; TODO: this is a security risk so must be a configuration option
+   ::http/port   8080})
 
 (defn start-server
-  ([svc port] (start-server svc port true))
-  ([svc port join?]
-   (log/info "starting server on port " port)
-   (log/warn "binding to 0.0.0.0 - this will be changed in a future release")
-   (http/start (http/create-server (-> service-map
-                                       (assoc ::http/port port)
-                                       (assoc ::http/join? join?)
-                                       (http/default-interceptors)
-                                       (update ::http/interceptors conj (intc/interceptor (inject-svc svc))))))))
+  ([^Service svc {:keys [port bind-address join?] :as opts :or {join? true}}]
+   (let [cfg (cond-> {}
+                     port (assoc ::http/port port)
+                     bind-address (assoc :http/host bind-address))]
+     (-> (merge service-map cfg)
+         (assoc ::http/join? join?)
+         (http/default-interceptors)
+         (update ::http/interceptors conj (intc/interceptor (inject-svc svc)))
+         http/create-server
+         http/start))))
 
 (defn stop-server [server]
   (http/stop server))
@@ -225,14 +225,14 @@
 
 (defn start-dev [svc port]
   (reset! server
-          (start-server svc port false)))
+          (start-server svc {:port port :join? false})))
 
 (defn stop-dev []
   (http/stop @server))
 
 (comment
-  (require '[com.eldrix.hermes.terminology])
-  (def svc (com.eldrix.hermes.terminology/open "snomed.db"))
+  (require '[com.eldrix.hermes.core])
+  (def svc (com.eldrix.hermes.core/open "snomed.db"))
   (start-dev svc 8080)
   (stop-dev)
   )

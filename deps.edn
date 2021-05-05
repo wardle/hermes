@@ -5,36 +5,32 @@
            org.clojure/data.csv             {:mvn/version "1.0.0"}
            org.clojure/data.xml             {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip             {:mvn/version "1.0.0"}
-           org.clojure/tools.cli            {:mvn/version "1.0.206"}
            org.clojure/tools.logging        {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
                                              :sha     "eb8b7d567a4a81dd970623fe2ac3380f4ce3f722"}
 
-           aero/aero                        {:mvn/version "1.1.6"}
            cheshire/cheshire                {:mvn/version "5.10.0"}
            com.wsscode/pathom               {:git/url "https://github.com/wilkerlucio/pathom3"
                                              :sha     "ea60bb0031961fca5600630ce297b43dbd643225"}
            expound/expound                  {:mvn/version "0.8.9"}
            instaparse/instaparse            {:mvn/version "1.4.10"}
-           integrant/integrant              {:mvn/version "0.8.0"}
 
            org.apache.lucene/lucene-core    {:mvn/version "8.8.2"}
            org.apache.lucene/lucene-queries {:mvn/version "8.8.2"}
 
            org.mapdb/mapdb                  {:mvn/version "3.0.8"}
-
-           io.pedestal/pedestal.service     {:mvn/version "0.5.8"}
-           io.pedestal/pedestal.jetty       {:mvn/version "0.5.8"}}
+           }
 
  :aliases {:run
-           {:main-opts ["-m" "com.eldrix.hermes.core"]}
+           {:extra-paths ["cmd"]
+            :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
+                          io.pedestal/pedestal.service   {:mvn/version "0.5.8"}
+                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.8"}}
+            :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
-           :socket
-           {:jvm-opts ["-Dclojure.server.repl={:port,50505,:accept,clojure.core.server/repl}"]}
-
-           :pathom-viz
+           :dev
            {:extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}}}
 
            :test
@@ -82,5 +78,6 @@
            {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.211"}}
             :exec-fn      hf.depstar/uberjar
             :exec-args    {:jar        "target/hermes.jar"
+                           :aliases    [:run]
                            :aot        true
-                           :main-class "com.eldrix.hermes.core"}}}}
+                           :main-class "com.eldrix.hermes.cmd.core"}}}}
