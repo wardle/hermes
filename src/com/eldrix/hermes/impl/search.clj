@@ -524,11 +524,24 @@
   - minimum     : minimum count
   - maximum     : maximum count (use Integer/MAX_VALUE for half-open range)
   For example, get concepts with 4 or more active ingredients:
-  (q-attribute-count 127489000 4 0)"
+  (q-attribute-count 127489000 4 Integer/MAX_VALUE)."
   [property minimum maximum]
-  (if (and (= 0 minimum) (= maximum 0))
-    (throw (ex-info "not yet implemented: cardinality [0..0]" {:property property}))
-    (IntPoint/newRangeQuery (str "c" property) (int minimum) (int maximum))))
+  (let [field (str "c" property)]
+  (cond
+    (> maximum minimum)
+    (throw (ex-info "Invalid range." {:property property :minimum minimum :maximum maximum}))
+
+    (and (> minimum 0) (= minimum maximum))
+    (IntPoint/newExactQuery field (int minimum))
+
+    (> minimum 0)
+    (IntPoint/newRangeQuery field (int minimum) (int maximum))
+
+    (and (= minimum 0) (= maximum 0))
+    (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
+
+    (and (= minimum 0) (> maximum 0))
+    (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 (int maximum))))))
 
 (defn q-term [s] (make-tokens-query s))
 
@@ -602,4 +615,5 @@
   (do-query-for-concepts searcher (q-or [(make-search-query {:inactive-concepts? true})]))
   (.clauses (make-search-query {:inactive-concepts? true}))
   (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
+  (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0))
   )
