@@ -23,7 +23,7 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.import :as import])
+            [com.eldrix.hermes.importer :as import])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)

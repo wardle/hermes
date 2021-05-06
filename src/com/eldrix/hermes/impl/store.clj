@@ -686,7 +686,7 @@
 
   (def store (open-store "snomed.db/store.db" {:read-only? false}))
   (.close store)
-  (require '[com.eldrix.hermes.import :as imp])
+  (require '[com.eldrix.hermes.importer :as imp])
   (imp/importable-files "/Users/mark/Downloads/snomed-2021-01")
   (imp/all-metadata "/Users/mark/Downloads/snomed-2021-01")
   (def ch (imp/load-snomed "/Users/mark/Downloads/snomed-2021-01"))

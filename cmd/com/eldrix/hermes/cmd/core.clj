@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log]
             [com.eldrix.hermes.cmd.server :as server]
             [com.eldrix.hermes.download :as download]
-            [com.eldrix.hermes.import :as import]
+            [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.core :as hermes]
             [integrant.core :as ig]))
 
@@ -18,10 +18,10 @@
 
 (defn list-from [_ args]
   (let [dirs (if (= 0 (count args)) ["."] args)
-        metadata (map #(select-keys % [:name :effectiveTime :deltaFromDate :deltaToDate]) (mapcat import/all-metadata dirs))]
+        metadata (map #(select-keys % [:name :effectiveTime :deltaFromDate :deltaToDate]) (mapcat importer/all-metadata dirs))]
     (pp/print-table metadata)
     (doseq [dir dirs]
-      (let [files (import/importable-files dir)
+      (let [files (importer/importable-files dir)
             heading (str "| Distribution files in " dir ":" (count files) " |")
             banner (apply str (repeat (count heading) "="))]
         (println "\n" banner "\n" heading "\n" banner)

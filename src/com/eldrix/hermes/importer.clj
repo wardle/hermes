@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.import
+(ns com.eldrix.hermes.importer
   "Provides import functionality for processing directories of files"
   (:require
     [cheshire.core :as json]
