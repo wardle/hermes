@@ -23,7 +23,7 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.importer :as import])
+            [com.eldrix.hermes.importer :as importer])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
@@ -141,13 +141,13 @@
   [store-filename dir]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         store (store/open-store store-filename {:read-only? false})
-        data-c (import/load-snomed dir)
-        done (import/create-workers nthreads store/write-batch-worker store data-c)]
+        data-c (importer/load-snomed dir)
+        done (importer/create-workers nthreads store/write-batch-worker store data-c)]
     (async/<!! done)
     (store/close store)))
 
 (defn log-metadata [dir]
-  (let [metadata (import/all-metadata dir)]
+  (let [metadata (importer/all-metadata dir)]
     (log/info "importing " (count metadata) " distributions from " dir)
     (doseq [dist metadata]
       (log/info "distribution: " (:name dist))
