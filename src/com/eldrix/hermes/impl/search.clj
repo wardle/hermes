@@ -14,6 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.impl.search
   (:require [clojure.core.async :as async]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
@@ -193,24 +194,53 @@
              (.build builder))
            (first qs)))))))
 
+
+(defn- single-must-not-clause?
+  "Checks that a boolean query isn't simply a single 'must-not' clause.
+  Such a query will fail to return any results if used alone."
+  [^Query q]
+  (and (instance? BooleanQuery q)
+       (= (count (.clauses ^BooleanQuery q)) 1)
+       (= BooleanClause$Occur/MUST_NOT (.getOccur ^BooleanClause (first (.clauses ^BooleanQuery q))))))
+
+(defn- rewrite-single-must-not
+  "Rewrite a single 'must-not' query."
+  [^BooleanQuery q]
+  (-> (BooleanQuery$Builder.)
+      (.add (MatchAllDocsQuery.) BooleanClause$Occur/SHOULD)
+      (.add (.getQuery ^BooleanClause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
+      (.build)))
+
 (defn q-or
+  "Generate a logical disjunction of the queries.
+  If there is more than one query, and one of those queries contains a single
+  'must-not' clause, it is flattened (re-written) into the new query.
+  As this is an 'or' operation, that means it will be combined with a
+  'match-all-documents'."
   [queries]
   (case (count queries)
     0 nil
-    1 (first queries)
+    1 (first queries)                                       ;; deliberately *do not* rewrite a MUST_NOT query here
     (let [builder (BooleanQuery$Builder.)]
       (doseq [^Query query queries]
-        (.add builder query BooleanClause$Occur/SHOULD))
+        (if (single-must-not-clause? query)
+          (.add builder (rewrite-single-must-not query) BooleanClause$Occur/SHOULD)
+          (.add builder query BooleanClause$Occur/SHOULD)))
       (.build builder))))
 
 (defn q-and
+  "Generate a logical conjunction of the queries.
+  If there is more than one query, and one of those queries contains a single
+  'must-not' clause, it is flattened (re-written) into the new query."
   [queries]
   (case (count queries)
     0 nil
-    1 (first queries)
+    1 (first queries)                                       ;; deliberately *do not* rewrite a MUST_NOT query here
     (let [builder (BooleanQuery$Builder.)]
       (doseq [query queries]
-        (.add builder ^Query query BooleanClause$Occur/MUST))
+        (if (single-must-not-clause? query)
+          (.add builder ^Query (.getQuery ^BooleanClause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
+          (.add builder ^Query query BooleanClause$Occur/MUST)))
       (.build builder))))
 
 (defn q-not
@@ -249,7 +279,7 @@
         (.add query
               (LongPoint/newSetQuery (str k) vv)
               BooleanClause$Occur/FILTER)))
-    (boost-length-query (.build query))))
+    (.build query)))
 
 (defn doc->result [^Document doc]
   (snomed/->Result (.numericValue (.getField doc "id"))
@@ -311,9 +341,10 @@
   [^IndexSearcher searcher {:keys [max-hits] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
+        q3 (boost-length-query q2)
         results (if max-hits
-                  (do-query-for-results searcher q2 (int max-hits))
-                  (do-query-for-results searcher q2))]
+                  (do-query-for-results searcher q3 (int max-hits))
+                  (do-query-for-results searcher q3))]
     (if (seq results)
       results
       (let [fuzzy (or (:fuzzy params) 0)
@@ -566,5 +597,10 @@
   (def reader (open-index-reader "snomed.db/search.db"))
   (def searcher (IndexSearcher. reader))
   (do-search searcher {:s "abdom p" :properties {snomed/IsA 404684003}})
+  (count (do-search searcher {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
+  (do-query-for-results searcher (make-search-query {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
+  (q-or [(make-search-query {:inactive-concepts? true})])
+  (do-query-for-concepts searcher (q-or [(make-search-query {:inactive-concepts? true})]))
+  (.clauses (make-search-query {:inactive-concepts? true}))
   (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
   )
