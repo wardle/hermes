@@ -68,8 +68,7 @@
          (:descriptions ec))))
 
 (defn extended-description->document
-  "Turn an extended description into a tuple of description-id and Lucene document.
-  Result : [description-id doc]"
+  "Turn an extended description into a Lucene document."
   [ed]
   (let [doc (doto (Document.)
               (.add (TextField. "term" (:term ed) Field$Store/YES))
