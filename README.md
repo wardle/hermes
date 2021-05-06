@@ -96,7 +96,7 @@ to give you a FHIR terminology server.
 you make use of the SNOMED CT.
 
 A library can be embedded into your application; this is easy using Clojure or
-Java. You make calls using the dmd API just as you'd use any regular library.
+Java. You make calls using the API just as you'd use any regular library.
 
 A microservice runs independently and you make use of the data and software
 by making an API call over the network. 
@@ -158,6 +158,24 @@ for decision support to switch functionality on and off in my user interface -
 e.g. does this patient have a type of 'x' such as motor neurone disease - as well
 as analytics. A large number of my academic publications are as a result of
 using SNOMED in analytics.
+
+### What is this graph stuff you're doing?
+
+I think health and care data are and always will be heterogenous, incomplete and difficult to process. 
+I do not think trying to build entities or classes representing our domain works at scale; it is
+fine for toy applications and trivial data modelling such as e-observations, but classes and
+object-orientation cannot scale across such a complete and disparate environment. Instead, I
+find it much easier to think about first-class properties - entity - attribute - value - and
+use such triples as a way of building and navigating a complex, hierarchical graph. 
+
+I am using a graph API in order to decouple subsystems and can now navigate from clinical data
+into different types of reference data seamlessly. For example, with the same backend data, I can view
+an x.500 representation of a practitioner, or a FHIR R4 Practitioner resource model. 
+The key is to recognise that identifier resolution and mapping are first class problems within
+the health and care domain. Similarly, I think the semantics of reading data are very different to
+one of writing data. I cannot shoehorn health and care data into a REST model in which we read and write
+to resources representing the type. Instead, just as in real-life, we record event data which can effect change.
+In the end, it is all data.
 
 # Documentation
 
