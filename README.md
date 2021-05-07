@@ -93,7 +93,7 @@ to give you a FHIR terminology server.
 ### What is the use of `hermes`?
 
 `hermes` provides a simple library, and optionally a microservice, to help
-you make use of the SNOMED CT.
+you make use of SNOMED CT.
 
 A library can be embedded into your application; this is easy using Clojure or
 Java. You make calls using the API just as you'd use any regular library.
