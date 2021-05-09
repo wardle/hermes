@@ -137,6 +137,18 @@
   {::pco/output [{:info.snomed.RefsetItem/refset [:info.snomed.Concept/id]}]}
   {:info.snomed.RefsetItem/refset {:info.snomed.Concept/id refsetId}})
 
+(pco/defresolver readctv3-concept
+  "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
+  [{::keys [svc]} {:info.read/keys [ctv3]}]
+  {::pco/output [:info.snomed.Concept/id]}
+  {:info.snomed.Concept/id (:referencedComponentId (first (hermes/reverse-map svc 900000000000497000 ctv3)))})
+
+(pco/defresolver concept-readctv3
+  "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [:info.read/ctv3]}
+  {:info.read/ctv3 (:mapTarget (first (hermes/get-component-refset-items svc id 900000000000497000)))})
+
 (pco/defmutation search
   "Performs a search. Parameters:
     |- :s                  : search string to use
@@ -167,6 +179,8 @@
    concept-module
    concept-refset-ids
    concept-refsets
+   readctv3-concept
+   concept-readctv3
    refsetitem-concept
    preferred-description
    concept-relationships
@@ -195,6 +209,11 @@
            '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'registry})
 
+  (sort (map #(vector (:id %) (:term %))
+             (map #(hermes/get-preferred-synonym svc % "en-GB") (hermes/get-installed-reference-sets svc))))
+  (hermes/reverse-map svc 900000000000497000 "A130.")
+  (map #(hermes/get-component-refset-items svc 24700007 %) (hermes/get-reference-sets svc 24700007))
+  (first (hermes/get-component-refset-items svc 24700007 900000000000497000))
   (p.eql/process registry
                  {:info.snomed.Concept/id 80146002}
                  [:info.snomed.Concept/id
@@ -207,8 +226,16 @@
   (p.eql/process registry
                  {:info.snomed.Concept/id 24700007}
                  [:info.snomed.Concept/id
+                  :info.read/ctv3
                   '(:info.snomed.Concept/parentRelationshipIds {:type 116676008})
                   '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})])
+
+  (p.eql/process registry
+                 {:info.read/ctv3 "F20.."}
+                 [:info.snomed.Concept/id
+                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])
+  
+  (hermes/reverse-map svc 900000000000497000 "F20..")
 
   (p.eql/process registry
                  [{'(info.snomed.Search/search
