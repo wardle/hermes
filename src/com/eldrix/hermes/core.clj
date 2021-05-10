@@ -23,13 +23,14 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.importer :as importer])
+            [com.eldrix.hermes.importer :as importer]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
-           (java.util Locale)
+           (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDateTime)
            (java.io Closeable)))
@@ -56,8 +57,20 @@
 (defn get-reference-sets [^Service svc component-id]
   (store/get-component-refsets (.-store svc) component-id))
 
-(defn get-component-refset-items [^Service svc component-id refset-id]
-  (store/get-component-refset-items (.-store svc) component-id refset-id))
+(defn get-component-refset-items
+  ([^Service svc component-id]
+   (store/get-component-refset-items (.-store svc) component-id))
+  ([^Service svc component-id refset-id]
+   (store/get-component-refset-items (.-store svc) component-id refset-id)))
+
+(defn get-refset-item [^Service svc ^UUID uuid]
+  (store/get-refset-item (.-store svc) uuid))
+
+(defn historical-associations
+  "Returns the historical associations for the specified component."
+  [^Service svc component-id]
+  (select-keys (group-by :refsetId (get-component-refset-items svc component-id))
+               (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
 
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
@@ -205,25 +218,35 @@
    (compact root)                                           ;; compact the store
    (build-search-index root locale-preference-string)))     ;; build the search index
 
-
-
-
 (comment
   (def svc (open "snomed.db"))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
+  (reverse-map svc 900000000000497000 "A130.")
+
+  (def historical-assocs (set (store/get-all-children (.-store svc) 900000000000522004)))
+  (let [refset-items (get-component-refset-items svc 186214004)
+        refset-ids (map :refsetId refset-items)]
+    (interleave refset-ids refset-items))
+  (group-by :refsetId (get-component-refset-items svc 186214004))
+  (select-keys (group-by :refsetId (get-component-refset-items svc 186214004)) historical-assocs)
+  (filter #(contains? historical-assocs (:refsetId %)) (get-component-refset-items svc 186214004))
+  (let [assoc-refsets (disj (store/get-all-children (.-store svc) 900000000000522004) 900000000000522004)]
+    (mapcat #(get-component-refset-items svc 186214004 %) assoc-refsets))
 
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
   (search svc {:constraint "<24700007" :inactive-concepts? true})
   (def ecl-q (ecl/parse (.-store svc) (.-searcher svc) "<24700007"))
   ecl-q
-  (def q1 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? true} )]))
-  (def q2 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? false} )]))
+  (def q1 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? true})]))
+  (def q2 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? false})]))
   q1
   q2
   (count (#'search/do-query-for-concepts (.-searcher svc) q1))
   (count (#'search/do-query-for-concepts (.-searcher svc) q2))
   q2
+
+  (search svc {:constraint "<  404684003 |Clinical finding| :\n   [0..0] { [2..*]  363698007 |Finding site|  = <  91723000 |Anatomical structure| }"})
   )

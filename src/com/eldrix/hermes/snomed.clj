@@ -593,11 +593,18 @@
 ;; Other common concepts)
 (def Side 182353008)
 (def LateralisableReferenceSet 723264001)
+
+;; Historical associations - for inactive concepts
+(def HistoricalAssociationReferenceSet 900000000000522004)   ;; parent of all association reference sets
 (def PossiblyEquivalentToReferenceSet 900000000000523009)
 (def ReplacedByReferenceSet 900000000000526001)
 (def SimilarToReferenceSet 900000000000529008)
 (def SameAsReferenceSet 900000000000527005)
 (def WasAReferenceSet 900000000000528000)
+(def MovedToReferenceSet 900000000000524003)                ;; |MOVED TO association reference set|
+(def MovedFromReferenceSet 900000000000525002)              ;; |MOVED FROM association reference set|
+(def AlternativeReferenceSet 900000000000530003)            ;; |ALTERNATIVE association reference set|
+(def RefersToReferenceSet 900000000000531004)               ;; |REFERS TO concept association reference set|
 
 ;; SNOMED CT 'core' module
 (def CoreModule 900000000000207008)
