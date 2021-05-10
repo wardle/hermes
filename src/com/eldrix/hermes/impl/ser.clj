@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.impl.ser
   "Optimised hand-crafted serialization of SNOMED entities."
   (:require [com.eldrix.hermes.snomed :as snomed])
-  (:import (com.eldrix.hermes.snomed Concept Description Relationship SimpleRefsetItem SimpleMapRefsetItem RefsetDescriptorRefsetItem LanguageRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AttributeValueRefsetItem OWLExpressionRefsetItem)
+  (:import (com.eldrix.hermes.snomed Concept Description Relationship SimpleRefsetItem SimpleMapRefsetItem RefsetDescriptorRefsetItem LanguageRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AttributeValueRefsetItem OWLExpressionRefsetItem AssociationRefsetItem)
            (java.time LocalDate)
            (java.io DataInput DataOutput)
            (java.util UUID)))
@@ -107,6 +107,26 @@
     (snomed/->SimpleRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId)))
 
+
+(defn write-association-refset-item [^DataOutput out ^AssociationRefsetItem o]
+  (write-uuid out (.id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeLong out (.-targetComponentId o)))
+
+(defn read-association-refset-item [^DataInput in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        targetComponentId (.readLong in)]
+    (snomed/->AssociationRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId targetComponentId)))
 
 (defn write-language-refset-item [^DataOutput out ^LanguageRefsetItem o]
   (write-uuid out (.id o))
@@ -303,6 +323,10 @@
 (defmethod write-refset-item :info.snomed/RefsetDescriptor [^DataOutput out o]
   (.writeByte out 8)
   (write-refset-descriptor-refset-item out o))
+(defmethod write-refset-item :info.snomed/AssociationRefset [^DataOutput out o]
+  (.writeByte out 9)
+  (write-association-refset-item out o))
+
 
 (defn read-refset-item [^DataInput in]
   (case (.readByte in)
@@ -313,8 +337,8 @@
     5 (read-extended-map-refset-item in)
     6 (read-owl-expression-refset-item in)
     7 (read-attribute-value-refset-item in)
-    8 (read-refset-descriptor-refset-item in)))
-
+    8 (read-refset-descriptor-refset-item in)
+    9 (read-association-refset-item in)))
 
 (defn read-effective-time
   "Optimised fetch of only the effectiveTime of a SNOMED component.

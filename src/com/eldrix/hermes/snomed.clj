@@ -103,6 +103,15 @@
                              ^long refsetId
                              ^long referencedComponentId])
 
+;; An Association reference set is a reference set used to represent associations between components
+(defrecord AssociationRefsetItem [^UUID id
+                                  ^LocalDate effectiveTime
+                                  ^boolean active
+                                  ^long moduleId
+                                  ^long refsetId
+                                  ^long referencedComponentId
+                                  ^long targetComponentId])
+
 ;; LanguageReferenceSet is a A 900000000000506000 |Language type reference set| supporting the representation of
 ;; language and dialects preferences for the use of particular descriptions.
 ;; "The most common use case for this type of reference set is to specify the acceptable and preferred terms
@@ -249,6 +258,16 @@
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))))                                ;; referenced component Id
 
+(defn parse-association-refset-item [v]
+  (->AssociationRefsetItem
+    (parse-uuid (v 0))                                      ;; component id
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component Id
+    (Long/parseLong (v 6))))                                ;; target component Id))
+
 (defn parse-language-refset-item [v]
   (->LanguageRefsetItem
     (parse-uuid (v 0))                                      ;; component id
@@ -341,6 +360,7 @@
    ;; types of reference set
    :info.snomed/RefsetDescriptor     parse-refset-descriptor-item
    :info.snomed/SimpleRefset         parse-simple-refset-item
+   :info.snomed/AssociationRefset    parse-association-refset-item
    :info.snomed/LanguageRefset       parse-language-refset-item
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
@@ -370,6 +390,7 @@
 (derive :info.snomed/Refset :info.snomed/Component)
 (derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
+(derive :info.snomed/AssociationRefset :info.snomed/Refset)
 (derive :info.snomed/LanguageRefset :info.snomed/Refset)
 (derive :info.snomed/MapRefset :info.snomed/Refset)
 (derive :info.snomed/SimpleMapRefset :info.snomed/MapRefset)
@@ -382,6 +403,7 @@
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
+(derive AssociationRefsetItem :info.snomed/AssociationRefset)
 (derive LanguageRefsetItem :info.snomed/LanguageRefset)
 (derive SimpleMapRefsetItem :info.snomed/SimpleMapRefset)
 (derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
