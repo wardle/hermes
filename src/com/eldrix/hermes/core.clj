@@ -66,8 +66,26 @@
 (defn get-refset-item [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
 
+(defn active-association-targets
+  "Return the active association targets for a given component."
+  [^Service svc component-id refset-id]
+  (->> (get-component-refset-items svc component-id refset-id)
+       (filter :active)
+       (map :targetComponentId)))
+
 (defn historical-associations
-  "Returns the historical associations for the specified component."
+  "Returns all historical-type associations for the specified component.
+  Result is a map, keyed by the type of association (e.g. SAME-AS) and
+  a sequence of reference set items for that association. Some concepts
+  may be ambiguous and therefore map to multiple targets. Annoyingly, but
+  understandably, the 'moved-to' reference set does not actually reference
+  the new component - but the namespace to which it has moved - so for example
+  an ancient International release may have accidentally including UK specific
+  concepts - so they will have been removed. It is hoped that most MOVED-TO
+  concepts will also have a SAME-AS or POSSIBLY-EQUIVALENT-TO historical
+  association.
+  See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.5.1+Historical+Association+Reference+Sets
+  and https://confluence.ihtsdotools.org/display/editorialag/Component+Moved+Elsewhere"
   [^Service svc component-id]
   (select-keys (group-by :refsetId (get-component-refset-items svc component-id))
                (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
@@ -101,6 +119,52 @@
 
 (defn synonyms [^Service svc params]
   (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
+
+
+
+;;
+(defn- historical-association-counts
+  "Returns counts of all historical association counts.
+
+  Example result:
+    {900000000000526001 #{1},              ;; replaced by - always one
+    900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
+    900000000000524003 #{1},               ;; moved to - always 1
+    900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
+    900000000000528000 #{7 1 4 3 2 5},
+    900000000000530003 #{1 2},
+    900000000000525002 #{1 3 2}}."
+  [^Service svc]
+  (let [ch (async/chan 100 (remove :active))]
+    (store/stream-all-concepts (.-store svc) ch)
+    (loop [result {}]
+      (let [c (async/<!! ch)]
+        (if-not c
+          result
+          (recur (reduce-kv (fn [m k v]
+                              (update m k (fnil conj #{}) (count v)))
+                            result
+                            (historical-associations svc (:id c)))))))))
+
+(defn- get-example-historical-associations
+  [^Service svc type n]
+  (let [ch (async/chan 100 (remove :active))]
+    (store/stream-all-concepts (.-store svc) ch)
+    (loop [i 0
+           result []]
+      (let [c (async/<!! ch)]
+        (if-not (and c (< i n))
+          result
+          (let [assocs (historical-associations svc (:id c))
+                append? (contains? assocs type)]
+            (recur (if append? (inc i) i)
+                   (if append? (conj result {(:id c) assocs}) result))))))))
+
+
+
+;;;;
+;;;;
+;;;;
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
@@ -221,22 +285,14 @@
    (compact root)                                           ;; compact the store
    (build-search-index root locale-preference-string)))     ;; build the search index
 
+
+
 (comment
   (def svc (open "snomed.db"))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
   (reverse-map svc 900000000000497000 "A130.")
-
-  (def historical-assocs (set (store/get-all-children (.-store svc) 900000000000522004)))
-  (let [refset-items (get-component-refset-items svc 186214004)
-        refset-ids (map :refsetId refset-items)]
-    (interleave refset-ids refset-items))
-  (group-by :refsetId (get-component-refset-items svc 186214004))
-  (select-keys (group-by :refsetId (get-component-refset-items svc 186214004)) historical-assocs)
-  (filter #(contains? historical-assocs (:refsetId %)) (get-component-refset-items svc 186214004))
-  (let [assoc-refsets (disj (store/get-all-children (.-store svc) 900000000000522004) 900000000000522004)]
-    (mapcat #(get-component-refset-items svc 186214004 %) assoc-refsets))
 
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
@@ -252,4 +308,13 @@
   q2
 
   (search svc {:constraint "<  404684003 |Clinical finding| :\n   [0..0] { [2..*]  363698007 |Finding site|  = <  91723000 |Anatomical structure| }"})
+
+
+  ;; explore SNOMED - get counts of historical association types / frequencies
+  (def counts (historical-association-counts svc))
+  (reduce-kv (fn [m k v] (assoc m (:term (get-fully-specified-name svc k)) (apply max v))) {} counts)
+
+  (historical-associations svc 100005)
+  (get-fully-specified-name svc 900000000000526001)
+  (get-example-historical-associations svc snomed/MovedToReferenceSet 100)
   )
