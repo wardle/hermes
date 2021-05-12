@@ -124,6 +124,46 @@
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id 0))})
 
+(pco/defresolver concept-historical-associations
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/historicalAssociations
+                  [{:info.snomed.Concept/id [[:info.snomed.Concept/id]]}]}]}
+  {:info.snomed.Concept/historicalAssociations
+   (reduce-kv (fn [m k v] (assoc m {:info.snomed.Concept/id k}
+                                   (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) v)))
+              {}
+              (hermes/historical-associations svc id))})
+
+(pco/defresolver concept-replaced-by
+  "Returns the single concept that this concept has been replaced by."
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/replacedBy [:info.snomed.Concept/id]}]}
+  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
+    {:info.snomed.Concept/replacedBy {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+
+(pco/defresolver concept-moved-to-namespace
+  "Returns the namespace to which this concept moved."
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/movedToNamespace [:info.snomed.Concept/id]}]}
+  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
+    {:info.snomed.Concept/movedToNamespace {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+
+(pco/defresolver concept-same-as
+  "Returns multiple concepts that this concept is now thought to the same as."
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/sameAs [[:info.snomed.Concept/id]]}]}
+  (when-let [replacements (seq (filter :active (hermes/get-component-refset-items svc id snomed/SameAsReferenceSet)))]
+    {:info.snomed.Concept/sameAs
+     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) replacements)}))
+
+(pco/defresolver concept-possibly-equivalent
+  "Returns multiple concepts to which this concept might be possibly equivalent."
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [[:info.snomed.Concept/id]]}]}
+  (when-let [equivalent-to (seq (filter :active (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)))]
+    {:info.snomed.Concept/possiblyEquivalentTo
+     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) equivalent-to)}))
+
 (pco/defresolver concept-relationships
   [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
@@ -184,10 +224,16 @@
    concept-module
    concept-refset-ids
    concept-refsets
+   concept-historical-associations
+   concept-replaced-by
+   concept-moved-to-namespace
+   concept-same-as
+   concept-possibly-equivalent
    readctv3-concept
    concept-readctv3
    refsetitem-concept
    preferred-description
+   fully-specified-name
    concept-relationships
    lowercase-term
    search])
@@ -208,11 +254,16 @@
   (concept-descriptions {::svc svc} {:info.snomed.Concept/id 24700007})
   (preferred-description {::svc svc} {:info.snomed.Concept/id 24700007})
 
+  (concept-replaced-by {::svc svc} {:info.snomed.Concept/id 100005})
+
   (def registry (-> (pci/register all-resolvers)
                     (assoc ::svc svc)))
   (require '[com.wsscode.pathom.viz.ws-connector.core :as pvc]
            '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
-  (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'registry})
+  (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'hermes})
+
+
+
 
   (sort (map #(vector (:id %) (:term %))
              (map #(hermes/get-preferred-synonym svc % "en-GB") (hermes/get-installed-reference-sets svc))))
@@ -239,7 +290,7 @@
                  {:info.read/ctv3 "F20.."}
                  [:info.snomed.Concept/id
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])
-  
+
   (hermes/reverse-map svc 900000000000497000 "F20..")
 
   (p.eql/process registry
@@ -251,4 +302,23 @@
                     :info.snomed.Description/id
                     :info.snomed.Description/term
                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-                    :info.snomed.Concept/active]}]))
+                    :info.snomed.Concept/active]}])
+
+  (p.eql/process registry
+                 [{[:info.snomed.Concept/id 203004]
+                   [:info.snomed.Concept/id
+                    {:info.snomed.Concept/module [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                    :info.snomed.Concept/active
+                    {:info.snomed.Concept/preferredDescription
+                     [:info.snomed.Description/term
+                      :info.snomed.Concept/active]}
+                    {:info.snomed.Concept/replacedBy
+                     [:info.snomed.Concept/id
+                      :info.snomed.Concept/active
+                      {:info.snomed.Concept/preferredDescription
+                       [:info.snomed.Description/term]}]}
+                    {:info.snomed.Concept/sameAs [:info.snomed.Concept/id
+                                                  :info.snomed.Concept/active
+                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}])
+
+  )
