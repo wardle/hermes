@@ -7,8 +7,7 @@
             [com.eldrix.hermes.cmd.server :as server]
             [com.eldrix.hermes.download :as download]
             [com.eldrix.hermes.importer :as importer]
-            [com.eldrix.hermes.core :as hermes]
-            [integrant.core :as ig]))
+            [com.eldrix.hermes.core :as hermes]))
 
 (defn import-from [{:keys [db]} args]
   (if db
