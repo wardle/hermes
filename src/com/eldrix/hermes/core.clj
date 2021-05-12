@@ -82,6 +82,9 @@
   (let [locale-match-fn (.-locale_match_fn svc)]
     (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn langs))))
 
+(defn get-fully-specified-name [^Service svc concept-id]
+  (store/get-fully-specified-name (.-store svc) concept-id))
+
 (defn get-release-information [^Service svc]
   (store/get-release-information (.-store svc)))
 
