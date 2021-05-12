@@ -88,6 +88,11 @@
   (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (java.util.Locale/getDefault)))]
     {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/get-preferred-synonym svc id lang))}))
 
+(pco/defresolver fully-specified-name
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/output [{:info.snomed.Concept/fullySpecifiedName description-properties}]}
+  {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/get-fully-specified-name svc id))})
+
 (pco/defresolver lowercase-term
   "Returns a SNOMED description as a lowercase term."
   [{:info.snomed.Description/keys [caseSignificanceId term]}]
