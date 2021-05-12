@@ -66,7 +66,7 @@
 (pco/defresolver concept-module
   "Return the module for a given concept."
   [{::keys [svc]} {:info.snomed.Concept/keys [moduleId]}]
-  {::pco/output [{:info.snomed.Concept/module concept-properties}]}
+  {::pco/output [{:info.snomed.Concept/module [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/module {:info.snomed.Concept/id moduleId}})
 
 (pco/defresolver preferred-description
