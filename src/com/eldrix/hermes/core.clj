@@ -168,7 +168,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.4
+  {:version 0.5
    :store   "store.db"
    :search  "search.db"})
 
@@ -314,7 +314,8 @@
   (def counts (historical-association-counts svc))
   (reduce-kv (fn [m k v] (assoc m (:term (get-fully-specified-name svc k)) (apply max v))) {} counts)
 
-  (historical-associations svc 100005)
+  (historical-associations svc 5171008)
   (get-fully-specified-name svc 900000000000526001)
-  (get-example-historical-associations svc snomed/MovedToReferenceSet 100)
+  (get-example-historical-associations svc snomed/PossiblyEquivalentToReferenceSet 2)
+  (filter :active (get-component-refset-items svc 203004 snomed/PossiblyEquivalentToReferenceSet))
   )
