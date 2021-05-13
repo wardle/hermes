@@ -6,7 +6,9 @@
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.connect.indexes :as pci]
+            [com.wsscode.pathom3.plugin :as p.plugin]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
+            [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
             [com.wsscode.pathom3.connect.runner :as pcr]
             [com.wsscode.pathom3.interface.eql :as p.eql]))
 
@@ -272,12 +274,13 @@
   (concept-replaced-by {::svc svc} {:info.snomed.Concept/id 100005})
 
   (def registry (-> (pci/register all-resolvers)
+                    (p.plugin/register
+                      [pbip/remove-stats-plugin
+                       (pbip/attribute-errors-plugin)])
                     (assoc ::svc svc)))
   (require '[com.wsscode.pathom.viz.ws-connector.core :as pvc]
            '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'hermes})
-
-
 
 
   (sort (map #(vector (:id %) (:term %))
