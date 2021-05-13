@@ -38,7 +38,8 @@
    :info.snomed.RefsetItem/active
    :info.snomed.RefsetItem/moduleId
    :info.snomed.RefsetItem/refsetId
-   :info.snomed.RefsetItem/referencedComponentId])
+   :info.snomed.RefsetItem/referencedComponentId
+   :info.snomed.RefsetItem/targetComponentId])
 
 (pco/defresolver concept-by-id
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
@@ -123,6 +124,19 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id 0))})
+
+(pco/defresolver refset-item-target-component
+  "Resolve the target component."
+  [{:info.snomed.RefsetItem/keys [targetComponentId]}]
+  {::pco/output [{:info.snomed.RefsetItem/targetComponent [{:info.snomed.Concept/id [:info.snomed.Concept/id]}
+                                                           {:info.snomed.Description/id [:info.snomed.Description/id]}]}]}
+  (case (snomed/identifier->type targetComponentId)         ;; we can easily derive the type of component from the identifier
+    :info.snomed/Concept
+    {:info.snomed.RefsetItem/targetComponent {:info.snomed.Concept/id targetComponentId}}
+    :info.snomed/Description
+    {:info.snomed.RefsetItem/targetComponent {:info.snomed.Description/id targetComponentId}}
+    :info.snomed/Relationship
+    {:info.snomed.RefsetItem/targetComponent {:info.snomed.Relationship/id targetComponentId}}))
 
 (pco/defresolver concept-historical-associations
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
@@ -224,6 +238,7 @@
    concept-module
    concept-refset-ids
    concept-refsets
+   refset-item-target-component
    concept-historical-associations
    concept-replaced-by
    concept-moved-to-namespace
