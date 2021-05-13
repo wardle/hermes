@@ -480,7 +480,12 @@
    "12" :info.snomed/Relationship})
 
 (defn identifier->type
-  "Get the type of SNOMED CT entity from the identifier specified."
+  "Get the type of SNOMED CT entity from the identifier specified.
+
+  The types are represented as namespaced keywords:
+  - :info.snomed/Concept
+  - :info.snomed/Description
+  - :info.snomed/Relationship."
   [id]
   (get partitions (partition-identifier id)))
 
