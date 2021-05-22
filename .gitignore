@@ -3,8 +3,7 @@
 .nrepl-port
 classes/
 target/
-snomed.db
-search.db
+snomed*.db
 hermes.iml
 .clj-kondo/.cache
 .eastwood
