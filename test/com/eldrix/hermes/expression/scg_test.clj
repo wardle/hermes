@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.expression.scg-test
   (:require [clojure.test :refer :all]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))
@@ -83,7 +84,6 @@
       (test-roundtrip (apply str example)))))
 
 (deftest updating-terms
-  (when com.eldrix.hermes.store-test/has-live-database?
     (with-open [st (store/open-store "snomed.db/store.db")]
       (let [updated (->> (get-in example-expressions [:concrete-values :albuterol-0.083])
                          (scg/parse)
@@ -91,7 +91,15 @@
                          (scg/parse))
             has-active-ingredient {:conceptId 127489000, :term "Has active ingredient"}
             refinements-group2 (second (get-in updated [:subExpression :refinements]))]
-        (is (= {:conceptId 372897005 :term "Salbutamol"} (get refinements-group2 has-active-ingredient  )) "Albuterol not updated to salbutamol for en-GB locale")))))
+        (is (= {:conceptId 372897005 :term "Salbutamol"} (get refinements-group2 has-active-ingredient  )) "Albuterol not updated to salbutamol for en-GB locale"))))
+
+(defn test-ns-hook []
+  (simple-concept)
+  (refinements)
+  (render-round-tripping)
+  (if-not (com.eldrix.hermes.store-test/has-live-database?)
+    (log/warn "Skipping live tests as no live database 'snomed.db' found.")
+    (do (updating-terms))))
 
 (comment
   (run-tests)
