@@ -330,6 +330,11 @@
                     {:info.snomed.Concept/preferredDescription
                      [:info.snomed.Description/term
                       :info.snomed.Concept/active]}
+                    {:info.snomed.Concept/possiblyEquivalentTo
+                     [:info.snomed.Concept/id
+                      :info.snomed.Concept/active
+                      {:info.snomed.Concept/preferredDescription
+                       [:info.snomed.Description/term]}]}
                     {:info.snomed.Concept/replacedBy
                      [:info.snomed.Concept/id
                       :info.snomed.Concept/active
