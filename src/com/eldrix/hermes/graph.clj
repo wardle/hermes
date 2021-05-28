@@ -143,7 +143,7 @@
 (pco/defresolver concept-historical-associations
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/historicalAssociations
-                  [{:info.snomed.Concept/id [[:info.snomed.Concept/id]]}]}]}
+                  [{:info.snomed.Concept/id [:info.snomed.Concept/id]}]}]}
   {:info.snomed.Concept/historicalAssociations
    (reduce-kv (fn [m k v] (assoc m {:info.snomed.Concept/id k}
                                    (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) v)))
@@ -167,7 +167,7 @@
 (pco/defresolver concept-same-as
   "Returns multiple concepts that this concept is now thought to the same as."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
-  {::pco/output [{:info.snomed.Concept/sameAs [[:info.snomed.Concept/id]]}]}
+  {::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
   (when-let [replacements (seq (filter :active (hermes/get-component-refset-items svc id snomed/SameAsReferenceSet)))]
     {:info.snomed.Concept/sameAs
      (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) replacements)}))
@@ -175,7 +175,7 @@
 (pco/defresolver concept-possibly-equivalent
   "Returns multiple concepts to which this concept might be possibly equivalent."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
-  {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [[:info.snomed.Concept/id]]}]}
+  {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id]}]}
   (when-let [equivalent-to (seq (filter :active (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)))]
     {:info.snomed.Concept/possiblyEquivalentTo
      (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) equivalent-to)}))
@@ -219,10 +219,10 @@
   [{::keys [svc]} params]
   {::pco/op-name 'info.snomed.Search/search
    ::pco/params  [:s :constraint :max-hits]
-   ::pco/output  [[:info.snomed.Description/id
-                   :info.snomed.Concept/id
-                   :info.snomed.Description/term
-                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]]}
+   ::pco/output  [:info.snomed.Description/id
+                  :info.snomed.Concept/id
+                  :info.snomed.Description/term
+                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
 
   (map (fn [result] {:info.snomed.Description/id               (:id result)
                      :info.snomed.Concept/id                   (:conceptId result)
