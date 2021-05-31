@@ -2,11 +2,16 @@
 
 This log documents significant changes for each release.
 
-## [] - HEAD - not yet released
+## [0.7.0] - 2021-05-31
 
 * New graph API using declarative approach permitting clients to ask for exactly what they need
-* Expose fuzzy search in REST API.
-* Restructure - separate library code from cli commands / server
+* Exposed fuzzy search in REST API.
+* Restructuring - separate library code from cli commands / server
+* Added rudimentary github actions tests, but not yet using live db
+* Added historical associations reference set support
+* Updated database version to v0.5; older versions cannot read, but newer
+  applications can continue to read old databases.
+* Better query re-writing for when single must-not clauses used alone. 
 
 ## [0.6.2] - 2021-04-20
 
