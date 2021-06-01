@@ -426,7 +426,7 @@
   # content-type
   (?<contenttype>((?<pattern>.*?)(?<entity>Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))
   _
-  # content-sub-type
+  # content-sub-type - this element is optional entirely, so include a trailing underscore
   ((?<contentsubtype>
     (?<summary>
       (?<refsettype>Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
