@@ -68,6 +68,79 @@
   (is (isa? :info.snomed/Concept :info.snomed/Component)))
 
 
+(def example-filenames
+  [{:filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
+   :component "OWLExpressionRefset"
+   :identifier :info.snomed.OWLExpressionRefset
+   :release-type "Snapshot"
+   :content "Refset"
+   :summary "OwlExpression"}
+  {:filename "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt"
+   :format "2"
+   :content-subtype "AssociationSnapshot"
+   :namespace-id "1000000"
+   :content "Refset"
+   :country-code "GB"
+   :type "der"
+   :component "AssociationRefset"
+   :summary "Association"
+   :file-type "der2"
+   :release-type "Snapshot"
+   :identifier :info.snomed/AssociationRefset
+   :file-extension "txt"
+   :content-type "cRefset"
+   :country-namespace "GB1000000"
+   :pattern "c"}
+  {:filename "sct2_Concept_UKEDSnapshot_GB_20210512.txt"
+   :format "2"
+   :content-subtype "Snapshot"
+   :namespace-id ""
+   :content "Concept"
+   :doc-status nil
+   :country-code "GB"
+   :type "sct"
+   :component "Concept"
+   :summary "UKED"
+   :file-type "sct2"
+   :release-type "Snapshot"
+   :language-code nil
+   :identifier :info.snomed/Concept
+   :file-extension "txt"
+   :content-type "Concept"
+   :country-namespace "GB"
+   :pattern ""}
+  {:filename "sct2_Concept_Snapshot_GB1000000_20180401.txt"
+   :format "2"
+   :content-subtype "Snapshot"
+   :namespace-id "1000000",
+   :content "Concept",
+   :doc-status nil,
+   :country-code "GB",
+   :type "sct",
+   :component "Concept",
+   :summary "",
+   :status "",
+   :file-type "sct2",
+   :release-type "Snapshot",
+   :language-code nil,
+   :identifier :info.snomed/Concept,
+   :file-extension "txt",
+   :content-type "Concept",
+   :country-namespace "GB1000000",
+   :pattern ""}])
+
+;; Since May 2021, the UK has taken the egregious step of shoehorning a random
+;; identifier into the filename to say where the file used to exist!
+;; On the face of it, a callous disregard for good data design sensibility.
+(deftest test-uk-filenames
+  (doseq [example example-filenames]
+    (let [parsed (snomed/parse-snomed-filename (:filename example))]
+      (is (= (:identifier example) (:identifier parsed))))))
+
 (comment
   (run-tests)
+  (snomed/parse-snomed-filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt")
+  (snomed/parse-snomed-filename "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt")
+  (snomed/parse-snomed-filename "sct2_Concept_UKEDSnapshot_GB_20210512.txt")
+  (snomed/parse-snomed-filename "sct2_Concept_Snapshot_GB1000000_20180401.txt")
   )
