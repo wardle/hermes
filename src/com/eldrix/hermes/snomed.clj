@@ -463,6 +463,7 @@
          :filename          nm
          :component         component-name
          :identifier        identifier
+         :parser            (get parsers identifier)
          :file-type         (.group m "filetype")
          :status            (.group m "status")
          :type              (.group m "type")
