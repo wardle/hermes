@@ -76,7 +76,7 @@ clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 
 4. Compact and index
 ```shell
-clj -M:run --db snomed.db compact
+clj -J-Xmx8g -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
 ```
 
