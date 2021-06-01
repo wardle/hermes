@@ -455,6 +455,11 @@
          :version-date      (parse-date (m 21))
          :file-extension    (m 22)}))))
 
+
+(comment
+
+  (parse-snomed-filename "res_UKRF1SubsetToRF2ReferenceSetMapping_GB1000000_20180401.txt")
+  )
 (defn partition-identifier
   "Return the partition from the identifier.
   The partition identifier is stored in the penultimate last two digits.
@@ -600,7 +605,7 @@
 (def LateralisableReferenceSet 723264001)
 
 ;; Historical associations - for inactive concepts
-(def HistoricalAssociationReferenceSet 900000000000522004)   ;; parent of all association reference sets
+(def HistoricalAssociationReferenceSet 900000000000522004)  ;; parent of all association reference sets
 (def PossiblyEquivalentToReferenceSet 900000000000523009)
 (def ReplacedByReferenceSet 900000000000526001)
 (def SimilarToReferenceSet 900000000000529008)
