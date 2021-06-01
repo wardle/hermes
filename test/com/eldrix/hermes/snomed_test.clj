@@ -71,7 +71,7 @@
 (def example-filenames
   [{:filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
    :component "OWLExpressionRefset"
-   :identifier :info.snomed.OWLExpressionRefset
+   :identifier :info.snomed/OWLExpressionRefset
    :release-type "Snapshot"
    :content "Refset"
    :summary "OwlExpression"}
@@ -100,7 +100,6 @@
    :country-code "GB"
    :type "sct"
    :component "Concept"
-   :summary "UKED"
    :file-type "sct2"
    :release-type "Snapshot"
    :language-code nil

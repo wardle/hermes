@@ -419,41 +419,69 @@
    ^String preferredTerm])
 
 (def snomed-file-pattern
-  #"^(([x|z]*)(sct|der|doc|res|tls)(.*?))_(((.*?)(Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))_(((.*?)((Full|Snapshot|Delta)*(Current|Draft|Review)*)(-(.*?))?)_)?((.*?)(\d*))_(.+)\.(.+)$")
+  #"(?x) # allow white-space and comments
+  # file-type
+  (?<filetype>(?<status>[x|z]*)(?<type>sct|der|doc|res|tls)(?<format>.*?))
+  _
+  # content-type
+  (?<contenttype>((?<pattern>.*?)(?<entity>Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))
+  _
+  # content-sub-type
+  ((?<contentsubtype>
+    (?<summary>
+      (?<refsettype>Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
+      SimpleMap|ComplexMap|ExtendedMap|RefsetDescriptor|ModuleDependency|DescriptionType|MRCMDomain|MRCMAttributeDomain|
+      MRCMAttributeRange|MRCMModuleScope|OWLExpression)?
+      (?<summaryextra>.*?)?)?
+    (?<releasetype>Full|Snapshot|Delta)(?<docstatus>Current|Draft|Review)?(-(?<languagecode>.*?))?)
+  _)?
+  # country-namespace
+  (?<countrynamespace>(?<countrycode>.*?)(?<namespace>\d*))
+  _
+  # version-date
+  (?<versiondate>\d{8})
+  \.
+  # file extension
+  (?<fileextension>.*?)
+  $")
 
 (defn parse-snomed-filename
   "Parse a filename according the specifications outlined in
-  https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
-  Each filename should match the following pattern:
-  [FileType]_[ContentType]_[ContentSubType]_[CountryNamespace]_[VersionDate].[FileExtension].
-  Returns a map containing all the information from the filename."
+   https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
+   Each filename should match the following pattern:
+   [FileType] _ [ContentType] _ [ContentSubType] _ [CountryNamespace] _ [VersionDate] . [FileExtension] .
+   Returns a map containing all the information from the filename."
   [^String filename]
-  (let [nm (.getName (File. filename))]
-    (when-let [m (re-matches snomed-file-pattern nm)]
-      (let [component-name (str (m 12) (m 8))
-            id (keyword (str "info.snomed/" component-name))]
+  (let [nm (.getName (File. filename))
+        m (re-matcher snomed-file-pattern nm)]
+    (when (.matches m)
+      (let [entity (.group m "entity")
+            refset-type (.group m "refsettype")
+            component-name (str refset-type entity)
+            identifier (when-not (str/blank? component-name) (keyword "info.snomed" component-name))]
         {:path              filename
          :filename          nm
          :component         component-name
-         :identifier        id
-         :parser            (get parsers id)
-         :file-type         (m 1)
-         :status            (m 2)
-         :type              (m 3)
-         :format            (m 4)
-         :content-type      (m 5)
-         :pattern           (m 7)
-         :content           (m 8)
-         :content-subtype   (m 11)
-         :summary           (m 12)
-         :release-type      (m 14)
-         :doc-status        (m 15)
-         :language-code     (m 17)
-         :country-namespace (m 18)
-         :country-code      (m 19)
-         :namespace-id      (m 20)
-         :version-date      (parse-date (m 21))
-         :file-extension    (m 22)}))))
+         :identifier        identifier
+         :file-type         (.group m "filetype")
+         :status            (.group m "status")
+         :type              (.group m "type")
+         :format            (.group m "format")
+         :content-type      (.group m "contenttype")
+         :pattern           (.group m "pattern")
+         :entity            entity
+         :content-subtype   (.group m "contentsubtype")
+         :summary           (.group m "summary")
+         :refset-type       refset-type
+         :summary-extra     (.group m "summaryextra")
+         :release-type      (.group m "releasetype")
+         :doc-status        (.group m "docstatus")
+         :language-code     (.group m "languagecode")
+         :country-namespace (.group m "countrynamespace")
+         :country-code      (.group m "countrycode")
+         :namespace-id      (.group m "namespace")
+         :version-date      (parse-date (.group m "versiondate"))
+         :file-extension    (.group m "fileextension")}))))
 
 
 (comment
