@@ -528,7 +528,7 @@
   [property minimum maximum]
   (let [field (str "c" property)]
   (cond
-    (> maximum minimum)
+    (< maximum minimum)
     (throw (ex-info "Invalid range." {:property property :minimum minimum :maximum maximum}))
 
     (and (> minimum 0) (= minimum maximum))
