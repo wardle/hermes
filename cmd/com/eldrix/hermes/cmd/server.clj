@@ -56,8 +56,8 @@
   (case content-type
     "text/html" body
     "text/plain" body
-    "application/edn" (pr-str body)
-    "application/json" (json/generate-string body)))
+    "application/edn" (.getBytes (pr-str body) "UTF-8")
+    "application/json" (.getBytes (json/generate-string body) "UTF-8")))
 
 (defn coerce-to
   [response content-type]
