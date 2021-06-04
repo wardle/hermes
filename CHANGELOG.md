@@ -2,14 +2,19 @@
 
 This log documents significant changes for each release.
 
+## [0.7.1] - 2021-06-04
+
+* Add support for new SNOMED filename naming system used by UK since May 21
+* Force UTF-8 encoding to ensure works on platforms with different default character encoding.
+
 ## [0.7.0] - 2021-05-31
 
 * New graph API using declarative approach permitting clients to ask for exactly what they need
-* Exposed fuzzy search in REST API.
+* Expose fuzzy search in REST API.
 * Restructuring - separate library code from cli commands / server
-* Added rudimentary github actions tests, but not yet using live db
-* Added historical associations reference set support
-* Updated database version to v0.5; older versions cannot read, but newer
+* Add rudimentary github actions tests, but not yet using live db
+* Add historical associations reference set support
+* Update database version to v0.5; older versions cannot read, but newer
   applications can continue to read old databases.
 * Better query re-writing for when single must-not clauses used alone. 
 
