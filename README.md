@@ -133,6 +133,11 @@ I don't believe in the idea of uploading codesystems and value sets in place.
 My approach to versioning is to run different services; I simply switch 
 API endpoints. 
 
+### Can I get support?
+
+Yes. Raise an issue, or more formal support options are available on request,
+including a fully-managed service. 
+
 ### Why are you building so many small repositories?
 
 Small modules of functionality are easier to develop, easier to understand,
