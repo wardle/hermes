@@ -484,11 +484,6 @@
          :version-date      (parse-date (.group m "versiondate"))
          :file-extension    (.group m "fileextension")}))))
 
-
-(comment
-
-  (parse-snomed-filename "res_UKRF1SubsetToRF2ReferenceSetMapping_GB1000000_20180401.txt")
-  )
 (defn partition-identifier
   "Return the partition from the identifier.
   The partition identifier is stored in the penultimate last two digits.
