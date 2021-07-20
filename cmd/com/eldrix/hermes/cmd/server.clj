@@ -199,7 +199,6 @@
       ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]}))
 
-;; TODO(mw): make a configuration option
 (def service-map
   {::http/routes routes
    ::http/type   :jetty
@@ -209,7 +208,7 @@
   ([^Service svc {:keys [port bind-address join?] :as opts :or {join? true}}]
    (let [cfg (cond-> {}
                      port (assoc ::http/port port)
-                     bind-address (assoc :http/host bind-address))]
+                     bind-address (assoc ::http/host bind-address))]
      (-> (merge service-map cfg)
          (assoc ::http/join? join?)
          (http/default-interceptors)
