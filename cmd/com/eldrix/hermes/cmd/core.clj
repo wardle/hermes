@@ -69,20 +69,21 @@
    ["-h" "--help"]])
 
 (defn usage [options-summary]
-  (->> ["Usage: hermes [options] command [parameters]"
-        ""
-        "Options:"
-        options-summary
-        ""
-        "Commands:"
-        " import [paths] Import SNOMED distribution files from paths specified."
-        " list [paths]   List importable files from the paths specified."
-        " download [provider] [opts] Download and install distribution from a provider."
-        " index          Build search index."
-        " compact        Compact database"
-        " serve          Start a terminology server"
-        " status         Displays status information"]
-       (str/join \newline)))
+  (->>
+    ["Usage: hermes [options] command [parameters]"
+     ""
+     "Options:"
+     options-summary
+     ""
+     "Commands:"
+     " import [paths]         Import SNOMED distribution files from paths specified."
+     " list [paths]           List importable files from the paths specified."
+     " download [prov] [opts] Download and install distribution from a provider."
+     " index                  Build search index."
+     " compact                Compact database"
+     " serve                  Start a terminology server"
+     " status                 Displays status information"]
+    (str/join \newline)))
 
 (def commands
   {"import"   {:fn import-from}
