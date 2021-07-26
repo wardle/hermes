@@ -238,7 +238,7 @@
   "Return the refset-id's to which this component belongs."
   [^MapDBStore store component-id]
   (->> (.subSet ^NavigableSet (.componentRefsets store)
-                (long-array [component-id])                 ;; lower limit = first two elements of composite key
+                (long-array [component-id])                 ;; lower limit = first element of composite key
                 (long-array [component-id Long/MAX_VALUE Long/MAX_VALUE]))
        (map seq)
        (map second)))
