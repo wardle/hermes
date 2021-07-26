@@ -68,6 +68,7 @@
                      ^NavigableSet installedRefsets         ;; refsetId
                      ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
                      ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
+                     ^NavigableSet associations             ;; targetComponentId -- refsetId -- referencedComponentId - id
                      ]
   Closeable
   (close [_] (.close db)))
@@ -252,6 +253,26 @@
        (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (UUID. item-id-1 item-id-2)))
        (map (partial get-refset-item store))))
 
+(defn get-source-associations
+  "Returns the associations in which this component is the target.
+  targetComponentId - refsetId - itemId1 -itemId2."
+  ([^MapDBStore store component-id] (get-source-associations store component-id nil))
+  ([^MapDBStore store component-id refset-id]
+   (->> (map seq (.subSet ^NavigableSet (.-associations store)
+                          (long-array [component-id (if refset-id refset-id 0) 0 0 0])
+                          (long-array [component-id (if refset-id refset-id Long/MAX_VALUE) Long/MAX_VALUE Long/MAX_VALUE Long/MAX_VALUE])))
+        (map #(let [[_target-id _refset-id _referenced-id item-id-1 item-id-2] %] (UUID. item-id-1 item-id-2)))
+        (map (partial get-refset-item store)))))
+
+(defn get-source-association-referenced-components
+  "Returns a sequence of component identifiers that reference the specified
+  component in the specified association reference set."
+  [^MapDBStore store component-id refset-id]
+  (->> (.subSet ^NavigableSet (.-associations store)
+                (long-array [component-id refset-id 0 0 0])
+                (long-array [component-id refset-id Long/MAX_VALUE Long/MAX_VALUE Long/MAX_VALUE]))
+       (map #(aget ^"[J" % 2))))
+
 (defn- write-concepts [^MapDBStore store objects]
   (let [bucket (.concepts store)]
     (doseq [o objects]
@@ -302,22 +323,28 @@
   | .componentRefsets   | referencedComponentId - refsetId - itemId1 - itemId2 |
   | .mapTargetComponent | refsetId -- mapTarget - itemId1 - itemId2            |
   | .installedRefsets   | refsetId                                             |
+  | .associations       | targetComponentId - refsetId -                       |
+  |                     |  - referencedComponentId - itemId1 -itemId2          |
   -----------------------------------------------------------------------------
-  An itemID is a 128 bit integer (UUID) so is stored as two longs."
+  An itemID is a 128 bit integer (UUID) so is stored as two longs (itemId1
+  itemId2)."
   [^MapDBStore store objects]
   (let [refsets (.refsets store)
         installed ^NavigableSet (.installedRefsets store)
         components ^NavigableSet (.componentRefsets store)
-        reverse-map ^NavigableSet (.mapTargetComponent store)]
+        reverse-map ^NavigableSet (.mapTargetComponent store)
+        associations ^NavigableSet (.associations store)]
     (doseq [o objects]
-      (let [{:keys [^UUID id referencedComponentId refsetId active mapTarget]} o
+      (let [{:keys [^UUID id referencedComponentId refsetId active mapTarget targetComponentId]} o
             uuid-msb (.getMostSignificantBits id)
             uuid-lsb (.getLeastSignificantBits id)]
         (when (write-object refsets o (long-array [uuid-msb uuid-lsb]))
           (.add installed refsetId)
           (write-index-entry components (long-array [referencedComponentId refsetId uuid-msb uuid-lsb]) active)
           (when mapTarget
-            (write-index-entry reverse-map (to-array [refsetId mapTarget uuid-msb uuid-lsb]) active)))))))
+            (write-index-entry reverse-map (to-array [refsetId mapTarget uuid-msb uuid-lsb]) active))
+          (when targetComponentId
+            (write-index-entry associations (long-array [targetComponentId refsetId referencedComponentId uuid-msb uuid-lsb]) active)))))))
 
 (defn close [^MapDBStore store]
   (.close ^DB (.db store)))
@@ -333,7 +360,8 @@
                          :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
                          :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
                          :component-refsets            (.size ^NavigableSet (.componentRefsets store))
-                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))})]
+                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))
+                         :associations                 (.size ^NavigableSet (.associations store))})]
     {:concepts      @concepts
      :descriptions  @descriptions
      :relationships @relationships
@@ -375,7 +403,12 @@
 
          ;; for any map refsets, we store (refsetid--mapTarget--itemId'--itemId'') to
          ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
-         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/LONG Serializer/LONG])))]
+         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/LONG Serializer/LONG])))
+
+         ;; for association reference sets, we store an index to permit search from
+         ;; target to source components - e.g. find components that this target has replaced
+         ;; targetComponentId - refsetId - referencedComponentId - itemId1 -itemId2
+         associations (open-index db "r-as" Serializer/LONG_ARRAY)]
      (->MapDBStore db
                    concepts
                    descriptions-concept
@@ -386,7 +419,8 @@
                    concept-child-relationships
                    installed-refsets
                    component-refsets
-                   map-target-component))))
+                   map-target-component
+                   associations))))
 
 (defmulti write-batch :type)
 (defmethod write-batch :info.snomed/Concept [batch store]

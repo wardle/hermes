@@ -90,6 +90,15 @@
   (select-keys (group-by :refsetId (get-component-refset-items svc component-id))
                (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
 
+(defn source-historical-associations
+  "Returns all historical-type associations in which the specified component is
+  the target. For example, searching for 24700007 will result in a map keyed
+  by refset-id (e.g. SAME-AS reference set) and a set of concept identifiers."
+  [^Service svc component-id]
+  (let [refset-ids (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)]
+    (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
+                       (hash-map % (set result))) refset-ids))))
+
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
@@ -168,7 +177,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.5
+  {:version 0.6
    :store   "store.db"
    :search  "search.db"})
 
