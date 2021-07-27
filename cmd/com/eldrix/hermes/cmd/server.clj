@@ -32,7 +32,7 @@
 
 (set! *warn-on-reflection* true)
 
-(def supported-types ["application/json" "application/edn" "text/html" "text/plain"])
+(def supported-types ["application/json" "application/edn"])
 (def content-neg-intc (conneg/negotiate-content supported-types))
 
 (defn response [status body & {:as headers}]
@@ -127,6 +127,13 @@
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
                 (assoc context :result (hermes/historical-associations svc concept-id)))))})
 
+(def get-reference-sets
+  {:name  ::get-reference-sets
+   :enter (fn [context]
+            (let [svc (get-in context [:request ::service])]
+              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+                (assoc context :result (hermes/get-component-refset-items svc concept-id)))))})
+
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
@@ -216,6 +223,7 @@
       ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
       ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept)]
       ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical)]
+      ["/v1/snomed/concepts/:concept-id/refsets" :get (conj common-routes get-reference-sets)]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to)]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?)]
       ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]
