@@ -127,8 +127,8 @@
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
                 (assoc context :result (hermes/historical-associations svc concept-id)))))})
 
-(def get-reference-sets
-  {:name  ::get-reference-sets
+(def get-concept-reference-sets
+  {:name  ::get-concept-reference-sets
    :enter (fn [context]
             (let [svc (get-in context [:request ::service])]
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
@@ -218,15 +218,15 @@
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
   (route/expand-routes
-    #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept)]
-      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
-      ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
-      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept)]
-      ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical)]
-      ["/v1/snomed/concepts/:concept-id/refsets" :get (conj common-routes get-reference-sets)]
-      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to)]
-      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?)]
-      ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]
+    #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/refsets" :get (conj common-routes get-concept-reference-sets) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to) :constraints {:concept-id #"[0-9]+" :refset-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?) :constraints {:concept-id #"[0-9]+" :subsumer-id #"[0-9]+"}]
+      ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from) :constraints {:refset-id #"[0-9]+"}]
       ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]
       ["/v1/snomed/expand" :get [service-error-handler coerce-body content-neg-intc entity-render get-expand]]}))
 
