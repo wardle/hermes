@@ -32,7 +32,7 @@
 
 (set! *warn-on-reflection* true)
 
-(def supported-types ["text/html" "application/edn" "application/json" "text/plain"])
+(def supported-types ["application/json" "application/edn" "text/html" "text/plain"])
 (def content-neg-intc (conneg/negotiate-content supported-types))
 
 (defn response [status body & {:as headers}]
