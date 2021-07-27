@@ -250,6 +250,10 @@
       (.add q2 BooleanClause$Occur/MUST_NOT)
       (.build)))
 
+(defn q-fsn
+  []
+  (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName))
+
 (defn boost-length-query
   "Returns a new query with scores boosted by the inverse of the length"
   [^Query q]
@@ -269,7 +273,7 @@
                       (.add (TermQuery. (Term. "description-active" "true")) BooleanClause$Occur/FILTER)
 
                       (not show-fsn?)
-                      (.add (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName) BooleanClause$Occur/MUST_NOT)
+                      (.add (q-fsn) BooleanClause$Occur/MUST_NOT)
 
                       (seq concept-refsets)
                       (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]

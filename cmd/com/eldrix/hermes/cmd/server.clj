@@ -120,6 +120,13 @@
                         preferred (hermes/get-preferred-synonym svc concept-id langs)]
                     (assoc context :result (assoc concept :preferredDescription preferred)))))))})
 
+(def get-historical
+  {:name  ::get-historical
+   :enter (fn [context]
+            (let [svc (get-in context [:request ::service])]
+              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+                (assoc context :result (hermes/historical-associations svc concept-id)))))})
+
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [context]
@@ -165,10 +172,11 @@
               (assoc context :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params [params]
-  (let [{:keys [s maxHits isA refset constraint fuzzy fallbackFuzzy]} params]
+  (let [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy]} params]
     (cond-> {}
             s (assoc :s s)
             constraint (assoc :constraint constraint)
+            ecl (assoc :constraint ecl)
             maxHits (assoc :max-hits (Integer/parseInt maxHits))
             (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
             (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
@@ -187,6 +195,19 @@
                 (assoc context :result (hermes/search svc (assoc params :max-hits max-hits)))
                 (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
 
+(def get-expand
+  {:name  ::get-expand
+   :enter (fn [context]
+            (let [ecl (get-in context [:request :params :ecl])
+                  include-historic? (#{"true" "1"} (get-in context [:request :params :include-historic]))
+                  svc (get-in context [:request ::service])
+                  max-hits (or (get-in context [:request :params :max-hits]) 500)]
+              (if (< 0 max-hits 10000)
+                (assoc context :result (if include-historic?
+                                         (hermes/expand-ecl-historic svc ecl)
+                                         (hermes/expand-ecl svc ecl)))
+                (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
+
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
   (route/expand-routes
@@ -194,10 +215,12 @@
       ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions)]
       ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description)]
       ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept)]
+      ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical)]
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to)]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?)]
       ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from)]
-      ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]}))
+      ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]
+      ["/v1/snomed/expand" :get [service-error-handler coerce-body content-neg-intc entity-render get-expand]]}))
 
 (def service-map
   {::http/routes routes

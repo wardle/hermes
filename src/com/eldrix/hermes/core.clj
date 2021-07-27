@@ -97,7 +97,7 @@
   [^Service svc component-id]
   (let [refset-ids (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)]
     (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
-                       (hash-map % (set result))) refset-ids))))
+                         (hash-map % (set result))) refset-ids))))
 
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
@@ -129,7 +129,28 @@
 (defn synonyms [^Service svc params]
   (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
 
+(defn expand-ecl
+  "Expand an ECL expression."
+  [^Service svc ecl]
+  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+        q2 (search/q-not q1 (search/q-fsn))]
+    (search/do-query-for-results (.-searcher svc) q2)))
 
+(defn expand-ecl-historic
+  "Expand an ECL expression and include historic associations of the results,
+  so that the results will include now inactive/deprecated concept identifiers."
+  [^Service svc ^String ecl]
+  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+        q2 (search/q-not q1 (search/q-fsn))
+        base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
+        historic-concept-ids (apply clojure.set/union (->> base-concept-ids
+                                                           (map #(source-historical-associations svc %))
+                                                           (filter some?)
+                                                           (map vals)
+                                                           flatten))
+        historic-query (search/q-concept-ids historic-concept-ids)
+        query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
+    (search/do-query-for-results (.-searcher svc) query)))
 
 ;;
 (defn- historical-association-counts
