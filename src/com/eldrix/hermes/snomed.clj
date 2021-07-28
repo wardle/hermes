@@ -629,7 +629,7 @@
 (def LateralisableReferenceSet 723264001)
 
 ;; Historical associations - for inactive concepts
-(def HistoricalAssociationReferenceSet 900000000000522004)  ;; parent of all association reference sets
+(def HistoricalAssociationReferenceSet 900000000000522004)  ;; parent of all historical association reference sets
 (def PossiblyEquivalentToReferenceSet 900000000000523009)
 (def ReplacedByReferenceSet 900000000000526001)
 (def SimilarToReferenceSet 900000000000529008)
