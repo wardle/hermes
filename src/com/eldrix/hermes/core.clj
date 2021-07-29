@@ -343,7 +343,6 @@
 
   (search svc {:constraint "<  404684003 |Clinical finding| :\n   [0..0] { [2..*]  363698007 |Finding site|  = <  91723000 |Anatomical structure| }"})
 
-
   ;; explore SNOMED - get counts of historical association types / frequencies
   (def counts (historical-association-counts svc))
   (reduce-kv (fn [m k v] (assoc m (:term (get-fully-specified-name svc k)) (apply max v))) {} counts)
