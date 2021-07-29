@@ -194,7 +194,14 @@
 (defn paths-to-root [^Service svc concept-id]
   (store/paths-to-root (.-store svc) concept-id))
 
-
+(defn some-indexed
+  "Returns index and first logical true value of (pred x) in coll, or nil.
+  e.g.
+  (some-indexed #{64572001} '(385093006 233604007 205237003 363169009 363170005 123946008 64572001 404684003 138875005))
+  returns:
+  [6 664572001]."
+  [pred coll]
+  (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
 ;;;;
 ;;;;
