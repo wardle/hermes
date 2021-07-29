@@ -191,6 +191,10 @@
                    (if append? (conj result {(:id c) assocs}) result))))))))
 
 
+(defn paths-to-root [^Service svc concept-id]
+  (store/paths-to-root (.-store svc) concept-id))
+
+
 
 ;;;;
 ;;;;

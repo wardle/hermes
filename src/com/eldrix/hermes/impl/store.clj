@@ -496,6 +496,26 @@
        (map #(hash-map (second %) (get-all-parents store (last %))))
        (apply merge-with into)))
 
+(defn paths-to-root
+  "Return a sequence of paths from the concept to root node.
+  Each path is a sequence of identifiers, starting with the concept itself
+  and ending with the root node.
+  e.g.
+  (sort-by count (paths-to-root store 24700007))
+  result (truncated):
+  ((24700007 414029004 64572001 404684003 138875005)
+   (24700007 6118003 80690008 362975008 64572001 404684003 138875005)
+   (24700007 39367000 23853001 246556002 118234003 404684003 138875005)
+   (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))"
+  [store concept-id]
+  (loop [parents (map last (get-raw-parent-relationships store concept-id snomed/IsA))
+         results []]
+    (let [parent (first parents)]
+      (if-not parent
+        (if (seq results) (map #(conj % concept-id) results) (list (list concept-id)))
+        (recur (rest parents)
+               (concat results (paths-to-root store parent)))))))
+
 (defn get-all-children
   "Returns all child concepts for the concept.
   It takes 3500 milliseconds on my 2013 laptop to return all child concepts
