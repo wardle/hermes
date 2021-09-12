@@ -572,7 +572,7 @@
                      (and (= :descendantOf constraint-operator) expression-constraint)
                      (make-nested-query ctx expression-constraint search/q-descendantOfAny)
 
-                     (and (= :descendentOrSelfOf constraint-operator) expression-constraint)
+                     (and (= :descendantOrSelfOf constraint-operator) expression-constraint)
                      (make-nested-query ctx expression-constraint search/q-descendantOrSelfOfAny)
 
                      (and (= :childOf constraint-operator) expression-constraint)
