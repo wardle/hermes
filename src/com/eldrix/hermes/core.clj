@@ -17,6 +17,7 @@
   search implementations as a single unified service."
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
+            [clojure.set :as set]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.expression.scg :as scg]
@@ -143,7 +144,7 @@
   (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
-        historic-concept-ids (apply clojure.set/union (->> base-concept-ids
+        historic-concept-ids (apply set/union (->> base-concept-ids
                                                            (map #(source-historical-associations svc %))
                                                            (filter some?)
                                                            (map vals)
