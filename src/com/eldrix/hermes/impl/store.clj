@@ -496,6 +496,12 @@
        (map #(hash-map (second %) (get-all-parents store (last %))))
        (apply merge-with into)))
 
+(defn get-child-relationships-of-type
+  "Returns a collection of identifiers representing the parent relationships of
+  the specified type of the specified concept."
+  [store concept-id type-concept-id]
+  (set (map last (get-raw-child-relationships store concept-id type-concept-id))))
+
 (defn paths-to-root
   "Return a sequence of paths from the concept to root node.
   Each path is a sequence of identifiers, starting with the concept itself
@@ -751,7 +757,8 @@
 
   (def store (open-store "snomed.db/store.db" {:read-only? true}))
   (get-concept store 24700007)
-
+  (get-raw-child-relationships store 24700007)
+  (get-child-relationships-of-type store 24700007 116680003)
   (time (get-concept-descriptions store 24700007))
   (make-extended-concept store (get-concept store 49723003))
   (get-preferred-synonym store 24700007 [999001261000000100 999000691000001104 900000000000508004 999001261000000100])

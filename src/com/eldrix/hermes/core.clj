@@ -55,6 +55,12 @@
 (defn get-descriptions [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
+(defn get-parent-relationships-of-type [^Service svc concept-id type-concept-id]
+  (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
+
+(defn get-child-relationships-of-type [^Service svc concept-id type-concept-id]
+  (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
+
 (defn get-reference-sets [^Service svc component-id]
   (store/get-component-refsets (.-store svc) component-id))
 
@@ -359,4 +365,7 @@
   (get-fully-specified-name svc 900000000000526001)
   (get-example-historical-associations svc snomed/PossiblyEquivalentToReferenceSet 2)
   (filter :active (get-component-refset-items svc 203004 snomed/PossiblyEquivalentToReferenceSet))
+  (get-preferred-synonym svc 24700007 "en-GB")
+  (get-parent-relationships-of-type svc 24700007 snomed/IsA)
+  (get-child-relationships-of-type svc 24700007 snomed/IsA)
   )
