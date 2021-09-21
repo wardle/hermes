@@ -17,13 +17,16 @@
   (:require [clojure.core.async :as async]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.ser :as ser]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.snomed :as snomed]
+            [clojure.string :as str]
+            [clojure.spec.gen.alpha :as gen])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker DataOutput2)
            (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)
-           (java.util NavigableSet UUID)
+           (java.util NavigableSet UUID Comparator)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
@@ -252,6 +255,41 @@
                          (to-array [refset-id s nil])))
        (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (UUID. item-id-1 item-id-2)))
        (map (partial get-refset-item store))))
+
+(defn prefix-upper-bound
+  "Given a string, generate an upper bound suitable for a prefix search.
+  For example, 123 should give 124."
+  [s]
+  (when-not (str/blank? s) (str (apply str (butlast s)) (char (unchecked-inc (int (last s)))))))
+
+(defn get-reverse-map-range
+  "Returns the reverse mapping from the reference set specified, performing
+  what is essentially a prefix search using the parameters.
+  For example (get-reverse-map-range store \"D86.\") will return all items
+  with a map target with prefix 'D86.'
+
+  Parameters:
+  - store        : a MapDBStore
+  - refset-id    : the reference set in which to search
+  - lower-bound  : lower bound prefix, inclusive
+  - upper-bound  : upper bound prefix, exclusive
+  - prefix       : prefix; lower and upper bounds derived automatically
+
+  Prefixes are case sensitive, with natural string sorting used."
+  ([^MapDBStore store refset-id prefix]
+   (get-reverse-map-range store refset-id prefix nil))
+  ([^MapDBStore store refset-id lower-bound upper-bound]
+   (let [index ^NavigableSet (.-mapTargetComponent store)
+         least (.ceiling index (to-array [refset-id lower-bound]))
+         greatest (.floor index (to-array [refset-id (if upper-bound upper-bound (prefix-upper-bound lower-bound))]))
+         invalid? (or (str/blank? lower-bound) (and least greatest (pos? (.compare (.comparator index) least greatest))))]
+     (when-not invalid?
+       (->> (.subSet index least greatest)
+            (map seq)
+            (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (get-refset-item store (UUID. item-id-1 item-id-2)))))))))
+
+(comment
+  (time (set (map #(aget % 1) (.subSet (.-mapTargetComponent store) (to-array [447562003]) (to-array [447562003 nil]))))))
 
 (defn get-source-associations
   "Returns the associations in which this component is the target.
@@ -771,5 +809,75 @@
   (count (get-leaves store refsets))
   (count (get-installed-reference-sets store))
   (clojure.set/difference (set refsets) (set (get-installed-reference-sets store)))
+
+
+  (seq (.floor ^NavigableSet (.-mapTargetComponent store) (to-array [447562003 "a1"])))
+
+  (defn prefix-upper-bound [s]
+    (when-not (str/blank? s) (str (apply str (butlast s)) (char (unchecked-inc (int (last s)))))))
+
+  (defn prefix-upper-bound2 [s]
+    (when-not (str/blank? s)
+      (let [last-char-index (unchecked-dec (count s))]
+        (str (subs s 0 last-char-index) (char (unchecked-inc (int (.charAt s last-char-index))))))))
+
+  (defn prefix-upper-bound3 [s]
+    (when-not (str/blank? s)
+      (let [last-char-index (unchecked-dec (count s))
+            sb (StringBuffer. s)]
+        (.setCharAt sb last-char-index (char (unchecked-inc (int (.charAt s last-char-index)))))
+        (.toString sb))))
+
+  (require '[clojure.spec.alpha :as s])
+  (require '[clojure.test.check.generators])
+  (require '[criterium.core :as crit])
+  (map #(vector % (prefix-upper-bound %)) (gen/sample (s/gen string?) 1000))
+  (def samples (gen/sample (s/gen string?) 1000))
+  (->> (gen/sample (s/gen string?) 100000)
+       (map #(= (prefix-upper-bound %) (prefix-upper-bound2 %) (prefix-upper-bound3 %)))
+       (every? true?))
+  (crit/quick-bench (map #(prefix-upper-bound %) samples))
+  (crit/quick-bench (map #(prefix-upper-bound2 %) samples))
+  (crit/bench (+ 1 1))
+  (criterium.core/with-progress-reporting (bench (prefix-upper-bound "J00")))
+  (criterium.core/with-progress-reporting (bench (prefix-upper-bound2 "J00")))
+  (criterium.core/quick-bench (prefix-upper-bound "J00"))
+  (criterium.core/quick-bench (prefix-upper-bound2 "J00"))
+  (criterium.core/quick-bench (prefix-upper-bound3 "J00"))
+  (.setCharAt (char (inc (int (.charAt (StringBuilder. "J") 0)))))
+
+  (map seq (.subSet (.-mapTargetComponent store)
+                    (.ceiling (.-mapTargetComponent store) (to-array [447562003 "I00"]))
+                    (.lower (.-mapTargetComponent store) (to-array [447562003 (prefix-upper-bound "I99")]))))
+
+  (->> (.subSet (.-mapTargetComponent store)
+                (.ceiling (.-mapTargetComponent store) (to-array [447562003 "I00"]))
+                (.lower (.-mapTargetComponent store) (to-array [447562003 (prefix-upper-bound "I99")])))
+       (map seq)
+       (map #(let [[refset-id map-target item-id-1 item-id-2] %] (vector refset-id map-target (UUID. item-id-1 item-id-2)))))
+
+  (map :mapTarget (get-reverse-map-range store 447562003 "M34" "M35"))
+  (get-reverse-map-range store 447562003 ["a1"])
+
+  (.contains (.-mapTargetComponent store) (.floor (.-mapTargetComponent store) (to-array [447562003 "a1"])))
+  (map seq (.subSet (.-mapTargetComponent store)
+                    (.ceiling (.-mapTargetComponent store) (to-array [447562003 "a1"]))
+                    (.floor (.-mapTargetComponent store) (to-array [447562003 "a2"]))))
+  (.compare (.comparator (.-mapTargetComponent store))
+            (.ceiling ^NavigableSet (.-mapTargetComponent store) (to-array [447562003 "G20"]))
+            (.floor ^TreeSet (.-mapTargetComponent store) (to-array [447562003 (prefix-upper-bound "G21")])))
+  (compare (seq (.ceiling (.-mapTargetComponent store) (to-array [447562003 "G20.0"])))
+           (seq (.floor (.-mapTargetComponent store) (to-array [447562003 (prefix-upper-bound "G20.0")]))))
+  (map seq (take 10 (.-mapTargetComponent store)))
+  (crit/quick-bench (->> (.subSet (.-mapTargetComponent store)
+                                  (.ceiling (.-mapTargetComponent store) (to-array [447562003 "J01"]))
+                                  (.lower (.-mapTargetComponent store) (to-array [447562003 (prefix-upper-bound "J05")])))
+                         (map seq)
+                         (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (UUID. item-id-1 item-id-2)))
+                         (map #(get-refset-item store %))
+                         (map :referencedComponentId)
+                         set))
+  (crit/quick-bench (get-reverse-map-range store 447562003 "E20"))
+
   )
 

@@ -106,11 +106,30 @@
     (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
                          (hash-map % (set result))) refset-ids))))
 
+(defn source-historical
+  "Return the requested historical associations for the component of types as
+  defined by assoc-refset-ids, or all association refsets if omitted."
+  ([^Service svc component-id]
+   (source-historical svc component-id (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
+  ([^Service svc component-id refset-ids]
+   (mapcat #(store/get-source-association-referenced-components (.-store svc) component-id %) refset-ids)))
+
+(defn with-historical
+  [^Service svc concept-ids]
+  (let [historic (set (mapcat #(source-historical svc %) concept-ids))]
+    (set/union (set concept-ids) historic)))
+
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
 (defn reverse-map [^Service svc refset-id code]
   (store/get-reverse-map (.-store svc) refset-id code))
+
+(defn reverse-map-range
+  ([^Service svc refset-id prefix]
+   (store/get-reverse-map-range (.-store svc) refset-id prefix))
+  ([^Service svc refset-id lower-bound upper-bound]
+   (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
 
 (defn get-preferred-synonym [^Service svc concept-id langs]
   (let [locale-match-fn (.-locale_match_fn svc)]
@@ -124,6 +143,23 @@
 
 (defn subsumed-by? [^Service svc concept-id subsumer-concept-id]
   (store/is-a? (.-store svc) concept-id subsumer-concept-id))
+
+(defn are-any?
+  "Are any of the concept-ids subsumed by any of the parent-ids?
+
+  Checks the is-a relationships of the concepts in question against the set of
+  parent identifiers."
+  [^Service svc concept-ids parent-ids]
+  (let [parents (set parent-ids)]
+    (->> (set concept-ids)
+         (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parents))
+         (some identity))))
+
+(comment
+  (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
+  (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
+  (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
+  )
 
 (defn parse-expression [^Service svc s]
   (scg/parse s))
@@ -151,13 +187,14 @@
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
         historic-concept-ids (apply set/union (->> base-concept-ids
-                                                           (map #(source-historical-associations svc %))
-                                                           (filter some?)
-                                                           (map vals)
-                                                           flatten))
+                                                   (map #(source-historical-associations svc %))
+                                                   (filter some?)
+                                                   (map vals)
+                                                   flatten))
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
+
 
 ;;
 (defn- historical-association-counts
@@ -368,4 +405,14 @@
   (get-preferred-synonym svc 24700007 "en-GB")
   (get-parent-relationships-of-type svc 24700007 snomed/IsA)
   (get-child-relationships-of-type svc 24700007 snomed/IsA)
+  (set (map :conceptId (expand-ecl-historic svc "<<24700007")))
+  (let [parents (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))
+        historic (mapcat #(source-historical svc %) parents)]
+    (are-any? svc [1949008] (set/union parents historic)))
+  (map #(vector (:conceptId %) (:term %)) (search svc {:s "complex map"}))
+  (set/difference
+    (set (map :referencedComponentId (reverse-map-range svc 999002271000000101 "G35")))
+    (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
+     )
+  (contains? (set (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))) 233886008)
   )
