@@ -201,8 +201,10 @@
   (.get ^BTreeMap (.relationships store) relationship-id))
 
 (defn get-refset-item
-  [^MapDBStore store ^UUID uuid]
-  (.get ^BTreeMap (.refsets store) (long-array [(.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)])))
+  ([^MapDBStore store ^long msb ^long lsb]
+   (.get ^BTreeMap (.refsets store) (long-array [msb lsb])))
+  ([^MapDBStore store ^UUID uuid]
+   (.get ^BTreeMap (.refsets store) (long-array [(.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)]))))
 
 (defn- get-raw-parent-relationships
   "Return the parent relationships of the given concept.
@@ -235,8 +237,7 @@
                  (long-array [component-id refset-id])      ;; lower limit = first two elements of composite key
                  (long-array [component-id (if (zero? refset-id) Long/MAX_VALUE refset-id) Long/MAX_VALUE Long/MAX_VALUE])) ;; upper limit = the four elements
         (map seq)
-        (map #(let [[_component-id _refset-id item-id1 item-id2] %] (UUID. item-id1 item-id2)))
-        (map (partial get-refset-item store)))))
+        (map #(let [[_component-id _refset-id item-msb item-lsb] %] (get-refset-item store item-msb item-lsb))))))
 
 (defn get-component-refsets
   "Return the refset-id's to which this component belongs."
@@ -253,8 +254,7 @@
   (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
                          (to-array [refset-id s])
                          (to-array [refset-id s nil])))
-       (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (UUID. item-id-1 item-id-2)))
-       (map (partial get-refset-item store))))
+       (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb)))))
 
 (defn prefix-upper-bound
   "Given a string, generate an upper bound suitable for a prefix search.
@@ -286,7 +286,7 @@
      (when-not invalid?
        (->> (.subSet index least greatest)
             (map seq)
-            (map #(let [[_refset-id _map-target item-id-1 item-id-2] %] (get-refset-item store (UUID. item-id-1 item-id-2)))))))))
+            (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb))))))))
 
 (comment
   (time (set (map #(aget % 1) (.subSet (.-mapTargetComponent store) (to-array [447562003]) (to-array [447562003 nil]))))))
