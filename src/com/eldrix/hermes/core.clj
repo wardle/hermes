@@ -155,12 +155,6 @@
          (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parents))
          (some identity))))
 
-(comment
-  (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
-  (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
-  (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-  )
-
 (defn parse-expression [^Service svc s]
   (scg/parse s))
 
@@ -406,13 +400,17 @@
   (get-parent-relationships-of-type svc 24700007 snomed/IsA)
   (get-child-relationships-of-type svc 24700007 snomed/IsA)
   (set (map :conceptId (expand-ecl-historic svc "<<24700007")))
-  (let [parents (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))
-        historic (mapcat #(source-historical svc %) parents)]
+  (let [parents (set (map :referencedComponentId (reverse-map-range svc 447562003 "I30")))
+        historic (set (mapcat #(source-historical svc %) parents))]
     (are-any? svc [1949008] (set/union parents historic)))
   (map #(vector (:conceptId %) (:term %)) (search svc {:s "complex map"}))
   (set/difference
     (set (map :referencedComponentId (reverse-map-range svc 999002271000000101 "G35")))
     (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
-     )
+    )
   (contains? (set (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))) 233886008)
+  ;; G35 will contain MS, but not outdated deprecated SNOMED concepts such as 192928003
+  (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
+  (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
+  (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
   )

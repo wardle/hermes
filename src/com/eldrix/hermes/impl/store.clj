@@ -20,13 +20,11 @@
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.ser :as ser]
-            [com.eldrix.hermes.snomed :as snomed]
-            [clojure.string :as str]
-            [clojure.spec.gen.alpha :as gen])
+            [com.eldrix.hermes.snomed :as snomed])
   (:import [java.io FileNotFoundException Closeable]
            (org.mapdb Serializer BTreeMap DB DBMaker DataOutput2)
            (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)
-           (java.util NavigableSet UUID Comparator)
+           (java.util NavigableSet UUID)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Concept ExtendedConcept)))
 
@@ -201,6 +199,11 @@
   (.get ^BTreeMap (.relationships store) relationship-id))
 
 (defn get-refset-item
+  "Get the specified refset item.
+  Parameters:
+  - store : MapDBStore
+  - UUID  : the UUID of the refset item to fetch
+  - msb/lsb : the most and least significant 64-bit longs representing the UUID."
   ([^MapDBStore store ^long msb ^long lsb]
    (.get ^BTreeMap (.refsets store) (long-array [msb lsb])))
   ([^MapDBStore store ^UUID uuid]
@@ -287,9 +290,6 @@
        (->> (.subSet index least greatest)
             (map seq)
             (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb))))))))
-
-(comment
-  (time (set (map #(aget % 1) (.subSet (.-mapTargetComponent store) (to-array [447562003]) (to-array [447562003 nil]))))))
 
 (defn get-source-associations
   "Returns the associations in which this component is the target.
