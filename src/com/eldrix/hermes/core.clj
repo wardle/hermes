@@ -115,9 +115,20 @@
    (mapcat #(store/get-source-association-referenced-components (.-store svc) component-id %) refset-ids)))
 
 (defn with-historical
+  "For a given sequence of concept identifiers, expand to include historical
+  associations both backwards and forwards in time.
+
+  For a currently active concept, this will return historic inactivated concepts
+  in which it is the target. For a now inactive concept, this will return the
+  active associations and their historic associations.
+
+  Historical associations of type MovedTo and MovedFrom are ignored, by design."
   [^Service svc concept-ids]
-  (let [historic (set (mapcat #(source-historical svc %) concept-ids))]
-    (set/union (set concept-ids) historic)))
+  (let [historical-refsets (disj (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)
+        future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items svc %) concept-ids)))
+        modern (set/union (set concept-ids) (set future))
+        historic (set (mapcat #(source-historical svc %) modern))]
+    (set/union modern historic)))
 
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
