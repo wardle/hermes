@@ -122,13 +122,17 @@
   in which it is the target. For a now inactive concept, this will return the
   active associations and their historic associations.
 
-  Historical associations of type MovedTo and MovedFrom are ignored, by design."
-  [^Service svc concept-ids]
-  (let [historical-refsets (disj (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)
-        future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items svc %) concept-ids)))
-        modern (set/union (set concept-ids) (set future))
-        historic (set (mapcat #(source-historical svc %) modern))]
-    (set/union modern historic)))
+  By default, all types of historical associations except MoveTo and MovedFrom
+  are included, but this is configurable. "
+  ([^Service svc concept-ids]
+   (with-historical svc concept-ids
+                    (disj (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
+  ([^Service svc concept-ids assoc-refset-ids]
+   (let [historical-refsets assoc-refset-ids
+         future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items svc %) concept-ids)))
+         modern (set/union (set concept-ids) (set future))
+         historic (set (mapcat #(source-historical svc % assoc-refset-ids) modern))]
+     (set/union modern historic))))
 
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
@@ -430,4 +434,5 @@
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
+
   )
