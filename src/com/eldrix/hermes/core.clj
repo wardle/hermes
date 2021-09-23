@@ -189,7 +189,13 @@
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
 
-
+(defn ecl-contains?
+  "Do any of the concept-ids satisfy the constraint expression specified?
+  This is an alternative to expanding the valueset and then checking membership."
+  [^Service svc concept-ids ^String ecl]
+  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+        q2 (search/q-concept-ids concept-ids)]
+    (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 ;;
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
