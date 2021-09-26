@@ -55,6 +55,12 @@
 (defn get-descriptions [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
+(defn get-all-parents
+  ([^Service svc concept-id]
+   (get-all-parents svc concept-id snomed/IsA))
+  ([^Service svc concept-id type-id]
+  (store/get-all-parents (.-store svc) concept-id type-id)))
+
 (defn get-parent-relationships-of-type [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
@@ -211,6 +217,8 @@
   (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
         q2 (search/q-concept-ids concept-ids)]
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
+
+
 ;;
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
@@ -434,5 +442,4 @@
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-
   )
