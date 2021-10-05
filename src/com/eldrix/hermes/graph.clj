@@ -215,6 +215,7 @@
     |- :s                  : search string to use
     |- :constraint         : SNOMED ECL constraint to apply
     |- :fuzzy              : whether to perform fuzzy matching or not
+    |- :fallback-fuzzy     : fuzzy matching to use if no results without fuzz
     |- :max-hits           : maximum hits (if omitted returns unlimited but
                              *unsorted* results)."
   [{::keys [svc]} params]
@@ -229,7 +230,7 @@
                      :info.snomed.Concept/id                   (:conceptId result)
                      :info.snomed.Description/term             (:term result)
                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-       (hermes/search svc (select-keys params [:s :constraint :fuzzy :max-hits]))))
+       (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
