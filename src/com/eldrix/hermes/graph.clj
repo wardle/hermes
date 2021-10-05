@@ -214,6 +214,7 @@
   "Performs a search. Parameters:
     |- :s                  : search string to use
     |- :constraint         : SNOMED ECL constraint to apply
+    |- :fuzzy              : whether to perform fuzzy matching or not
     |- :max-hits           : maximum hits (if omitted returns unlimited but
                              *unsorted* results)."
   [{::keys [svc]} params]
@@ -228,7 +229,7 @@
                      :info.snomed.Concept/id                   (:conceptId result)
                      :info.snomed.Description/term             (:term result)
                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-       (hermes/search svc (select-keys params [:s :constraint :max-hits]))))
+       (hermes/search svc (select-keys params [:s :constraint :fuzzy :max-hits]))))
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
@@ -260,10 +261,11 @@
   svc
   (hermes/get-concept svc 24700007)
   (hermes/get-extended-concept svc 24700007)
-  (hermes/search svc {:s          "amyliod"
+  (hermes/search svc {:s          "polymyositis"
                       :fuzzy      2
                       :constraint "<404684003"
-                      :max-hits   10})
+                      :max-hits   10
+                      })
   (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc 24700007))
 
   concept-by-id
