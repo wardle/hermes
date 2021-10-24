@@ -2,6 +2,35 @@
 
 This log documents significant changes for each release.
 
+## [0.8.0] - 2021-10-24
+
+* Add fuzzy and fallback-fuzzy search to graph API.
+* Add get-all-parents, and parent-relationships to core API
+* Permit configuration of with-historical to allow choice of association refset types
+* Add ECL membership check
+* Add reverse cross-map prefix search (useful for ICD-10 and Read)
+* Optimisations
+
+## [0.7.5] - 2021-09-13
+
+* Fixed handling of '<<' in expressions.
+* Better validation of HTTP parameters
+* Backend paths-to-root and some-indexed for dimensionality reduction work
+
+## [0.7.4] - 2021-07-27
+
+* Make JSON default for HTTP server
+* Add refsets HTTP endpoint 
+
+## [0.7.3] - 2021-07-27
+
+* Add reverse index specifically for association reference set items
+* Add expand API endpoint to HTTP server, including historical if requested
+
+## [0.7.2] - 2021-07-20
+
+* Bind address specified at command line now actually used.
+
 ## [0.7.1] - 2021-06-04
 
 * Add support for new SNOMED filename naming system used by UK since May 21
