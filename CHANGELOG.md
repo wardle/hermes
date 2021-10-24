@@ -43,8 +43,7 @@ This log documents significant changes for each release.
 * Restructuring - separate library code from cli commands / server
 * Add rudimentary github actions tests, but not yet using live db
 * Add historical associations reference set support
-* Update database version to v0.5; older versions cannot read, but newer
-  applications can continue to read old databases.
+* Update database version to v0.6 given new indexes.
 * Better query re-writing for when single must-not clauses used alone. 
 
 ## [0.6.2] - 2021-04-20
