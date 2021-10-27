@@ -33,9 +33,11 @@
     (do (println "No provider specified. Available providers:")
         (download/print-providers))))
 
-(defn build-index [{:keys [db]} _]
+(defn build-index [{:keys [db locale]} _]
   (if db
-    (hermes/build-search-index db)
+    (if (str/blank? locale)
+      (hermes/build-search-index db)
+      (hermes/build-search-index locale))
     (log/error "no database directory specified")))
 
 (defn compact [{:keys [db]} _]
@@ -65,6 +67,8 @@
 
    ["-d" "--db PATH" "Path to database directory"
     :validate [string? "Missing database path"]]
+
+   [nil "--locale LOCALE" "Locale to use, if different from system"]
 
    ["-h" "--help"]])
 

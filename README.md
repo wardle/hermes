@@ -134,6 +134,29 @@ I don't believe in the idea of uploading codesystems and value sets in place.
 My approach to versioning is to run different services; I simply switch 
 API endpoints. 
 
+### Localisation
+
+SNOMED CT is distributed across the world. The base distribution is the 
+International release, but your local distribution will include this together
+with local data. Local data will include region-specific language reference
+sets.
+
+The core SNOMED API relating to concepts and their meaning is not affected
+by issues of locale. Locale is used to derive the synonyms for any given
+concept. There should be a single preferred synonym for every concept in a 
+given language reference set.
+
+When you build a database, the search index caches the preferred synonym using
+the locale specified during index creation. If no locale is specified, then
+the system default locale will be used. In general, you should specify a 
+locale that will match the distribution you are importing.
+
+You can specify the requested locale using IETF BCP 47, or by using a special
+SNOMED CT defined locale that includes the identifier of the language reference 
+set you wish to use. I have added BCP 47 matching as an extension in hermes
+as the burden of managing which reference sets to use is left to the client
+in SNOMED standard. Hermes tries to provide a set of sane defaults.
+
 ### Can I get support?
 
 Yes. Raise an issue, or more formal support options are available on request,
