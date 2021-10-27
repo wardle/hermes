@@ -37,7 +37,7 @@
   (if db
     (if (str/blank? locale)
       (hermes/build-search-index db)
-      (hermes/build-search-index locale))
+      (hermes/build-search-index db locale))
     (log/error "no database directory specified")))
 
 (defn compact [{:keys [db]} _]
