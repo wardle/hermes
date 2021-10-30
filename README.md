@@ -167,6 +167,11 @@ language reference sets, is easily modified. If your locale is currently
 unsupported, please raise an issue and it can be added easily. The current
 map can be found in [impl/language.clj](src/com/eldrix/hermes/impl/language.clj).
 
+Such mapping is simply an extension for convenience and may not be necessary for 
+you. You can *always* get the preferred synonym given a specific set of language
+reference sets but I find it easier to simply use 'en-GB' and let hermes do the
+work for me.
+
 ### Can I get support?
 
 Yes. Raise an issue, or more formal support options are available on request,
