@@ -372,7 +372,8 @@
    (let [manifest (open-manifest root false)]
      (log/info "Building search index" {:root root :languages language-priority-list})
      (search/build-search-index (get-absolute-filename root (:store manifest))
-                                (get-absolute-filename root (:search manifest)) language-priority-list)
+                                (get-absolute-filename root (:search manifest))
+                                language-priority-list)
      (log/info "Building search index... complete."))))
 
 (defn get-status [root]
