@@ -45,9 +45,9 @@
     (hermes/compact db)
     (log/error "no database directory specified")))
 
-(defn status [{:keys [db]} _]
+(defn status [{:keys [db verbose]} _]
   (if db
-    (pp/pprint (hermes/get-status db))
+    (pp/pprint (hermes/get-status db :counts? verbose :installed-refsets? true))
     (log/error "no database directory specified")))
 
 (defn serve [{:keys [db _port _bind-address] :as params} _]
@@ -69,6 +69,8 @@
     :validate [string? "Missing database path"]]
 
    [nil "--locale LOCALE" "Locale to use, if different from system"]
+
+   ["-v" "--verbose"]
 
    ["-h" "--help"]])
 

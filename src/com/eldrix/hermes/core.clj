@@ -375,13 +375,18 @@
                                 (get-absolute-filename root (:search manifest)) language-priority-list)
      (log/info "Building search index... complete."))))
 
-(defn get-status [root]
+(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}} ]
   (let [manifest (open-manifest root)]
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
       (log/info "Status information for database at '" root "'...")
       (merge
         {:installed-releases (map :term (store/get-release-information st))}
-        (store/status st)))))
+        (when installed-refsets? {:installed-refsets (->> (store/get-installed-reference-sets st)
+                                                          (map #(store/get-fully-specified-name st %))
+                                                          (sort-by :term)
+                                                          (map #(vector (:id %) (:term %)))
+                                                          doall)})
+        (when counts? (store/status st))))))
 
 (defn create-service
   "Create a terminology service combining both store and search functionality
