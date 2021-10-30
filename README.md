@@ -151,11 +151,21 @@ the locale specified during index creation. If no locale is specified, then
 the system default locale will be used. In general, you should specify a 
 locale that will match the distribution you are importing.
 
+For example, when you are building your search index, you can use:
+```shell
+clj -M:run --db snomed.db --locale en-GB index  
+```
+
 You can specify the requested locale using IETF BCP 47, or by using a special
 SNOMED CT defined locale that includes the identifier of the language reference 
 set you wish to use. I have added BCP 47 matching as an extension in hermes
 as the burden of managing which reference sets to use is left to the client
-in SNOMED standard. Hermes tries to provide a set of sane defaults.
+in the SNOMED standard. Hermes tries to provide a set of sane defaults.
+
+Note: the mapping of BCP 47 codes to a language reference set, or set of 
+language reference sets, is easily modified. If your locale is currently
+unsupported, please raise an issue and it can be added easily. The current
+map can be found in [impl/language.clj](src/com/eldrix/hermes/impl/language.clj).
 
 ### Can I get support?
 
