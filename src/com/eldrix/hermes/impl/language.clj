@@ -60,15 +60,15 @@
    "en-ca" [19491000087109]                                 ;; |Canada English language reference set|
    "en-ie" [21000220103]                                    ;; |Irish language reference set|
    "en-nz" [271000210107]                                   ;; |New Zealand English language reference set|
-   "es"    [448879004]                                      ;; |Spanish language reference set|
+   "es-es" [448879004]                                      ;; |Spanish language reference set|
    "es-ar" [450828004]                                      ;;|Conjunto de referencias de lenguaje castellano para América Latina|
    "es-uy" [5641000179103]                                  ;; |Conjunto de referencias de lenguaje castellano para Uruguay|
    "et-ee" [71000181105]                                    ;; |Estonian language reference set|
-   "de"    [722130004]                                      ;; |German language reference set|
-   "fr"    [722131000]                                      ;; |French language reference set|
+   "de-de" [722130004]                                      ;; |German language reference set|
+   "fr-fr" [722131000]                                      ;; |French language reference set|
    "fr-be" [21000172104]                                    ;; |Belgian French language reference set|
    "fr-ca" [20581000087109]                                 ;; |Canada French language reference set|
-   "ja"    [722129009]                                      ;; | Japanese language reference set|
+   "ja-ja" [722129009]                                      ;; | Japanese language reference set|
    "nl-be" [31000172101]                                    ;;|Belgian Dutch language reference set|
    "nl-nl" [31000146106]                                    ;; |Netherlands Dutch language reference set|
    "nb-no" [61000202103]                                    ;; |Norwegian Bokmål language reference set|
