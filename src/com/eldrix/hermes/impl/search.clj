@@ -134,15 +134,19 @@
   (let [ch (async/chan 1 (partition-all 1000))]             ;; chunk concepts into batches
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
-      (let [langs (lang/match store language-priority-list)]
-        (when-not (seq langs) (throw (ex-info "No language refset for any locale listed in priority list"
+      (let [langs (lang/match store language-priority-list)
+            langs' (if (seq langs) langs
+                                   (do (log/warn "No language refset for any locale in requested priority list" {:priority-list language-priority-list :store-filename store-filename})
+                                       (log/warn "Falling back to default of 'en-US'")
+                                       (lang/match store "en-US")))]
+        (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
                                               {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
         (async/<!!                                          ;; block until pipeline complete
           (async/pipeline                                   ;; pipeline for side-effects
             (.availableProcessors (Runtime/getRuntime))     ;; Parallelism factor
             (doto (async/chan) (async/close!))              ;; Output channel - /dev/null
-            (map (partial write-batch! store writer langs))
+            (map (partial write-batch! store writer langs'))
             ch))
         (.forceMerge writer 1)))))
 
