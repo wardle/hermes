@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [0.8.1] - 2021-10-30
+
+* Add explicit choice of locale at time of index creation for preferred concept cache. Hermes supports multiple languages but for convenience caches the preferred synonym for a given locale (or set of reference sets) in the search index.
+* Fallback to en-US if chosen locale, or system default locale, does not have a known set of 'best' language reference sets
+
 ## [0.8.0] - 2021-10-24
 
 * Add fuzzy and fallback-fuzzy search to graph API.
