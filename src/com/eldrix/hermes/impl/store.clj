@@ -470,12 +470,27 @@
 (defmethod write-batch :info.snomed/Refset [batch store]
   (write-refset-items store (:data batch)))
 
+(defn write-batch-one-by-one
+  "Write out a batch one item at a time. "
+  [batch store]
+  (loop [batches (map #(assoc batch :data [%]) (:data batch))]
+    (when-let [b (first batches)]
+      (try
+        (write-batch b store)
+        (catch Exception e
+          (log/error "import error: failed to import row: " b)
+          (throw e)))
+      (recur (next batches)))))
+
 (defn write-batch-worker
   "Write a batch from the channel 'c' specified into the backing store."
   [store c]
   (loop [batch (async/<!! c)]
     (when-not (nil? batch)
-      (write-batch batch store)
+      (try
+        (write-batch batch store)
+        (catch Exception _
+          (write-batch-one-by-one batch store)))
       (recur (async/<!! c)))))
 
 
@@ -809,7 +824,6 @@
   (count (get-leaves store refsets))
   (count (get-installed-reference-sets store))
   (clojure.set/difference (set refsets) (set (get-installed-reference-sets store)))
-
 
   )
 
