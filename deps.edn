@@ -18,7 +18,13 @@
            org.apache.lucene/lucene-core    {:mvn/version "8.10.1"}
            org.apache.lucene/lucene-queries {:mvn/version "8.10.1"}
 
-           org.mapdb/mapdb                  {:mvn/version "3.0.8"}}
+           org.mapdb/mapdb                  {:mvn/version "3.0.8"}
+           
+           net.sourceforge.owlapi/owlapi-api        {:mvn/version "4.1.3"}
+           net.sourceforge.owlapi/owlapi-impl       {:mvn/version "4.1.3"}
+           net.sourceforge.owlapi/owlapi-apibinding {:mvn/version "4.1.3"}
+           org.semanticweb.elk/elk-owlapi           {:mvn/version "0.4.3"}
+           }
 
  :aliases {:run
            {:extra-paths ["cmd"]
