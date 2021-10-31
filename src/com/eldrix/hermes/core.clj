@@ -336,7 +336,8 @@
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)]
-    (log/info "importing " (count metadata) " distributions from " dir)
+    (when (seq metadata)
+      (log/info "importing " (count metadata) " distributions from " dir))
     (doseq [dist metadata]
       (log/info "distribution: " (:name dist))
       (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))))
