@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## [0.8.2] - not yet released
+
+* status command now prints installed reference sets, and optionally counts of SNOMED data
+* add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already
+* better error reporting during import 
+
+
 ## [0.8.1] - 2021-10-30
 
 * Add explicit choice of locale at time of index creation for preferred concept cache. Hermes supports multiple languages but for convenience caches the preferred synonym for a given locale (or set of reference sets) in the search index.
