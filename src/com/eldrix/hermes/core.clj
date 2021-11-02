@@ -59,7 +59,7 @@
   ([^Service svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
   ([^Service svc concept-id type-id]
-  (store/get-all-parents (.-store svc) concept-id type-id)))
+   (store/get-all-parents (.-store svc) concept-id type-id)))
 
 (defn get-parent-relationships-of-type [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
@@ -330,8 +330,13 @@
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         store (store/open-store store-filename {:read-only? false})
         data-c (importer/load-snomed dir)
-        done (importer/create-workers nthreads store/write-batch-worker store data-c)]
-    (async/<!! done)
+        err-c (async/chan)
+        done (importer/create-workers nthreads store/write-batch-worker store data-c err-c)
+        [e port] (async/alts!! [done err-c])]
+    (when (= err-c port)
+      (async/close! data-c)                                 ;; abort processing
+      (async/<!! done)                                      ;; wait for remaining threads to finish
+      (throw e))                                            ;; re-throw exception on main thread
     (store/close store)))
 
 (defn log-metadata [dir]

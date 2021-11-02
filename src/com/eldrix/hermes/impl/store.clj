@@ -472,23 +472,24 @@
 
 (defn write-batch-one-by-one
   "Write out a batch one item at a time. "
-  [batch store]
+  [batch store err-c]
   (doseq [b (map #(assoc batch :data [%]) (:data batch))]
     (try
       (write-batch b store)
       (catch Exception e
-        (log/error "import error: failed to import row: " b)
-        (throw e)))))
+        (log/error "import error: failed to import data: " b)
+        (async/>!! err-c (ex-info "failed to import data" {:error "Failed to import data" :data b :exception (Throwable->map e)}))))))
 
 (defn write-batch-worker
-  "Write a batch from the channel 'c' specified into the backing store."
-  [store c]
+  "Write a batch from the channel 'c' specified into the backing store.
+  If an exception occurs, it will be sent to channel 'err-c'."
+  [store c err-c]
   (loop [batch (async/<!! c)]
     (when batch
       (try
         (write-batch batch store)
         (catch Exception _
-          (write-batch-one-by-one batch store)))
+          (write-batch-one-by-one batch store err-c)))
       (recur (async/<!! c)))))
 
 
