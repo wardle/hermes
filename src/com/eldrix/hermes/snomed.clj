@@ -429,8 +429,8 @@
   # content-sub-type - this element is optional entirely, so include a trailing underscore
   ((?<contentsubtype>
     (?<summary>
-      (?<refsettype>Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
-      SimpleMap|ComplexMap|ExtendedMap|RefsetDescriptor|ModuleDependency|DescriptionType|MRCMDomain|MRCMAttributeDomain|
+      (?<refsettype>SimpleMap|Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
+      ComplexMap|ExtendedMap|RefsetDescriptor|ModuleDependency|DescriptionType|MRCMDomain|MRCMAttributeDomain|
       MRCMAttributeRange|MRCMModuleScope|OWLExpression)?
       (?<summaryextra>.*?)?)?
     (?<releasetype>Full|Snapshot|Delta)(?<docstatus>Current|Draft|Review)?(-(?<languagecode>.*?))?)
