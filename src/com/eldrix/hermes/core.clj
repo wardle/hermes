@@ -34,7 +34,8 @@
            (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDateTime)
-           (java.io Closeable)))
+           (java.io Closeable)
+           (java.util.concurrent Executors Future)))
 
 (set! *warn-on-reflection* true)
 
@@ -330,13 +331,17 @@
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         store (store/open-store store-filename {:read-only? false})
         data-c (importer/load-snomed dir)
-        err-c (async/chan)
-        done (importer/create-workers nthreads store/write-batch-worker store data-c err-c)
-        [e port] (async/alts!! [done err-c])]
-    (when (= err-c port)
-      (async/close! data-c)                                 ;; abort processing
-      (async/<!! done)                                      ;; wait for remaining threads to finish
-      (throw e))                                            ;; re-throw exception on main thread
+        pool (Executors/newFixedThreadPool nthreads)
+        tasks (repeat nthreads
+                      (fn [] (try (loop [batch (async/<!! data-c)]
+                                    (when batch (store/write-batch-with-fallback batch store)
+                                                (recur (async/<!! data-c))))
+                                  (catch Throwable e (.shutdownNow pool) e))))]
+    (doseq [future (.invokeAll pool tasks)]
+      (when-let [e (.get ^Future future)]
+        (when-not (instance? InterruptedException e)        ;; only show the original cause
+          (throw (ex-info (str "error during import: " (.getMessage ^Throwable e)) (Throwable->map e))))))
+    (.shutdown pool)
     (store/close store)))
 
 (defn log-metadata [dir]
@@ -382,7 +387,7 @@
                                 language-priority-list)
      (log/info "Building search index... complete."))))
 
-(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}} ]
+(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
   (let [manifest (open-manifest root)]
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
       (log/info "Status information for database at '" root "'...")

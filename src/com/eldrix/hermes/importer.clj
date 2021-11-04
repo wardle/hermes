@@ -89,9 +89,13 @@
        (rest csv-data)))
 
 (defn- process-file
-  "Process the specified file, streaming batched results to the channel specified, blocking if channel not being
-  drained. Each batch is a map with keys :type, :headings and :data. :data is a sequence of vectors representing each
-  column."
+  "Process the specified file, streaming batched results to the channel
+  specified, blocking if channel not being drained.
+  Each batch is a map with keys
+   - :type      : a type of SNOMED component
+   - :parser    : a parser that can take each row and give you data
+   - :headings  : a sequence of headings from the original file
+   - :data      : a sequence of vectors representing each column."
   [filename out-c batchSize]
   (with-open [reader (io/reader filename)]
     (let [snofile (snomed/parse-snomed-filename filename)
@@ -153,17 +157,22 @@
 (defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
   which will be closed once all files have been sent through."
-  [dir & {:keys [nthreads batch-size]}]
-  (let [files-c (async/chan)                                ;; list of files
-        raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+  [dir & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
+  (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
-        files (importable-files dir)
-        done (create-workers (or nthreads 4) file-worker files-c raw-c (or batch-size 5000))]
+        files (importable-files dir)]
     (log/info "importing files from " dir)
-    (when-not (seq files) (log/warn "no files found to import in " dir))
-    (async/onto-chan!! files-c (map :path files) true)      ;; stream list of files into work channel
-    (async/thread (async/<!! done) (async/close! raw-c))    ;; watch for completion and close output channel
-    (async/pipeline (or nthreads 4) processed-c (map snomed/parse-batch) raw-c true)
+    (async/pipeline nthreads
+                    processed-c
+                    (map snomed/parse-batch)
+                    raw-c
+                    true
+                    (fn [err] (log/error "failed to import:" err)))
+    (async/thread
+      (when-not (seq files) (log/warn "no files found to import in " dir))
+      (doseq [file files]
+        (process-file (:path file) raw-c batch-size))
+      (async/close! raw-c))
     processed-c))
 
 
@@ -172,11 +181,12 @@
   (let [results-c (load-snomed dir :batch-size 5000)]
     (loop [counts {}
            batch (async/<!! results-c)]
-      (when batch
-        (print counts "\r")
-        (recur
-          (merge-with + counts {(:type batch) (count (:data batch))})
-          (async/<!! results-c))))))
+      (if-not batch
+        (print "Total statistics: \n" counts)
+        (do (print counts "\r")
+            (recur
+              (merge-with + counts {(:type batch) (count (:data batch))})
+              (async/<!! results-c)))))))
 
 (comment
   (snomed/parse-snomed-filename "sct2_Concept_Full_INT_20190731.txt")

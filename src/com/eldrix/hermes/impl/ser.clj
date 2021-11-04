@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.impl.ser
   "Optimised hand-crafted serialization of SNOMED entities."
   (:require [com.eldrix.hermes.snomed :as snomed])
-  (:import (com.eldrix.hermes.snomed Concept Description Relationship SimpleRefsetItem SimpleMapRefsetItem RefsetDescriptorRefsetItem LanguageRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AttributeValueRefsetItem OWLExpressionRefsetItem AssociationRefsetItem)
+  (:import (com.eldrix.hermes.snomed Concept Description Relationship SimpleRefsetItem SimpleMapRefsetItem RefsetDescriptorRefsetItem LanguageRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AttributeValueRefsetItem OWLExpressionRefsetItem AssociationRefsetItem ExtendedRefsetItem)
            (java.time LocalDate)
            (java.io DataInput DataOutput)
            (java.util UUID)))
@@ -295,9 +295,56 @@
       id effectiveTime active moduleId
       refsetId referencedComponentId attributeDescriptionId attributeTypeId attributeOrder)))
 
+(defmulti write-field (fn [_ v] (class v)))
+(defmethod write-field Long [^DataOutput out v]
+  (.writeByte out (int \i))
+  (.writeLong out v))
+(defmethod write-field String [^DataOutput out v]
+  (.writeByte out (int \s))
+  (.writeUTF out v))
+
+(defn write-extended-refset-item [^DataOutput out ^ExtendedRefsetItem o]
+  (write-uuid out (.id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeInt out (count (.-fields o)))                      ;; write out a count of the custom fields
+  (doseq [field (.-fields o)]
+    (write-field out field)))
+
+(defn read-field [^DataInput in]
+  (let [field-type (char (.readByte in))]
+    (case field-type
+      \i (.readLong in)
+      \s (.readUTF in)
+      (throw (ex-info "unknown extended refset field type" {:got      field-type
+                                                            :expected #{\i \s}})))))
+
+(defn read-extended-refset-item [^DataInput in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        n-fields (.readInt in)
+        fields (loop [n 0 result []]
+                 (if (= n n-fields)
+                   result
+                   (recur (inc n)
+                          (conj result (read-field in)))))]
+    (snomed/->ExtendedRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId fields)))
+
+
+;;
+;;
+;;
 (defmulti write-refset-item
-          "Serialize a refset item with a single byte header indicated subtype."
-          (fn [^DataOutput _out o] (class o)))
+  "Serialize a refset item with a single byte header indicated subtype."
+  (fn [^DataOutput _out o] (class o)))
 
 (defmethod write-refset-item :info.snomed/SimpleRefset [^DataOutput out o]
   (.writeByte out 1)
@@ -326,7 +373,9 @@
 (defmethod write-refset-item :info.snomed/AssociationRefset [^DataOutput out o]
   (.writeByte out 9)
   (write-association-refset-item out o))
-
+(defmethod write-refset-item :info.snomed/ExtendedRefset [^DataOutput out o]
+  (.writeByte out 10)
+  (write-extended-refset-item out o))
 
 (defn read-refset-item [^DataInput in]
   (case (.readByte in)
@@ -338,7 +387,8 @@
     6 (read-owl-expression-refset-item in)
     7 (read-attribute-value-refset-item in)
     8 (read-refset-descriptor-refset-item in)
-    9 (read-association-refset-item in)))
+    9 (read-association-refset-item in)
+    10 (read-extended-refset-item in)))
 
 (defn read-effective-time
   "Optimised fetch of only the effectiveTime of a SNOMED component.
