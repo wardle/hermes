@@ -75,11 +75,16 @@ If you've downloaded a distribution manually, import like this:
 clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
+My tiny i5 'NUC' machine takes 4 minutes to import the UK edition of SNOMED CT and a further 2 minutes to import the UK dictionary
+of medicines and devices.
+
 4. Compact and index
 ```shell
 clj -J-Xmx8g -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
 ```
+
+My machine takes 6 seconds to compact the database and 2 minutes to build the search index. 
 
 5. Run a server!
 ```shell
