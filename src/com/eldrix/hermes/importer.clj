@@ -111,8 +111,8 @@
                                            :headings headings
                                            :data %)))]
           (log/info "Processing: " filename " type: " (:component snofile))
-          (doseq [batch batches] (async/>!! out-c batch)))))))
-
+          (doseq [batch batches] (when-not (async/>!! out-c batch)
+                                   (throw (InterruptedException. "process cancelled")))))))))
 
 (defn test-csv [filename]
   (with-open [rdr (clojure.java.io/reader filename)]

@@ -330,17 +330,20 @@
   [store-filename dir]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         store (store/open-store store-filename {:read-only? false})
+        cancel-c (async/chan)
         data-c (importer/load-snomed dir)
         pool (Executors/newFixedThreadPool nthreads)
         tasks (repeat nthreads
-                      (fn [] (try (loop [batch (async/<!! data-c)]
-                                    (when batch (store/write-batch-with-fallback batch store)
-                                                (recur (async/<!! data-c))))
-                                  (catch Throwable e (.shutdownNow pool) e))))]
+                      (fn [] (try (loop [batch (async/alts!! [cancel-c data-c])]
+                                    (when batch
+                                      (store/write-batch-with-fallback batch store)
+                                      (recur (async/<!! data-c))))
+                                  (catch Throwable e
+                                    (async/close! cancel-c) e))))]
     (doseq [future (.invokeAll pool tasks)]
       (when-let [e (.get ^Future future)]
         (when-not (instance? InterruptedException e)        ;; only show the original cause
-          (throw (ex-info (str "error during import: " (.getMessage ^Throwable e)) (Throwable->map e))))))
+          (throw (ex-info (str "Error during import: " (.getMessage ^Throwable e)) (Throwable->map e))))))
     (.shutdown pool)
     (store/close store)))
 
