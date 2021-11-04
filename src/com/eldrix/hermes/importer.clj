@@ -113,13 +113,6 @@
           (log/info "Processing: " filename " type: " (:component snofile))
           (doseq [batch batches] (async/>!! out-c batch)))))))
 
-(defn file-worker
-  [files-c out-c batchSize]
-  (loop [f (async/<!! files-c)]
-    (when f
-      (log/debug "Queuing   : " (.getPath ^File f))
-      (process-file f out-c (or batchSize 1000))
-      (recur (async/<!! files-c)))))
 
 (defn test-csv [filename]
   (with-open [rdr (clojure.java.io/reader filename)]
@@ -144,15 +137,6 @@
 (defn test-all-csv [dir]
   (doseq [filename (map :path (importable-files dir))]
     (test-csv filename)))
-
-(defn create-workers
-  "Creates a number of workers threads each running the function specified. Returns a channel
-  to signal when the workers have completed."
-  [n f & args]
-  (loop [i 0 chans []]
-    (if (= i n)
-      (async/merge chans)
-      (recur (inc i) (conj chans (async/thread (apply f args)))))))
 
 (defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
