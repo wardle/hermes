@@ -126,7 +126,48 @@
    :file-extension "txt",
    :content-type "Concept",
    :country-namespace "GB1000000",
-   :pattern ""}])
+   :pattern ""}
+   {:filename "der2_Refset_cardiologySnapshot_IN1000189_20210806.txt"
+    :format "2"
+    :content-subtype "Snapshot"
+    :namespace-id "1000189"
+    :content "Refset"
+    :doc-status nil
+    :country-code "IN"
+    :type "der"
+    :component "Refset"
+    :summary ""
+    :status ""
+    :file-type "der2"
+    :release-type "Snapshot"
+    :language-code nil
+    :identifier :info.snomed/SimpleRefset
+    :file-extension "txt"
+    :content-type "Refset"
+    :country-namespace "IN1000189"
+    :pattern ""}
+   {:filename "der2_sRefset_VTMSpainDrugSnapshot_es-ES_ES_20211001.txt"
+    :format "2"
+    :content-subtype "Snapshot"
+    :namespace-id nil
+    :content "Refset"
+    :doc-status nil
+    :country-code "ES"
+    :type "der"
+    :component "Refset"
+    :summary ""
+    :status ""
+    :file-type "der2"
+    :release-type "Snapshot"
+    :language-code "es-ES"
+    :identifier :info.snomed/ExtendedRefset
+    :file-extension "txt"
+    :content-type "Refset"
+    :country-namespace nil
+    :pattern "s"}
+   {:filename "der2_sRefset_SimpleMapSnapshot_INT_20210131.txt"
+    :format "2"
+    :identifier :info.snomed/SimpleMapRefset }])
 
 ;; Since May 2021, the UK has taken the egregious step of shoehorning a random
 ;; identifier into the filename to say where the file used to exist!
@@ -142,4 +183,5 @@
   (snomed/parse-snomed-filename "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt")
   (snomed/parse-snomed-filename "sct2_Concept_UKEDSnapshot_GB_20210512.txt")
   (snomed/parse-snomed-filename "sct2_Concept_Snapshot_GB1000000_20180401.txt")
+  (snomed/parse-snomed-filename "der2_sRefset_SimpleMapSnapshot_INT_20210131.txt")
   )

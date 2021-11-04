@@ -103,6 +103,7 @@
               batches (->> data
                            (partition-all batchSize)
                            (map #(hash-map :type (:identifier snofile)
+                                           :parser parser
                                            :headings headings
                                            :data %)))]
           (log/info "Processing: " filename " type: " (:component snofile))

@@ -103,6 +103,23 @@
                              ^long refsetId
                              ^long referencedComponentId])
 
+;; An ExtendedReferenceSet is an extension to the basic reference set member
+;; file format. This means we support dynamic data attached to a refset item.
+;; Each extended field is one of 'c' 'i' or 's' as defined in the filename pattern
+;; - 'c' : concept identifier - 64 bit positive integer
+;; - 'i' : signed integer
+;; - 's' : a UTF-8 string
+;; More detailed property information for each extended field is encoded in
+;; the associated refset descriptor structures.
+;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.1.2.+Extending+the+Basic+Reference+Set+Member+File+Format
+(defrecord ExtendedRefsetItem [^UUID id
+                               ^LocalDate effectiveTime
+                               ^boolean active
+                               ^long moduleId
+                               ^long refsetId
+                               ^long referencedComponentId
+                               fields])
+
 ;; An Association reference set is a reference set used to represent associations between components
 (defrecord AssociationRefsetItem [^UUID id
                                   ^LocalDate effectiveTime
@@ -258,6 +275,37 @@
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))))                                ;; referenced component Id
 
+(defn parse-using-pattern
+  "Parse the values 'v' using the pattern specification 'pattern'.
+  Parameters:
+  - pattern : a string containing characters c, i or s.
+  - values  : a sequence of values to be parsed.
+
+  Pattern definition
+  - c : A SNOMED CT component identifier (SCTID) referring to a concept, description or relationship.
+  - i : A signed integer
+  - s : A UTF-8 text string.
+  See https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention"
+  [pattern values]
+  (when-not (= (count pattern) (count values))
+    (throw (ex-info "length of pattern values not equal" {:pattern pattern :values values})))
+  (map (fn [[k v]]
+         (case k \c (Long/parseLong v)
+                 \i (Long/parseLong v)
+                 \s v
+                 (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
+       (zipmap (seq pattern) values)))
+
+(defn parse-extended-refset-item [pattern v]
+  (->ExtendedRefsetItem
+    (parse-uuid (v 0))                                      ;; component id
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))
+    (parse-using-pattern pattern (subvec v 6))))
+
 (defn parse-association-refset-item [v]
   (->AssociationRefsetItem
     (parse-uuid (v 0))                                      ;; component id
@@ -360,6 +408,7 @@
    ;; types of reference set
    :info.snomed/RefsetDescriptor     parse-refset-descriptor-item
    :info.snomed/SimpleRefset         parse-simple-refset-item
+   :info.snomed/ExtendedRefset       parse-extended-refset-item
    :info.snomed/AssociationRefset    parse-association-refset-item
    :info.snomed/LanguageRefset       parse-language-refset-item
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
@@ -378,9 +427,9 @@
   [batch]
   (when-not (s/valid? ::batch batch)
     (throw (ex-info "invalid batch:" (s/explain-data ::batch batch))))
-  (if-let [parse (get parsers (:type batch))]
+  (if-let [parser (or (:parser batch) (get parsers (:type batch)))]
     (try
-      (assoc batch :data (map parse (:data batch)))
+      (assoc batch :data (map parser (:data batch)))
       (catch Throwable e (println "error parsing:" (dissoc batch :data) e)))
     (throw (Exception. (str "no parser for batch type" (:type batch))))))
 
@@ -390,6 +439,7 @@
 (derive :info.snomed/Refset :info.snomed/Component)
 (derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
+(derive :info.snomed/ExtendedRefset :info.snomed/Refset)
 (derive :info.snomed/AssociationRefset :info.snomed/Refset)
 (derive :info.snomed/LanguageRefset :info.snomed/Refset)
 (derive :info.snomed/MapRefset :info.snomed/Refset)
@@ -403,6 +453,7 @@
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
+(derive ExtendedRefsetItem :info.snomed/ExtendedRefset)
 (derive AssociationRefsetItem :info.snomed/AssociationRefset)
 (derive LanguageRefsetItem :info.snomed/LanguageRefset)
 (derive SimpleMapRefsetItem :info.snomed/SimpleMapRefset)
@@ -456,20 +507,24 @@
         m (re-matcher snomed-file-pattern nm)]
     (when (.matches m)
       (let [entity (.group m "entity")
-            refset-type (.group m "refsettype")
+            pattern (.group m "pattern")
+            refset-type (or (.group m "refsettype")
+                            (when (= "Refset" entity)
+                              (if (str/blank? pattern) "Simple" "Extended")))
             component-name (str refset-type entity)
             identifier (when-not (str/blank? component-name) (keyword "info.snomed" component-name))]
         {:path              filename
          :filename          nm
          :component         component-name
          :identifier        identifier
-         :parser            (get parsers identifier)
+         :parser            (if (= "Extended" refset-type) (partial parse-extended-refset-item pattern)
+                                                           (get parsers identifier))
          :file-type         (.group m "filetype")
          :status            (.group m "status")
          :type              (.group m "type")
          :format            (.group m "format")
          :content-type      (.group m "contenttype")
-         :pattern           (.group m "pattern")
+         :pattern           pattern
          :entity            entity
          :content-subtype   (.group m "contentsubtype")
          :summary           (.group m "summary")
