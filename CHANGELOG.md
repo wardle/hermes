@@ -2,7 +2,16 @@
 
 This log documents significant changes for each release.
 
-## [0.8.2] - not yet released
+## [0.8.3] - 2021-11-04
+
+* More complete UK language refset priority list
+* Fail fast if there are any issues caught during processing (e.g. broken data such as invalid dates)
+* Optimisations to import, parsing and storage flow. Better handling of errors during import.
+* Fixed import of simple reference sets, including when 'Simple' not in summary field of filename
+* Tidied status output when importing data if no metadata found.
+* Added support for simple reference set extensions with flexible fields based on 's' 'c' or 'i' in filename for local customisation
+
+## [0.8.2] - 2021-10-31
 
 * status command now prints installed reference sets, and optionally counts of SNOMED data
 * add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already
