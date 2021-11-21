@@ -400,16 +400,5 @@
 
 
 (comment
-
-  (def baos (java.io.ByteArrayOutputStream.))
-  (def out (java.io.DataOutputStream. baos))
-
-  (def id #uuid "80000517-8513-5ca0-a44c-dc66f3c3a1c6")
-  (write-uuid out id)
-  (def byte-data (.toByteArray baos))
-  (alength byte-data)
-  (def bais (java.io.ByteArrayInputStream. byte-data))
-  (def in (java.io.DataInputStream. bais))
-  (read-uuid in)
   )
 
