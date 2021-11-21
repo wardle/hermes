@@ -438,6 +438,35 @@ or
 clj -M:run --db snomed.db --port 8080 serve
 ```
 
+If you omit the serve command, or specify --help, `hermes` will show help text:
+
+```shell
+Usage: hermes [options] command [parameters]
+
+Options:
+  -p, --port PORT                       8080  Port number
+  -a, --bind-address BIND_ADDRESS             Address to bind
+      --allowed-origins "*" or ORIGINS        Set CORS policy, with "*" or comma-delimited hostnames
+  -d, --db PATH                               Path to database directory
+      --locale LOCALE                         Locale to use, if different from system
+  -v, --verbose
+  -h, --help
+
+Commands:
+ import [paths]             Import SNOMED distribution files
+ list [paths]               List importable files
+ download [provider] [opts] Download & install distribution from provider
+ index                      Build search index.
+ compact                    Compact database
+ serve                      Start a terminology server
+ status                     Displays status information
+```
+
+* --bind-address is optional. You may want to use --bind-address 0.0.0.0
+* --allowed-origins is optional. You could use --allowed-origins "*" or --allowed-origins example.com,example.net
+* --locale sets the default locale. This is used in building your search index and as a default if clients do not specify their preference
+
+
 Example usage of search endpoint. 
 
 ```shell
