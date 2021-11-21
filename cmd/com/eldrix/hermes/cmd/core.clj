@@ -69,7 +69,7 @@
 
    ["-a" "--bind-address BIND_ADDRESS" "Address to bind"]
 
-   [nil "--allowed-origins */ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
+   [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
 
    ["-d" "--db PATH" "Path to database directory"
     :validate [string? "Missing database path"]]
