@@ -15,8 +15,8 @@
            expound/expound                  {:mvn/version "0.8.10"}
            instaparse/instaparse            {:mvn/version "1.4.10"}
 
-           org.apache.lucene/lucene-core    {:mvn/version "8.10.1"}
-           org.apache.lucene/lucene-queries {:mvn/version "8.10.1"}
+           org.apache.lucene/lucene-core    {:mvn/version "8.11.0"}
+           org.apache.lucene/lucene-queries {:mvn/version "8.11.0"}
 
            org.mapdb/mapdb                  {:mvn/version "3.0.8"}}
 
