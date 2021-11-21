@@ -236,10 +236,21 @@
    ::http/port   8080})
 
 (defn start-server
-  ([^Service svc {:keys [port bind-address join?] :as opts :or {join? true}}]
+  "Start a HTTP SNOMED CT server.
+  Parameters:
+  - port            : (optional) port to use, default 8080
+  - bind-address    : (optional) bind address
+  - allowed-origins : (optional) a sequence of strings of hostnames or function
+  - join?           : whether to join server thread or return"
+  ([^Service svc {:keys [port bind-address allowed-origins join?] :as opts :or {join? true}}]
+   (Thread/setDefaultUncaughtExceptionHandler
+     (reify Thread$UncaughtExceptionHandler
+       (uncaughtException [_ thread ex]
+         (log/error ex "Uncaught exception on" (.getName thread)))))
    (let [cfg (cond-> {}
                      port (assoc ::http/port port)
-                     bind-address (assoc ::http/host bind-address))]
+                     bind-address (assoc ::http/host bind-address)
+                     allowed-origins (assoc ::http/allowed-origins allowed-origins))]
      (-> (merge service-map cfg)
          (assoc ::http/join? join?)
          (http/default-interceptors)

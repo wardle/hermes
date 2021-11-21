@@ -50,11 +50,15 @@
     (pp/pprint (hermes/get-status db :counts? verbose :installed-refsets? true))
     (log/error "no database directory specified")))
 
-(defn serve [{:keys [db _port _bind-address] :as params} _]
+(defn serve [{:keys [db _port _bind-address allowed-origins] :as params} _]
   (if db
-    (let [svc (hermes/open db)]
-      (log/info "starting terminology server " params)
-      (server/start-server svc params))
+    (let [svc (hermes/open db)
+          allowed-origins' (when allowed-origins (str/split allowed-origins #","))
+          params' (cond (= ["*"] allowed-origins') (assoc params :allowed-origins (constantly true))
+                        (seq allowed-origins') (assoc params :allowed-origins allowed-origins')
+                        :else params)]
+      (log/info "starting terminology server " params')
+      (server/start-server svc params'))
     (log/error "no database directory specified")))
 
 (def cli-options
@@ -64,6 +68,8 @@
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
 
    ["-a" "--bind-address BIND_ADDRESS" "Address to bind"]
+
+   [nil "--allowed-origins */ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
 
    ["-d" "--db PATH" "Path to database directory"
     :validate [string? "Missing database path"]]
