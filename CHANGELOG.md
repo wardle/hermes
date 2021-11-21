@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [0.8.4] - not yet released
+
+* Bump to Apache Lucene 8.11.0 - no API or index changes, but simply bug fixes
+* Add --allowed-origins option to server to enable configuration of CORS, if required
+
 ## [0.8.3] - 2021-11-04
 
 * More complete UK language refset priority list
