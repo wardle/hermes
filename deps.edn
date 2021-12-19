@@ -1,11 +1,11 @@
-{:paths   ["src" "resources" ]
+{:paths   ["src" "resources"]
 
  :deps    {org.clojure/clojure              {:mvn/version "1.10.3"}
-           org.clojure/core.async           {:mvn/version "1.4.627"}
+           org.clojure/core.async           {:mvn/version "1.5.648"}
            org.clojure/data.csv             {:mvn/version "1.0.0"}
            org.clojure/data.xml             {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip             {:mvn/version "1.0.0"}
-           org.clojure/tools.logging        {:mvn/version "1.1.0"}
+           org.clojure/tools.logging        {:mvn/version "1.2.3"}
 
            com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
                                              :sha     "2e573054add9ca309fe6db12704107ddf6fc3ac2"}
@@ -24,13 +24,13 @@
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
                           cheshire/cheshire              {:mvn/version "5.10.1"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.2.6"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.9"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
            :dev
-           {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.0"}
+           {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.1"}
                          criterium/criterium              {:mvn/version "0.4.6"}
                          com.wsscode/pathom-viz-connector {:mvn/version "2021.10.16"}}}
 
