@@ -842,7 +842,7 @@ The terminology server can be embedded into your own applications or, more
 commonly, you would use as a standalone web service. Further documentation
 will follow.
 
-### C. How to run or build from source code
+### C. How to build from source code
 
 #### Run compilation checks (optional)
 
@@ -856,14 +856,6 @@ clj -M:check
 clj -M:test
 clj -M:lint/kondo
 clj -M:lint/eastwood
-```
-
-#### Run direct from the command-line
-
-You will get help text.
-
-```
-clj -M -m com.eldrix.hermes.core
 ```
 
 #### View outdated dependencies
