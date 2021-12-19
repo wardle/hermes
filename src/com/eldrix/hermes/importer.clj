@@ -69,9 +69,9 @@
   Each entry returned in the list will be a java.io.File
   These files have been issued since the July 2020 International edition release."
   [dir]
-  (->> (File. dir)
+  (->> (io/file dir)
        (file-seq)
-       (filter #(= (.getName ^String %) "release_package_information.json"))))
+       (filter #(= (.getName ^File %) "release_package_information.json"))))
 
 (defn all-metadata
   "Returns all release metadata from the directory specified"
