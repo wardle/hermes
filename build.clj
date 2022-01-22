@@ -18,12 +18,16 @@
 (defn jar [_]
   (clean nil)
   (println "Building" lib version)
+  (b/compile-clj {:basis jar-basis
+                  :class-dir class-dir
+                  :src-dir ["src"]
+                  :ns-compile ['com.eldrix.hermes.snomed]})
   (b/write-pom {:class-dir class-dir
-                :lib lib
-                :version version
-                :basis jar-basis
-                :src-dirs ["src"]})
-  (b/copy-dir {:src-dirs ["src" "resources"]
+                :lib       lib
+                :version   version
+                :basis     jar-basis
+                :src-dirs  ["src"]})
+  (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
