@@ -7,7 +7,7 @@
 (def class-dir "target/classes")
 (def jar-basis (b/create-basis {:project "deps.edn"}))
 (def uber-basis (b/create-basis {:project "deps.edn"
-                                :aliases [:run]}))
+                                 :aliases [:run]}))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
 (def uber-file (format "target/%s-server-%s.jar" (name lib) version))
 
@@ -29,18 +29,18 @@
   (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
-          :jar-file jar-file}))
+          :jar-file  jar-file}))
 
 (defn install
   "Installs pom and library jar in local maven repository"
   [_]
   (jar nil)
   (println "Installing" lib version)
-  (b/install {:basis jar-basis
-              :lib lib
+  (b/install {:basis     jar-basis
+              :lib       lib
               :class-dir class-dir
-              :version version
-              :jar-file jar-file}))
+              :version   version
+              :jar-file  jar-file}))
 
 
 (defn deploy
@@ -57,12 +57,12 @@
   "Build an executable uberjar file for hermes HTTP server"
   [_]
   (clean nil)
-  (b/copy-dir {:src-dirs ["src" "cmd" "resources"]
+  (b/copy-dir {:src-dirs   ["src" "cmd" "resources"]
                :target-dir class-dir})
-  (b/compile-clj {:basis uber-basis
-                  :src-dirs ["src" "cmd"]
+  (b/compile-clj {:basis      uber-basis
+                  :src-dirs   ["src" "cmd"]
                   :ns-compile ['com.eldrix.hermes.cmd.core]
-                  :class-dir class-dir})
+                  :class-dir  class-dir})
   (b/uber {:class-dir class-dir
            :uber-file uber-file
            :basis     uber-basis
