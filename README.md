@@ -8,6 +8,7 @@
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo&avg-wage=100000)](https://github.com/wardle/hermes/)
 [![CI](https://github.com/wardle/hermes/actions/workflows/main.yml/badge.svg)](https://github.com/wardle/hermes/actions/workflows/main.yml)
 [![DOI](https://zenodo.org/badge/293230222.svg)](https://zenodo.org/badge/latestdoi/293230222)
+[![Clojars Project](https://img.shields.io/clojars/v/com.eldrix/hermes.svg)](https://clojars.org/com.eldrix/hermes)
 
 Hermes provides a set of terminology tools built around SNOMED CT including:
 
@@ -828,11 +829,23 @@ http -j localhost:8080/v1/snomed/crossmap/999002271000000101/G35X
 
 #### 7. Embed into another application
 
+You can use git coordinates in a deps.edn file, or use maven: 
+
 In your `deps.edn` file (make sure you change the commit-id):
 ```
 [com.eldrix.hermes {:git/url "https://github.com/wardle/hermes.git"
                     :sha     "097e3094070587dc9362ca4564401a924bea952c"}
 ``` 
+
+In your pom.xml:
+
+```
+<dependency>
+  <groupId>com.eldrix</groupId>
+  <artifactId>hermes</artifactId>
+  <version>0.8.340</version>
+</dependency>
+```
 
 Or, build a library jar (see below)
 
@@ -873,7 +886,7 @@ clj -X:deps tree
 #### Building uberjar
 
 Build the uberjar:
-```
+```shell
 clojure -T:build uber
 ```
 
@@ -881,7 +894,12 @@ clojure -T:build uber
 
 A library jar contains only hermes-code, and none of the bundled dependencies.  
 
-```
+```shell
 clojure -T:build jar
 ```
 
+Or you can install hermes into your local maven repository:
+
+```shell
+clojure -T:build install
+```
