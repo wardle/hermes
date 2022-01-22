@@ -2,10 +2,12 @@
 
 This log documents significant changes for each release.
 
-## [0.8.4] - not yet released
+## [0.8.341] - 2022-01-22
 
 * Bump to Apache Lucene 8.11.0 - no API or index changes, but simply bug fixes
 * Add --allowed-origins option to server to enable configuration of CORS, if required
+* Add build via [tools.build](https://github.com/clojure/tools.build)
+* Add deployment to clojars.
 
 ## [0.8.3] - 2021-11-04
 
