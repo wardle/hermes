@@ -12,8 +12,7 @@
 (def uber-file (format "target/%s-server-%s.jar" (name lib) version))
 
 (defn clean [_]
-  (b/delete {:path class-dir})
-  (b/delete {:path uber-file}))
+  (b/delete {:path "target"}))
 
 (defn jar [_]
   (clean nil)
