@@ -18,13 +18,18 @@
 
            org.mapdb/mapdb                  {:mvn/version "3.0.8"}}
 
- :aliases {:run
+ :aliases {
+           :build {:deps       {io.github.clojure/tools.build {:git/tag "v0.7.5" :git/sha "34727f7"}
+                                slipset/deps-deploy           {:mvn/version "RELEASE"}}
+                   :ns-default build}
+
+           :run
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
                           cheshire/cheshire              {:mvn/version "5.10.1"}
                           ch.qos.logback/logback-classic {:mvn/version "1.2.9"}
-                          io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
-                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}}
+                          io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
+                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
            :dev
@@ -65,18 +70,5 @@
             :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
            :lint/eastwood
-           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]
-            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
-
-           :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/jar
-            :exec-args    {:jar "target/hermes-lib.jar"}}
-
-           :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/uberjar
-            :exec-args    {:jar        "target/hermes.jar"
-                           :aliases    [:run]
-                           :aot        true
-                           :main-class "com.eldrix.hermes.cmd.core"}}}}
+           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "cmd"]}]
+            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}

@@ -874,7 +874,7 @@ clj -X:deps tree
 
 Build the uberjar:
 ```
-clojure -X:uberjar
+clojure -T:build uber
 ```
 
 #### Building library jar
@@ -882,6 +882,6 @@ clojure -X:uberjar
 A library jar contains only hermes-code, and none of the bundled dependencies.  
 
 ```
-clojure -X:jar
+clojure -T:build jar
 ```
 
