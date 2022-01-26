@@ -282,7 +282,7 @@
                       (seq concept-refsets)
                       (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]
     (doseq [[k v] properties]
-      (let [^Collection vv (if (vector? v) v [v])]
+      (let [^Collection vv (if (instance? Collection v) v [v])]
         (.add query
               (LongPoint/newSetQuery (str k) vv)
               BooleanClause$Occur/FILTER)))
