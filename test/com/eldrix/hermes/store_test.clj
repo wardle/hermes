@@ -1,12 +1,11 @@
 (ns com.eldrix.hermes.store-test
   (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.impl.store :as store]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
-            [clojure.tools.logging.readable :as log])
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.time LocalDate)
-           (java.io File)
-           (org.mapdb Serializer)))
+           (java.io File)))
 
 (deftest simple-store
   (with-open [st (store/open-store)]
