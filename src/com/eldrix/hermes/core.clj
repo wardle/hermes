@@ -62,10 +62,22 @@
   ([^Service svc concept-id type-id]
    (store/get-all-parents (.-store svc) concept-id type-id)))
 
-(defn get-parent-relationships-of-type [^Service svc concept-id type-concept-id]
+(defn get-all-children
+  ([^Service svc concept-id]
+   (store/get-all-children (.-store svc) concept-id))
+  ([^Service svc concept-id type-id]
+  (store/get-all-children (.-store svc) concept-id type-id)))
+
+(defn get-parent-relationships-of-type
+  "Returns a collection of identifiers representing the parent relationships of
+  the specified type of the specified concept."
+  [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(defn get-child-relationships-of-type [^Service svc concept-id type-concept-id]
+(defn get-child-relationships-of-type
+  "Returns a collection of identifiers representing the child relationships of
+  the specified type of the specified concept."
+  [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
 (defn get-reference-sets [^Service svc component-id]
@@ -417,6 +429,7 @@
 
 (comment
   (def svc (open "snomed.db"))
+  (are-any? svc [24700007] [45454])
   (search svc {:s "mult scl" :constraint "<< 24700007"})
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
