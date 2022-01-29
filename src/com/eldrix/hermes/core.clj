@@ -197,7 +197,7 @@
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
     (search/do-search (.-searcher svc) params)))
 
-(defn synonyms [^Service svc params]
+(defn all-transitive-synonyms [^Service svc params]
   (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
 
 (defn expand-ecl
@@ -475,4 +475,5 @@
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
+  (get-descriptions svc 24700007)
   )
