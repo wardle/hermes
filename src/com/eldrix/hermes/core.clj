@@ -56,6 +56,12 @@
 (defn get-descriptions [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
+(defn get-synonyms
+  "Returns a collection of synonyms for the given concept."
+  [^Service svc concept-id]
+  (->> (get-descriptions svc concept-id)
+       (filter #(= snomed/Synonym (:typeId %)))))
+
 (defn get-all-parents
   ([^Service svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
