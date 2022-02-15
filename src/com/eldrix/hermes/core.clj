@@ -251,6 +251,60 @@
   [^Service svc refset-id & more]
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
+
+(defn map-features
+  "Map the source-concept-ids into the target, usually in order to reduce the
+  dimensionality of the dataset.
+
+  Parameters:
+  - svc                : hermes service
+  - source-concept-ids : a collection of concept identifiers
+  - target             : a collection of concept identifiers, an ECL expression
+                       : or a refset identifier.
+
+  If a source concept id resolves to multiple concepts in the target collection,
+  then a collection will be returned such that no member of the subset is
+  subsumed by another member.
+
+  It would be usual to map any source concept identifiers into their modern
+  active replacements, if they are now inactive.
+
+  The use of mapping features is in reducing the granularity of user-entered
+  data to aid analytics. For example,rather than limiting data entry to the UK
+  emergency reference set, a set of commonly seen diagnoses in emergency
+  departments in the UK, we can allow clinicians to enter highly specific,
+  granular terms, and map to the contents of that reference set as required
+  for analytics and reporting.
+
+  For example, '991411000000109' is the UK emergency unit diagnosis refset:
+  (map-features svc [24700007 763794005] 991411000000109)
+       =>  (#{24700007} #{45170000})
+  As multiple sclerosis (24700007) is in the reference set, it is returned.
+  However, LGI1-associated limbic encephalitis (763794005) is not in the
+  reference set, the best terms are returned (\"Encephalitis\" - 45170000).
+
+  This can be used to do simple classification tasks - such as determining
+  the broad types of illness. For example, here we use ECL to define a set to
+  include 'neurological disease', 'respiratory disease' and
+  'infectious disease':
+
+  (map-features svc [24700007 763794005 95883001] \"118940003 OR 50043002 OR 40733004\")
+      => (#{118940003} #{118940003} #{40733004 118940003})
+  Both multiple sclerosis and LGI-1 encephalitis are types of neurological
+  disease (118940003). However, 'Bacterial meningitis' (95883001) is mapped to
+  both 'neurological disease' (118940003) AND 'infectious disease' (40733004)."
+  [^Service svc source-concept-ids target]
+  (let [target-concept-ids
+        (cond (string? target)
+              (into #{} (map :conceptId (expand-ecl svc target)))
+              (coll? target)
+              (set target)
+              (number? target) (get-refset-members svc target))]
+    (->> source-concept-ids
+         (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
+         (map #(store/get-leaves (.-store svc) %)))))
+
+
 ;;
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
