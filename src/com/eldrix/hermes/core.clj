@@ -162,10 +162,14 @@
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
-(defn reverse-map [^Service svc refset-id code]
+(defn reverse-map
+  "Returns the reverse mapping from the reference set and mapTarget specified."
+  [^Service svc refset-id code]
   (store/get-reverse-map (.-store svc) refset-id code))
 
 (defn reverse-map-range
+  "Returns the reverse mapping from the reference set specified, performing
+  what is essentially a prefix search using the parameters."
   ([^Service svc refset-id prefix]
    (store/get-reverse-map-range (.-store svc) refset-id prefix))
   ([^Service svc refset-id lower-bound upper-bound]
