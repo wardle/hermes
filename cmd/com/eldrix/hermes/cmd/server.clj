@@ -154,11 +154,15 @@
 (def get-map-to
   {:name  ::get-map-to
    :enter (fn [context]
-            (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
+            (let [svc (get-in context [:request ::service])
+                  concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (when-let [rfs (hermes/get-component-refset-items (get-in context [:request ::service]) concept-id refset-id)]
-                  (assoc context :result rfs)))))})
+                (if-let [rfs (seq (hermes/get-component-refset-items svc concept-id refset-id))]
+                  (assoc context :result rfs)  ;; return the results as concept found in refset
+                  ;; if concept not found, map into the refset and get the refset items for all mapped results
+                  (when-let [mapped-concept-ids (seq (first (hermes/map-features svc [concept-id] refset-id)))]
+                    (assoc context :result (flatten (map #(hermes/get-component-refset-items svc % refset-id) mapped-concept-ids))))))))})
 
 (def get-map-from
   {:name  ::get-map-from

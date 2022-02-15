@@ -795,6 +795,9 @@ There are endpoints for crossmapping to and from SNOMED.
 
 Let's map one of our diagnostic terms into ICD-10:
 
+- `24700007` is multiple sclerosis.
+- `999002271000000101` is the ICD-10 UK complex map reference set.
+
 ```shell
 http -j localhost:8080/v1/snomed/concepts/24700007/map/999002271000000101
 ```
@@ -826,6 +829,57 @@ And of course, we can crossmap back to SNOMED as well:
 http -j localhost:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
+If you map a concept into a reference set that doesn't contain that concept, you'll
+automatically get the best parent matches instead.
+
+Here we have multiple sclerosis (`24700007`), and we're mapping into the UK emergency unit
+reference set (`991411000000109`):
+
+```shell
+http -j localhost:8080/v1/snomed/concepts/24700007/map/991411000000109
+```
+
+As multiple sclerosis in that reference set, you'll simply get:
+
+```json
+[
+    {
+        "active": true,
+        "effectiveTime": "2015-10-01",
+        "id": "d55ce305-3dcc-5723-8814-cd26486c37f7",
+        "moduleId": 999000021000000109,
+        "referencedComponentId": 24700007,
+        "refsetId": 991411000000109
+    }
+]
+```
+
+But what happens if we try something that isn't in that emergency reference set?
+
+Here is 'limbic encephalitis with LGI1 antibodies' (`763794005`). It isn't in
+that UK emergency unit reference set:
+
+
+```shell
+http -j localhost:8080/v1/snomed/concepts/763794005/map/991411000000109
+```
+Result:
+```json
+[
+    {
+        "active": true,
+        "effectiveTime": "2015-10-01",
+        "id": "5b3b8cdd-dd02-50e3-b207-bf4a3aa17694",
+        "moduleId": 999000021000000109,
+        "referencedComponentId": 45170000,
+        "refsetId": 991411000000109
+    }
+]
+```
+
+You get a more general concept - 'encephalitis' (`45170000`) that is in the
+emergency unit reference set. This makes it straightforward to map concepts
+into subsets of terms as defined by a reference set for analytics.
 
 #### 7. Embed into another application
 
