@@ -35,7 +35,8 @@
            :dev
            {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.1"}
                          criterium/criterium              {:mvn/version "0.4.6"}
-                         com.wsscode/pathom-viz-connector {:mvn/version "2021.10.16"}}}
+                         com.wsscode/pathom-viz-connector {:mvn/version "2021.10.16"}
+                         djblue/portal                    {:mvn/version "0.20.1"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
