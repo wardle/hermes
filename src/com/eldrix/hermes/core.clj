@@ -438,12 +438,34 @@
 
 
 (comment
+  (require '[portal.api :as p])
+  (def p (p/open ))
+  (add-tap #'p/submit) ; Add portal as a tap> target
   (def svc (open "snomed.db"))
-  (are-any? svc [24700007] [45454])
+  (get-concept svc 24700007)
+  (tap> (get-concept svc 24700007))
+  (tap> (get-extended-concept svc 24700007))
+  (search svc {:s "mult scl"})
+  (tap> (search svc {:s "mult scl"}))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
+
+  (search svc {:s "ICD-10 complex map"})
+  (->> (reverse-map-range svc 447562003 "I30")
+       (map :referencedComponentId)
+       (map #(:term (get-preferred-synonym svc % "en"))))
+
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
-  (reverse-map svc 900000000000497000 "A130.")
+
+  (reverse-map-range svc 447562003 "I")
+  (get-component-refset-items svc 24700007 447562003 )
+  (map :mapTarget (get-component-refset-items svc 24700007 447562003 ))
+
+  (get-extended-concept svc 24700007)
+  (subsumed-by? svc 24700007 6118003)   ;; demyelinating disease of the CNS
+
+  (are-any? svc [24700007] [45454])
+
 
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
