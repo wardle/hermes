@@ -86,7 +86,9 @@
   [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(defn get-reference-sets [^Service svc component-id]
+(defn ^:deprecated get-reference-sets
+  "Deprecated; use `get-component-refset-items instead."
+  [^Service svc component-id]
   (store/get-component-refsets (.-store svc) component-id))
 
 (defn get-component-refset-items
