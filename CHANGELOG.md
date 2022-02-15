@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [0.9.362] - 2022-02-15
+
+* Support for mapping concepts into a defined subset of concepts.
+* Add get-synonyms convenience function
+* Expose get-all-children at top-level API
+
 ## [0.8.341] - 2022-01-22
 
 * Bump to Apache Lucene 8.11.0 - no API or index changes, but simply bug fixes
