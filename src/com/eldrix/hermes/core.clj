@@ -72,7 +72,7 @@
   ([^Service svc concept-id]
    (store/get-all-children (.-store svc) concept-id))
   ([^Service svc concept-id type-id]
-  (store/get-all-children (.-store svc) concept-id type-id)))
+   (store/get-all-children (.-store svc) concept-id type-id)))
 
 (defn get-parent-relationships-of-type
   "Returns a collection of identifiers representing the parent relationships of
