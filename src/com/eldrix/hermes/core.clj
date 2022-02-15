@@ -244,6 +244,13 @@
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 
 
+(defn get-refset-members
+  "Return a set of identifiers for the members of the given refset(s).
+  Parameters:
+  - refset-id  - SNOMED identifier representing the reference set."
+  [^Service svc refset-id & more]
+  (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
+    (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 ;;
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
