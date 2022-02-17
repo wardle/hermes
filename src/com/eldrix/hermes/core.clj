@@ -252,7 +252,7 @@
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 
-(defn map-features
+(defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset.
 
@@ -269,7 +269,7 @@
   It would be usual to map any source concept identifiers into their modern
   active replacements, if they are now inactive.
 
-  The use of mapping features is in reducing the granularity of user-entered
+  The use of 'map-into' is in reducing the granularity of user-entered
   data to aid analytics. For example,rather than limiting data entry to the UK
   emergency reference set, a set of commonly seen diagnoses in emergency
   departments in the UK, we can allow clinicians to enter highly specific,
@@ -277,7 +277,7 @@
   for analytics and reporting.
 
   For example, '991411000000109' is the UK emergency unit diagnosis refset:
-  (map-features svc [24700007 763794005] 991411000000109)
+  (map-into svc [24700007 763794005] 991411000000109)
        =>  (#{24700007} #{45170000})
   As multiple sclerosis (24700007) is in the reference set, it is returned.
   However, LGI1-associated limbic encephalitis (763794005) is not in the
@@ -288,7 +288,7 @@
   include 'neurological disease', 'respiratory disease' and
   'infectious disease':
 
-  (map-features svc [24700007 763794005 95883001] \"118940003 OR 50043002 OR 40733004\")
+  (map-into svc [24700007 763794005 95883001] \"118940003 OR 50043002 OR 40733004\")
       => (#{118940003} #{118940003} #{40733004 118940003})
   Both multiple sclerosis and LGI-1 encephalitis are types of neurological
   disease (118940003). However, 'Bacterial meningitis' (95883001) is mapped to
@@ -304,6 +304,11 @@
          (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
          (map #(store/get-leaves (.-store svc) %)))))
 
+
+(defn ^:deprecated map-features
+  "DEPRECATED: Use 'map-into' instead."
+  [^Service svc source-concept-ids target]
+  (map-into svc source-concept-ids target))
 
 ;;
 (defn- historical-association-counts

@@ -163,7 +163,7 @@
                 (if-let [rfs (seq (hermes/get-component-refset-items svc concept-id refset-id))]
                   (assoc context :result rfs)               ;; return the results as concept found in refset
                   ;; if concept not found, map into the refset and get the refset items for all mapped results
-                  (when-let [mapped-concept-ids (seq (first (hermes/map-features svc [concept-id] refset-id)))]
+                  (when-let [mapped-concept-ids (seq (first (hermes/map-into svc [concept-id] refset-id)))]
                     (assoc context :result (flatten (map #(hermes/get-component-refset-items svc % refset-id) mapped-concept-ids))))))))})
 
 (def get-map-from
