@@ -26,7 +26,7 @@
            :run
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
-                          cheshire/cheshire              {:mvn/version "5.10.1"}
+                          org.clojure/data.json          {:mvn/version "2.4.0"}
                           ch.qos.logback/logback-classic {:mvn/version "1.2.10"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}

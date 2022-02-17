@@ -13,8 +13,7 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.hermes.cmd.server
-  (:require [cheshire.core :as json]
-            [cheshire.generate :as json-gen]
+  (:require [clojure.data.json :as json]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
@@ -26,9 +25,9 @@
             [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
-           (com.fasterxml.jackson.core JsonGenerator)
            (java.util Locale)
-           (com.eldrix.hermes.core Service)))
+           (com.eldrix.hermes.core Service)
+           (java.io PrintWriter)))
 
 (set! *warn-on-reflection* true)
 
@@ -47,9 +46,12 @@
   [context]
   (get-in context [:request :accept :field] "application/json"))
 
-(json-gen/add-encoder LocalDate
-                      (fn [^LocalDate o ^JsonGenerator out]
-                        (.writeString out (.format (DateTimeFormatter/ISO_DATE) o))))
+(defn write-local-date [^LocalDate o ^Appendable out _options]
+  (.append out \")
+  (.append out (.format (DateTimeFormatter/ISO_DATE) o))
+  (.append out \"))
+
+(extend LocalDate json/JSONWriter  {:-write write-local-date})
 
 (defn transform-content
   [body content-type]
@@ -57,7 +59,7 @@
     "text/html" body
     "text/plain" body
     "application/edn" (.getBytes (pr-str body) "UTF-8")
-    "application/json" (.getBytes (json/generate-string body) "UTF-8")))
+    "application/json" (.getBytes (json/write-str body) "UTF-8")))
 
 (defn coerce-to
   [response content-type]
@@ -68,10 +70,10 @@
 (def coerce-body
   {:name ::coerce-body
    :leave
-         (fn [context]
-           (if (get-in context [:response :headers "Content-Type"])
-             context
-             (update-in context [:response] coerce-to (accepted-type context))))})
+   (fn [context]
+     (if (get-in context [:response :headers "Content-Type"])
+       context
+       (update-in context [:response] coerce-to (accepted-type context))))})
 
 (defn inject-svc
   "A simple interceptor to inject terminology service 'svc' into the context."
@@ -83,10 +85,10 @@
   "Interceptor to render an entity '(:result context)' into the response."
   {:name :entity-render
    :leave
-         (fn [context]
-           (if-let [item (:result context)]
-             (assoc context :response (ok item))
-             context))})
+   (fn [context]
+     (if-let [item (:result context)]
+       (assoc context :response (ok item))
+       context))})
 
 (def service-error-handler
   (intc-err/error-dispatch
@@ -159,7 +161,7 @@
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
                 (if-let [rfs (seq (hermes/get-component-refset-items svc concept-id refset-id))]
-                  (assoc context :result rfs)  ;; return the results as concept found in refset
+                  (assoc context :result rfs)               ;; return the results as concept found in refset
                   ;; if concept not found, map into the refset and get the refset items for all mapped results
                   (when-let [mapped-concept-ids (seq (first (hermes/map-features svc [concept-id] refset-id)))]
                     (assoc context :result (flatten (map #(hermes/get-component-refset-items svc % refset-id) mapped-concept-ids))))))))})
