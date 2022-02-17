@@ -86,16 +86,16 @@
   [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(defn ^:deprecated get-reference-sets
-  "Deprecated; use `get-component-refset-items instead."
-  [^Service svc component-id]
-  (store/get-component-refsets (.-store svc) component-id))
-
 (defn get-component-refset-items
   ([^Service svc component-id]
    (store/get-component-refset-items (.-store svc) component-id))
   ([^Service svc component-id refset-id]
    (store/get-component-refset-items (.-store svc) component-id refset-id)))
+
+(defn ^:deprecated get-reference-sets
+  "DEPRECATED: use 'get-component-refset-items' instead."
+  [^Service svc component-id]
+  (get-component-refset-items svc component-id))
 
 (defn get-refset-item [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
