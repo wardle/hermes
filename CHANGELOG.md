@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## [0.9.369] - 2022-02-17
+
+* Bump to Lucene 9.0 - hermes now requires JDK 11 or newer.
+* Remove dependency on jackson JSON library (used by cheshire library) and 
+switch to using clojure.data.json
+* Bump other minor outdated dependencies (logback, trud).
+
 ## [0.9.362] - 2022-02-15
 
 * Support for mapping concepts into a defined subset of concepts.
