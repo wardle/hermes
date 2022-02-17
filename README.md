@@ -6,7 +6,7 @@
 
 [![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/hermes/)
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo&avg-wage=100000)](https://github.com/wardle/hermes/)
-[![CI](https://github.com/wardle/hermes/actions/workflows/main.yml/badge.svg)](https://github.com/wardle/hermes/actions/workflows/main.yml)
+[![CircleCI](https://circleci.com/gh/wardle/hermes.svg?style=shield)](https://circleci.com/gh/wardle/hermes)
 [![DOI](https://zenodo.org/badge/293230222.svg)](https://zenodo.org/badge/latestdoi/293230222)
 [![Clojars Project](https://img.shields.io/clojars/v/com.eldrix/hermes.svg)](https://clojars.org/com.eldrix/hermes)
 
