@@ -140,7 +140,7 @@
                                        (log/warn "Falling back to default of 'en-US'")
                                        (lang/match store "en-US")))]
         (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
-                                              {:priority-list language-priority-list :store-filename store-filename})))
+                                               {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
         (async/<!!                                          ;; block until pipeline complete
           (async/pipeline                                   ;; pipeline for side-effects
@@ -535,21 +535,21 @@
   (q-attribute-count 127489000 4 Integer/MAX_VALUE)."
   [property minimum maximum]
   (let [field (str "c" property)]
-  (cond
-    (< maximum minimum)
-    (throw (ex-info "Invalid range." {:property property :minimum minimum :maximum maximum}))
+    (cond
+      (< maximum minimum)
+      (throw (ex-info "Invalid range." {:property property :minimum minimum :maximum maximum}))
 
-    (and (> minimum 0) (= minimum maximum))
-    (IntPoint/newExactQuery field (int minimum))
+      (and (> minimum 0) (= minimum maximum))
+      (IntPoint/newExactQuery field (int minimum))
 
-    (> minimum 0)
-    (IntPoint/newRangeQuery field (int minimum) (int maximum))
+      (> minimum 0)
+      (IntPoint/newRangeQuery field (int minimum) (int maximum))
 
-    (and (= minimum 0) (= maximum 0))
-    (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
+      (and (= minimum 0) (= maximum 0))
+      (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
 
-    (and (= minimum 0) (> maximum 0))
-    (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 (int maximum))))))
+      (and (= minimum 0) (> maximum 0))
+      (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 (int maximum))))))
 
 (defn q-term [s] (make-tokens-query s))
 
