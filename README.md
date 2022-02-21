@@ -60,14 +60,18 @@ git clone https://github.com/wardle/hermes
 cd hermes
 ```   
 
-3. Download and install a distribution 
+3. Download and install one or more distributions 
 
-If you're a UK user and want to use automatic downloads, you can do this: 
+If you're a UK user and want to use automatic downloads, you can do this
 
 ```shell
 clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud
 ```
 Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
+
+This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend 
+installing both. 
 
 If you've downloaded a distribution manually, import like this:
 
