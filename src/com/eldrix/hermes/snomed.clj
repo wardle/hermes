@@ -45,9 +45,9 @@
            (java.util UUID)))
 
 
-(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
-(defn ^Boolean parse-bool [^String s] (if (= "1" s) true false))
-(defn ^UUID parse-uuid [^String s] (UUID/fromString s))
+(defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
+(defn- ^Boolean parse-bool [^String s] (if (= "1" s) true false))
+(defn- ^UUID unsafe-parse-uuid [^String s] (UUID/fromString s))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -268,7 +268,7 @@
 
 (defn parse-simple-refset-item [v]
   (->SimpleRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -298,7 +298,7 @@
 
 (defn parse-extended-refset-item [pattern v]
   (->ExtendedRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -308,7 +308,7 @@
 
 (defn parse-association-refset-item [v]
   (->AssociationRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -318,7 +318,7 @@
 
 (defn parse-language-refset-item [v]
   (->LanguageRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -328,7 +328,7 @@
 
 (defn parse-refset-descriptor-item [v]
   (->RefsetDescriptorRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -340,7 +340,7 @@
 
 (defn parse-simple-map-refset-item [v]
   (->SimpleMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -350,7 +350,7 @@
 
 (defn parse-complex-map-refset-item [v]
   (->ComplexMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -365,7 +365,7 @@
 
 (defn parse-extended-map-refset-item [v]
   (->ExtendedMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -382,7 +382,7 @@
 
 (defn parse-attribute-value-refset-item [v]
   (->AttributeValueRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -392,7 +392,7 @@
 
 (defn parse-owl-expression-refset-item [v]
   (->OWLExpressionRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
