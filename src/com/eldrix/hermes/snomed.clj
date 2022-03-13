@@ -582,6 +582,7 @@
 (def Defined 900000000000073002)                            ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
 (def FullySpecifiedName 900000000000003001)
 (def Synonym 900000000000013009)
+(def Definition 900000000000550004)
 (def Preferred 900000000000548007)
 (def Acceptable 900000000000549004)
 (def OnlyInitialCharacterCaseInsensitive 900000000000020002)
