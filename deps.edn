@@ -9,7 +9,7 @@
 
            com.eldrix/trud                          {:mvn/version "1.0.75"}
 
-           com.wsscode/pathom3                      {:mvn/version "2022.02.21-alpha"}
+           com.wsscode/pathom3                      {:mvn/version "2022.03.07-alpha"}
            expound/expound                          {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.10"}
 
@@ -20,7 +20,7 @@
            org.mapdb/mapdb                          {:mvn/version "3.0.8"}}
 
  :aliases {
-           :build {:deps       {io.github.clojure/tools.build {:git/tag "v0.7.7" :git/sha "1474ad6"}
+           :build {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}
                                 slipset/deps-deploy           {:mvn/version "RELEASE"}}
                    :ns-default build}
 
@@ -28,7 +28,7 @@
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
                           org.clojure/data.json          {:mvn/version "2.4.0"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.2.10"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
@@ -50,6 +50,9 @@
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
             :main-opts  ["-m" "antq.core"]}
+
+           :upgrade     {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+                         :main-opts  ["-m" "antq.core" "--upgrade"]}
 
            :check
            {:extra-deps {athos/clj-check
