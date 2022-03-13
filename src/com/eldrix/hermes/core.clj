@@ -507,7 +507,7 @@
 
 (comment
   (require '[portal.api :as p])
-  (def p (p/open ))
+  (def p (p/open))
   (add-tap #'p/submit) ; Add portal as a tap> target
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
@@ -526,8 +526,8 @@
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
 
   (reverse-map-range svc 447562003 "I")
-  (get-component-refset-items svc 24700007 447562003 )
-  (map :mapTarget (get-component-refset-items svc 24700007 447562003 ))
+  (get-component-refset-items svc 24700007 447562003)
+  (map :mapTarget (get-component-refset-items svc 24700007 447562003))
 
   (get-extended-concept svc 24700007)
   (subsumed-by? svc 24700007 6118003)   ;; demyelinating disease of the CNS
@@ -568,12 +568,11 @@
   (map #(vector (:conceptId %) (:term %)) (search svc {:s "complex map"}))
   (set/difference
     (set (map :referencedComponentId (reverse-map-range svc 999002271000000101 "G35")))
-    (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
-    )
+    (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
+
   (contains? (set (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))) 233886008)
   ;; G35 will contain MS, but not outdated deprecated SNOMED concepts such as 192928003
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-  (get-descriptions svc 24700007)
-  )
+  (get-descriptions svc 24700007))
