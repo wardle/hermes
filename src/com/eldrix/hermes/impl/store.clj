@@ -69,8 +69,8 @@
                      ^NavigableSet installedRefsets         ;; refsetId
                      ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
                      ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
-                     ^NavigableSet associations             ;; targetComponentId -- refsetId -- referencedComponentId - id
-                     ]
+                     ^NavigableSet associations]             ;; targetComponentId -- refsetId -- referencedComponentId - id
+
   Closeable
   (close [_] (.close db)))
 
@@ -815,7 +815,7 @@
   (count refsets)
   (count (get-leaves store refsets))
   (count (get-installed-reference-sets store))
-  (clojure.set/difference (set refsets) (set (get-installed-reference-sets store)))
+  (clojure.set/difference (set refsets) (set (get-installed-reference-sets store))))
 
-  )
+
 

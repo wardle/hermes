@@ -64,8 +64,8 @@
         (is (store/is-a? store 24700007 6118003))
         (is (store/is-a? store 24700007 138875005))
         (is (store/is-a? store 24700007 24700007))
-        (is (not (store/is-a? store 24700007 95320005)))    ;; it's not a disorder of the skin
-        ))))
+        (is (not (store/is-a? store 24700007 95320005)))))))    ;; it's not a disorder of the skin
+
 
 (deftest test-localisation
   (with-open [store (store/open-store "snomed.db/store.db")]
@@ -89,5 +89,4 @@
   (has-live-database?)
   (run-tests)
   (live-store)
-  (write-object-test)
-  )
+  (write-object-test))
