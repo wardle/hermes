@@ -2,11 +2,15 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Added synthetic SNOMED data generation
+* Much more complete automated testing using synthetic data
+
 ## [0.9.369] - 2022-02-17
 
 * Bump to Lucene 9.0 - hermes now requires JDK 11 or newer.
-* Remove dependency on jackson JSON library (used by cheshire library) and 
-switch to using clojure.data.json
+* Switch to using clojure.data.json for JSON export.
 * Bump other minor outdated dependencies (logback, trud).
 
 ## [0.9.362] - 2022-02-15
