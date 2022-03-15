@@ -74,7 +74,7 @@
 (s/def :info.snomed.Relationship/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/modifierId (s/with-gen :info.snomed.Concept/id
-                                                        (constantly (gen/return 900000000000451002))))
+                                                        #(gen/return 900000000000451002)))
 (s/def :info.snomed/Relationship (s/keys :req-un [:info.snomed.Relationship/id :info.snomed.Relationship/effectiveTime
                                                   :info.snomed.Relationship/active :info.snomed.Relationship/moduleId
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
