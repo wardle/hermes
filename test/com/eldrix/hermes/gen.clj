@@ -3,51 +3,16 @@
   distribution for testing."
   (:require [clojure.spec.alpha :as s]
             [clojure.test.check.generators :as gen]
-            [com.eldrix.hermes.verhoeff :as verhoeff]
+            [com.eldrix.hermes.rf2spec :as rf2]
             [com.eldrix.hermes.snomed :as snomed])
-  (:import [java.time LocalDate]
-           (com.eldrix.hermes.snomed Concept)
-           (java.util Locale)))
+  (:import (com.eldrix.hermes.snomed Concept)))
 
-(s/def ::component-type #{:info.snomed/Concept :info.snomed/Description :info.snomed/Relationship})
+(s/def ::moduleIds (s/coll-of :info.snomed.Concept/id))
 
-(s/fdef partitions-for-type
-  :args (s/cat :type ::component-type))
-(defn partitions-for-type [t]
-  (reduce-kv (fn [acc k v] (if (= t v) (conj acc k) acc)) #{} snomed/partitions))
-
-(defn gen-identifier
-  "A generator of identifiers of the specified type.
-  This may generate duplicate identifiers.
-  Parameters:
-  - t : one of :info.snomed/Concept :info.snomed.Description or
-        :info.snomed/Relatioship."
-  [t]
-  (gen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
-               (Long/parseLong (verhoeff/append (str % partition))))
-            (s/gen (s/int-in 100000 Long/MAX_VALUE))))
-
-(def gen-local-time
-  "Generator of a random java.time.LocalDate in the past."
-  (gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
-            (s/gen (s/int-in 1 (* 365 10)))))
-(s/def ::effectiveTime (s/with-gen #(instance? LocalDate %)
-                                   (fn [] gen-local-time)))
-
-;;;;
-;;;; RF2 concept specification
-;;;;
-(s/def :info.snomed.Concept/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Concept (snomed/identifier->type %)))
-                                           #(gen-identifier :info.snomed/Concept)))
-(s/def :info.snomed.Concept/effectiveTime ::effectiveTime)
-(s/def :info.snomed.Concept/active boolean?)
-(s/def :info.snomed.Concept/moduleId :info.snomed.Concept/id)
-(s/def :info.snomed.Concept/definitionStatusId #{snomed/Primitive snomed/Defined})
-(s/def :info.snomed/Concept (s/keys :req-un [:info.snomed.Concept/id ::effectiveTime ::active ::moduleId ::definitionStatusId]))
-
-(s/def ::moduleIds (s/coll-of ::id))
 (s/fdef make-concept
-  :args (s/cat :concept (s/keys* :opt-un [:info.snomed.Concept/id ::effectiveTime ::active ::moduleIds ::moduleId ::definitionStatusId]))
+  :args (s/cat :concept (s/keys* :opt-un [:info.snomed.Concept/id :info.snomed.Concept/effectiveTime
+                                          :info.snomed.Concept/active ::moduleIds :info.snomed.Concept/moduleId
+                                          :info.snomed.Concept/definitionStatusId]))
   :ret #(instance? Concept %))
 (defn make-concept
   "Make a SNOMED CT concept. Without arguments, a totally random concept will be
@@ -57,30 +22,13 @@
   As a convenience, you can provide a collection of moduleIds, and one will be
   selected at random."
   [& {:keys [_id _effectiveTime _active moduleIds _moduleId _definitionStatusId] :as concept}]
-  (snomed/map->Concept (merge {:id                 (gen/generate (gen-identifier :info.snomed/Concept))
-                               :effectiveTime      (gen/generate gen-local-time)
-                               :active             (gen/generate gen/boolean)
-                               :moduleId           (if-let [module-ids' (seq moduleIds)]
-                                                     (rand-nth module-ids')
-                                                     (gen/generate (gen-identifier :info.snomed/Concept)))
-                               :definitionStatusId (rand-nth [snomed/Primitive snomed/Defined])}
-                              (dissoc concept :moduleIds))))
+  (snomed/map->Concept (merge
+                         (gen/generate (s/gen :info.snomed/Concept))
+                         (when moduleIds {:moduleId (rand-nth (seq moduleIds))})
+                         (select-keys concept [:id :effectiveTime :active :moduleId :definitionStatusId]))))
 
-
-;;;;
-;;;; RF2 description specification. This ideally would be built dynamically from the metadata model
-;;;;
-(s/def :info.snomed.Description/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Description (snomed/identifier->type %)))
-                                               #(gen-identifier :info.snomed/Description)))
-(s/def :info.snomed.Description/effectiveTime ::effectiveTime)
-(s/def :info.snomed.Description/active boolean?)
-(s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
 (s/def ::moduleIds (s/coll-of :info.snomed.Description/moduleId))
-(s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def ::languageCodes (s/coll-of :info.snomed.Description/languageCode))
-(s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/and string? #(> (.length %) 0)))
-(s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/fdef make-description
   :args (s/cat :conceptId :info.snomed.Concept/id
                :description (s/keys* :opt-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
@@ -88,35 +36,62 @@
                                               :info.snomed.Description/languageCode ::languageCodes
                                               :info.snomed.Description/typeId :info.snomed.Description/term :info.snomed.Description/caseSignificanceId])))
 (defn make-description
-  "Make a SNOMED CT Description for the specified concept-id"
-  [conceptId & {:keys [id effectiveTime active moduleId moduleIds languageCode languageCodes typeId term caseSignificanceId]}]
-  (snomed/map->Description {:id                 (or id (gen/generate (gen-identifier :info.snomed/Description)))
-                            :effectiveTime      (or effectiveTime  (gen/generate gen-local-time))
-                            :active             (or active  (gen/generate gen/boolean))
-                            :moduleId           (or moduleId (if-let [module-ids' (seq moduleIds)]
-                                                               (rand-nth module-ids')
-                                                               (gen/generate (gen-identifier :info.snomed/Concept))))
-                            :conceptId          conceptId
-                            :languageCode       (or languageCode (if languageCodes
-                                                                   (rand-nth (seq languageCodes))
-                                                                   (gen/generate (s/gen :info.snomed.Description/languageCode))))
-                            :typeId             (or typeId (gen/generate (s/gen :info.snomed.Description/typeId)))
-                            :term               (or term (gen/generate (s/gen :info.snomed.Description/term)))
-                            :caseSignificanceId (or caseSignificanceId (gen/generate (s/gen :info.snomed.Description/caseSignificanceId)))}))
+  "Make a SNOMED CT Description for the specified concept-id."
+  [conceptId & {:keys [id effectiveTime active moduleId moduleIds languageCode languageCodes typeId term caseSignificanceId] :as description}]
+  (snomed/map->Description
+    (merge (gen/generate (s/gen :info.snomed/Description))
+           (when moduleIds {:moduleId (rand-nth (seq moduleIds))})
+           (when languageCodes {:languageCode (rand-nth (seq languageCodes))})
+           (select-keys description [:id :effectiveTime :active :moduleId :languageCode :typeId :term :caseSignificanceId])
+           {:conceptId conceptId})))
 
-;;;;
-;;;; RF2 relationship specification
-;;;;
 
-(s/def :info.snomed.Relationship/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                                #(gen-identifier :info.snomed/Relationship)))
+(s/fdef make-relationship
+  :args (s/cat :relationship (s/keys* :opt-un [:info.snomed.Relationship/id :info.snomed.Relationship/active
+                                               :info.snomed.Relationship/moduleId
+                                               :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
+                                               :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
+                                               :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId])))
+(defn make-relationship
+  "Make a SNOMED CT Relationship. It would be usual to at least specify
+  'sourceId' 'destinationId' and 'typeId'."
+  [& {:keys [id active moduleId sourceId destinationId relationshipGroup typeId characteristicTypeId modifierId] :as relationship}]
+  (snomed/map->Relationship (merge (gen/generate (s/gen :info.snomed/Relationship))
+                                   relationship)))
+
+(defn make-descriptions [{:keys [id] :as concept} & {:keys [n] :or {n (rand-int 12)} :as defaults}]
+  (let [descriptions (repeatedly n #(make-description id defaults))]
+    {:concept      concept
+     :descriptions descriptions}))
+
+(s/def ::n (s/with-gen nat-int?                             ;; we allow any natural integer,
+                       #(s/gen (s/int-in 1 12))))           ;; but generate only a small range for generative testing
+(s/fdef make-children
+  :args (s/cat :concept (s/keys :req-un [:info.snomed.Concept/id])
+               :defaults (s/keys :req-un [::n :info.snomed.Relationship/typeId])))
+(defn make-children
+  "Create 'n' or a random small number of child concepts for the concept."
+  [{:keys [id] :as concept} & {:keys [n typeId] :as defaults :or {n (rand-int 12) typeId snomed/IsA}}]
+  (let [concepts (repeatedly n #(make-concept defaults))
+        relationships (map #(make-relationship (merge defaults
+                                                      {:sourceId      (:id %)
+                                                       :destinationId id
+                                                       :typeId        typeId})) concepts)]
+    {:concept       concept
+     :concepts      concepts
+     :relationships relationships}))
 
 
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
+  (s/exercise-fn `make-children)
   (let [concept (make-concept)]
-    (repeatedly 5 #(make-description (.id concept) :languageCode "en" :moduleId (.moduleId concept))))
+    (repeatedly 5 #(make-description (.id concept) :languageCodes #{"en" "fr"} :moduleId (.moduleId concept))))
+  (make-relationship :active false)
+  (make-concept)
+  (make-children (make-concept :moduleId 24700007))
+  (make-descriptions (make-concept) :languageCode "en")
   (s/exercise-fn `make-concept)
   (s/exercise-fn `make-description)
   (clojure.spec.test.alpha/instrument)
