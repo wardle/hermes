@@ -924,6 +924,7 @@ clj -M:check
 
 ```
 clj -M:test
+clj -X:test/cloverage
 clj -M:lint/kondo
 clj -M:lint/eastwood
 ```
