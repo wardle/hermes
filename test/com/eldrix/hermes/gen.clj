@@ -4,8 +4,10 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.test.check.generators :as gen]
             [com.eldrix.hermes.rf2spec :as rf2]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Concept)))
+
 
 (s/def ::moduleIds (s/coll-of :info.snomed.Concept/id))
 
@@ -18,7 +20,9 @@
   "Make a SNOMED CT concept. Without arguments, a totally random concept will be
   generated. Any fields to be manually set can be provided. While elements
   could be modified after generation, using the constructor means that the
-  return value will be a concept.
+  return value will be a concept. Unfortunately, successive calls offer no
+  guarantees that concept ids will not be re-used. If generating large numbers
+  of concepts that must have unique concept-ids, use [[make-concepts]].
   As a convenience, you can provide a collection of moduleIds, and one will be
   selected at random."
   [& {:keys [_id _effectiveTime _active moduleIds _moduleId _definitionStatusId] :as concept}]
@@ -27,8 +31,23 @@
                          (when moduleIds {:moduleId (rand-nth (seq moduleIds))})
                          (select-keys concept [:id :effectiveTime :active :moduleId :definitionStatusId]))))
 
+
+(s/fdef make-concepts
+  :args (s/cat :defaults (s/keys* :opt-un [::n])))
+(defn make-concepts
+  "Creates a sequence of concepts with a guarantee that no concept generated
+   will have the same concept id as another. The actual number of concepts
+   generated may be much less than requested due to duplicates."
+  [& {:keys [n] :or {n (rand-int 50)}}]
+  (->> (repeatedly n make-concept)
+       (reduce (fn [acc v]
+                 (assoc acc (:id v) v)) {})
+       vals))
+
 (s/def ::moduleIds (s/coll-of :info.snomed.Description/moduleId))
 (s/def ::languageCodes (s/coll-of :info.snomed.Description/languageCode))
+(s/def ::n (s/with-gen nat-int?                             ;; we allow any natural integer,
+                       #(s/gen (s/int-in 1 12))))           ;; but generate only a small range for generative testing
 (s/fdef make-description
   :args (s/cat :conceptId :info.snomed.Concept/id
                :description (s/keys* :opt-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
@@ -37,14 +56,14 @@
                                               :info.snomed.Description/typeId :info.snomed.Description/term :info.snomed.Description/caseSignificanceId])))
 (defn make-description
   "Make a SNOMED CT Description for the specified concept-id."
-  [conceptId & {:keys [id effectiveTime active moduleId moduleIds languageCode languageCodes typeId term caseSignificanceId] :as description}]
+  [conceptId & {:keys [id effectiveTime active moduleId module-ids languageCode languageCodes typeId term term-prefix caseSignificanceId] :as description}]
   (snomed/map->Description
     (merge (gen/generate (s/gen :info.snomed/Description))
-           (when moduleIds {:moduleId (rand-nth (seq moduleIds))})
+           (when module-ids {:moduleId (rand-nth (seq module-ids))})
+           (when term-prefix {:term (str term-prefix (gen/generate (s/gen string?)))})
            (when languageCodes {:languageCode (rand-nth (seq languageCodes))})
            (select-keys description [:id :effectiveTime :active :moduleId :languageCode :typeId :term :caseSignificanceId])
            {:conceptId conceptId})))
-
 
 (s/fdef make-relationship
   :args (s/cat :relationship (s/keys* :opt-un [:info.snomed.Relationship/id :info.snomed.Relationship/active
@@ -59,32 +78,43 @@
   (snomed/map->Relationship (merge (gen/generate (s/gen :info.snomed/Relationship))
                                    relationship)))
 
-(defn make-descriptions [{:keys [id] :as concept} & {:keys [n] :or {n (rand-int 12)} :as defaults}]
-  (let [descriptions (repeatedly n #(make-description id defaults))]
-    {:concept      concept
-     :descriptions descriptions}))
-
-(s/def ::n (s/with-gen nat-int?                             ;; we allow any natural integer,
-                       #(s/gen (s/int-in 1 12))))           ;; but generate only a small range for generative testing
-(s/fdef make-children
+(s/fdef make-descriptions
   :args (s/cat :concept (s/keys :req-un [:info.snomed.Concept/id])
-               :defaults (s/keys :req-un [::n :info.snomed.Relationship/typeId])))
-(defn make-children
-  "Create 'n' or a random small number of child concepts for the concept."
-  [{:keys [id] :as concept} & {:keys [n typeId] :as defaults :or {n (rand-int 12) typeId snomed/IsA}}]
-  (let [concepts (repeatedly n #(make-concept defaults))
-        relationships (map #(make-relationship (merge defaults
-                                                      {:sourceId      (:id %)
-                                                       :destinationId id
-                                                       :typeId        typeId})) concepts)]
-    {:concept       concept
-     :concepts      concepts
-     :relationships relationships}))
+               :defaults (s/? (s/keys :opt-un [::n]))))
+(defn make-descriptions [{:keys [id]} & {:keys [n] :as defaults}]
+  (repeatedly (or n (inc (rand-int 12))) #(make-description id defaults)))
 
+(defn make-relationships [parent-concept-id concepts & {:keys [typeId] :or {typeId snomed/IsA} :as defaults}]
+  (map #(make-relationship (merge defaults
+                                  {:sourceId      (:id %)
+                                   :destinationId parent-concept-id
+                                   :typeId        typeId})) concepts))
+
+(defn make-simple-hierarchy []
+  (let [concepts (make-concepts :n 500)
+        root-concept (first concepts)
+        all-children (next concepts)
+        descriptions (mapcat #(make-descriptions %) concepts)
+        relationships (loop [parent-id (:id root-concept)
+                             batches (partition-all 20 all-children)
+                             relationships []]
+                        (let [batch (first batches)]
+                          (if-not batch
+                            relationships
+                            (recur (:id (rand-nth batch))
+                                   (next batches)
+                                   (into relationships (make-relationships parent-id batch :active true))))))]
+    {:root-concept root-concept
+     :concepts concepts
+     :descriptions descriptions
+     :relationships relationships}))
 
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
+  (def a1 (make-simple-hierarchy))
+  (count (:descriptions a1))
+  (count (set (map :id (:descriptions a1))))
   (s/exercise-fn `make-children)
   (let [concept (make-concept)]
     (repeatedly 5 #(make-description (.id concept) :languageCodes #{"en" "fr"} :moduleId (.moduleId concept))))

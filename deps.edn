@@ -1,6 +1,6 @@
 {:paths   ["src" "resources"]
 
- :deps    {org.clojure/clojure                      {:mvn/version "1.10.3"}
+ :deps    {org.clojure/clojure                      {:mvn/version "1.11.0-rc1"}
            org.clojure/core.async                   {:mvn/version "1.5.648"}
            org.clojure/data.csv                     {:mvn/version "1.0.0"}
            org.clojure/data.xml                     {:mvn/version "0.2.0-alpha6"}
@@ -65,10 +65,8 @@
 
            :test/cloverage
            {:extra-paths ["test"]
-            :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}}
-            :main-opts   ["-m" "cloverage.coverage"
-                          "--src-ns-path" "src"
-                          "--test-ns-path" "test"]
+            :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}
+                          org.clojure/test.check {:mvn/version "1.1.1"}}
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
                           :test-ns-path ["test"]}}

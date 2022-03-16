@@ -2,7 +2,7 @@
   "Specifications for the RF2 SNOMED format.
   See https://confluence.ihtsdotools.org/display/DOCRELFMT"
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.gen.alpha :as sgen]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
@@ -15,18 +15,26 @@
 (defn partitions-for-type [t]
   (reduce-kv (fn [acc k v] (if (= t v) (conj acc k) acc)) #{} snomed/partitions))
 
+(def counter (atom 0))
+
+(defn reset-identifier-counter []
+  (reset! counter 0))
+
+(def gen-unique
+  (sgen/fmap (fn [_] (swap! counter inc)) (sgen/return nil)))
+
 (defn gen-identifier
   "A generator of identifiers of the specified type.
   Parameters:
   - t : one of :info.snomed/Concept :info.snomed.Description or
         :info.snomed/Relatioship."
   [t]
-  (gen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
-               (Long/parseLong (verhoeff/append (str % partition))))
-            (s/gen (s/int-in 100000 Long/MAX_VALUE))))
+  (sgen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
+                (Long/parseLong (verhoeff/append (str % partition))))
+            gen-unique))
 
 (s/def ::effectiveTime (s/with-gen #(instance? LocalDate %)
-                                   #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
+                                   #(sgen/fmap (fn [days] (.minusDays (LocalDate/now) days))
                                               (s/gen (s/int-in 1 (* 365 10))))))
 
 ;;;;
@@ -70,11 +78,12 @@
 (s/def :info.snomed.Relationship/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/sourceId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/destinationId :info.snomed.Concept/id)
-(s/def :info.snomed.Relationship/relationshipGroup nat-int?)
+(s/def :info.snomed.Relationship/relationshipGroup (s/with-gen nat-int?
+                                                               #(s/gen (s/int-in 0 5))))
 (s/def :info.snomed.Relationship/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/modifierId (s/with-gen :info.snomed.Concept/id
-                                                        #(gen/return 900000000000451002)))
+                                                        #(sgen/return 900000000000451002)))
 (s/def :info.snomed/Relationship (s/keys :req-un [:info.snomed.Relationship/id :info.snomed.Relationship/effectiveTime
                                                   :info.snomed.Relationship/active :info.snomed.Relationship/moduleId
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
