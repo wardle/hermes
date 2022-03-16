@@ -20,7 +20,7 @@
 (defn reset-identifier-counter []
   (reset! counter 0))
 
-(def gen-unique
+(defn gen-unique []
   (sgen/fmap (fn [_] (swap! counter inc)) (sgen/return nil)))
 
 (defn gen-identifier
@@ -31,7 +31,7 @@
   [t]
   (sgen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
                 (Long/parseLong (verhoeff/append (str % partition))))
-            gen-unique))
+            (gen-unique)))
 
 (s/def ::effectiveTime (s/with-gen #(instance? LocalDate %)
                                    #(sgen/fmap (fn [days] (.minusDays (LocalDate/now) days))
