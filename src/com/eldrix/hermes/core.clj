@@ -46,7 +46,9 @@
   Closeable
   (close [_] (.close store) (.close index-reader)))
 
-(defn get-concept [^Service svc concept-id]
+(defn get-concept
+  "Return the concept with the specified identifier."
+  [^Service svc concept-id]
   (store/get-concept (.-store svc) concept-id))
 
 (defn get-extended-concept [^Service svc concept-id]
@@ -263,8 +265,10 @@
   Parameters:
   - svc                : hermes service
   - source-concept-ids : a collection of concept identifiers
-  - target             : a collection of concept identifiers, an ECL expression
-                       : or a refset identifier.
+  - target             : one of:
+                           - a collection of concept identifiers
+                           - an ECL expression
+                           - a refset identifier
 
   If a source concept id resolves to multiple concepts in the target collection,
   then a collection will be returned such that no member of the subset is
@@ -274,15 +278,17 @@
   active replacements, if they are now inactive.
 
   The use of 'map-into' is in reducing the granularity of user-entered
-  data to aid analytics. For example,rather than limiting data entry to the UK
+  data to aid analytics. For example, rather than limiting data entry to the UK
   emergency reference set, a set of commonly seen diagnoses in emergency
   departments in the UK, we can allow clinicians to enter highly specific,
   granular terms, and map to the contents of that reference set as required
   for analytics and reporting.
 
   For example, '991411000000109' is the UK emergency unit diagnosis refset:
+  ```
   (map-into svc [24700007 763794005] 991411000000109)
        =>  (#{24700007} #{45170000})
+  ```
   As multiple sclerosis (24700007) is in the reference set, it is returned.
   However, LGI1-associated limbic encephalitis (763794005) is not in the
   reference set, the best terms are returned (\"Encephalitis\" - 45170000).
@@ -292,8 +298,10 @@
   include 'neurological disease', 'respiratory disease' and
   'infectious disease':
 
+  ```
   (map-into svc [24700007 763794005 95883001] \"118940003 OR 50043002 OR 40733004\")
       => (#{118940003} #{118940003} #{40733004 118940003})
+  ```
   Both multiple sclerosis and LGI-1 encephalitis are types of neurological
   disease (118940003). However, 'Bacterial meningitis' (95883001) is mapped to
   both 'neurological disease' (118940003) AND 'infectious disease' (40733004)."
@@ -319,13 +327,15 @@
   "Returns counts of all historical association counts.
 
   Example result:
+  ```
     {900000000000526001 #{1},              ;; replaced by - always one
-    900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
-    900000000000524003 #{1},               ;; moved to - always 1
-    900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
-    900000000000528000 #{7 1 4 3 2 5},
-    900000000000530003 #{1 2},
-    900000000000525002 #{1 3 2}}."
+     900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
+     900000000000524003 #{1},               ;; moved to - always 1
+     900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
+     900000000000528000 #{7 1 4 3 2 5},
+     900000000000530003 #{1 2},
+     900000000000525002 #{1 3 2}}
+  ```"
   [^Service svc]
   (let [ch (async/chan 100 (remove :active))]
     (store/stream-all-concepts (.-store svc) ch)
@@ -359,9 +369,10 @@
 (defn some-indexed
   "Returns index and first logical true value of (pred x) in coll, or nil.
   e.g.
+  ```
   (some-indexed #{64572001} '(385093006 233604007 205237003 363169009 363170005 123946008 64572001 404684003 138875005))
-  returns:
-  [6 664572001]."
+  ```
+  returns: `[6 664572001]`"
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
