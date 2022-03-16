@@ -460,7 +460,12 @@
                    map-target-component
                    associations))))
 
-(defmulti write-batch :type)
+(defmulti write-batch
+  "Write a batch of SNOMED components to the store.
+  Parameters:
+  - batch - a map containing :type and :data keys
+  - store - SNOMED CT store implementation"
+  :type)
 (defmethod write-batch :info.snomed/Concept [batch store]
   (write-concepts store (:data batch)))
 (defmethod write-batch :info.snomed/Description [batch store]

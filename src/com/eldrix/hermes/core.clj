@@ -63,12 +63,16 @@
        (filter #(= snomed/Synonym (:typeId %)))))
 
 (defn get-all-parents
+  "Returns all parents of the specified concept. By design, this includes the
+  concept itself."
   ([^Service svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
   ([^Service svc concept-id type-id]
    (store/get-all-parents (.-store svc) concept-id type-id)))
 
 (defn get-all-children
+  "Return all children of the specified concept. By design, this includes the
+  concept itself."
   ([^Service svc concept-id]
    (store/get-all-children (.-store svc) concept-id))
   ([^Service svc concept-id type-id]
@@ -93,7 +97,7 @@
    (store/get-component-refset-items (.-store svc) component-id refset-id)))
 
 (defn ^:deprecated get-reference-sets
-  "DEPRECATED: use 'get-component-refset-items' instead."
+  "DEPRECATED: use [[get-component-refset-items]] instead."
   [^Service svc component-id]
   (get-component-refset-items svc component-id))
 
@@ -306,7 +310,7 @@
 
 
 (defn ^:deprecated map-features
-  "DEPRECATED: Use 'map-into' instead."
+  "DEPRECATED: Use [[map-into]] instead."
   [^Service svc source-concept-ids target]
   (map-into svc source-concept-ids target))
 
