@@ -20,11 +20,8 @@
   "Make a SNOMED CT concept. Without arguments, a totally random concept will be
   generated. Any fields to be manually set can be provided. While elements
   could be modified after generation, using the constructor means that the
-  return value will be a concept. Unfortunately, successive calls offer no
-  guarantees that concept ids will not be re-used. If generating large numbers
-  of concepts that must have unique concept-ids, use [[make-concepts]].
-  As a convenience, you can provide a collection of moduleIds, and one will be
-  selected at random."
+  return value will be a concept. As a convenience, you can provide a collection
+  of moduleIds, and one will be selected at random."
   [& {:keys [_id _effectiveTime _active moduleIds _moduleId _definitionStatusId] :as concept}]
   (snomed/map->Concept (merge
                          (gen/generate (s/gen :info.snomed/Concept))
