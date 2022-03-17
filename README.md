@@ -134,7 +134,8 @@ data can be centralised or distributed; when I do analytics, I can't see me
 making server round-trips for every check of subsumption! That would be 
 silly; I've been using SNOMED for analytics for longer than most; you need
 flexibility in provisioning terminology services. I want tooling that can both
- provide services at scale, while is capable of running on my home computer as well.
+provide services at scale, while is capable of running on my personal computers
+as well.
 
 Unlike other available terminology servers, `hermes` is lightweight and has no other dependencies 
 except a filesystem, which can be read-only when in operation.
