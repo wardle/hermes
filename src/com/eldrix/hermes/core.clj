@@ -18,6 +18,7 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.expression.scg :as scg]
@@ -258,6 +259,12 @@
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 
+(s/def ::svc any?)
+(s/fdef map-into
+  :args (s/cat :svc ::svc :source-concept-ids (s/coll-of :info.snomed.Concept/id)
+               :target (s/alt :ecl string?
+                              :refset-id :info.snomed.Concept/id
+                              :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset.
@@ -526,6 +533,10 @@
   (add-tap #'p/submit) ; Add portal as a tap> target
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
+  (get-all-children svc 24700007)
+  (require '[clojure.spec.alpha :as s])
+  (s/valid? :info.snomed/Concept (get-concept svc 24700007))
+
   (tap> (get-concept svc 24700007))
   (tap> (get-extended-concept svc 24700007))
   (search svc {:s "mult scl"})
