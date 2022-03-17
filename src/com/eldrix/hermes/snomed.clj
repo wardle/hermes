@@ -146,7 +146,7 @@
 ;;(i.e. not a valid  synonym in the language or  dialect ).
 ;; If a description becomes unacceptable, the relevant language reference set member is inactivated by adding a new
 ;; row with the same id, the effectiveTime of the change and the value active=0.
-;; For this reason there is no requirement for an "unacceptable" value."
+;; For this reason there is no requirement for an "unacceptable" value.
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4+Language+Reference+Set
 ;; - acceptabilityId is a subtype of 900000000000511003 |Acceptability| indicating whether the description is acceptable
 ;; or preferred for use in the specified language or dialect .
@@ -415,7 +415,7 @@
    :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset    parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset parse-attribute-value-refset-item
-   :info.snomed/OwlExpressionRefset  parse-owl-expression-refset-item})
+   :info.snomed/OWLExpressionRefset  parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -447,7 +447,7 @@
 (derive :info.snomed/ComplexMapRefset :info.snomed/MapRefset)
 (derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
-(derive :info.snomed/OwlExpressionRefset :info.snomed/Refset)
+(derive :info.snomed/OWLExpressionRefset :info.snomed/Refset)
 
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
@@ -460,7 +460,7 @@
 (derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
 (derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
-(derive OWLExpressionRefsetItem :info.snomed/OwlExpressionRefset)
+(derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
 
 
 (defrecord Result

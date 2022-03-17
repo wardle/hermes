@@ -361,7 +361,7 @@
 (defmethod write-refset-item :info.snomed/ExtendedMapRefset [^DataOutput out o]
   (.writeByte out 5)
   (write-extended-map-refset-item out o))
-(defmethod write-refset-item :info.snomed/OwlExpressionRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/OWLExpressionRefset [^DataOutput out o]
   (.writeByte out 6)
   (write-owl-expression-refset-item out o))
 (defmethod write-refset-item :info.snomed/AttributeValueRefset [^DataOutput out o]
@@ -399,6 +399,6 @@
   (LocalDate/ofEpochDay (.readLong in)))
 
 
-(comment
-  )
+(comment)
+
 
