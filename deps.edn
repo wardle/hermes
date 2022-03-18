@@ -15,20 +15,20 @@
 
            org.apache.lucene/lucene-core            {:mvn/version "9.0.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.0.0"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.0.0"}}}
+           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.0.0"}
 
            org.mapdb/mapdb                          {:mvn/version "3.0.8"}
 
            net.sourceforge.owlapi/owlapi-api        {:mvn/version "4.1.3"}
            net.sourceforge.owlapi/owlapi-impl       {:mvn/version "4.1.3"}
            net.sourceforge.owlapi/owlapi-apibinding {:mvn/version "4.1.3"}
-           org.semanticweb.elk/elk-owlapi           {:mvn/version "0.4.3"}
+           org.semanticweb.elk/elk-owlapi           {:mvn/version "0.4.3"}}
 
  :aliases {
            :build
            {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}
                          slipset/deps-deploy           {:mvn/version "RELEASE"}}
-            :ns-default build}}
+            :ns-default build}
 
            :run
            {:extra-paths ["cmd"]
@@ -72,12 +72,12 @@
             :main-opts  ["-m" "clj-check.check"]}
 
            :test/cloverage
-           {:extra-paths ["test"]}
-            :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}}
-                          org.clojure/test.check {:mvn/version "1.1.1"}
+           {:extra-paths ["test"]
+            :extra-deps  {cloverage/cloverage    {:mvn/version "RELEASE"}
+                          org.clojure/test.check {:mvn/version "1.1.1"}}
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
-                          :test-ns-path ["test"]}
+                          :test-ns-path ["test"]}}
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
@@ -85,4 +85,4 @@
 
            :lint/eastwood
            {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "cmd"]}]
-            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
+            :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
