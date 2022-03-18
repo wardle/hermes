@@ -52,7 +52,10 @@
   TODO: consider a registry so that client applications can register a
   different set of priorities for any specific locale if they know better
   than the defaults."
-  {"en-gb" [999001261000000100                              ;; NHS realm language (clinical part)
+
+  {"en-gb" [999000671000001103                              ;; UK dm+d
+            999000681000001101                              ;; UK drug extension
+            999001261000000100                              ;; NHS realm language (clinical part)
             999000691000001104                              ;; NHS realm language (pharmacy part)
             900000000000508004                              ;; Great Britain English language reference set
             999001251000000103]                             ;; United Kingdom Extension Great Britain English language reference set

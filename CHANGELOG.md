@@ -2,7 +2,40 @@
 
 This log documents significant changes for each release.
 
-## [0.8.2] - not yet released
+## Not yet released
+
+* Added synthetic SNOMED data generation
+* Much more complete automated testing using synthetic data
+
+## [0.9.369] - 2022-02-17
+
+* Bump to Lucene 9.0 - hermes now requires JDK 11 or newer.
+* Switch to using clojure.data.json for JSON export.
+* Bump other minor outdated dependencies (logback, trud).
+
+## [0.9.362] - 2022-02-15
+
+* Support for mapping concepts into a defined subset of concepts.
+* Add get-synonyms convenience function
+* Expose get-all-children at top-level API
+
+## [0.8.341] - 2022-01-22
+
+* Bump to Apache Lucene 8.11.0 - no API or index changes, but simply bug fixes
+* Add --allowed-origins option to server to enable configuration of CORS, if required
+* Add build via [tools.build](https://github.com/clojure/tools.build)
+* Add deployment to clojars.
+
+## [0.8.3] - 2021-11-04
+
+* More complete UK language refset priority list
+* Fail fast if there are any issues caught during processing (e.g. broken data such as invalid dates)
+* Optimisations to import, parsing and storage flow. Better handling of errors during import.
+* Fixed import of simple reference sets, including when 'Simple' not in summary field of filename
+* Tidied status output when importing data if no metadata found.
+* Added support for simple reference set extensions with flexible fields based on 's' 'c' or 'i' in filename for local customisation
+
+## [0.8.2] - 2021-10-31
 
 * status command now prints installed reference sets, and optionally counts of SNOMED data
 * add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already

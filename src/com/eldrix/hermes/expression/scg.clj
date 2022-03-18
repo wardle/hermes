@@ -55,8 +55,8 @@
   [expression-value]
   (let [conceptReference (zx/xml1-> expression-value :conceptReference parse-concept-reference)
         subExpression (zx/xml1-> expression-value :subExpression parse-subexpression)]
-    (if conceptReference conceptReference subExpression))
-  )
+    (if conceptReference conceptReference subExpression)))
+
 
 (defn- parse-attribute-value
   "attributeValue = expressionValue / QM stringValue QM / '#' numericValue / booleanValue"
@@ -94,8 +94,8 @@
         attributeGroup (zx/xml-> refinement :attributeGroup parse-attribute-group)]
     (concat
       (when (seq attributeSet) attributeSet)
-      (when (seq attributeGroup) attributeGroup)
-      )))
+      (when (seq attributeGroup) attributeGroup))))
+
 
 (defn- parse-subexpression
   "subExpression = focusConcept [ws \":\" ws refinement]"
@@ -161,8 +161,8 @@
                    :else (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value})))
     (number? value) (str "#" value)
     (boolean? value) (str value)
-    :else (str "\"" value "\"")
-    ))
+    :else (str "\"" value "\"")))
+
 
 (defn- render-refinement-set
   [config refinements]
@@ -199,5 +199,4 @@
     (str (:definitionStatus exp) " " (render-subexpression cfg (:subExpression exp)))))
 
 
-(comment
-  )
+(comment)

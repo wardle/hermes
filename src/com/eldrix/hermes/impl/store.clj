@@ -69,8 +69,8 @@
                      ^NavigableSet installedRefsets         ;; refsetId
                      ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
                      ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
-                     ^NavigableSet associations             ;; targetComponentId -- refsetId -- referencedComponentId - id
-                     ]
+                     ^NavigableSet associations]             ;; targetComponentId -- refsetId -- referencedComponentId - id
+
   Closeable
   (close [_] (.close db)))
 
@@ -460,7 +460,12 @@
                    map-target-component
                    associations))))
 
-(defmulti write-batch :type)
+(defmulti write-batch
+  "Write a batch of SNOMED components to the store.
+  Parameters:
+  - batch - a map containing :type and :data keys
+  - store - SNOMED CT store implementation"
+  :type)
 (defmethod write-batch :info.snomed/Concept [batch store]
   (write-concepts store (:data batch)))
 (defmethod write-batch :info.snomed/Description [batch store]
@@ -477,20 +482,14 @@
     (try
       (write-batch b store)
       (catch Exception e
-        (log/error "import error: failed to import row: " b)
-        (throw e)))))
+        (log/error "import error: failed to import data: " b)
+        (throw (ex-info "Import error" {:data b :exception (Throwable->map e)}))))))
 
-(defn write-batch-worker
-  "Write a batch from the channel 'c' specified into the backing store."
-  [store c]
-  (loop [batch (async/<!! c)]
-    (when batch
-      (try
-        (write-batch batch store)
-        (catch Exception _
-          (write-batch-one-by-one batch store)))
-      (recur (async/<!! c)))))
-
+(defn write-batch-with-fallback [batch store]
+  (try
+    (write-batch batch store)
+    (catch Exception _
+      (write-batch-one-by-one batch store))))
 
 ;;;;
 ;;;;
@@ -821,7 +820,7 @@
   (count refsets)
   (count (get-leaves store refsets))
   (count (get-installed-reference-sets store))
-  (clojure.set/difference (set refsets) (set (get-installed-reference-sets store)))
+  (clojure.set/difference (set refsets) (set (get-installed-reference-sets store))))
 
-  )
+
 

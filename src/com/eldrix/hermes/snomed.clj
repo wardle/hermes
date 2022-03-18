@@ -45,9 +45,9 @@
            (java.util UUID)))
 
 
-(defn ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
-(defn ^Boolean parse-bool [^String s] (if (= "1" s) true false))
-(defn ^UUID parse-uuid [^String s] (UUID/fromString s))
+(defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
+(defn- ^Boolean parse-bool [^String s] (if (= "1" s) true false))
+(defn- ^UUID unsafe-parse-uuid [^String s] (UUID/fromString s))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -103,6 +103,23 @@
                              ^long refsetId
                              ^long referencedComponentId])
 
+;; An ExtendedReferenceSet is an extension to the basic reference set member
+;; file format. This means we support dynamic data attached to a refset item.
+;; Each extended field is one of 'c' 'i' or 's' as defined in the filename pattern
+;; - 'c' : concept identifier - 64 bit positive integer
+;; - 'i' : signed integer
+;; - 's' : a UTF-8 string
+;; More detailed property information for each extended field is encoded in
+;; the associated refset descriptor structures.
+;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.1.2.+Extending+the+Basic+Reference+Set+Member+File+Format
+(defrecord ExtendedRefsetItem [^UUID id
+                               ^LocalDate effectiveTime
+                               ^boolean active
+                               ^long moduleId
+                               ^long refsetId
+                               ^long referencedComponentId
+                               fields])
+
 ;; An Association reference set is a reference set used to represent associations between components
 (defrecord AssociationRefsetItem [^UUID id
                                   ^LocalDate effectiveTime
@@ -129,7 +146,7 @@
 ;;(i.e. not a valid  synonym in the language or  dialect ).
 ;; If a description becomes unacceptable, the relevant language reference set member is inactivated by adding a new
 ;; row with the same id, the effectiveTime of the change and the value active=0.
-;; For this reason there is no requirement for an "unacceptable" value."
+;; For this reason there is no requirement for an "unacceptable" value.
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4+Language+Reference+Set
 ;; - acceptabilityId is a subtype of 900000000000511003 |Acceptability| indicating whether the description is acceptable
 ;; or preferred for use in the specified language or dialect .
@@ -251,16 +268,47 @@
 
 (defn parse-simple-refset-item [v]
   (->SimpleRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))))                                ;; referenced component Id
 
+(defn parse-using-pattern
+  "Parse the values 'v' using the pattern specification 'pattern'.
+  Parameters:
+  - pattern : a string containing characters c, i or s.
+  - values  : a sequence of values to be parsed.
+
+  Pattern definition
+  - c : A SNOMED CT component identifier (SCTID) referring to a concept, description or relationship.
+  - i : A signed integer
+  - s : A UTF-8 text string.
+  See https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention"
+  [pattern values]
+  (when-not (= (count pattern) (count values))
+    (throw (ex-info "length of pattern values not equal" {:pattern pattern :values values})))
+  (map (fn [[k v]]
+         (case k \c (Long/parseLong v)
+                 \i (Long/parseLong v)
+                 \s v
+                 (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
+       (zipmap (seq pattern) values)))
+
+(defn parse-extended-refset-item [pattern v]
+  (->ExtendedRefsetItem
+    (unsafe-parse-uuid (v 0))                               ;; component id
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))
+    (parse-using-pattern pattern (subvec v 6))))
+
 (defn parse-association-refset-item [v]
   (->AssociationRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -270,7 +318,7 @@
 
 (defn parse-language-refset-item [v]
   (->LanguageRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -280,7 +328,7 @@
 
 (defn parse-refset-descriptor-item [v]
   (->RefsetDescriptorRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -292,7 +340,7 @@
 
 (defn parse-simple-map-refset-item [v]
   (->SimpleMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -302,7 +350,7 @@
 
 (defn parse-complex-map-refset-item [v]
   (->ComplexMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -317,7 +365,7 @@
 
 (defn parse-extended-map-refset-item [v]
   (->ExtendedMapRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -334,7 +382,7 @@
 
 (defn parse-attribute-value-refset-item [v]
   (->AttributeValueRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -344,7 +392,7 @@
 
 (defn parse-owl-expression-refset-item [v]
   (->OWLExpressionRefsetItem
-    (parse-uuid (v 0))                                      ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -360,13 +408,14 @@
    ;; types of reference set
    :info.snomed/RefsetDescriptor     parse-refset-descriptor-item
    :info.snomed/SimpleRefset         parse-simple-refset-item
+   :info.snomed/ExtendedRefset       parse-extended-refset-item
    :info.snomed/AssociationRefset    parse-association-refset-item
    :info.snomed/LanguageRefset       parse-language-refset-item
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset    parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset parse-attribute-value-refset-item
-   :info.snomed/OwlExpressionRefset  parse-owl-expression-refset-item})
+   :info.snomed/OWLExpressionRefset  parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -378,9 +427,9 @@
   [batch]
   (when-not (s/valid? ::batch batch)
     (throw (ex-info "invalid batch:" (s/explain-data ::batch batch))))
-  (if-let [parse (get parsers (:type batch))]
+  (if-let [parser (or (:parser batch) (get parsers (:type batch)))]
     (try
-      (assoc batch :data (map parse (:data batch)))
+      (assoc batch :data (map parser (:data batch)))
       (catch Throwable e (println "error parsing:" (dissoc batch :data) e)))
     (throw (Exception. (str "no parser for batch type" (:type batch))))))
 
@@ -390,6 +439,7 @@
 (derive :info.snomed/Refset :info.snomed/Component)
 (derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
+(derive :info.snomed/ExtendedRefset :info.snomed/Refset)
 (derive :info.snomed/AssociationRefset :info.snomed/Refset)
 (derive :info.snomed/LanguageRefset :info.snomed/Refset)
 (derive :info.snomed/MapRefset :info.snomed/Refset)
@@ -397,19 +447,20 @@
 (derive :info.snomed/ComplexMapRefset :info.snomed/MapRefset)
 (derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
-(derive :info.snomed/OwlExpressionRefset :info.snomed/Refset)
+(derive :info.snomed/OWLExpressionRefset :info.snomed/Refset)
 
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
+(derive ExtendedRefsetItem :info.snomed/ExtendedRefset)
 (derive AssociationRefsetItem :info.snomed/AssociationRefset)
 (derive LanguageRefsetItem :info.snomed/LanguageRefset)
 (derive SimpleMapRefsetItem :info.snomed/SimpleMapRefset)
 (derive ComplexMapRefsetItem :info.snomed/ComplexMapRefset)
 (derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
-(derive OWLExpressionRefsetItem :info.snomed/OwlExpressionRefset)
+(derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
 
 
 (defrecord Result
@@ -429,8 +480,8 @@
   # content-sub-type - this element is optional entirely, so include a trailing underscore
   ((?<contentsubtype>
     (?<summary>
-      (?<refsettype>Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
-      SimpleMap|ComplexMap|ExtendedMap|RefsetDescriptor|ModuleDependency|DescriptionType|MRCMDomain|MRCMAttributeDomain|
+      (?<refsettype>SimpleMap|Simple|Ordered|AttributeValue|Language|Association|OrderedAssociation|Annotation|QuerySpecification|
+      ComplexMap|ExtendedMap|RefsetDescriptor|ModuleDependency|DescriptionType|MRCMDomain|MRCMAttributeDomain|
       MRCMAttributeRange|MRCMModuleScope|OWLExpression)?
       (?<summaryextra>.*?)?)?
     (?<releasetype>Full|Snapshot|Delta)(?<docstatus>Current|Draft|Review)?(-(?<languagecode>.*?))?)
@@ -456,20 +507,24 @@
         m (re-matcher snomed-file-pattern nm)]
     (when (.matches m)
       (let [entity (.group m "entity")
-            refset-type (.group m "refsettype")
+            pattern (.group m "pattern")
+            refset-type (or (.group m "refsettype")
+                            (when (= "Refset" entity)
+                              (if (str/blank? pattern) "Simple" "Extended")))
             component-name (str refset-type entity)
             identifier (when-not (str/blank? component-name) (keyword "info.snomed" component-name))]
         {:path              filename
          :filename          nm
          :component         component-name
          :identifier        identifier
-         :parser            (get parsers identifier)
+         :parser            (if (= "Extended" refset-type) (partial parse-extended-refset-item pattern)
+                                                           (get parsers identifier))
          :file-type         (.group m "filetype")
          :status            (.group m "status")
          :type              (.group m "type")
          :format            (.group m "format")
          :content-type      (.group m "contenttype")
-         :pattern           (.group m "pattern")
+         :pattern           pattern
          :entity            entity
          :content-subtype   (.group m "contentsubtype")
          :summary           (.group m "summary")
@@ -527,6 +582,7 @@
 (def Defined 900000000000073002)                            ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
 (def FullySpecifiedName 900000000000003001)
 (def Synonym 900000000000013009)
+(def Definition 900000000000550004)
 (def Preferred 900000000000548007)
 (def Acceptable 900000000000549004)
 (def OnlyInitialCharacterCaseInsensitive 900000000000020002)

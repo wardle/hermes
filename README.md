@@ -6,12 +6,13 @@
 
 [![Scc Count Badge](https://sloc.xyz/github/wardle/hermes)](https://github.com/wardle/hermes/)
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/hermes?category=cocomo&avg-wage=100000)](https://github.com/wardle/hermes/)
-[![CI](https://github.com/wardle/hermes/actions/workflows/main.yml/badge.svg)](https://github.com/wardle/hermes/actions/workflows/main.yml)
+[![CircleCI](https://circleci.com/gh/wardle/hermes.svg?style=shield)](https://circleci.com/gh/wardle/hermes)
 [![DOI](https://zenodo.org/badge/293230222.svg)](https://zenodo.org/badge/latestdoi/293230222)
+[![Clojars Project](https://img.shields.io/clojars/v/com.eldrix/hermes.svg)](https://clojars.org/com.eldrix/hermes)
 
 Hermes provides a set of terminology tools built around SNOMED CT including:
 
-* a fast RESTful terminology server with full-text search functionality; ideal for driving autocompletion in user interfaces
+* a fast terminology service with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
 * cross-mapping to and from other code systems
 * support for SNOMED CT compositional grammar and the SNOMED CT expression constraint language.
@@ -22,8 +23,7 @@ It is fast, both for import and for use. It imports and indexes the Internationa
 and UK editions of SNOMED CT in less than 5 minutes; you can have a server
 running seconds after that. 
 
-It replaces previous similar tools written in java and golang and is designed to fit into a wider architecture
-with identifier resolution, mapping and semantics as first-class abstractions.
+It replaces previous similar tools I wrote in java and golang and is designed to fit into a wider architecture with identifier resolution, mapping and semantics as first-class abstractions.
 
 Rather than a single monolithic terminology server, it is entirely reasonable to build
 multiple services, each providing an API around a specific edition or version of SNOMED CT,
@@ -60,14 +60,18 @@ git clone https://github.com/wardle/hermes
 cd hermes
 ```   
 
-3. Download and install a distribution 
+3. Download and install one or more distributions 
 
-If you're a UK user and want to use automatic downloads, you can do this: 
+If you're a UK user and want to use automatic downloads, you can do this
 
 ```shell
 clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud
 ```
 Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
+
+This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend 
+installing both. 
 
 If you've downloaded a distribution manually, import like this:
 
@@ -75,11 +79,16 @@ If you've downloaded a distribution manually, import like this:
 clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
+My tiny i5 'NUC' machine takes 4 minutes to import the UK edition of SNOMED CT and a further 2 minutes to import the UK dictionary
+of medicines and devices.
+
 4. Compact and index
 ```shell
 clj -J-Xmx8g -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
 ```
+
+My machine takes 6 seconds to compact the database and 2 minutes to build the search index. 
 
 5. Run a server!
 ```shell
@@ -125,7 +134,8 @@ data can be centralised or distributed; when I do analytics, I can't see me
 making server round-trips for every check of subsumption! That would be 
 silly; I've been using SNOMED for analytics for longer than most; you need
 flexibility in provisioning terminology services. I want tooling that can both
- provide services at scale, while is capable of running on my home computer as well.
+provide services at scale, while is capable of running on my personal computers
+as well.
 
 Unlike other available terminology servers, `hermes` is lightweight and has no other dependencies 
 except a filesystem, which can be read-only when in operation.
@@ -432,6 +442,35 @@ or
 ```
 clj -M:run --db snomed.db --port 8080 serve
 ```
+
+If you omit the serve command, or specify --help, `hermes` will show help text:
+
+```shell
+Usage: hermes [options] command [parameters]
+
+Options:
+  -p, --port PORT                       8080  Port number
+  -a, --bind-address BIND_ADDRESS             Address to bind
+      --allowed-origins "*" or ORIGINS        Set CORS policy, with "*" or comma-delimited hostnames
+  -d, --db PATH                               Path to database directory
+      --locale LOCALE                         Locale to use, if different from system
+  -v, --verbose
+  -h, --help
+
+Commands:
+ import [paths]             Import SNOMED distribution files
+ list [paths]               List importable files
+ download [provider] [opts] Download & install distribution from provider
+ index                      Build search index.
+ compact                    Compact database
+ serve                      Start a terminology server
+ status                     Displays status information
+```
+
+* --bind-address is optional. You may want to use --bind-address 0.0.0.0
+* --allowed-origins is optional. You could use --allowed-origins "*" or --allowed-origins example.com,example.net
+* --locale sets the default locale. This is used in building your search index and as a default if clients do not specify their preference
+
 
 Example usage of search endpoint. 
 
@@ -760,6 +799,9 @@ There are endpoints for crossmapping to and from SNOMED.
 
 Let's map one of our diagnostic terms into ICD-10:
 
+- `24700007` is multiple sclerosis.
+- `999002271000000101` is the ICD-10 UK complex map reference set.
+
 ```shell
 http -j localhost:8080/v1/snomed/concepts/24700007/map/999002271000000101
 ```
@@ -791,14 +833,77 @@ And of course, we can crossmap back to SNOMED as well:
 http -j localhost:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
+If you map a concept into a reference set that doesn't contain that concept, you'll
+automatically get the best parent matches instead.
+
+Here we have multiple sclerosis (`24700007`), and we're mapping into the UK emergency unit
+reference set (`991411000000109`):
+
+```shell
+http -j localhost:8080/v1/snomed/concepts/24700007/map/991411000000109
+```
+
+As multiple sclerosis in that reference set, you'll simply get:
+
+```json
+[
+    {
+        "active": true,
+        "effectiveTime": "2015-10-01",
+        "id": "d55ce305-3dcc-5723-8814-cd26486c37f7",
+        "moduleId": 999000021000000109,
+        "referencedComponentId": 24700007,
+        "refsetId": 991411000000109
+    }
+]
+```
+
+But what happens if we try something that isn't in that emergency reference set?
+
+Here is 'limbic encephalitis with LGI1 antibodies' (`763794005`). It isn't in
+that UK emergency unit reference set:
+
+
+```shell
+http -j localhost:8080/v1/snomed/concepts/763794005/map/991411000000109
+```
+Result:
+```json
+[
+    {
+        "active": true,
+        "effectiveTime": "2015-10-01",
+        "id": "5b3b8cdd-dd02-50e3-b207-bf4a3aa17694",
+        "moduleId": 999000021000000109,
+        "referencedComponentId": 45170000,
+        "refsetId": 991411000000109
+    }
+]
+```
+
+You get a more general concept - 'encephalitis' (`45170000`) that is in the
+emergency unit reference set. This makes it straightforward to map concepts
+into subsets of terms as defined by a reference set for analytics.
 
 #### 7. Embed into another application
+
+You can use git coordinates in a deps.edn file, or use maven: 
 
 In your `deps.edn` file (make sure you change the commit-id):
 ```
 [com.eldrix.hermes {:git/url "https://github.com/wardle/hermes.git"
                     :sha     "097e3094070587dc9362ca4564401a924bea952c"}
 ``` 
+
+In your pom.xml:
+
+```
+<dependency>
+  <groupId>com.eldrix</groupId>
+  <artifactId>hermes</artifactId>
+  <version>0.8.340</version>
+</dependency>
+```
 
 Or, build a library jar (see below)
 
@@ -808,7 +913,7 @@ The terminology server can be embedded into your own applications or, more
 commonly, you would use as a standalone web service. Further documentation
 will follow.
 
-### C. How to run or build from source code
+### C. How to build from source code
 
 #### Run compilation checks (optional)
 
@@ -820,16 +925,9 @@ clj -M:check
 
 ```
 clj -M:test
+clj -X:test/cloverage
 clj -M:lint/kondo
 clj -M:lint/eastwood
-```
-
-#### Run direct from the command-line
-
-You will get help text.
-
-```
-clj -M -m com.eldrix.hermes.core
 ```
 
 #### View outdated dependencies
@@ -847,15 +945,20 @@ clj -X:deps tree
 #### Building uberjar
 
 Build the uberjar:
-```
-clojure -X:uberjar
+```shell
+clojure -T:build uber
 ```
 
 #### Building library jar
 
 A library jar contains only hermes-code, and none of the bundled dependencies.  
 
-```
-clojure -X:jar
+```shell
+clojure -T:build jar
 ```
 
+Or you can install hermes into your local maven repository:
+
+```shell
+clojure -T:build install
+```

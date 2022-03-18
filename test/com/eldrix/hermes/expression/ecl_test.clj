@@ -108,7 +108,7 @@
    {:ecl "   <<  19829001 |Disorder of lung|  MINUS <<  301867009 |Edema of trunk|"}
    {:ecl " <<  19829001 |Disorder of lung|  MINUS <<  301867009 |Edema of trunk|"}
    {:ecl "<  404684003 |Clinical finding| :  116676008 |Associated morphology|  =\n         ((<<  56208002 |Ulcer|  AND <<  50960005 |Hemorrhage| ) MINUS <<  26036001 |Obstruction| )"}
-   {:ecl "   <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  != <<  26036001 |Obstruction|"}
+   {:ecl "   <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  != <<  26036001 |Obstruction|"}])
 
 
   ;; {:ecl ""}
@@ -116,7 +116,7 @@
   ;; {:ecl ""}
   ;; {:ecl ""}
 
-   ])
+
 
 (def not-yet-implemented
   ;; need to implement cardinality - see https://confluence.ihtsdotools.org/display/DOCECL/6.5+Exclusion+and+Not+Equals

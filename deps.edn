@@ -15,40 +15,44 @@
 
            org.apache.lucene/lucene-core            {:mvn/version "9.0.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.0.0"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.0.0"}
+           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.0.0"}}}
 
            org.mapdb/mapdb                          {:mvn/version "3.0.8"}
 
            net.sourceforge.owlapi/owlapi-api        {:mvn/version "4.1.3"}
            net.sourceforge.owlapi/owlapi-impl       {:mvn/version "4.1.3"}
            net.sourceforge.owlapi/owlapi-apibinding {:mvn/version "4.1.3"}
-           org.semanticweb.elk/elk-owlapi           {:mvn/version "0.4.3"}}
+           org.semanticweb.elk/elk-owlapi           {:mvn/version "0.4.3"}
 
  :aliases {
            :build
            {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}
                          slipset/deps-deploy           {:mvn/version "RELEASE"}}
-            :ns-default build}
+            :ns-default build}}
 
            :run
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.206"}
-                          cheshire/cheshire              {:mvn/version "5.10.1"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.2.6"}
-                          io.pedestal/pedestal.service   {:mvn/version "0.5.9"}
-                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.9"}}
+                          org.clojure/data.json          {:mvn/version "2.4.0"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.2.11"}
+                          io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
+                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
            :dev
-           {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.0"}
+           {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.1"}
                          criterium/criterium              {:mvn/version "0.4.6"}
-                         com.wsscode/pathom-viz-connector {:mvn/version "2021.10.16"}}}
+                         com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
+                         djblue/portal                    {:mvn/version "0.22.1"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
-            :extra-deps  {com.cognitect/test-runner
+            :extra-deps  {org.clojure/test.check
+                          {:mvn/version "1.1.1"}
+
+                          com.cognitect/test-runner
                           {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                           :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                           :sha     "cc75980b43011773162b485f46f939dc5fba91e4"}}
             :main-opts   ["-m" "cognitect.test-runner"
                           "-d" "test"]}
 
@@ -68,31 +72,17 @@
             :main-opts  ["-m" "clj-check.check"]}
 
            :test/cloverage
-           {:extra-paths ["test"]
-
-            :extra-deps  {cloverage/cloverage    {:mvn/version "RELEASE"}
-                          org.clojure/test.check {:mvn/version "1.1.1"}}
+           {:extra-paths ["test"]}
+            :extra-deps  {cloverage/cloverage {:mvn/version "RELEASE"}}
+                          org.clojure/test.check {:mvn/version "1.1.1"}
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
-                          :test-ns-path ["test"]}}
+                          :test-ns-path ["test"]}
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
             :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
            :lint/eastwood
-           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]
+           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "cmd"]}]
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
-
-           :jar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/jar
-            :exec-args    {:jar "target/hermes-lib.jar"}}
-
-           :uberjar
-           {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.303"}}
-            :exec-fn      hf.depstar/uberjar
-            :exec-args    {:jar        "target/hermes.jar"
-                           :aliases    [:run]
-                           :aot        true
-                           :main-class "com.eldrix.hermes.cmd.core"}}}}

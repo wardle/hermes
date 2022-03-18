@@ -1,12 +1,15 @@
 (ns com.eldrix.hermes.store-test
-  (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.impl.store :as store]
+  (:require [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer :all]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
-            [clojure.tools.logging.readable :as log])
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.time LocalDate)
-           (java.io File)
-           (org.mapdb Serializer)))
+           (java.io File)))
+
+(stest/instrument)
 
 (deftest simple-store
   (with-open [st (store/open-store)]
@@ -29,7 +32,7 @@
       (is (= description (store/get-fully-specified-name st 24700007))))))
 
 
-(deftest write-object-test
+(deftest write-concept-test
   (with-open [st (store/open-store)]
     (is (nil? (store/get-concept st 24700007)))
     (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 1 0)]
@@ -45,6 +48,24 @@
         (store/write-batch {:type :info.snomed/Concept
                             :data [newer-concept]} st)
         (is (= newer-concept (store/get-concept st 24700007)))))))
+
+
+(deftest write-components-test
+  (with-open [st (store/open-store)]
+    (let [{:keys [root-concept concepts descriptions relationships]} (hgen/make-simple-hierarchy)
+          descriptions-by-concept-id (reduce (fn [acc v] (update acc (:conceptId v) conj v)) {} descriptions)]
+      (store/write-batch {:type :info.snomed/Concept :data concepts} st)
+      (store/write-batch {:type :info.snomed/Description :data descriptions} st)
+      (store/write-batch {:type :info.snomed/Relationship :data relationships} st)
+      (testing "Concept read/write"
+        (is (every? true? (map #(= % (store/get-concept st (:id %))) concepts))))
+      (testing "Concept descriptions"
+        (is (every? true? (map #(= % (store/get-description st (:id %))) descriptions)))
+        (is (every? true? (map #(= (set (get descriptions-by-concept-id (:id %))) (set (store/get-concept-descriptions st (:id %)))) concepts))))
+      (testing "Concept relationships"
+        (is (every? true? (map #(= % (store/get-relationship st (:id %))) relationships)))
+        (is (every? true? (map #(store/is-a? st % (:id root-concept)) concepts)))
+        (is (= (set (map :id concepts)) (store/get-all-children st (:id root-concept))))))))
 
 (defn has-live-database? []
   (.exists (File. "snomed.db/store.db")))
@@ -65,8 +86,8 @@
         (is (store/is-a? store 24700007 6118003))
         (is (store/is-a? store 24700007 138875005))
         (is (store/is-a? store 24700007 24700007))
-        (is (not (store/is-a? store 24700007 95320005)))    ;; it's not a disorder of the skin
-        ))))
+        (is (not (store/is-a? store 24700007 95320005))))))) ;; it's not a disorder of the skin
+
 
 (deftest test-localisation
   (with-open [store (store/open-store "snomed.db/store.db")]
@@ -80,6 +101,8 @@
 
 (defn test-ns-hook []
   (simple-store)
+  (write-concept-test)
+  (write-components-test)
   (if-not (has-live-database?)
     (log/warn "Skipping live tests as no live database 'snomed.db' found.")
     (do (live-store)
@@ -90,5 +113,5 @@
   (has-live-database?)
   (run-tests)
   (live-store)
-  (write-object-test)
-  )
+  (write-concept-test)
+  (write-components-test))

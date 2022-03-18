@@ -40,8 +40,8 @@
                 "Neoplasm of anterior aspect of epiglottis" "900000000000020002"]]}
    {:filename "sct2_Relationship_Full_INT_20180131.txt"
     :type     :info.snomed/Relationship
-    :data     [["100022" "20020131" "1" "900000000000207008" "100000000" "102272007" "0" "116680003" "900000000000011006" "900000000000451002"]]}
-   ])
+    :data     [["100022" "20020131" "1" "900000000000207008" "100000000" "102272007" "0" "116680003" "900000000000011006" "900000000000451002"]]}])
+
 
 (deftest test-valid?
   (let [ms (snomed/->Concept 24700007 (LocalDate/now) true 0 0)]
@@ -69,64 +69,105 @@
 
 
 (def example-filenames
-  [{:filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
-   :component "OWLExpressionRefset"
-   :identifier :info.snomed/OWLExpressionRefset
-   :release-type "Snapshot"
-   :content "Refset"
-   :summary "OwlExpression"}
-  {:filename "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt"
-   :format "2"
-   :content-subtype "AssociationSnapshot"
-   :namespace-id "1000000"
-   :content "Refset"
-   :country-code "GB"
-   :type "der"
-   :component "AssociationRefset"
-   :summary "Association"
-   :file-type "der2"
-   :release-type "Snapshot"
-   :identifier :info.snomed/AssociationRefset
-   :file-extension "txt"
-   :content-type "cRefset"
-   :country-namespace "GB1000000"
-   :pattern "c"}
-  {:filename "sct2_Concept_UKEDSnapshot_GB_20210512.txt"
-   :format "2"
-   :content-subtype "Snapshot"
-   :namespace-id ""
-   :content "Concept"
-   :doc-status nil
-   :country-code "GB"
-   :type "sct"
-   :component "Concept"
-   :file-type "sct2"
-   :release-type "Snapshot"
-   :language-code nil
-   :identifier :info.snomed/Concept
-   :file-extension "txt"
-   :content-type "Concept"
-   :country-namespace "GB"
-   :pattern ""}
-  {:filename "sct2_Concept_Snapshot_GB1000000_20180401.txt"
-   :format "2"
-   :content-subtype "Snapshot"
-   :namespace-id "1000000",
-   :content "Concept",
-   :doc-status nil,
-   :country-code "GB",
-   :type "sct",
-   :component "Concept",
-   :summary "",
-   :status "",
-   :file-type "sct2",
-   :release-type "Snapshot",
-   :language-code nil,
-   :identifier :info.snomed/Concept,
-   :file-extension "txt",
-   :content-type "Concept",
-   :country-namespace "GB1000000",
-   :pattern ""}])
+  [{:filename     "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
+    :component    "OWLExpressionRefset"
+    :identifier   :info.snomed/OWLExpressionRefset
+    :release-type "Snapshot"
+    :content      "Refset"
+    :summary      "OwlExpression"}
+   {:filename          "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt"
+    :format            "2"
+    :content-subtype   "AssociationSnapshot"
+    :namespace-id      "1000000"
+    :content           "Refset"
+    :country-code      "GB"
+    :type              "der"
+    :component         "AssociationRefset"
+    :summary           "Association"
+    :file-type         "der2"
+    :release-type      "Snapshot"
+    :identifier        :info.snomed/AssociationRefset
+    :file-extension    "txt"
+    :content-type      "cRefset"
+    :country-namespace "GB1000000"
+    :pattern           "c"}
+   {:filename          "sct2_Concept_UKEDSnapshot_GB_20210512.txt"
+    :format            "2"
+    :content-subtype   "Snapshot"
+    :namespace-id      ""
+    :content           "Concept"
+    :doc-status        nil
+    :country-code      "GB"
+    :type              "sct"
+    :component         "Concept"
+    :file-type         "sct2"
+    :release-type      "Snapshot"
+    :language-code     nil
+    :identifier        :info.snomed/Concept
+    :file-extension    "txt"
+    :content-type      "Concept"
+    :country-namespace "GB"
+    :pattern           ""}
+   {:filename          "sct2_Concept_Snapshot_GB1000000_20180401.txt"
+    :format            "2"
+    :content-subtype   "Snapshot"
+    :namespace-id      "1000000",
+    :content           "Concept",
+    :doc-status        nil,
+    :country-code      "GB",
+    :type              "sct",
+    :component         "Concept",
+    :summary           "",
+    :status            "",
+    :file-type         "sct2",
+    :release-type      "Snapshot",
+    :language-code     nil,
+    :identifier        :info.snomed/Concept,
+    :file-extension    "txt",
+    :content-type      "Concept",
+    :country-namespace "GB1000000",
+    :pattern           ""}
+   {:filename          "der2_Refset_cardiologySnapshot_IN1000189_20210806.txt"
+    :format            "2"
+    :content-subtype   "Snapshot"
+    :namespace-id      "1000189"
+    :content           "Refset"
+    :doc-status        nil
+    :country-code      "IN"
+    :type              "der"
+    :component         "Refset"
+    :summary           ""
+    :status            ""
+    :file-type         "der2"
+    :release-type      "Snapshot"
+    :language-code     nil
+    :identifier        :info.snomed/SimpleRefset
+    :file-extension    "txt"
+    :content-type      "Refset"
+    :country-namespace "IN1000189"
+    :pattern           ""}
+   {:filename          "der2_sRefset_VTMSpainDrugSnapshot_es-ES_ES_20211001.txt"
+    :format            "2"
+    :content-subtype   "Snapshot"
+    :namespace-id      nil
+    :content           "Refset"
+    :doc-status        nil
+    :country-code      "ES"
+    :type              "der"
+    :component         "Refset"
+    :summary           ""
+    :status            ""
+    :file-type         "der2"
+    :release-type      "Snapshot"
+    :language-code     "es-ES"
+    :identifier        :info.snomed/ExtendedRefset
+    :file-extension    "txt"
+    :content-type      "Refset"
+    :country-namespace nil
+    :pattern           "s"}
+   {:filename   "der2_sRefset_SimpleMapSnapshot_INT_20210131.txt"
+    :format     "2"
+    :identifier :info.snomed/SimpleMapRefset}])
 
 ;; Since May 2021, the UK has taken the egregious step of shoehorning a random
 ;; identifier into the filename to say where the file used to exist!
@@ -142,4 +183,5 @@
   (snomed/parse-snomed-filename "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt")
   (snomed/parse-snomed-filename "sct2_Concept_UKEDSnapshot_GB_20210512.txt")
   (snomed/parse-snomed-filename "sct2_Concept_Snapshot_GB1000000_20180401.txt")
-  )
+  (snomed/parse-snomed-filename "der2_sRefset_SimpleMapSnapshot_INT_20210131.txt"))
+

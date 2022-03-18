@@ -18,6 +18,7 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.expression.scg :as scg]
@@ -34,7 +35,8 @@
            (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDateTime)
-           (java.io Closeable)))
+           (java.io Closeable)
+           (java.util.concurrent Executors Future)))
 
 (set! *warn-on-reflection* true)
 
@@ -45,7 +47,9 @@
   Closeable
   (close [_] (.close store) (.close index-reader)))
 
-(defn get-concept [^Service svc concept-id]
+(defn get-concept
+  "Return the concept with the specified identifier."
+  [^Service svc concept-id]
   (store/get-concept (.-store svc) concept-id))
 
 (defn get-extended-concept [^Service svc concept-id]
@@ -55,26 +59,50 @@
 (defn get-descriptions [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
+(defn get-synonyms
+  "Returns a collection of synonyms for the given concept."
+  [^Service svc concept-id]
+  (->> (get-descriptions svc concept-id)
+       (filter #(= snomed/Synonym (:typeId %)))))
+
 (defn get-all-parents
+  "Returns all parents of the specified concept. By design, this includes the
+  concept itself."
   ([^Service svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
   ([^Service svc concept-id type-id]
-  (store/get-all-parents (.-store svc) concept-id type-id)))
+   (store/get-all-parents (.-store svc) concept-id type-id)))
 
-(defn get-parent-relationships-of-type [^Service svc concept-id type-concept-id]
+(defn get-all-children
+  "Return all children of the specified concept. By design, this includes the
+  concept itself."
+  ([^Service svc concept-id]
+   (store/get-all-children (.-store svc) concept-id))
+  ([^Service svc concept-id type-id]
+   (store/get-all-children (.-store svc) concept-id type-id)))
+
+(defn get-parent-relationships-of-type
+  "Returns a collection of identifiers representing the parent relationships of
+  the specified type of the specified concept."
+  [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(defn get-child-relationships-of-type [^Service svc concept-id type-concept-id]
+(defn get-child-relationships-of-type
+  "Returns a collection of identifiers representing the child relationships of
+  the specified type of the specified concept."
+  [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
-
-(defn get-reference-sets [^Service svc component-id]
-  (store/get-component-refsets (.-store svc) component-id))
 
 (defn get-component-refset-items
   ([^Service svc component-id]
    (store/get-component-refset-items (.-store svc) component-id))
   ([^Service svc component-id refset-id]
    (store/get-component-refset-items (.-store svc) component-id refset-id)))
+
+(defn ^:deprecated get-reference-sets
+  "DEPRECATED: use [[get-component-refset-items]] instead."
+  [^Service svc component-id]
+  (get-component-refset-items svc component-id))
 
 (defn get-refset-item [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
@@ -143,10 +171,14 @@
 (defn get-installed-reference-sets [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
-(defn reverse-map [^Service svc refset-id code]
+(defn reverse-map
+  "Returns the reverse mapping from the reference set and mapTarget specified."
+  [^Service svc refset-id code]
   (store/get-reverse-map (.-store svc) refset-id code))
 
 (defn reverse-map-range
+  "Returns the reverse mapping from the reference set specified, performing
+  what is essentially a prefix search using the parameters."
   ([^Service svc refset-id prefix]
    (store/get-reverse-map-range (.-store svc) refset-id prefix))
   ([^Service svc refset-id lower-bound upper-bound]
@@ -184,7 +216,7 @@
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
     (search/do-search (.-searcher svc) params)))
 
-(defn synonyms [^Service svc params]
+(defn all-transitive-synonyms [^Service svc params]
   (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
 
 (defn expand-ecl
@@ -219,18 +251,98 @@
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 
 
+(defn get-refset-members
+  "Return a set of identifiers for the members of the given refset(s).
+  Parameters:
+  - refset-id  - SNOMED identifier representing the reference set."
+  [^Service svc refset-id & more]
+  (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
+    (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
+
+(s/def ::svc any?)
+(s/fdef map-into
+  :args (s/cat :svc ::svc :source-concept-ids (s/coll-of :info.snomed.Concept/id)
+               :target (s/alt :ecl string?
+                              :refset-id :info.snomed.Concept/id
+                              :concepts (s/coll-of :info.snomed.Concept/id))))
+(defn map-into
+  "Map the source-concept-ids into the target, usually in order to reduce the
+  dimensionality of the dataset.
+
+  Parameters:
+  - svc                : hermes service
+  - source-concept-ids : a collection of concept identifiers
+  - target             : one of:
+                           - a collection of concept identifiers
+                           - an ECL expression
+                           - a refset identifier
+
+  If a source concept id resolves to multiple concepts in the target collection,
+  then a collection will be returned such that no member of the subset is
+  subsumed by another member.
+
+  It would be usual to map any source concept identifiers into their modern
+  active replacements, if they are now inactive.
+
+  The use of 'map-into' is in reducing the granularity of user-entered
+  data to aid analytics. For example, rather than limiting data entry to the UK
+  emergency reference set, a set of commonly seen diagnoses in emergency
+  departments in the UK, we can allow clinicians to enter highly specific,
+  granular terms, and map to the contents of that reference set as required
+  for analytics and reporting.
+
+  For example, '991411000000109' is the UK emergency unit diagnosis refset:
+  ```
+  (map-into svc [24700007 763794005] 991411000000109)
+       =>  (#{24700007} #{45170000})
+  ```
+  As multiple sclerosis (24700007) is in the reference set, it is returned.
+  However, LGI1-associated limbic encephalitis (763794005) is not in the
+  reference set, the best terms are returned (\"Encephalitis\" - 45170000).
+
+  This can be used to do simple classification tasks - such as determining
+  the broad types of illness. For example, here we use ECL to define a set to
+  include 'neurological disease', 'respiratory disease' and
+  'infectious disease':
+
+  ```
+  (map-into svc [24700007 763794005 95883001] \"118940003 OR 50043002 OR 40733004\")
+      => (#{118940003} #{118940003} #{40733004 118940003})
+  ```
+  Both multiple sclerosis and LGI-1 encephalitis are types of neurological
+  disease (118940003). However, 'Bacterial meningitis' (95883001) is mapped to
+  both 'neurological disease' (118940003) AND 'infectious disease' (40733004)."
+  [^Service svc source-concept-ids target]
+  (let [target-concept-ids
+        (cond (string? target)
+              (into #{} (map :conceptId (expand-ecl svc target)))
+              (coll? target)
+              (set target)
+              (number? target) (get-refset-members svc target))]
+    (->> source-concept-ids
+         (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
+         (map #(store/get-leaves (.-store svc) %)))))
+
+
+(defn ^:deprecated map-features
+  "DEPRECATED: Use [[map-into]] instead."
+  [^Service svc source-concept-ids target]
+  (map-into svc source-concept-ids target))
+
 ;;
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
 
   Example result:
+  ```
     {900000000000526001 #{1},              ;; replaced by - always one
-    900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
-    900000000000524003 #{1},               ;; moved to - always 1
-    900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
-    900000000000528000 #{7 1 4 3 2 5},
-    900000000000530003 #{1 2},
-    900000000000525002 #{1 3 2}}."
+     900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
+     900000000000524003 #{1},               ;; moved to - always 1
+     900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
+     900000000000528000 #{7 1 4 3 2 5},
+     900000000000530003 #{1 2},
+     900000000000525002 #{1 3 2}}
+  ```"
   [^Service svc]
   (let [ch (async/chan 100 (remove :active))]
     (store/stream-all-concepts (.-store svc) ch)
@@ -264,9 +376,10 @@
 (defn some-indexed
   "Returns index and first logical true value of (pred x) in coll, or nil.
   e.g.
+  ```
   (some-indexed #{64572001} '(385093006 233604007 205237003 363169009 363170005 123946008 64572001 404684003 138875005))
-  returns:
-  [6 664572001]."
+  ```
+  returns: `[6 664572001]`"
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
@@ -329,9 +442,21 @@
   [store-filename dir]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         store (store/open-store store-filename {:read-only? false})
+        cancel-c (async/chan)
         data-c (importer/load-snomed dir)
-        done (importer/create-workers nthreads store/write-batch-worker store data-c)]
-    (async/<!! done)
+        pool (Executors/newFixedThreadPool nthreads)
+        tasks (repeat nthreads
+                      (fn [] (try (loop [batch (async/alts!! [cancel-c data-c])]
+                                    (when batch
+                                      (store/write-batch-with-fallback batch store)
+                                      (recur (async/<!! data-c))))
+                                  (catch Throwable e
+                                    (async/close! cancel-c) e))))]
+    (doseq [future (.invokeAll pool tasks)]
+      (when-let [e (.get ^Future future)]
+        (when-not (instance? InterruptedException e)        ;; only show the original cause
+          (throw (ex-info (str "Error during import: " (.getMessage ^Throwable e)) (Throwable->map e))))))
+    (.shutdown pool)
     (store/close store)))
 
 (defn log-metadata [dir]
@@ -377,7 +502,7 @@
                                 language-priority-list)
      (log/info "Building search index... complete."))))
 
-(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}} ]
+(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
   (let [manifest (open-manifest root)]
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
       (log/info "Status information for database at '" root "'...")
@@ -403,11 +528,38 @@
 
 
 (comment
+  (require '[portal.api :as p])
+  (def p (p/open))
+  (add-tap #'p/submit) ; Add portal as a tap> target
   (def svc (open "snomed.db"))
+  (get-concept svc 24700007)
+  (get-all-children svc 24700007)
+  (require '[clojure.spec.alpha :as s])
+  (s/valid? :info.snomed/Concept (get-concept svc 24700007))
+
+  (tap> (get-concept svc 24700007))
+  (tap> (get-extended-concept svc 24700007))
+  (search svc {:s "mult scl"})
+  (tap> (search svc {:s "mult scl"}))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
+
+  (search svc {:s "ICD-10 complex map"})
+  (->> (reverse-map-range svc 447562003 "I30")
+       (map :referencedComponentId)
+       (map #(:term (get-preferred-synonym svc % "en"))))
+
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
-  (reverse-map svc 900000000000497000 "A130.")
+
+  (reverse-map-range svc 447562003 "I")
+  (get-component-refset-items svc 24700007 447562003)
+  (map :mapTarget (get-component-refset-items svc 24700007 447562003))
+
+  (get-extended-concept svc 24700007)
+  (subsumed-by? svc 24700007 6118003)   ;; demyelinating disease of the CNS
+
+  (are-any? svc [24700007] [45454])
+
 
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
@@ -442,11 +594,11 @@
   (map #(vector (:conceptId %) (:term %)) (search svc {:s "complex map"}))
   (set/difference
     (set (map :referencedComponentId (reverse-map-range svc 999002271000000101 "G35")))
-    (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
-    )
+    (set (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
+
   (contains? (set (map :referencedComponentId (reverse-map-range svc 447562003 "I30"))) 233886008)
   ;; G35 will contain MS, but not outdated deprecated SNOMED concepts such as 192928003
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-  )
+  (get-descriptions svc 24700007))
