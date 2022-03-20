@@ -623,5 +623,4 @@
   (do-query-for-concepts searcher (q-or [(make-search-query {:inactive-concepts? true})]))
   (.clauses (make-search-query {:inactive-concepts? true}))
   (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
-  (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0))
-  )
+  (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0)))
