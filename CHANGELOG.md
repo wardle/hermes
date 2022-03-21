@@ -2,10 +2,13 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [0.9.408] - 2022-03-21
 
 * Added synthetic SNOMED data generation
 * Much more complete automated testing using synthetic data
+* Added greater instrumentation when in development or testing
+* Add import of OWL reference set types 
+* Fix accept-language parsing and fallback in http server
 
 ## [0.9.369] - 2022-02-17
 
