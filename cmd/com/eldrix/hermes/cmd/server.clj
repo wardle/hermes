@@ -118,7 +118,7 @@
             (let [svc (get-in context [:request ::service])]
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
                 (when-let [concept (hermes/get-extended-concept svc concept-id)]
-                  (let [langs (or (get-in context [:request :headers "accept-language"] (.toLanguageTag (Locale/getDefault))))
+                  (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
                         preferred (hermes/get-preferred-synonym svc concept-id langs)]
                     (assoc context :result (assoc concept :preferredDescription preferred)))))))})
 
@@ -281,5 +281,4 @@
   (require '[com.eldrix.hermes.core])
   (def svc (com.eldrix.hermes.core/open "snomed.db"))
   (start-dev svc 8080)
-  (stop-dev)
-  )
+  (stop-dev))
