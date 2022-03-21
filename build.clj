@@ -8,8 +8,8 @@
 (def jar-basis (b/create-basis {:project "deps.edn"}))
 (def uber-basis (b/create-basis {:project "deps.edn"
                                  :aliases [:run]}))
-(def jar-file (format "target/%s-%s.jar" (name lib) version))
-(def uber-file (format "target/%s-server-%s.jar" (name lib) version))
+(def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
+(def uber-file (format "target/%s-%s.jar" (name lib) version))
 
 (defn clean [_]
   (b/delete {:path "target"}))
