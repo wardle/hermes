@@ -21,7 +21,10 @@
   (let [synonyms (->> (hermes/reverse-map-range @svc 447562003 "I30")
                       (map :referencedComponentId)
                       (map #(:term (hermes/get-preferred-synonym @svc % "en"))))]
-       (some #{"Viral pericarditis"} synonyms)))
+       (is (some #{"Viral pericarditis"} synonyms))))
+
+(deftest ^:live test-cross-map
+  (is (contains? (set (map :mapTarget (hermes/get-component-refset-items @svc 24700007 447562003))) "G35") "Multiple sclerosis should map to ICD code G35"))
 
 (deftest ^:live test-map-into
   (let [mapped (hermes/map-into @svc [24700007 763794005 95883001] "118940003 OR 50043002 OR 40733004")]
@@ -29,7 +32,8 @@
 
 (deftest ^:live test-ecl-contains
   (is (hermes/ecl-contains? @svc [24700007] "<<24700007") "Descendant or self expression should include self")
-  (is (hermes/ecl-contains? @svc [816984002] "<<24700007") "Primary progressive multiple sclerosis is a type of MS"))
+  (is (hermes/ecl-contains? @svc [816984002] "<<24700007") "Primary progressive multiple sclerosis is a type of MS")
+  (is (hermes/ecl-contains? @svc [24700007] "^447562003")) "Multiple sclerosis should be in the ICD-10 complex map reference set")
 
 (deftest ^:live test-expand-historic
   (is (every? true? (->> (hermes/expand-ecl @svc "<<24700007")
@@ -47,5 +51,7 @@
     (is #{"Secondary progressive multiple sclerosis"} (map :term synonyms))))
 
 (deftest ^:live test-search
-  (is (contains? (set (map :conceptId (hermes/search @svc {:s "MND"}))) 37340000) "Search for MND should find motor neurone disease"))
+  (is (contains? (set (map :conceptId (hermes/search @svc {:s "MND"}))) 37340000) "Search for MND should find motor neurone disease")
+  (is (= 5 (count (map :conceptId (hermes/search @svc {:s "multiple sclerosis" :max-hits 5})))))
+  (is (thrown? java.lang.Exception (hermes/search @svc {:s "huntington" :max-hits "abc"}))))
 
