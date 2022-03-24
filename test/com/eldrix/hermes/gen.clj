@@ -3,7 +3,7 @@
   distribution for testing."
   (:require [clojure.spec.alpha :as s]
             [clojure.test.check.generators :as gen]
-            [com.eldrix.hermes.rf2spec :as rf2]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Concept)))

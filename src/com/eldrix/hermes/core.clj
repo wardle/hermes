@@ -283,7 +283,6 @@
         q2 (search/q-concept-ids concept-ids)]
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 
-
 (defn get-refset-members
   "Return a set of identifiers for the members of the given refset(s).
   Parameters:
@@ -450,14 +449,15 @@
 
 (defn ^Service open
   "Open a (read-only) SNOMED service from the path `root`."
-  [^String root]
-  (let [manifest (open-manifest root)
-        st (store/open-store (get-absolute-filename root (:store manifest)))
-        index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-        searcher (IndexSearcher. index-reader)
-        locale-match-fn (lang/match-fn st)]
-    (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
-    (->Service st index-reader searcher locale-match-fn)))
+  ([^String root] (open root {}))
+  ([^String root {:keys [quiet?] :or {quiet? false}}]
+   (let [manifest (open-manifest root)
+         st (store/open-store (get-absolute-filename root (:store manifest)))
+         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
+         searcher (IndexSearcher. index-reader)
+         locale-match-fn (lang/match-fn st)]
+     (when-not quiet? (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st)))))
+     (->Service st index-reader searcher locale-match-fn))))
 
 (defn close [^Service svc]
   (.close svc))
@@ -557,7 +557,7 @@
 (comment
   (require '[portal.api :as p])
   (def p (p/open))
-  (add-tap #'p/submit) ; Add portal as a tap> target
+  (add-tap #'p/submit)                                      ; Add portal as a tap> target
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
   (get-all-children svc 24700007)
@@ -566,6 +566,7 @@
 
   (tap> (get-concept svc 24700007))
   (tap> (get-extended-concept svc 24700007))
+  (get-extended-concept svc 24700007)
   (search svc {:s "mult scl"})
   (tap> (search svc {:s "mult scl"}))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
@@ -583,7 +584,7 @@
   (map :mapTarget (get-component-refset-items svc 24700007 447562003))
 
   (get-extended-concept svc 24700007)
-  (subsumed-by? svc 24700007 6118003)   ;; demyelinating disease of the CNS
+  (subsumed-by? svc 24700007 6118003)                       ;; demyelinating disease of the CNS
 
   (are-any? svc [24700007] [45454])
 
@@ -628,4 +629,10 @@
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-  (get-descriptions svc 24700007))
+  (get-descriptions svc 24700007)
+
+
+  (require '[criterium.core :as crit])
+  (crit/bench (get-extended-concept svc 24700007))
+  (crit/bench (search svc {:s "multiple sclerosis"})))
+

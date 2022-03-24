@@ -5,7 +5,8 @@
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.specs :as-alias specs])
   (:import (java.time LocalDate)
            (java.io File)))
 
@@ -31,7 +32,6 @@
       (is (= description (store/get-description st 754365011)))
       (is (= description (store/get-fully-specified-name st 24700007))))))
 
-
 (deftest write-concept-test
   (with-open [st (store/open-store)]
     (is (nil? (store/get-concept st 24700007)))
@@ -48,7 +48,6 @@
         (store/write-batch {:type :info.snomed/Concept
                             :data [newer-concept]} st)
         (is (= newer-concept (store/get-concept st 24700007)))))))
-
 
 (deftest write-components-test
   (with-open [st (store/open-store)]
@@ -67,10 +66,7 @@
         (is (every? true? (map #(store/is-a? st % (:id root-concept)) concepts)))
         (is (= (set (map :id concepts)) (store/get-all-children st (:id root-concept))))))))
 
-(defn has-live-database? []
-  (.exists (File. "snomed.db/store.db")))
-
-(deftest live-store
+(deftest ^:live live-store
   (with-open [store (store/open-store "snomed.db/store.db")]
     (testing "Multiple sclerosis"
       (let [ms (store/get-concept store 24700007)]
@@ -88,8 +84,7 @@
         (is (store/is-a? store 24700007 24700007))
         (is (not (store/is-a? store 24700007 95320005))))))) ;; it's not a disorder of the skin
 
-
-(deftest test-localisation
+(deftest ^:live test-localisation
   (with-open [store (store/open-store "snomed.db/store.db")]
     (let [gb (store/get-preferred-synonym store 80146002 [999000691000001104 900000000000508004 999001261000000100])
           usa (store/get-preferred-synonym store 80146002 [900000000000509007])]
@@ -99,19 +94,6 @@
       (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
       (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
 
-(defn test-ns-hook []
-  (simple-store)
-  (write-concept-test)
-  (write-components-test)
-  (if-not (has-live-database?)
-    (log/warn "Skipping live tests as no live database 'snomed.db' found.")
-    (do (live-store)
-        (test-localisation))))
-
-
 (comment
-  (has-live-database?)
   (run-tests)
-  (live-store)
-  (write-concept-test)
-  (write-components-test))
+  (live-store))
