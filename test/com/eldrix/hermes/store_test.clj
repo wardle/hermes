@@ -1,12 +1,14 @@
 (ns com.eldrix.hermes.store-test
-  (:require [clojure.spec.test.alpha :as stest]
+  (:require [clojure.set :as set]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer :all]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.specs :as-alias specs])
+            [com.eldrix.hermes.specs :as-alias specs]
+            [clojure.set :as set])
   (:import (java.time LocalDate)
            (java.io File)))
 
@@ -65,6 +67,26 @@
         (is (every? true? (map #(= % (store/get-relationship st (:id %))) relationships)))
         (is (every? true? (map #(store/is-a? st % (:id root-concept)) concepts)))
         (is (= (set (map :id concepts)) (store/get-all-children st (:id root-concept))))))))
+
+(deftest write-simple-refsets-test
+  (with-open [st (store/open-store)]
+    (let [count (rand-int 10000)
+          [refset & concepts] (hgen/make-concepts :n count)
+          refset-id (:id refset)
+          members (set (take (/ count (inc (rand-int 10))) (shuffle concepts)))
+          non-members (set/difference (set concepts) members)
+          refset-items (map #(hgen/make-simple-refset-item {:refsetId refset-id :active true :referencedComponentId (:id %)}) members)]
+      (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
+      (store/write-batch {:type :info.snomed/Concept :data concepts} st)
+      (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
+      (is (= #{refset-id} (store/get-installed-reference-sets st)))
+      (is (every? true? (map #(= (list refset-id) (store/get-component-refsets st (:id %))) members)))
+      (is (every? true? (map #(empty? (store/get-component-refsets st (:id %))) non-members)))
+      (is (every? true? (map #(let [[item & more] (store/get-component-refset-items st (.-referencedComponentId %))]
+                                (and (nil? more) (= item %))) refset-items)))
+      (is (every? true? (map #(= % (store/get-refset-item st (.-id %))) refset-items))))))
+
+
 
 (deftest ^:live live-store
   (with-open [store (store/open-store "snomed.db/store.db")]
