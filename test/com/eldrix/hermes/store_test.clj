@@ -70,10 +70,10 @@
 
 (deftest write-simple-refsets-test
   (with-open [st (store/open-store)]
-    (let [count (rand-int 10000)
-          [refset & concepts] (hgen/make-concepts :n count)
+    (let [n-concepts (rand-int 10000)
+          [refset & concepts] (hgen/make-concepts :n n-concepts)
           refset-id (:id refset)
-          members (set (take (/ count (inc (rand-int 10))) (shuffle concepts)))
+          members (set (take (/ n-concepts (inc (rand-int 10))) (shuffle concepts)))
           non-members (set/difference (set concepts) members)
           refset-items (map #(hgen/make-simple-refset-item {:refsetId refset-id :active true :referencedComponentId (:id %)}) members)]
       (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
@@ -84,7 +84,13 @@
       (is (every? true? (map #(empty? (store/get-component-refsets st (:id %))) non-members)))
       (is (every? true? (map #(let [[item & more] (store/get-component-refset-items st (.-referencedComponentId %))]
                                 (and (nil? more) (= item %))) refset-items)))
-      (is (every? true? (map #(= % (store/get-refset-item st (.-id %))) refset-items))))))
+      (is (every? true? (map #(= % (store/get-refset-item st (.-id %))) refset-items)))
+      (let [status (store/status st)]
+        (is (= (:concepts status) n-concepts))
+        (is (= 0 (:descriptions status)))
+        (is (= (count refset-items) (:refsets status)))
+        (is (= 1 (get-in status [:indices :installed-refsets])))
+        (is (= (count refset-items) (get-in status [:indices :component-refsets])))))))
 
 
 
