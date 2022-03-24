@@ -259,12 +259,6 @@
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 
-(s/def ::svc any?)
-(s/fdef map-into
-  :args (s/cat :svc ::svc :source-concept-ids (s/coll-of :info.snomed.Concept/id)
-               :target (s/alt :ecl string?
-                              :refset-id :info.snomed.Concept/id
-                              :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset.
