@@ -1,21 +1,25 @@
 (ns com.eldrix.hermes.core-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.test :refer :all]
             [com.eldrix.hermes.core :as hermes]
             [clojure.set :as set]))
 
 (defonce svc (atom {}))
 
-
 (defn live-test-fixture [f]
   (reset! svc (hermes/open "snomed.db" {:quiet? true}))
-  (f))
+  (f)
+  (hermes/close @svc)
+  (reset! svc nil))
 
 (use-fixtures :once live-test-fixture)
 
 (deftest ^:live basic-gets
   (is (= 24700007 (.id (hermes/get-concept @svc 24700007))))
   (let [multiple-sclerosis (hermes/get-extended-concept @svc 24700007)]
-      (is ((get-in multiple-sclerosis [:parentRelationships 116680003]) 6118003) "Multiple sclerosis is a type of CNS demyelinating disorder")))
+      (is ((get-in multiple-sclerosis [:parentRelationships 116680003]) 6118003) "Multiple sclerosis is a type of CNS demyelinating disorder")
+      (is (s/valid? :info.snomed/Concept (:concept multiple-sclerosis)))
+      (is (every? true? (map #(s/valid? :info.snomed/Description %) (:descriptions multiple-sclerosis))))))
 
 (deftest ^:live test-reverse-map-range
   (let [synonyms (->> (hermes/reverse-map-range @svc 447562003 "I30")
