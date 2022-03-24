@@ -320,10 +320,9 @@
   "Write a batch of descriptions, updating indices when appropriate.
 
   Note unlike other indices, we write in both active and inactive.
-    -------------------------------------------------------
-  | index                   | compound key                 |
-  | .descriptionsConcept    | descriptionId -- conceptId   |
-  ---------------------------------------------------------"
+  | Index                   | Compound key                 |
+  |-------------------------|------------------------------|
+  | .descriptionsConcept    | descriptionId -- conceptId   |"
   [^MapDBStore store objects]
   (let [d-bucket (.descriptions store)
         dc-index ^NavigableSet (.descriptionsConcept store)]
