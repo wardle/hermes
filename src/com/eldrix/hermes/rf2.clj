@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.rf2spec
+(ns com.eldrix.hermes.rf2
   "Specifications for the RF2 SNOMED format.
   See https://confluence.ihtsdotools.org/display/DOCRELFMT"
   (:require [clojure.spec.alpha :as s]
