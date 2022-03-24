@@ -228,9 +228,6 @@
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
     (search/do-search (.-searcher svc) params)))
 
-(defn all-transitive-synonyms [^Service svc params]
-  (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
-
 (defn expand-ecl
   "Expand an ECL expression."
   [^Service svc ecl]
@@ -253,6 +250,29 @@
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
+
+
+(s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
+
+(defn all-transitive-synonyms
+  "Returns all of the synonyms of the specified concepts, including those
+  of its descendants.
+
+  Parameters:
+  - svc    : hermes service
+  - params : search parameters to select concepts. One of:
+          - a map        : search parameters as per [[search]]
+          - a string     : a string containing an ECL expression
+          - a collection : a collection of concept identifiers"
+  [^Service svc params]
+  (let [[op v] (s/conform ::transitive-synonym-params params)]
+    (if-not op
+      (throw (ex-info "invalid parameters:" (s/explain-data ::transitive-synonym-params params)))
+      (let [concept-ids (case op
+                          :by-search (map :conceptId (search svc v))
+                          :by-ecl (map #(.-conceptId ^Result %) (expand-ecl svc v))
+                          :by-concept-ids v)]
+        (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
 
 (defn ecl-contains?
   "Do any of the concept-ids satisfy the constraint expression specified?
