@@ -269,7 +269,7 @@
   "Returns the reverse mapping from the reference set specified, performing
   what is essentially a prefix search using the parameters.
   For example (get-reverse-map-range store \"D86.\") will return all items
-  with a map target with prefix 'D86.'
+  with a map target with prefix 'D86.' in the specified reference set.
 
   Parameters:
   - store        : a MapDBStore
