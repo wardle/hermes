@@ -28,7 +28,8 @@
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
-           (org.apache.lucene.search IndexSearcher)
+           (com.eldrix.hermes.snomed Result)
+           (org.apache.lucene.search IndexSearcher Query)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
