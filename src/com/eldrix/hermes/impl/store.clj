@@ -541,10 +541,12 @@
   include each target's transitive closure table.
   This makes it trivial to build queries that find all concepts
   with, for example, a common finding site at any level of granularity."
-  [store concept-id]
-  (->> (get-raw-parent-relationships store concept-id)
-       (map #(hash-map (second %) (get-all-parents store (last %))))
-       (apply merge-with into)))
+  ([store concept-id]
+   (get-parent-relationships-expanded store concept-id 0))
+  ([store concept-id type-id]
+   (->> (get-raw-parent-relationships store concept-id type-id)
+        (map (fn [[_source-id type-id _group target-id]] (hash-map type-id (get-all-parents store target-id))))
+        (apply merge-with into))))
 
 (defn get-child-relationships-of-type
   "Returns a collection of identifiers representing the parent relationships of
