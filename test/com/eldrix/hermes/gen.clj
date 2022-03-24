@@ -90,6 +90,16 @@
                                   {:sourceId      (:id %)
                                    :destinationId parent-concept-id
                                    :typeId        typeId})) concepts))
+(s/fdef make-simple-refset-item
+  :args (s/cat :item (s/? (s/keys :opt-un [:info.snomed.RefsetItem/id
+                                           :info.snomed.RefsetItem/active
+                                           :info.snomed.RefsetItem/moduleId
+                                           :info.snomed.RefsetItem/refsetId
+                                           :info.snomed.RefsetItem/referencedComponentId]))))
+(defn make-simple-refset-item
+  ([] (make-simple-refset-item {}))
+  ([{:keys [id active moduleId refsetId referencedComponentId] :as item}]
+   (snomed/map->SimpleRefsetItem (merge (gen/generate (s/gen :info.snomed/SimpleRefset)) item))))
 
 (defn make-simple-hierarchy []
   (let [concepts (make-concepts :n 500)
