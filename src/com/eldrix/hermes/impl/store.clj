@@ -95,6 +95,7 @@
 (defn- ^BTreeMap open-bucket
   "Create or open the named b-tree map with the specified value and key
   serializers.
+   
   Parameters:
   - db               - mapdb database (org.mapdb.DB)
   - key-serializer   - serializer for key
@@ -271,7 +272,7 @@
   For example (get-reverse-map-range store \"D86.\") will return all items
   with a map target with prefix 'D86.' in the specified reference set.
 
-  Parameters:
+  
   - store        : a MapDBStore
   - refset-id    : the reference set in which to search
   - lower-bound  : lower bound prefix, inclusive
@@ -321,7 +322,7 @@
 
   Note unlike other indices, we write in both active and inactive.
   | Index                   | Compound key                 |
-  |-------------------------|------------------------------|
+  |:------------------------|:-----------------------------|
   | .descriptionsConcept    | descriptionId -- conceptId   |"
   [^MapDBStore store objects]
   (let [d-bucket (.descriptions store)
@@ -335,11 +336,10 @@
   "Write a batch of relationships, updating indices when appropriate.
 
    This populates the child and parent relationship indices.
-   ----------------------------------------------------------------------------
-  | index                       | compound key                                 |
+  | Index                       | Compound key                                 |
+  |:----------------------------|:---------------------------------------------|
   | .conceptChildRelationships  | destinationId -- typeId -- group -- sourceId |
-  | .conceptParentRelationships | sourceId -- typeId -- group -- destinationId |
-  -----------------------------------------------------------------------------"
+  | .conceptParentRelationships | sourceId -- typeId -- group -- destinationId |"
   [^MapDBStore store objects]
   (let [rel-bucket (.relationships store)
         child-bucket (.conceptChildRelationships store)
@@ -355,15 +355,15 @@
 
   Processes each refset item, recording an index to allow lookup of items in the
   following buckets using the defined keys:
-  -----------------------------------------------------------------------------
   | index               | simple or compound key                               |
+  |:--------------------|:-----------------------------------------------------|
   | .componentRefsets   | referencedComponentId - refsetId - itemId1 - itemId2 |
   | .mapTargetComponent | refsetId -- mapTarget - itemId1 - itemId2            |
   | .installedRefsets   | refsetId                                             |
   | .associations       | targetComponentId - refsetId -                       |
   |                     |  - referencedComponentId - itemId1 -itemId2          |
-  -----------------------------------------------------------------------------
-  An itemID is a 128 bit integer (UUID) so is stored as two longs (itemId1
+  
+   An itemID is a 128 bit integer (UUID) so is stored as two longs (itemId1
   itemId2)."
   [^MapDBStore store objects]
   (let [refsets (.refsets store)
@@ -558,12 +558,16 @@
   Each path is a sequence of identifiers, starting with the concept itself
   and ending with the root node.
   e.g.
-  (sort-by count (paths-to-root store 24700007))
+  ```
+    (sort-by count (paths-to-root store 24700007))
+  ```
   result (truncated):
-  ((24700007 414029004 64572001 404684003 138875005)
-   (24700007 6118003 80690008 362975008 64572001 404684003 138875005)
-   (24700007 39367000 23853001 246556002 118234003 404684003 138875005)
-   (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))"
+  ```
+    ((24700007 414029004 64572001 404684003 138875005)
+    (24700007 6118003 80690008 362975008 64572001 404684003 138875005)
+    (24700007 39367000 23853001 246556002 118234003 404684003 138875005)
+    (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))
+  ```"
   [store concept-id]
   (loop [parents (map last (get-raw-parent-relationships store concept-id snomed/IsA))
          results []]
@@ -578,6 +582,7 @@
   It takes 3500 milliseconds on my 2013 laptop to return all child concepts
   of the root SNOMED CT concept, so this should only be used for more granular
   concepts generally, or used asynchronously / via streaming.
+   
    Parameters:
    - store
    - `concept-id`
@@ -613,7 +618,8 @@
 
 (defn get-leaves
   "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
-  Parameters:
+  
+   Parameters:
   - concept-ids  : a collection of concept identifiers"
   [^MapDBStore store concept-ids]
   (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
@@ -631,14 +637,17 @@
 
 (defn get-description-refsets
   "Get the refsets and language applicability for a description.
-  Returns a map containing:
+  
+   Returns a map containing:
   - refsets       : a set of refsets to which this description is a member
   - preferredIn  : refsets for which this description is preferred
   - acceptableIn : refsets for which this description is acceptable.
 
   Example:
+  ``` 
   (map #(merge % (get-description-refsets store (:id %)))
-       (get-concept-descriptions store 24700007))"
+       (get-concept-descriptions store 24700007))
+  ```"
   [store description-id]
   (let [refset-items (get-component-refset-items store description-id)
         refsets (into #{} (map :refsetId refset-items))
@@ -657,12 +666,15 @@
   - language-refset-id  : language reference set
 
   Possible description-type-ids:
+  ```
    900000000000013009: synonym (core metadata concept)
    900000000000003001: fully specified name
-
+  ```
   Example language-refset-ids:
+  ``` 
    900000000000509007: US English language reference set
-   999001261000000100: UK English (clinical) language reference set."
+   999001261000000100: UK English (clinical) language reference set
+  ```"
   [store concept-id description-type-id language-refset-id]
   (let [descriptions (->> (get-concept-descriptions store concept-id)
                           (filter :active)
