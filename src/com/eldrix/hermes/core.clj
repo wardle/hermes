@@ -184,9 +184,21 @@
   ([^Service svc refset-id lower-bound upper-bound]
    (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
 
-(defn get-preferred-synonym [^Service svc concept-id langs]
-  (let [locale-match-fn (.-locale_match_fn svc)]
-    (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn langs))))
+(defn get-preferred-synonym
+  "Return the preferred synonym for the concept based on the language
+  preferences specified.
+
+  Parameters:
+  - svc            : hermes service
+  - concept-id     : concept identifier
+  - language-range : a single string containing a list of comma-separated
+                     language ranges or a list of language ranges in the form of
+                     the \"Accept-Language \" header defined in RFC3066."
+  ([^Service svc concept-id]
+   (get-preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
+  ([^Service svc concept-id language-range]
+   (let [locale-match-fn (.-locale_match_fn svc)]
+     (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
 (defn get-fully-specified-name [^Service svc concept-id]
   (store/get-fully-specified-name (.-store svc) concept-id))
