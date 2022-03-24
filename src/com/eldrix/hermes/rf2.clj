@@ -89,3 +89,26 @@
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
                                                   :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
                                                   :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId]))
+
+
+(s/def :info.snomed.RefsetItem/id uuid?)
+(s/def :info.snomed.RefsetItem/effectiveTime ::effectiveTime)
+(s/def :info.snomed.RefsetItem/active boolean?)
+(s/def :info.snomed.RefsetItem/moduleId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/refsetId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/referencedComponentId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/targetComponentId :info.snomed.Concept/id)
+(s/def :info.snomed/SimpleRefset (s/keys :req-un [:info.snomed.RefsetItem/id
+                                                  :info.snomed.RefsetItem/effectiveTime
+                                                  :info.snomed.RefsetItem/active
+                                                  :info.snomed.RefsetItem/moduleId
+                                                  :info.snomed.RefsetItem/refsetId
+                                                  :info.snomed.RefsetItem/referencedComponentId]))
+
+(s/def :info.snomed/AssociationRefset (s/keys :req-un [:info.snomed.RefsetItem/id
+                                                       :info.snomed.RefsetItem/effectiveTime
+                                                       :info.snomed.RefsetItem/active
+                                                       :info.snomed.RefsetItem/moduleId
+                                                       :info.snomed.RefsetItem/refsetId
+                                                       :info.snomed.RefsetItem/referencedComponentId
+                                                       :info.snomed.RefsetItem/targetComponentId]))
