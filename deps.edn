@@ -41,14 +41,10 @@
 
            :test
            {:extra-paths ["test" "test/resources"]
-            :extra-deps  {org.clojure/test.check
-                          {:mvn/version "1.1.1"}
-
-                          com.cognitect/test-runner
-                          {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                           :sha     "cc75980b43011773162b485f46f939dc5fba91e4"}}
-            :main-opts   ["-m" "cognitect.test-runner"
-                          "-d" "test"]}
+            :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
+                          com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                     :sha     "cc75980b43011773162b485f46f939dc5fba91e4"}}
+            :main-opts   ["-m" "cognitect.test-runner"]}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
@@ -77,5 +73,5 @@
             :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
            :lint/eastwood
-           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "cmd"]}]
+           {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]
             :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
