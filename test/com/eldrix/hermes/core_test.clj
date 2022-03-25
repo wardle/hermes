@@ -59,3 +59,9 @@
   (is (= 5 (count (map :conceptId (hermes/search @svc {:s "multiple sclerosis" :max-hits 5})))))
   (is (thrown? java.lang.Exception (hermes/search @svc {:s "huntington" :max-hits "abc"}))))
 
+(deftest ^:live test-with-historical
+  (is (:active (hermes/get-concept @svc 24700007)))
+  (is (not (:active (hermes/get-concept @svc 586591000000100))))
+  (is (some false? (map #(:active (hermes/get-concept @svc %)) (hermes/with-historical @svc [24700007]))))
+  (is (contains? (hermes/with-historical @svc [586591000000100]) 586591000000100))
+  (is (= (hermes/with-historical @svc [24700007]) (hermes/with-historical @svc [586591000000100]))))

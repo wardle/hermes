@@ -51,7 +51,9 @@
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 
 (s/fdef hermes/with-historical
-  :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc
+               :concept-ids (s/coll-of :info.snomed.Concept/id)
+               :refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
 
 (s/fdef hermes/reverse-map
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
