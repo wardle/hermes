@@ -935,7 +935,7 @@ clj -M:test -e :live       # Run tests but exclude those needing a real local SN
 
 Additional test coverage reports and linting are also available:
 ```
-clj -X:test/cloverage
+clj -M:test/cloverage
 clj -M:lint/kondo
 clj -M:lint/eastwood
 ```

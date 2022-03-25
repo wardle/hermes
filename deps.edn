@@ -64,6 +64,7 @@
            {:extra-paths ["test"]
             :extra-deps  {cloverage/cloverage    {:mvn/version "RELEASE"}
                           org.clojure/test.check {:mvn/version "1.1.1"}}
+            :main-opts   ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
                           :test-ns-path ["test"]}}
