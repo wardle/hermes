@@ -105,6 +105,11 @@
   [^Service svc component-id]
   (get-component-refset-items svc component-id))
 
+(defn get-component-refset-ids
+  "Returns a collection of refset identifiers to which this concept is a member."
+  [^Service svc component-id]
+  (store/get-component-refsets (.-store svc) component-id))
+
 (defn get-refset-item [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
 

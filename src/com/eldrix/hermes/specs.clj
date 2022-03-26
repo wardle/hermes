@@ -2,11 +2,12 @@
   "Specifications for the core API of hermes."
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
+            [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as-alias rf2]
-            [clojure.string :as str])
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Result)
            (org.apache.lucene.search Query IndexSearcher)
            (com.eldrix.hermes.impl.store MapDBStore)))
@@ -17,6 +18,7 @@
 (s/def ::store #(instance? MapDBStore %))
 (s/def ::searcher #(instance? IndexSearcher %))
 (s/def ::result #(instance? Result %))
+(s/def ::component-id (s/and pos-int? verhoeff/valid?))
 (s/def ::s string?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 (s/def ::constraint string?)
@@ -49,6 +51,12 @@
 
 (s/fdef hermes/get-synonyms
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+
+(s/fdef hermes/get-component-refset-items
+  :args (s/cat :svc ::svc :component-id ::component-id :refset-id (s/? :info.snomed.Concept/id)))
+
+(s/fdef hermes/get-component-refset-ids
+  :args (s/cat :svc ::svc :component-id ::component-id))
 
 (s/fdef hermes/with-historical
   :args (s/cat :svc ::svc
