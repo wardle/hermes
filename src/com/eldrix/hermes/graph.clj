@@ -98,7 +98,8 @@
   {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/get-fully-specified-name svc id))})
 
 (pco/defresolver lowercase-term
-  "Returns a SNOMED description as a lowercase term."
+  "Returns a lowercase term of a SNOMED CT description according to the rules
+  of case sensitivity."
   [{:info.snomed.Description/keys [caseSignificanceId term]}]
   {:info.snomed.Description/lowercaseTerm
    (case caseSignificanceId
