@@ -249,7 +249,7 @@
    concept-descriptions
    concept-module
    concept-refset-ids
-   concept-refsets
+   concept-refset-items
    refset-item-target-component
    concept-historical-associations
    concept-replaced-by
