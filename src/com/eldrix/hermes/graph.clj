@@ -235,11 +235,11 @@
                   :info.snomed.Description/term
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
 
-  (map (fn [result] {:info.snomed.Description/id               (:id result)
-                     :info.snomed.Concept/id                   (:conceptId result)
-                     :info.snomed.Description/term             (:term result)
-                     :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-       (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
+  (mapv (fn [result] {:info.snomed.Description/id               (:id result)
+                      :info.snomed.Concept/id                   (:conceptId result)
+                      :info.snomed.Description/term             (:term result)
+                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
+        (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
