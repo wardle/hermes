@@ -10,7 +10,8 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
             [com.wsscode.pathom3.connect.runner :as pcr]
-            [com.wsscode.pathom3.interface.eql :as p.eql]))
+            [com.wsscode.pathom3.interface.eql :as p.eql])
+  (:import (java.util Locale)))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -88,7 +89,7 @@
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
-  (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (java.util.Locale/getDefault)))]
+  (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (Locale/getDefault)))]
     {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/get-preferred-synonym svc id lang))}))
 
 (pco/defresolver fully-specified-name
