@@ -123,11 +123,12 @@
    ::pco/output [:info.snomed.Concept/refsetIds]}
   {:info.snomed.Concept/refsetIds (set (hermes/get-component-refset-ids svc id))})
 
-(pco/defresolver concept-refsets
+(pco/defresolver concept-refset-items
   "Returns the refset items for a concept."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
-  {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id 0))})
+  (let [refset-id (or (:refsetId (pco/params env)) 0)]
+    {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id refset-id))}))
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
