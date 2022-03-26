@@ -274,8 +274,8 @@
   (hermes/search svc {:s          "polymyositis"
                       :fuzzy      2
                       :constraint "<404684003"
-                      :max-hits   10
-                      })
+                      :max-hits   10})
+
   (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc 24700007))
 
   concept-by-id
@@ -354,6 +354,6 @@
                        [:info.snomed.Description/term]}]}
                     {:info.snomed.Concept/sameAs [:info.snomed.Concept/id
                                                   :info.snomed.Concept/active
-                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}])
+                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}]))
 
-  )
+
