@@ -157,31 +157,34 @@
   "Returns the single concept that this concept has been replaced by."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/replacedBy [:info.snomed.Concept/id]}]}
-  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
-    {:info.snomed.Concept/replacedBy {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+  (let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
+    {:info.snomed.Concept/replacedBy (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-moved-to-namespace
   "Returns the namespace to which this concept moved."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/movedToNamespace [:info.snomed.Concept/id]}]}
-  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
-    {:info.snomed.Concept/movedToNamespace {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+  (let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
+    {:info.snomed.Concept/movedToNamespace (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-same-as
   "Returns multiple concepts that this concept is now thought to the same as."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
-  {::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
-  (when-let [replacements (seq (filter :active (hermes/get-component-refset-items svc id snomed/SameAsReferenceSet)))]
-    {:info.snomed.Concept/sameAs
-     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) replacements)}))
+  [{::keys [svc]} {concept-id :info.snomed.Concept/id}]
+  {::pco/input [:info.snomed.Concept/id]
+   ::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
+  {:info.snomed.Concept/sameAs
+   (seq (->> (hermes/get-component-refset-items svc concept-id snomed/SameAsReferenceSet)
+             (filter :active)
+             (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
 (pco/defresolver concept-possibly-equivalent
   "Returns multiple concepts to which this concept might be possibly equivalent."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id]}]}
-  (when-let [equivalent-to (seq (filter :active (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)))]
-    {:info.snomed.Concept/possiblyEquivalentTo
-     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) equivalent-to)}))
+  {:info.snomed.Concept/possiblyEquivalentTo
+   (seq (->> (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
+             (filter :active)
+             (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
 (pco/defresolver concept-relationships
   [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
