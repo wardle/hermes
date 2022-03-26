@@ -18,7 +18,7 @@
 
 (use-fixtures :once live-test-fixture)
 
-(deftest test-get-concept
+(deftest ^:live test-get-concept
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 80146002}
                               [:info.snomed.Concept/id
@@ -32,7 +32,7 @@
     (is (= "Appendectomy" (get-in result [:>/en-US :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
     (is (= "Appendicectomy" (get-in result [:>/en-GB :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
-(deftest test-concept-relationships
+(deftest ^:live test-concept-relationships
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 24700007}
                               [:info.snomed.Concept/id
@@ -43,7 +43,7 @@
     (is (= (get-in result [:>is-a :info.snomed.Concept/parentRelationshipIds snomed/IsA])
            (get-in result [:>all :info.snomed.Concept/parentRelationshipIds snomed/IsA])))))
 
-(deftest test-search
+(deftest ^:live test-search
   (let [result (p.eql/process *registry*
                               [{'(info.snomed.Search/search
                                    {:s          "mnd"
@@ -57,7 +57,7 @@
     (is (= 37340000 (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/id])))
     (is (= "Motor neuron disease" (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
-(deftest test-replaced-by
+(deftest ^:live test-replaced-by
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 203004}
                               [:info.snomed.Concept/id
@@ -77,7 +77,6 @@
                                                                  {:info.snomed.Concept/preferredDescription
                                                                   [:info.snomed.Description/term]}]}])]
     (is result)))
-
 
 
 (comment
