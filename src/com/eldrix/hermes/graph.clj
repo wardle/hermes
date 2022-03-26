@@ -187,17 +187,19 @@
              (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
 (pco/defresolver concept-relationships
-  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  "Returns the concept's relationships. Accepts a parameter :type, specifying the
+  type of relationship. If :type is omitted, all types of relationship will be
+  returned."
+  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
-  (let [ec (hermes/get-extended-concept svc id)
-        rel-type (:type (pco/params env))
-        parents (if rel-type {rel-type (get-in ec [:parentRelationships rel-type])}
-                             (:parentRelationships ec))
-        dp (if rel-type {rel-type (get-in ec [:directParentRelationships rel-type])}
-                        (:directParentRelationships ec))]
-    {:info.snomed.Concept/parentRelationshipIds       parents
-     :info.snomed.Concept/directParentRelationshipIds dp}))
+  (let [rel-type (:type (pco/params env))]
+    (if rel-type
+      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id rel-type)
+       :info.snomed.Concept/directParentRelationshipIds {rel-type (store/get-parent-relationships-of-type (.store svc) concept-id rel-type)}}
+      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id)
+       :info.snomed.Concept/directParentRelationshipIds (store/get-parent-relationships (.-store svc) concept-id)})))
+
 
 (pco/defresolver refsetitem-concept
   [{:info.snomed.RefsetItem/keys [refsetId]}]
