@@ -83,26 +83,4 @@
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
                                 (assoc ::graph/svc (hermes/open "snomed.db"))))
 
-  (p.eql/process *registry*
-                 {:info.snomed.Concept/id 24700007}
-                 [:info.snomed.Concept/id
-                  {:>/all [:info.snomed.Concept/parentRelationshipIds
-                           :info.snomed.Concept/directParentRelationshipIds]}
-                  {:>/by-type [(list :info.snomed.Concept/parentRelationshipIds {:type snomed/IsA})
-                               (list :info.snomed.Concept/directParentRelationshipIds {:type snomed/IsA})]}])
-  (p.eql/process *registry*
-                 {:info.snomed.Concept/id 24700007}
-                 [:info.snomed.Concept/id
-                  :info.snomed.Concept/parentRelationshipIds
-                  :info.snomed.Concept/directParentRelationshipIds])
-  (p.eql/process *registry*
-                 {:info.snomed.Concept/id 80146002}
-                 #_{:info.snomed.Concept/id 24700007}
-                 [:info.snomed.Concept/id
-                  :info.snomed.Concept/active
-                  :info.snomed.Concept/refsetIds
-                  {:>/en-GB ['(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})]}
-                  {:>/en-US ['(:info.snomed.Concept/preferredDescription {:accept-language "en-US"})]}
-                  {:info.snomed.Concept/descriptions
-                   [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}])
   (run-tests))
