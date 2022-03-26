@@ -78,9 +78,17 @@
                                                                   [:info.snomed.Description/term]}]}])]
     (is result)))
 
+(deftest ^:live test-crossmap
+  (let [ms (p.eql/process *registry*
+                          {:info.read/ctv3 "F20.."}
+                          [:info.snomed.Concept/id
+                           {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])]
+    (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
+    (is (= 24700007 (get-in ms [:info.snomed.Concept/id])))))
 
 (comment
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
                                 (assoc ::graph/svc (hermes/open "snomed.db"))))
+
 
   (run-tests))
