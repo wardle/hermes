@@ -90,6 +90,4 @@
 (comment
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
                                 (assoc ::graph/svc (hermes/open "snomed.db"))))
-
-
   (run-tests))

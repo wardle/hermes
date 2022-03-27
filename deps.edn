@@ -32,7 +32,7 @@
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
-
+           
            :dev
            {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.1"}
                          criterium/criterium              {:mvn/version "0.4.6"}
