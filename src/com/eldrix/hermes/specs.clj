@@ -1,10 +1,12 @@
 (ns com.eldrix.hermes.specs
   "Specifications for the core API of hermes."
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.search :as search]
+            [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as-alias rf2]
             [com.eldrix.hermes.verhoeff :as verhoeff])
@@ -96,7 +98,7 @@
                :concept-ids (s/coll-of :info.snomed.Concept/id)
                :ecl ::non-blank-string))
 
-(s/fdef map-into
+(s/fdef hermes/map-into
   :args (s/cat :svc ::svc :source-concept-ids (s/coll-of :info.snomed.Concept/id)
                :target (s/alt :ecl string?
                               :refset-id :info.snomed.Concept/id
