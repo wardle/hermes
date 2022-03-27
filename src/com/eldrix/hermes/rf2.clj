@@ -59,7 +59,7 @@
 (s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/and string? #(> (.length %) 0)))
+(s/def :info.snomed.Description/term (s/and string? #(> (.length ^String %) 0)))
 (s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/def :info.snomed/Description (s/keys :req-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
                                                  :info.snomed.Description/active :info.snomed.Description/moduleId
