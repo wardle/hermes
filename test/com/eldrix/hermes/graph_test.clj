@@ -78,13 +78,14 @@
                                                                   [:info.snomed.Description/term]}]}])]
     (is result)))
 
-(deftest ^:live test-crossmap
-  (let [ms (p.eql/process *registry*
-                          {:info.read/ctv3 "F20.."}
-                          [:info.snomed.Concept/id
-                           {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])]
-    (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
-    (is (= 24700007 (get-in ms [:info.snomed.Concept/id])))))
+(deftest ^:live test-ctv3-crossmap
+  (when (contains? (hermes/get-installed-reference-sets (::graph/svc *registry*)) 900000000000497000)
+    (let [ms (p.eql/process *registry*
+                            {:info.read/ctv3 "F20.."}
+                            [:info.snomed.Concept/id
+                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])]
+      (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
+      (is (= 24700007 (get-in ms [:info.snomed.Concept/id]))))))
 
 (comment
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
