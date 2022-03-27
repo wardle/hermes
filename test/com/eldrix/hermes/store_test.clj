@@ -7,10 +7,8 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.specs :as-alias specs]
-            [clojure.set :as set])
-  (:import (java.time LocalDate)
-           (java.io File)))
+            [com.eldrix.hermes.specs :as-alias specs])
+  (:import (java.time LocalDate)))
 
 (stest/instrument)
 
