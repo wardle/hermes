@@ -171,7 +171,7 @@
 (pco/defresolver concept-same-as
   "Returns multiple concepts that this concept is now thought to the same as."
   [{::keys [svc]} {concept-id :info.snomed.Concept/id}]
-  {::pco/input [:info.snomed.Concept/id]
+  {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/sameAs
    (seq (->> (hermes/get-component-refset-items svc concept-id snomed/SameAsReferenceSet)
@@ -241,6 +241,11 @@
                       :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
         (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
 
+(pco/defresolver installed-refsets
+  [{::keys [svc]} _]
+  {::pco/output [{:info.snomed/installedReferenceSets [:info.snomed.Concept/id]}]}
+  {:info.snomed/installedReferenceSets (mapv #(hash-map :info.snomed.Concept/id %) (hermes/get-installed-reference-sets svc))})
+
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
   a key :com.eldrix.hermes.graph/svc representing a SNOMED svc."
@@ -264,7 +269,8 @@
    fully-specified-name
    concept-relationships
    lowercase-term
-   search])
+   search
+   installed-refsets])
 
 (comment
   (def svc (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
