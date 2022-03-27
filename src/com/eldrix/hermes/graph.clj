@@ -12,7 +12,8 @@
             [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
             [com.wsscode.pathom3.connect.runner :as pcr]
             [com.wsscode.pathom3.interface.eql :as p.eql])
-  (:import (java.util Locale)))
+  (:import (java.util Locale)
+           (com.eldrix.hermes.core Service)))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -191,7 +192,7 @@
   "Returns the concept's relationships. Accepts a parameter :type, specifying the
   type of relationship. If :type is omitted, all types of relationship will be
   returned."
-  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
+  [{::keys [^Service svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
   (let [rel-type (:type (pco/params env))]
