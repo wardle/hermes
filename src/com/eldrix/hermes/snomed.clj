@@ -294,7 +294,7 @@
                  \i (Long/parseLong v)
                  \s v
                  (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
-       (zipmap (seq pattern) values)))
+       (mapv vector (seq pattern) values)))
 
 (defn parse-extended-refset-item [pattern v]
   (->ExtendedRefsetItem

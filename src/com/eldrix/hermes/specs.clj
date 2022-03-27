@@ -21,6 +21,9 @@
 (s/def ::component-id (s/and pos-int? verhoeff/valid?))
 (s/def ::s string?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
+(s/def ::refset-filename-pattern (s/with-gen (s/and string? #(every? #{\c \i \s} %))
+                                             #(gen/fmap (fn [n] (apply str (repeatedly n (fn [] (rand-nth [\c \i \s])))))
+                                                        (s/gen (s/int-in 1 10)))))
 (s/def ::constraint string?)
 (s/def ::max-hits pos-int?)
 (s/def ::fuzzy (s/int-in 0 2))
@@ -98,6 +101,10 @@
                :target (s/alt :ecl string?
                               :refset-id :info.snomed.Concept/id
                               :concepts (s/coll-of :info.snomed.Concept/id))))
+
+(s/fdef snomed/parse-using-pattern
+  :args (s/cat :pattern ::refset-filename-pattern
+               :values (s/coll-of string?)))
 
 ;;
 ;; Internal (private) API specifications
