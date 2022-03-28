@@ -22,6 +22,12 @@
     (is (= "Snapshot" (:release-type p)))
     (is (= "en" (:language-code p)))))
 
+(deftest test-refset-filename-pattern
+  (is (= '(1 2 3) (snomed/parse-using-pattern "iii" ["1" "2" "3"])))
+  (is (= '("1" 2 3) (snomed/parse-using-pattern "sii" ["1" "2" "3"])))
+  (is (= '("1" 2 3 "4") (snomed/parse-using-pattern "sics" ["1" "2" "3" "4"])))
+  (is (thrown? Exception (snomed/parse-using-pattern "a" ["1"])))
+  (is (thrown? Exception (snomed/parse-using-pattern "iii" ["1" "2"]))))
 
 (deftest test-partition
   (is (= :info.snomed/Concept (snomed/identifier->type 247000007)))
@@ -29,10 +35,6 @@
   (is (= :info.snomed/Description (snomed/identifier->type 110017)))
   (is (= :info.snomed/Relationship (snomed/identifier->type 100022))))
 
-(deftest test-refset-filename-pattern
-  (is (= '(1 2 3) (snomed/parse-using-pattern "iii" ["1" "2" "3"])))
-  (is (= '("1" 2 3) (snomed/parse-using-pattern "sii" ["1" "2" "3"])))
-  (is (= '("1" 2 3) (snomed/parse-using-pattern "sic" ["1" "2" "3"]))))
 
 (def core-examples
   [{:filename "sct2_Concept_Full_INT_20180131.txt"
