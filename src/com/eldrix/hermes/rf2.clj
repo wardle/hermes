@@ -98,6 +98,7 @@
 (s/def :info.snomed.RefsetItem/refsetId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/referencedComponentId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/targetComponentId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/acceptabilityId :info.snomed.Concept/id)
 (s/def :info.snomed/SimpleRefset (s/keys :req-un [:info.snomed.RefsetItem/id
                                                   :info.snomed.RefsetItem/effectiveTime
                                                   :info.snomed.RefsetItem/active
@@ -112,3 +113,11 @@
                                                        :info.snomed.RefsetItem/refsetId
                                                        :info.snomed.RefsetItem/referencedComponentId
                                                        :info.snomed.RefsetItem/targetComponentId]))
+
+(s/def :info.snomed/LanguageRefset (s/keys :req-un [:info.snomed.RefsetItem/id
+                                                    :info.snomed.RefsetItem/effectiveTime
+                                                    :info.snomed.RefsetItem/active
+                                                    :info.snomed.RefsetItem/moduleId
+                                                    :info.snomed.RefsetItem/refsetId
+                                                    :info.snomed.RefsetItem/referencedComponentId
+                                                    :info.snomed.RefsetItem/acceptabilityId]))
