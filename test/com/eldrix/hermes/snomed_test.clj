@@ -6,7 +6,6 @@
     [clojure.java.io :as io])
   (:import [java.time LocalDate]))
 
-
 (deftest test-filenames
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
         parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (clojure.string/split examples #"\n"))]
@@ -35,7 +34,6 @@
   (is (= :info.snomed/Description (snomed/identifier->type 110017)))
   (is (= :info.snomed/Relationship (snomed/identifier->type 100022))))
 
-
 (def core-examples
   [{:filename "sct2_Concept_Full_INT_20180131.txt"
     :type     :info.snomed/Concept
@@ -47,7 +45,6 @@
    {:filename "sct2_Relationship_Full_INT_20180131.txt"
     :type     :info.snomed/Relationship
     :data     [["100022" "20020131" "1" "900000000000207008" "100000000" "102272007" "0" "116680003" "900000000000011006" "900000000000451002"]]}])
-
 
 (deftest test-valid?
   (let [ms (snomed/->Concept 24700007 (LocalDate/now) true 0 0)]
@@ -68,11 +65,9 @@
     :type     :info.snomed/SimpleRefset
     :data     [["800aa109-431f-4407-a431-6fe65e9db160" "20170731" "1" "900000000000207008" "723264001" "731819006"]]}])
 
-
 (deftest test-hierarchy
   (is (isa? :info.snomed/SimpleMapRefset :info.snomed/Refset))
   (is (isa? :info.snomed/Concept :info.snomed/Component)))
-
 
 (def example-filenames
   [{:filename     "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
