@@ -2,11 +2,12 @@
 
 This log documents significant changes for each release.
 
-## [0.9.455] - 2022-03-27
+## [0.9.458] - 2022-03-27
 
 * Upgrade to Lucene 9.1
 * Add and improve graph API resolvers
 * Improve synthetic and live test suite
+* Fix extended reference set import pattern matching
 
 ## [0.9.408] - 2022-03-21
 
