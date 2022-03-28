@@ -29,7 +29,7 @@
   (:require [clojure.core.async :as a]
             [clojure.spec.alpha :as s]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.rf2spec :as rf2]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.impl.store :as store])
   (:import [com.eldrix.hermes.core Service]
            (org.semanticweb.owlapi.expression ShortFormEntityChecker)
