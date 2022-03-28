@@ -2,10 +2,20 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [0.9.458] - 2022-03-27
 
-* Added synthetic SNOMED data generation
+* Upgrade to Lucene 9.1
+* Add and improve graph API resolvers
+* Improve synthetic and live test suite
+* Fix extended reference set import pattern matching
+
+## [0.9.408] - 2022-03-21
+
+* Add synthetic SNOMED data generation
 * Much more complete automated testing using synthetic data
+* Add greater instrumentation when in development or testing
+* Add import of OWL reference set types 
+* Fix accept-language parsing and fallback in http server
 
 ## [0.9.369] - 2022-02-17
 

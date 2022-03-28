@@ -77,8 +77,8 @@
    "nb-no" [61000202103]                                    ;; |Norwegian Bokmål language reference set|
    "nn-no" [91000202106]                                    ;; |Norwegian Nynorsk language reference set|
    "sv-se" [46011000052107]                                 ;; |Swedish language reference set|
-   "zh"    [722128001]                                      ;; |Chinese language reference set|
-   })
+   "zh"    [722128001]})                                      ;; |Chinese language reference set|
+
 
 
 (def dialect-language-reference-sets
@@ -93,8 +93,8 @@
    "en-nhs-pharmacy" 999000691000001104                     ;; |National Health Service realm language reference set (pharmacy part)|
    "en-uk-drug"      999000681000001101                     ;; |United Kingdom Drug Extension Great Britain English language reference set|
    "en-uk-ext"       999001251000000103                     ;; |United Kingdom Extension Great Britain English language reference set|
-   "en-gb"           900000000000508004                     ;; |Great Britain English language reference set|
-   })
+   "en-gb"           900000000000508004})                     ;; |Great Britain English language reference set|
+
 
 (def ^:private dialect-aliases
   "A simple map of dialect alias to refset identifier."
@@ -187,5 +187,5 @@
   (parse-accept-language-refset-id "en-x-999001261000000100")
   (parse-accept-language-refset-id "en-gb-x-999001261000000100")
   (parse-accept-language-refset-id "zh-yue-HK-x-999001261000000100")
-  (parse-accept-language-refset-id "fr-x-999001261000000102")
-  )
+  (parse-accept-language-refset-id "fr-x-999001261000000102"))
+

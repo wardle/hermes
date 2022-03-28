@@ -3,7 +3,7 @@
   distribution for testing."
   (:require [clojure.spec.alpha :as s]
             [clojure.test.check.generators :as gen]
-            [com.eldrix.hermes.rf2spec :as rf2]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Concept)))
@@ -47,45 +47,59 @@
                        #(s/gen (s/int-in 1 12))))           ;; but generate only a small range for generative testing
 (s/fdef make-description
   :args (s/cat :conceptId :info.snomed.Concept/id
-               :description (s/keys* :opt-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
-                                              :info.snomed.Description/active :info.snomed.Description/moduleId ::moduleIds
-                                              :info.snomed.Description/languageCode ::languageCodes
-                                              :info.snomed.Description/typeId :info.snomed.Description/term :info.snomed.Description/caseSignificanceId])))
+               :description (s/? (s/keys :opt-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
+                                                  :info.snomed.Description/active :info.snomed.Description/moduleId ::moduleIds
+                                                  :info.snomed.Description/languageCode ::languageCodes
+                                                  :info.snomed.Description/typeId :info.snomed.Description/term :info.snomed.Description/caseSignificanceId]))))
 (defn make-description
   "Make a SNOMED CT Description for the specified concept-id."
-  [conceptId & {:keys [id effectiveTime active moduleId module-ids languageCode languageCodes typeId term term-prefix caseSignificanceId] :as description}]
-  (snomed/map->Description
-    (merge (gen/generate (s/gen :info.snomed/Description))
-           (when module-ids {:moduleId (rand-nth (seq module-ids))})
-           (when term-prefix {:term (str term-prefix (gen/generate (s/gen string?)))})
-           (when languageCodes {:languageCode (rand-nth (seq languageCodes))})
-           (select-keys description [:id :effectiveTime :active :moduleId :languageCode :typeId :term :caseSignificanceId])
-           {:conceptId conceptId})))
+  ([conceptId] (make-description conceptId {}))
+  ([conceptId {:keys [id effectiveTime active moduleId module-ids languageCode languageCodes typeId term term-prefix caseSignificanceId] :as description}]
+   (snomed/map->Description
+     (merge (gen/generate (s/gen :info.snomed/Description))
+            (when module-ids {:moduleId (rand-nth (seq module-ids))})
+            (when term-prefix {:term (str term-prefix (gen/generate (s/gen string?)))})
+            (when languageCodes {:languageCode (rand-nth (seq languageCodes))})
+            (select-keys description [:id :effectiveTime :active :moduleId :languageCode :typeId :term :caseSignificanceId])
+            {:conceptId conceptId}))))
 
 (s/fdef make-relationship
-  :args (s/cat :relationship (s/keys* :opt-un [:info.snomed.Relationship/id :info.snomed.Relationship/active
-                                               :info.snomed.Relationship/moduleId
-                                               :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
-                                               :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
-                                               :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId])))
+  :args (s/cat :relationship (s/? (s/keys :opt-un [:info.snomed.Relationship/id :info.snomed.Relationship/active
+                                                   :info.snomed.Relationship/moduleId
+                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
+                                                   :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
+                                                   :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId]))))
 (defn make-relationship
   "Make a SNOMED CT Relationship. It would be usual to at least specify
   'sourceId' 'destinationId' and 'typeId'."
-  [& {:keys [id active moduleId sourceId destinationId relationshipGroup typeId characteristicTypeId modifierId] :as relationship}]
-  (snomed/map->Relationship (merge (gen/generate (s/gen :info.snomed/Relationship))
-                                   relationship)))
+  ([] (make-relationship {}))
+  ([{:keys [id active moduleId sourceId destinationId relationshipGroup typeId characteristicTypeId modifierId] :as relationship}]
+   (snomed/map->Relationship (merge (gen/generate (s/gen :info.snomed/Relationship))
+                                    relationship))))
 
 (s/fdef make-descriptions
   :args (s/cat :concept (s/keys :req-un [:info.snomed.Concept/id])
                :defaults (s/? (s/keys :opt-un [::n]))))
-(defn make-descriptions [{:keys [id]} & {:keys [n] :as defaults}]
-  (repeatedly (or n (inc (rand-int 12))) #(make-description id defaults)))
+(defn make-descriptions
+  ([concept] (make-descriptions concept {}))
+  ([{:keys [id]} {:keys [n] :as defaults}]
+   (repeatedly (or n (inc (rand-int 12))) #(make-description id defaults))))
 
 (defn make-relationships [parent-concept-id concepts & {:keys [typeId] :or {typeId snomed/IsA} :as defaults}]
   (map #(make-relationship (merge defaults
                                   {:sourceId      (:id %)
                                    :destinationId parent-concept-id
                                    :typeId        typeId})) concepts))
+(s/fdef make-simple-refset-item
+  :args (s/cat :item (s/? (s/keys :opt-un [:info.snomed.RefsetItem/id
+                                           :info.snomed.RefsetItem/active
+                                           :info.snomed.RefsetItem/moduleId
+                                           :info.snomed.RefsetItem/refsetId
+                                           :info.snomed.RefsetItem/referencedComponentId]))))
+(defn make-simple-refset-item
+  ([] (make-simple-refset-item {}))
+  ([{:keys [id active moduleId refsetId referencedComponentId] :as item}]
+   (snomed/map->SimpleRefsetItem (merge (gen/generate (s/gen :info.snomed/SimpleRefset)) item))))
 
 (defn make-simple-hierarchy []
   (let [concepts (make-concepts :n 500)

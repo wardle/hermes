@@ -46,5 +46,5 @@ jobs:
       - run: clojure -M:check
 
       #  run tests
-      - run: clojure -M:test
+      - run: clojure -M:test -e :live
       

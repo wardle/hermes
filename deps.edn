@@ -1,6 +1,6 @@
 {:paths   ["src" "resources"]
 
- :deps    {org.clojure/clojure                      {:mvn/version "1.11.0-rc1"}
+ :deps    {org.clojure/clojure                      {:mvn/version "1.10.3"}
            org.clojure/core.async                   {:mvn/version "1.5.648"}
            org.clojure/data.csv                     {:mvn/version "1.0.0"}
            org.clojure/data.xml                     {:mvn/version "0.2.0-alpha6"}
@@ -9,13 +9,13 @@
 
            com.eldrix/trud                          {:mvn/version "1.0.75"}
 
-           com.wsscode/pathom3                      {:mvn/version "2022.03.07-alpha"}
+           com.wsscode/pathom3                      {:mvn/version "2022.03.17-alpha"}
            expound/expound                          {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.10"}
 
-           org.apache.lucene/lucene-core            {:mvn/version "9.0.0"}
-           org.apache.lucene/lucene-queries         {:mvn/version "9.0.0"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.0.0"}
+           org.apache.lucene/lucene-core            {:mvn/version "9.1.0"}
+           org.apache.lucene/lucene-queries         {:mvn/version "9.1.0"}
+           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.1.0"}
 
            org.mapdb/mapdb                          {:mvn/version "3.0.8"}
 
@@ -47,19 +47,14 @@
 
            :test
            {:extra-paths ["test" "test/resources"]
-            :extra-deps  {org.clojure/test.check
-                          {:mvn/version "1.1.1"}
-
-                          com.cognitect/test-runner
-                          {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                           :sha     "cc75980b43011773162b485f46f939dc5fba91e4"}}
-            :main-opts   ["-m" "cognitect.test-runner"
-                          "-d" "test"]}
+            :extra-deps  {org.clojure/test.check    {:mvn/version "1.1.1"}
+                          com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                     :sha     "cc75980b43011773162b485f46f939dc5fba91e4"}}
+            :main-opts   ["-m" "cognitect.test-runner"]}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
             :main-opts  ["-m" "antq.core"]}
-
 
            :upgrade
            {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
@@ -75,6 +70,7 @@
            {:extra-paths ["test"]
             :extra-deps  {cloverage/cloverage    {:mvn/version "RELEASE"}
                           org.clojure/test.check {:mvn/version "1.1.1"}}
+            :main-opts   ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
                           :test-ns-path ["test"]}}

@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.rf2spec
+(ns com.eldrix.hermes.rf2
   "Specifications for the RF2 SNOMED format.
   See https://confluence.ihtsdotools.org/display/DOCRELFMT"
   (:require [clojure.spec.alpha :as s]
@@ -59,7 +59,7 @@
 (s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/and string? #(> (.length %) 0)))
+(s/def :info.snomed.Description/term (s/and string? #(> (.length ^String %) 0)))
 (s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/def :info.snomed/Description (s/keys :req-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime
                                                  :info.snomed.Description/active :info.snomed.Description/moduleId
@@ -89,3 +89,26 @@
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
                                                   :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
                                                   :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId]))
+
+
+(s/def :info.snomed.RefsetItem/id uuid?)
+(s/def :info.snomed.RefsetItem/effectiveTime ::effectiveTime)
+(s/def :info.snomed.RefsetItem/active boolean?)
+(s/def :info.snomed.RefsetItem/moduleId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/refsetId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/referencedComponentId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/targetComponentId :info.snomed.Concept/id)
+(s/def :info.snomed/SimpleRefset (s/keys :req-un [:info.snomed.RefsetItem/id
+                                                  :info.snomed.RefsetItem/effectiveTime
+                                                  :info.snomed.RefsetItem/active
+                                                  :info.snomed.RefsetItem/moduleId
+                                                  :info.snomed.RefsetItem/refsetId
+                                                  :info.snomed.RefsetItem/referencedComponentId]))
+
+(s/def :info.snomed/AssociationRefset (s/keys :req-un [:info.snomed.RefsetItem/id
+                                                       :info.snomed.RefsetItem/effectiveTime
+                                                       :info.snomed.RefsetItem/active
+                                                       :info.snomed.RefsetItem/moduleId
+                                                       :info.snomed.RefsetItem/refsetId
+                                                       :info.snomed.RefsetItem/referencedComponentId
+                                                       :info.snomed.RefsetItem/targetComponentId]))

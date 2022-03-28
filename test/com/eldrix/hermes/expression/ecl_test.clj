@@ -4,8 +4,13 @@
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.impl.search :as search]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.snomed :as snomed])
-  (:import (java.io File)))
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.specs :as-alias specs]
+            [clojure.spec.test.alpha :as stest])
+  (:import (java.io File)
+           (org.apache.lucene.search IndexSearcher)))
+
+(stest/instrument)
 
 (defonce svc (atom {}))
 
@@ -18,13 +23,13 @@
     (log/warn "skipping live tests... no live store/search services found")
     (let [store (store/open-store "snomed.db/store.db")
           index-reader (search/open-index-reader "snomed.db/search.db")
-          searcher (org.apache.lucene.search.IndexSearcher. index-reader)]
+          searcher (IndexSearcher. index-reader)]
       (reset! svc {:store store :searcher searcher})
       (f))))
 
 (use-fixtures :once live-test-fixture)
 
-(def simple-tests
+(def ^:live simple-tests
   [{:ecl "404684003 |Clinical finding|"
     :f   (fn [concept-ids]
            (is (= concept-ids #{404684003})))}
@@ -123,14 +128,14 @@
   {:ecl " <  404684003 |Clinical finding| :\n         [0..0]  116676008 |Associated morphology|  != <<  26036001 |Obstruction|"})
 
 
-(deftest test-equivalence
+(deftest ^:live test-equivalence
   (let [p1 (parse " < ( 125605004 |Fracture of bone| . 363698007 |Finding site| )")
         p2 (parse "<  272673000 |Bone structure|")
         r1 (ecl/realise-concept-ids @svc p1)
         r2 (ecl/realise-concept-ids @svc p2)]
     (is (= r1 r2))))
 
-(deftest do-simple-tests
+(deftest ^:live do-simple-tests
   (doseq [t simple-tests]
     (let [st (:store @svc)
           p (ecl/parse st (:searcher @svc) (:ecl t))

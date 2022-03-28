@@ -22,6 +22,12 @@
     (is (= "Snapshot" (:release-type p)))
     (is (= "en" (:language-code p)))))
 
+(deftest test-refset-filename-pattern
+  (is (= '(1 2 3) (snomed/parse-using-pattern "iii" ["1" "2" "3"])))
+  (is (= '("1" 2 3) (snomed/parse-using-pattern "sii" ["1" "2" "3"])))
+  (is (= '("1" 2 3 "4") (snomed/parse-using-pattern "sics" ["1" "2" "3" "4"])))
+  (is (thrown? Exception (snomed/parse-using-pattern "a" ["1"])))
+  (is (thrown? Exception (snomed/parse-using-pattern "iii" ["1" "2"]))))
 
 (deftest test-partition
   (is (= :info.snomed/Concept (snomed/identifier->type 247000007)))

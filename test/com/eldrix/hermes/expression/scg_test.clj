@@ -83,7 +83,7 @@
     (doseq [example examples]
       (test-roundtrip (apply str example)))))
 
-(deftest updating-terms
+(deftest ^:live updating-terms
     (with-open [st (store/open-store "snomed.db/store.db")]
       (let [updated (->> (get-in example-expressions [:concrete-values :albuterol-0.083])
                          (scg/parse)
@@ -93,15 +93,6 @@
             refinements-group2 (second (get-in updated [:subExpression :refinements]))]
         (is (= {:conceptId 372897005 :term "Salbutamol"} (get refinements-group2 has-active-ingredient  )) "Albuterol not updated to salbutamol for en-GB locale"))))
 
-(defn test-ns-hook []
-  (simple-concept)
-  (refinements)
-  (render-round-tripping)
-  (if-not (com.eldrix.hermes.store-test/has-live-database?)
-    (log/warn "Skipping live tests as no live database 'snomed.db' found.")
-    (do (updating-terms))))
-
 (comment
-  (run-tests)
+  (run-tests))
 
-  )

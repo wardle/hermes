@@ -28,7 +28,8 @@
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
-           (org.apache.lucene.search IndexSearcher)
+           (com.eldrix.hermes.snomed Result)
+           (org.apache.lucene.search IndexSearcher Query)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
@@ -103,6 +104,11 @@
   "DEPRECATED: use [[get-component-refset-items]] instead."
   [^Service svc component-id]
   (get-component-refset-items svc component-id))
+
+(defn get-component-refset-ids
+  "Returns a collection of refset identifiers to which this concept is a member."
+  [^Service svc component-id]
+  (store/get-component-refsets (.-store svc) component-id))
 
 (defn get-refset-item [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
@@ -184,9 +190,21 @@
   ([^Service svc refset-id lower-bound upper-bound]
    (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
 
-(defn get-preferred-synonym [^Service svc concept-id langs]
-  (let [locale-match-fn (.-locale_match_fn svc)]
-    (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn langs))))
+(defn get-preferred-synonym
+  "Return the preferred synonym for the concept based on the language
+  preferences specified.
+
+  Parameters:
+  - svc            : hermes service
+  - concept-id     : concept identifier
+  - language-range : a single string containing a list of comma-separated
+                     language ranges or a list of language ranges in the form of
+                     the \"Accept-Language \" header defined in RFC3066."
+  ([^Service svc concept-id]
+   (get-preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
+  ([^Service svc concept-id language-range]
+   (let [locale-match-fn (.-locale_match_fn svc)]
+     (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
 (defn get-fully-specified-name [^Service svc concept-id]
   (store/get-fully-specified-name (.-store svc) concept-id))
@@ -216,9 +234,6 @@
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
     (search/do-search (.-searcher svc) params)))
 
-(defn all-transitive-synonyms [^Service svc params]
-  (mapcat (partial store/all-transitive-synonyms (.-store svc)) (map :conceptId (search/do-search (.-searcher svc) params))))
-
 (defn expand-ecl
   "Expand an ECL expression."
   [^Service svc ecl]
@@ -242,6 +257,29 @@
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
 
+
+(s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
+
+(defn all-transitive-synonyms
+  "Returns all of the synonyms of the specified concepts, including those
+  of its descendants.
+
+  Parameters:
+  - svc    : hermes service
+  - params : search parameters to select concepts. One of:
+          - a map        : search parameters as per [[search]]
+          - a string     : a string containing an ECL expression
+          - a collection : a collection of concept identifiers"
+  [^Service svc params]
+  (let [[op v] (s/conform ::transitive-synonym-params params)]
+    (if-not op
+      (throw (ex-info "invalid parameters:" (s/explain-data ::transitive-synonym-params params)))
+      (let [concept-ids (case op
+                          :by-search (map :conceptId (search svc v))
+                          :by-ecl (map #(.-conceptId ^Result %) (expand-ecl svc v))
+                          :by-concept-ids v)]
+        (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
+
 (defn ecl-contains?
   "Do any of the concept-ids satisfy the constraint expression specified?
   This is an alternative to expanding the valueset and then checking membership."
@@ -249,7 +287,6 @@
   (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
         q2 (search/q-concept-ids concept-ids)]
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
-
 
 (defn get-refset-members
   "Return a set of identifiers for the members of the given refset(s).
@@ -259,12 +296,6 @@
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 
-(s/def ::svc any?)
-(s/fdef map-into
-  :args (s/cat :svc ::svc :source-concept-ids (s/coll-of :info.snomed.Concept/id)
-               :target (s/alt :ecl string?
-                              :refset-id :info.snomed.Concept/id
-                              :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset.
@@ -423,14 +454,15 @@
 
 (defn ^Service open
   "Open a (read-only) SNOMED service from the path `root`."
-  [^String root]
-  (let [manifest (open-manifest root)
-        st (store/open-store (get-absolute-filename root (:store manifest)))
-        index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-        searcher (IndexSearcher. index-reader)
-        locale-match-fn (lang/match-fn st)]
-    (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
-    (->Service st index-reader searcher locale-match-fn)))
+  ([^String root] (open root {}))
+  ([^String root {:keys [quiet?] :or {quiet? false}}]
+   (let [manifest (open-manifest root)
+         st (store/open-store (get-absolute-filename root (:store manifest)))
+         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
+         searcher (IndexSearcher. index-reader)
+         locale-match-fn (lang/match-fn st)]
+     (when-not quiet? (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st)))))
+     (->Service st index-reader searcher locale-match-fn))))
 
 (defn close [^Service svc]
   (.close svc))
@@ -530,7 +562,7 @@
 (comment
   (require '[portal.api :as p])
   (def p (p/open))
-  (add-tap #'p/submit) ; Add portal as a tap> target
+  (add-tap #'p/submit)                                      ; Add portal as a tap> target
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
   (get-all-children svc 24700007)
@@ -539,6 +571,7 @@
 
   (tap> (get-concept svc 24700007))
   (tap> (get-extended-concept svc 24700007))
+  (get-extended-concept svc 24700007)
   (search svc {:s "mult scl"})
   (tap> (search svc {:s "mult scl"}))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
@@ -556,7 +589,7 @@
   (map :mapTarget (get-component-refset-items svc 24700007 447562003))
 
   (get-extended-concept svc 24700007)
-  (subsumed-by? svc 24700007 6118003)   ;; demyelinating disease of the CNS
+  (subsumed-by? svc 24700007 6118003)                       ;; demyelinating disease of the CNS
 
   (are-any? svc [24700007] [45454])
 
@@ -601,4 +634,10 @@
   (are-any? svc [24700007] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (map :referencedComponentId (reverse-map-range svc 447562003 "G35")))
   (are-any? svc [192928003] (with-historical svc (map :referencedComponentId (reverse-map-range svc 447562003 "G35"))))
-  (get-descriptions svc 24700007))
+  (get-descriptions svc 24700007)
+
+
+  (require '[criterium.core :as crit])
+  (crit/bench (get-extended-concept svc 24700007))
+  (crit/bench (search svc {:s "multiple sclerosis"})))
+

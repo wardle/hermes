@@ -3,6 +3,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.connect.indexes :as pci]
@@ -10,7 +11,9 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
             [com.wsscode.pathom3.connect.runner :as pcr]
-            [com.wsscode.pathom3.interface.eql :as p.eql]))
+            [com.wsscode.pathom3.interface.eql :as p.eql])
+  (:import (java.util Locale)
+           (com.eldrix.hermes.core Service)))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -88,7 +91,7 @@
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
-  (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (java.util.Locale/getDefault)))]
+  (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (Locale/getDefault)))]
     {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/get-preferred-synonym svc id lang))}))
 
 (pco/defresolver fully-specified-name
@@ -97,7 +100,8 @@
   {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/get-fully-specified-name svc id))})
 
 (pco/defresolver lowercase-term
-  "Returns a SNOMED description as a lowercase term."
+  "Returns a lowercase term of a SNOMED CT description according to the rules
+  of case sensitivity."
   [{:info.snomed.Description/keys [caseSignificanceId term]}]
   {:info.snomed.Description/lowercaseTerm
    (case caseSignificanceId
@@ -119,13 +123,14 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [:info.snomed.Concept/refsetIds]}
-  {:info.snomed.Concept/refsetIds (set (hermes/get-reference-sets svc id))})
+  {:info.snomed.Concept/refsetIds (set (hermes/get-component-refset-ids svc id))})
 
-(pco/defresolver concept-refsets
+(pco/defresolver concept-refset-items
   "Returns the refset items for a concept."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
-  {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id 0))})
+  (let [refset-id (or (:refsetId (pco/params env)) 0)]
+    {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items svc id refset-id))}))
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
@@ -154,44 +159,49 @@
   "Returns the single concept that this concept has been replaced by."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/replacedBy [:info.snomed.Concept/id]}]}
-  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
-    {:info.snomed.Concept/replacedBy {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+  (let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
+    {:info.snomed.Concept/replacedBy (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-moved-to-namespace
   "Returns the namespace to which this concept moved."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/movedToNamespace [:info.snomed.Concept/id]}]}
-  (when-let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
-    {:info.snomed.Concept/movedToNamespace {:info.snomed.Concept/id (:targetComponentId replacement)}}))
+  (let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
+    {:info.snomed.Concept/movedToNamespace (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-same-as
   "Returns multiple concepts that this concept is now thought to the same as."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
-  {::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
-  (when-let [replacements (seq (filter :active (hermes/get-component-refset-items svc id snomed/SameAsReferenceSet)))]
-    {:info.snomed.Concept/sameAs
-     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) replacements)}))
+  [{::keys [svc]} {concept-id :info.snomed.Concept/id}]
+  {::pco/input  [:info.snomed.Concept/id]
+   ::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
+  {:info.snomed.Concept/sameAs
+   (seq (->> (hermes/get-component-refset-items svc concept-id snomed/SameAsReferenceSet)
+             (filter :active)
+             (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
 (pco/defresolver concept-possibly-equivalent
   "Returns multiple concepts to which this concept might be possibly equivalent."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id]}]}
-  (when-let [equivalent-to (seq (filter :active (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)))]
-    {:info.snomed.Concept/possiblyEquivalentTo
-     (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) equivalent-to)}))
+  {:info.snomed.Concept/possiblyEquivalentTo
+   (seq (->> (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
+             (filter :active)
+             (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
 (pco/defresolver concept-relationships
-  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  "Returns the concept's relationships. Accepts a parameter :type, specifying the
+  type of relationship. If :type is omitted, all types of relationship will be
+  returned."
+  [{::keys [^Service svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
-  (let [ec (hermes/get-extended-concept svc id)
-        rel-type (:type (pco/params env))
-        parents (if rel-type {rel-type (get-in ec [:parentRelationships rel-type])}
-                             (:parentRelationships ec))
-        dp (if rel-type {rel-type (get-in ec [:directParentRelationships rel-type])}
-                        (:directParentRelationships ec))]
-    {:info.snomed.Concept/parentRelationshipIds       parents
-     :info.snomed.Concept/directParentRelationshipIds dp}))
+  (let [rel-type (:type (pco/params env))]
+    (if rel-type
+      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id rel-type)
+       :info.snomed.Concept/directParentRelationshipIds {rel-type (store/get-parent-relationships-of-type (.store svc) concept-id rel-type)}}
+      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id)
+       :info.snomed.Concept/directParentRelationshipIds (store/get-parent-relationships (.-store svc) concept-id)})))
+
 
 (pco/defresolver refsetitem-concept
   [{:info.snomed.RefsetItem/keys [refsetId]}]
@@ -226,11 +236,16 @@
                   :info.snomed.Description/term
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
 
-  (map (fn [result] {:info.snomed.Description/id               (:id result)
-                     :info.snomed.Concept/id                   (:conceptId result)
-                     :info.snomed.Description/term             (:term result)
-                     :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-       (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
+  (mapv (fn [result] {:info.snomed.Description/id               (:id result)
+                      :info.snomed.Concept/id                   (:conceptId result)
+                      :info.snomed.Description/term             (:term result)
+                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
+        (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
+
+(pco/defresolver installed-refsets
+  [{::keys [svc]} _]
+  {::pco/output [{:info.snomed/installedReferenceSets [:info.snomed.Concept/id]}]}
+  {:info.snomed/installedReferenceSets (mapv #(hash-map :info.snomed.Concept/id %) (hermes/get-installed-reference-sets svc))})
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
@@ -241,7 +256,7 @@
    concept-descriptions
    concept-module
    concept-refset-ids
-   concept-refsets
+   concept-refset-items
    refset-item-target-component
    concept-historical-associations
    concept-replaced-by
@@ -255,7 +270,8 @@
    fully-specified-name
    concept-relationships
    lowercase-term
-   search])
+   search
+   installed-refsets])
 
 (comment
   (def svc (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
@@ -265,8 +281,8 @@
   (hermes/search svc {:s          "polymyositis"
                       :fuzzy      2
                       :constraint "<404684003"
-                      :max-hits   10
-                      })
+                      :max-hits   10})
+
   (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc 24700007))
 
   concept-by-id
@@ -345,6 +361,6 @@
                        [:info.snomed.Description/term]}]}
                     {:info.snomed.Concept/sameAs [:info.snomed.Concept/id
                                                   :info.snomed.Concept/active
-                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}])
+                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}]))
 
-  )
+
