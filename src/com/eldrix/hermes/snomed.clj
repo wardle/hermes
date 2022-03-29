@@ -54,7 +54,7 @@
 (defmethod unparse Long [v] (str v))
 (defmethod unparse Integer [v] (str v))
 (defmethod unparse String [v] v)
-(defmethod unparse UUID [v] (.toString v))
+(defmethod unparse UUID [v] (.toString ^UUID v))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
