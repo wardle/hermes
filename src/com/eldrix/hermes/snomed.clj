@@ -44,10 +44,17 @@
            (java.io File)
            (java.util UUID)))
 
-
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
 (defn- ^Boolean parse-bool [^String s] (if (= "1" s) true false))
 (defn- ^UUID unsafe-parse-uuid [^String s] (UUID/fromString s))
+
+(defmulti unparse "Export data as per the SNOMED RF2 file format specification." type)
+(defmethod unparse LocalDate [v] (.format (DateTimeFormatter/BASIC_ISO_DATE) v))
+(defmethod unparse Boolean [v] (if v "1" "0"))
+(defmethod unparse Long [v] (str v))
+(defmethod unparse Integer [v] (str v))
+(defmethod unparse String [v] v)
+(defmethod unparse UUID [v] (.toString v))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -241,6 +248,9 @@
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))))
 
+(defmethod unparse Concept [c]
+  (mapv unparse [(:id c) (:effectiveTime c) (:active c) (:moduleId c) (:definitionStatusId c)]))
+
 (defn parse-description [v]
   (->Description
     (Long/parseLong (v 0))
@@ -252,6 +262,10 @@
     (Long/parseLong (v 6))
     (v 7)
     (Long/parseLong (v 8))))
+
+(defmethod unparse Description [d]
+  (mapv unparse [(:id d) (:effectiveTime d) (:active d) (:moduleId d) (:conceptId d)
+                 (:languageCode d) (:typeId d) (:term d) (:caseSignificanceId d)]))
 
 (defn parse-relationship [v]
   (->Relationship
@@ -266,14 +280,21 @@
     (Long/parseLong (v 8))                                  ;; characteristicTypeId
     (Long/parseLong (v 9))))                                ;; modifierId
 
+(defmethod unparse Relationship [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:destinationId r)
+                 (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)]))
+
 (defn parse-simple-refset-item [v]
   (->SimpleRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))))                                ;; referenced component Id
+
+(defmethod unparse SimpleRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]))
 
 (defn parse-using-pattern
   "Parse the values 'v' using the pattern specification 'pattern'.
@@ -306,6 +327,10 @@
     (Long/parseLong (v 5))
     (parse-using-pattern pattern (subvec v 6))))
 
+(defmethod unparse ExtendedRefsetItem [r]
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]
+                      (:fields r))))
+
 (defn parse-association-refset-item [v]
   (->AssociationRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
@@ -316,19 +341,25 @@
     (Long/parseLong (v 5))                                  ;; referenced component Id
     (Long/parseLong (v 6))))                                ;; target component Id))
 
+(defmethod unparse AssociationRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r) (:targetComponentId r)]))
+
 (defn parse-language-refset-item [v]
   (->LanguageRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (Long/parseLong (v 6))))
+    (Long/parseLong (v 6))))                                ;; acceptability id
+
+(defmethod unparse LanguageRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r) (:acceptabilityId r)]))
 
 (defn parse-refset-descriptor-item [v]
   (->RefsetDescriptorRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -337,6 +368,10 @@
     (Long/parseLong (v 6))
     (Long/parseLong (v 7))
     (Integer/parseInt (v 8))))
+
+(defmethod unparse RefsetDescriptorRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:attributeDescriptionId r) (:attributeTypeId r) (:attributeOrder r)]))
 
 (defn parse-simple-map-refset-item [v]
   (->SimpleMapRefsetItem
@@ -347,6 +382,10 @@
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
     (v 6)))                                                 ;; map target
+
+(defmethod unparse SimpleMapRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:mapTarget r)]))
 
 (defn parse-complex-map-refset-item [v]
   (->ComplexMapRefsetItem
@@ -362,6 +401,11 @@
     (v 9)                                                   ;; map advice
     (v 10)                                                  ;; map target
     (Long/parseLong (v 11))))                               ;; correlation
+
+(defmethod unparse ComplexMapRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r)]))
+
 
 (defn parse-extended-map-refset-item [v]
   (->ExtendedMapRefsetItem
@@ -379,6 +423,10 @@
     (Long/parseLong (v 11))                                 ;; correlation
     (Long/parseLong (v 12))))                               ;; map category id
 
+(defmethod unparse ExtendedMapRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r)
+                 (:correlationId r) (:mapCategoryId r)]))
 
 (defn parse-attribute-value-refset-item [v]
   (->AttributeValueRefsetItem
@@ -390,6 +438,10 @@
     (Long/parseLong (v 5))                                  ;; referenced component id
     (Long/parseLong (v 6))))
 
+(defmethod unparse AttributeValueRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:valueId r)]))
+
 (defn parse-owl-expression-refset-item [v]
   (->OWLExpressionRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
@@ -399,6 +451,10 @@
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
     (v 6)))                                                 ;; OWL expression
+
+(defmethod unparse OWLExpressionRefsetItem [r]
+  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                 (:owlExpression r)]))
 
 (def parsers
   {:info.snomed/Concept              parse-concept

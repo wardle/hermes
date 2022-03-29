@@ -4,7 +4,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as sgen]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.verhoeff :as verhoeff])
+            [com.eldrix.hermes.verhoeff :as verhoeff]
+            [clojure.spec.gen.alpha :as gen])
   (:import [java.time LocalDate]
            [java.util Locale]))
 
@@ -31,11 +32,11 @@
   [t]
   (sgen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
                 (Long/parseLong (verhoeff/append (str % partition))))
-            (gen-unique)))
+             (gen-unique)))
 
 (s/def ::effectiveTime (s/with-gen #(instance? LocalDate %)
                                    #(sgen/fmap (fn [days] (.minusDays (LocalDate/now) days))
-                                              (s/gen (s/int-in 1 (* 365 10))))))
+                                               (s/gen (s/int-in 1 (* 365 10))))))
 
 ;;;;
 ;;;; RF2 concept specification
@@ -100,25 +101,108 @@
 (s/def :info.snomed.RefsetItem/referencedComponentId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/targetComponentId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/acceptabilityId :info.snomed.Concept/id)
-(s/def :info.snomed/SimpleRefset (s/keys :req-un [:info.snomed.RefsetItem/id
-                                                  :info.snomed.RefsetItem/effectiveTime
-                                                  :info.snomed.RefsetItem/active
-                                                  :info.snomed.RefsetItem/moduleId
-                                                  :info.snomed.RefsetItem/refsetId
-                                                  :info.snomed.RefsetItem/referencedComponentId]))
+(s/def :info.snomed.RefsetItem/attributeDescriptionId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/attributeTypeId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/attributeOrder (s/with-gen int? #(gen/fmap int (s/gen (s/int-in 0 10)))))
+(s/def :info.snomed.RefsetItem/mapTarget (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.RefsetItem/mapGroup (s/with-gen int? #(s/gen (s/int-in 0 2))))
+(s/def :info.snomed.RefsetItem/mapPriority (s/with-gen int? #(s/gen (s/int-in 0 2))))
+(s/def :info.snomed.RefsetItem/mapRule (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.RefsetItem/mapAdvice (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.RefsetItem/correlationId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/mapCategoryId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/valueId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/owlExpression string?)  ;;; TODO: could generate arbitrary OWL in future
 
-(s/def :info.snomed/AssociationRefset (s/keys :req-un [:info.snomed.RefsetItem/id
-                                                       :info.snomed.RefsetItem/effectiveTime
-                                                       :info.snomed.RefsetItem/active
-                                                       :info.snomed.RefsetItem/moduleId
-                                                       :info.snomed.RefsetItem/refsetId
-                                                       :info.snomed.RefsetItem/referencedComponentId
-                                                       :info.snomed.RefsetItem/targetComponentId]))
+(s/def :info.snomed/SimpleRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId]))
 
-(s/def :info.snomed/LanguageRefset (s/keys :req-un [:info.snomed.RefsetItem/id
-                                                    :info.snomed.RefsetItem/effectiveTime
-                                                    :info.snomed.RefsetItem/active
-                                                    :info.snomed.RefsetItem/moduleId
-                                                    :info.snomed.RefsetItem/refsetId
-                                                    :info.snomed.RefsetItem/referencedComponentId
-                                                    :info.snomed.RefsetItem/acceptabilityId]))
+(s/def :info.snomed/AssociationRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/targetComponentId]))
+
+(s/def :info.snomed/LanguageRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/acceptabilityId]))
+
+(s/def :info.snomed/RefsetDescriptorRefsetItem
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/attributeDescriptionId
+                   :info.snomed.RefsetItem/attributeTypeId
+                   :info.snomed.RefsetItem/attributeOrder]))
+
+(s/def :info.snomed/SimpleMapRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/mapTarget]))
+
+(s/def :info.snomed/ComplexMapRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/mapGroup
+                   :info.snomed.RefsetItem/mapPriority
+                   :info.snomed.RefsetItem/mapRule
+                   :info.snomed.RefsetItem/mapAdvice
+                   :info.snomed.RefsetItem/mapTarget
+                   :info.snomed.RefsetItem/correlationId]))
+
+(s/def :info.snomed/ExtendedMapRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/mapGroup
+                   :info.snomed.RefsetItem/mapPriority
+                   :info.snomed.RefsetItem/mapRule
+                   :info.snomed.RefsetItem/mapAdvice
+                   :info.snomed.RefsetItem/mapTarget
+                   :info.snomed.RefsetItem/correlationId
+                   :info.snomed.RefsetItem/mapCategoryId]))
+
+(s/def :info.snomed/AttributeValueRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/valueId]))
+
+(s/def :info.snomed/OWLExpressionRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/owlExpression]))

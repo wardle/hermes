@@ -1,8 +1,11 @@
 (ns com.eldrix.hermes.snomed-test
   (:require
+    [clojure.spec.alpha :as s]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.test :refer :all]
     [com.eldrix.hermes.verhoeff :as verhoeff]
     [com.eldrix.hermes.snomed :as snomed]
+    [com.eldrix.hermes.rf2 :as-alias rf2]
     [clojure.java.io :as io])
   (:import [java.time LocalDate]))
 
@@ -59,6 +62,53 @@
 
 (deftest test-parsing
   (doall (map test-example core-examples)))
+
+(def parse-unparse-tests
+  [{:spec     :info.snomed/Concept
+    :make-fn  snomed/map->Concept
+    :parse-fn snomed/parse-concept}
+   {:spec     :info.snomed/Description
+    :make-fn  snomed/map->Description
+    :parse-fn snomed/parse-description}
+   {:spec     :info.snomed/Relationship
+    :make-fn  snomed/map->Relationship
+    :parse-fn snomed/parse-relationship}
+   {:spec     :info.snomed/SimpleRefset
+    :make-fn  snomed/map->SimpleRefsetItem
+    :parse-fn snomed/parse-simple-refset-item
+    #_{:spec     :info.snomed/ExtendedRefset                ;; TODO:extended refset items need a different custom test
+       :make-fn  snomed/map->ExtendedRefsetItem
+       :parse-fn snomed/parse-extended-refset-item}}
+   {:spec     :info.snomed/AssociationRefset
+    :make-fn  snomed/map->AssociationRefsetItem
+    :parse-fn snomed/parse-association-refset-item}
+   {:spec :info.snomed/LanguageRefset
+    :make-fn snomed/map->LanguageRefsetItem
+    :parse-fn snomed/parse-language-refset-item}
+   {:spec :info.snomed/RefsetDescriptorRefsetItem
+    :make-fn snomed/map->RefsetDescriptorRefsetItem
+    :parse-fn snomed/parse-refset-descriptor-item}
+   {:spec :info.snomed/SimpleMapRefset
+    :make-fn snomed/map->SimpleMapRefsetItem
+    :parse-fn snomed/parse-simple-map-refset-item}
+   {:spec :info.snomed/ComplexMapRefset
+    :make-fn snomed/map->ComplexMapRefsetItem
+    :parse-fn snomed/parse-complex-map-refset-item}
+   {:spec :info.snomed/ExtendedMapRefset
+    :make-fn snomed/map->ExtendedMapRefsetItem
+    :parse-fn snomed/parse-extended-map-refset-item}
+   {:spec :info.snomed/AttributeValueRefset
+    :make-fn snomed/map->AttributeValueRefsetItem
+    :parse-fn snomed/parse-attribute-value-refset-item}
+   {:spec :info.snomed/OWLExpressionRefset
+    :make-fn snomed/map->OWLExpressionRefsetItem
+    :parse-fn snomed/parse-owl-expression-refset-item}])
+
+(deftest test-parse-unparse
+  (doseq [{:keys [spec make-fn parse-fn]} parse-unparse-tests]
+    (is (every? true? (->> (gen/sample (s/gen spec) 1000)
+                           (map #(make-fn %))
+                           (map #(= % (parse-fn (snomed/unparse %)))))))))
 
 (def refset-examples
   [{:filename "der2_Refset_SimpleFull_INT_20180131.txt"
