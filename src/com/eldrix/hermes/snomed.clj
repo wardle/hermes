@@ -298,7 +298,7 @@
 
 (defn parse-extended-refset-item [pattern v]
   (->ExtendedRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
@@ -308,7 +308,7 @@
 
 (defn parse-association-refset-item [v]
   (->AssociationRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; component id
+    (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
