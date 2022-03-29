@@ -566,7 +566,6 @@
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
   (get-all-children svc 24700007)
-  (require '[clojure.spec.alpha :as s])
   (s/valid? :info.snomed/Concept (get-concept svc 24700007))
 
   (tap> (get-concept svc 24700007))
