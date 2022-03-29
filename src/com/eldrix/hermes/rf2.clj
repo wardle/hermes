@@ -2,10 +2,9 @@
   "Specifications for the RF2 SNOMED format.
   See https://confluence.ihtsdotools.org/display/DOCRELFMT"
   (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as sgen]
+            [clojure.spec.gen.alpha :as gen]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.verhoeff :as verhoeff]
-            [clojure.spec.gen.alpha :as gen])
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
            [java.util Locale]))
 
@@ -22,7 +21,7 @@
   (reset! counter 0))
 
 (defn gen-unique []
-  (sgen/fmap (fn [_] (swap! counter inc)) (sgen/return nil)))
+  (gen/fmap (fn [_] (swap! counter inc)) (gen/return nil)))
 
 (defn gen-identifier
   "A generator of identifiers of the specified type.
@@ -30,13 +29,13 @@
   - t : one of :info.snomed/Concept :info.snomed.Description or
         :info.snomed/Relatioship."
   [t]
-  (sgen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
-                (Long/parseLong (verhoeff/append (str % partition))))
-             (gen-unique)))
+  (gen/fmap #(let [partition (rand-nth (seq (partitions-for-type t)))]
+               (Long/parseLong (verhoeff/append (str % partition))))
+            (gen-unique)))
 
 (s/def ::effectiveTime (s/with-gen #(instance? LocalDate %)
-                                   #(sgen/fmap (fn [days] (.minusDays (LocalDate/now) days))
-                                               (s/gen (s/int-in 1 (* 365 10))))))
+                                   #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
+                                              (s/gen (s/int-in 1 (* 365 10))))))
 
 ;;;;
 ;;;; RF2 concept specification
@@ -85,7 +84,7 @@
 (s/def :info.snomed.Relationship/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/modifierId (s/with-gen :info.snomed.Concept/id
-                                                        #(sgen/return 900000000000451002)))
+                                                        #(gen/return 900000000000451002)))
 (s/def :info.snomed/Relationship (s/keys :req-un [:info.snomed.Relationship/id :info.snomed.Relationship/effectiveTime
                                                   :info.snomed.Relationship/active :info.snomed.Relationship/moduleId
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
@@ -112,7 +111,7 @@
 (s/def :info.snomed.RefsetItem/correlationId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/mapCategoryId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/valueId :info.snomed.Concept/id)
-(s/def :info.snomed.RefsetItem/owlExpression string?)  ;;; TODO: could generate arbitrary OWL in future
+(s/def :info.snomed.RefsetItem/owlExpression string?)       ;;; TODO: could generate arbitrary OWL in future
 
 (s/def :info.snomed/SimpleRefset
   (s/keys :req-un [:info.snomed.RefsetItem/id
