@@ -310,11 +310,11 @@
   [pattern values]
   (when-not (= (count pattern) (count values))
     (throw (ex-info "length of pattern values not equal" {:pattern pattern :values values})))
-  (map (fn [[k v]]
-         (case k \c (Long/parseLong v)
-                 \i (Long/parseLong v)
-                 \s v
-                 (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
+  (mapv (fn [[k v]]
+          (case k \c (Long/parseLong v)
+                  \i (Long/parseLong v)
+                  \s v
+                  (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
        (mapv vector (seq pattern) values)))
 
 (defn parse-extended-refset-item [pattern v]
