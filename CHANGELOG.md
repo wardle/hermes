@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Add specifications for all supported SNOMED CT entities
+* Add generative tests for parsing and unparsing SNOMED data files
+
 ## [0.9.458] - 2022-03-27
 
 * Upgrade to Lucene 9.1
