@@ -40,16 +40,16 @@ This log documents significant changes for each release.
 
 * More complete UK language refset priority list
 * Fail fast if there are any issues caught during processing (e.g. broken data such as invalid dates)
-* Optimisations to import, parsing and storage flow. Better handling of errors during import.
-* Fixed import of simple reference sets, including when 'Simple' not in summary field of filename
-* Tidied status output when importing data if no metadata found.
-* Added support for simple reference set extensions with flexible fields based on 's' 'c' or 'i' in filename for local customisation
+* Optimise import, parsing and storage flow. Better handling of errors during import.
+* Fix import of simple reference sets, including when 'Simple' not in summary field of filename
+* Tidy status output when importing data if no metadata found.
+* Add support for simple reference set extensions with flexible fields based on 's' 'c' or 'i' in filename for local customisation
 
 ## [0.8.2] - 2021-10-31
 
-* status command now prints installed reference sets, and optionally counts of SNOMED data
-* add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already
-* better error reporting during import 
+* Status command now prints installed reference sets, and optionally counts of SNOMED data
+* Add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already
+* Better error reporting during import 
 
 
 ## [0.8.1] - 2021-10-30
@@ -68,8 +68,8 @@ This log documents significant changes for each release.
 
 ## [0.7.5] - 2021-09-13
 
-* Fixed handling of '<<' in expressions.
-* Better validation of HTTP parameters
+* Fix handling of '<<' in expressions.
+* Improve validation of HTTP parameters
 * Backend paths-to-root and some-indexed for dimensionality reduction work
 
 ## [0.7.4] - 2021-07-27
@@ -137,7 +137,7 @@ This log documents significant changes for each release.
 
 ## [0.2.0] - 2020-11-18
 
-* Added search and autocompletion using Apache Lucene
+* Add search and autocompletion using Apache Lucene
 
 ## [0.1.0] - 2020-11-12
 
