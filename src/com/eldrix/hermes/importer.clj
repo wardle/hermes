@@ -29,11 +29,12 @@
 
 (defn snomed-file-seq
   "A tree sequence for SNOMED CT data files, returning a sequence of maps.
+
   Each result is a map of SNOMED information from the filename as per
-  the release file documentation.
-  https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
-  with :path the path of the file, and :component the canonical name of the
-  SNOMED component (e.g. 'Concept', 'SimpleRefset')"
+  the [release file documentation](https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention),
+  with
+  * :path : the path of the file,
+  * :component the canonical name of the SNOMED component (e.g. 'Concept', 'SimpleRefset')"
   [dir]
   (->> dir
        clojure.java.io/file
@@ -50,9 +51,11 @@
 
 (defn read-metadata
   "Reads the metadata from the file specified.
+
   Unfortunately, some UK releases have invalid JSON in their metadata, so
   we log an error and avoid throwing an exception.
   Raised as issue #34057 with NHS Digital.
+
   Unfortunately the *name* of the release is not included currently, but as the
   metadata file exists at the root of the release, we can guess the name from
   the parent directory and use that if a 'name' isn't in the metadata.
@@ -66,7 +69,7 @@
 
 (defn metadata-files
   "Returns a list of release package information files from the directory.
-  Each entry returned in the list will be a java.io.File
+  Each entry returned in the list will be a `java.io.File`.
   These files have been issued since the July 2020 International edition release."
   [dir]
   (->> (io/file dir)
@@ -74,13 +77,13 @@
        (filter #(= (.getName ^File %) "release_package_information.json"))))
 
 (defn all-metadata
-  "Returns all release metadata from the directory specified"
+  "Returns all release metadata from the directory specified."
   [dir]
   (doall (->> (metadata-files dir)
               (map read-metadata))))
 
 (defn csv-data->maps
-  "Turn CSV data into maps, assuming first row is the header"
+  "Turn CSV data into maps, assuming first row is the header."
   [csv-data]
   (map zipmap
        (->> (first csv-data)
@@ -91,6 +94,7 @@
 (defn- process-file
   "Process the specified file, streaming batched results to the channel
   specified, blocking if channel not being drained.
+
   Each batch is a map with keys
    - :type      : a type of SNOMED component
    - :parser    : a parser that can take each row and give you data
@@ -139,8 +143,9 @@
     (test-csv filename)))
 
 (defn load-snomed
-  "Imports a SNOMED-CT distribution from the specified directory, returning results on the returned channel
-  which will be closed once all files have been sent through."
+  "Imports a SNOMED-CT distribution from the specified directory, returning
+  results on the returned channel which will be closed once all files have been
+  sent through."
   [dir & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities

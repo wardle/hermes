@@ -53,15 +53,21 @@
   [^Service svc concept-id]
   (store/get-concept (.-store svc) concept-id))
 
-(defn get-extended-concept [^Service svc concept-id]
+(defn get-extended-concept
+  "Return an extended concept that includes the concept, its descriptions,
+  its relationships and its refset memberships. See
+  [[com.eldrix.hermes.snomed/ExtendedConcept]]"
+  [^Service svc concept-id]
   (when-let [concept (store/get-concept (.-store svc) concept-id)]
     (store/make-extended-concept (.-store svc) concept)))
 
-(defn get-descriptions [^Service svc concept-id]
+(defn get-descriptions
+  "Return a sequence of descriptions for the given concept."
+  [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
 (defn get-synonyms
-  "Returns a collection of synonyms for the given concept."
+  "Returns a sequence of synonyms for the given concept."
   [^Service svc concept-id]
   (->> (get-descriptions svc concept-id)
        (filter #(= snomed/Synonym (:typeId %)))))
@@ -95,6 +101,7 @@
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
 (defn get-component-refset-items
+  "Returns a sequence of refset items for the given component."
   ([^Service svc component-id]
    (store/get-component-refset-items (.-store svc) component-id))
   ([^Service svc component-id refset-id]
@@ -110,7 +117,9 @@
   [^Service svc component-id]
   (store/get-component-refsets (.-store svc) component-id))
 
-(defn get-refset-item [^Service svc ^UUID uuid]
+(defn get-refset-item
+  "Return a specific refset item by UUID."
+  [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
 
 (defn active-association-targets
@@ -139,8 +148,8 @@
 
 (defn source-historical-associations
   "Returns all historical-type associations in which the specified component is
-  the target. For example, searching for 24700007 will result in a map keyed
-  by refset-id (e.g. SAME-AS reference set) and a set of concept identifiers."
+  the target. For example, searching for `24700007` will result in a map keyed
+  by refset-id (e.g. `SAME-AS` reference set) and a set of concept identifiers."
   [^Service svc component-id]
   (let [refset-ids (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)]
     (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
@@ -174,7 +183,9 @@
          historic (set (mapcat #(source-historical svc % assoc-refset-ids) modern))]
      (set/union modern historic))))
 
-(defn get-installed-reference-sets [^Service svc]
+(defn get-installed-reference-sets
+  "Return the installed reference sets."
+  [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
 (defn reverse-map
@@ -266,7 +277,8 @@
 
   Parameters:
   - svc    : hermes service
-  - params : search parameters to select concepts. One of:
+  - params : search parameters to select concepts; one of:
+
           - a map        : search parameters as per [[search]]
           - a string     : a string containing an ECL expression
           - a collection : a collection of concept identifiers"
@@ -290,6 +302,7 @@
 
 (defn get-refset-members
   "Return a set of identifiers for the members of the given refset(s).
+
   Parameters:
   - refset-id  - SNOMED identifier representing the reference set."
   [^Service svc refset-id & more]

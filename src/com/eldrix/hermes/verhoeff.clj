@@ -59,7 +59,7 @@
 ;; For each index i of the array n, starting at zero, replace c with d(c, p(i mod 8, ni)).
 ;; The original number is valid if and only if c = 0.
 (defn valid?
-  "Checks whether Verhoeff check digit is correct"
+  "Checks whether Verhoeff check digit is correct."
   [s]
   (loop [ss (str s)
          ll (count ss)
@@ -74,7 +74,7 @@
         (recur ss ll (inc i) checksum)))))
 
 (defn append
-  "Append a Verhoeff check digit"
+  "Append a Verhoeff check digit."
   [s] (str s (calculate s)))
 
 (comment

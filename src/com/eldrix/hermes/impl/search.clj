@@ -325,18 +325,20 @@
   Parameters:
   - searcher : the IndexSearcher to use
   - params   : a map of search parameters, which are:
-    |- :s                  : search string to use
-    |- :max-hits           : maximum hits (if omitted returns unlimited but
-    |                        *unsorted* results)
-    |- :fuzzy              : fuzziness (0-2, default 0)
-    |- :fallback-fuzzy     : if no results, try fuzzy search (0-2, default 0).
-    |- :query              : additional ^Query to apply
-    |- :show-fsn?          : show FSNs in results? (default: false)
-    |- :inactive-concepts? : search descriptions of inactive concepts?
-    |                      : (default: false).
-    |- :inactive-descriptions? : search inactive descriptions? (default, true)
-    |- :properties         : a map of properties and their possible values.
-    |- :concept-refsets    : a collection of refset identifiers to limit search
+    | keyword                 | description |
+    |---------------------    |----------------------------------------------------|
+    | :s                      | search string to use                               |
+    | :max-hits               | maximum hits (if omitted returns unlimited but     |
+    |                         | *unsorted* results)                                |
+    | :fuzzy                  | fuzziness (0-2, default 0)                         |
+    | :fallback-fuzzy         | if no results, try fuzzy search (0-2, default 0).  |
+    | :query                  | additional ^Query to apply                         |
+    | :show-fsn?              | show FSNs in results? (default: false)             |
+    | :inactive-concepts?     | search descriptions of inactive concepts?          |
+    |                         | (default: false).                                  |
+    | :inactive-descriptions? | search inactive descriptions? (default, true)      |
+    | :properties             | a map of properties and their possible values.     |
+    | :concept-refsets        | a collection of refset identifiers to limit search |
 
   The properties map contains keys for a property and then either a single
   identifier or vector of identifiers to limit search.
@@ -531,8 +533,11 @@
   - property    : concept-id of the attribute
   - minimum     : minimum count
   - maximum     : maximum count (use Integer/MAX_VALUE for half-open range)
+
   For example, get concepts with 4 or more active ingredients:
-  (q-attribute-count 127489000 4 Integer/MAX_VALUE)."
+  ```
+  (q-attribute-count 127489000 4 Integer/MAX_VALUE)
+  ```"
   [property minimum maximum]
   (let [field (str "c" property)]
     (cond
