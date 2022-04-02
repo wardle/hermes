@@ -156,7 +156,7 @@
       (filter installed-refsets [specific-refset-id]))
     (let [installed-locales (keys installed-language-reference-sets) ;; list of java.util.Locales
           priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
-          filtered (Locale/filter priority-list installed-locales)]
+          filtered (Locale/filter priority-list (or installed-locales '()))]
       (mapcat #(get installed-language-reference-sets %) filtered))))
 
 (defn match-fn
