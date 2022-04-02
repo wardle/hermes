@@ -1,31 +1,19 @@
 (ns com.eldrix.hermes.expression.ecl-test
   (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.expression.ecl :as ecl]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.impl.search :as search]
-            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.specs :as-alias specs]
-            [clojure.spec.test.alpha :as stest])
-  (:import (java.io File)
-           (org.apache.lucene.search IndexSearcher)))
+            [clojure.spec.test.alpha :as stest]))
 
 (stest/instrument)
 
-(defonce svc (atom {}))
-
-(defn parse [s]
-  (ecl/parse (:store @svc) (:searcher @svc) s))
+(def ^:dynamic *svc* nil)
 
 (defn live-test-fixture [f]
-  (if-not (and (.exists (File. "snomed.db/store.db"))
-               (.exists (File. "snomed.db/search.db")))
-    (log/warn "skipping live tests... no live store/search services found")
-    (let [store (store/open-store "snomed.db/store.db")
-          index-reader (search/open-index-reader "snomed.db/search.db")
-          searcher (IndexSearcher. index-reader)]
-      (reset! svc {:store store :searcher searcher})
-      (f))))
+  (binding [*svc* (hermes/open "snomed.db" {:quiet? true})]
+    (f)
+    (hermes/close *svc*)))
 
 (use-fixtures :once live-test-fixture)
 
@@ -64,7 +52,7 @@
    {:ecl "<  19829001 |Disorder of lung| :\n         116676008 |Associated morphology|  =  79654002 |Edema|"
     :f   (fn [concept-ids]
            (let [morphologies (->> concept-ids
-                                   (map #(store/get-parent-relationships-of-type (:store @svc) % snomed/AssociatedMorphology))
+                                   (map #(hermes/get-parent-relationships-of-type *svc* % snomed/AssociatedMorphology))
                                    (map set))]
              (is (every? true? (map #(contains? % 79654002) morphologies))) ;; all must have EXACTLY oedema as morphology
              (is (every? false? (map #(contains? % 85628007) morphologies)))))} ;; and *not* a subtype of oedema such as chronic oedema
@@ -129,23 +117,17 @@
 
 
 (deftest ^:live test-equivalence
-  (let [p1 (parse " < ( 125605004 |Fracture of bone| . 363698007 |Finding site| )")
-        p2 (parse "<  272673000 |Bone structure|")
-        r1 (ecl/realise-concept-ids @svc p1)
-        r2 (ecl/realise-concept-ids @svc p2)]
+  (let [r1 (hermes/expand-ecl *svc* " < ( 125605004 |Fracture of bone| . 363698007 |Finding site| )")
+        r2 (hermes/expand-ecl *svc* "<  272673000 |Bone structure|")]
     (is (= r1 r2))))
 
 (deftest ^:live do-simple-tests
-  (doseq [t simple-tests]
-    (let [st (:store @svc)
-          p (ecl/parse st (:searcher @svc) (:ecl t))
-          results (ecl/realise-concept-ids @svc p)
-          f (:f t)
-          f2 (:f2 t)]
-      (when f (f results))
-      (when f2 (doseq [concept-id results]
-                 (let [ec (store/make-extended-concept st (store/get-concept st concept-id))]
-                   (f2 ec)))))))
+  (doseq [{:keys [ecl f f2] } simple-tests]
+    (let [results (hermes/expand-ecl *svc* ecl)]
+      (when f (f (set (map :conceptId results))))
+      (when f2 (dorun (->> results
+                           (map #(hermes/get-extended-concept *svc* (:conceptId %)))
+                           (map f2)))))))
 
 (comment
   (run-tests))
