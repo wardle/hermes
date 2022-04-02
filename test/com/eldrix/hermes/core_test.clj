@@ -1,9 +1,11 @@
 (ns com.eldrix.hermes.core-test
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer :all]
             [com.eldrix.hermes.core :as hermes]
-            [clojure.set :as set]
-            [com.eldrix.hermes.snomed :as snomed]))
+            [clojure.set :as set]))
+
+(stest/instrument)
 
 (def ^:dynamic *svc* nil)
 
