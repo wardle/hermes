@@ -484,11 +484,11 @@
   "Import a SNOMED distribution from the specified directory `dir` into a local
    file-based database `store-filename`.
    Blocking; will return when done. "
-  [store-filename dir]
+  [store-filename dir & {:keys [quiet?] :or {quiet? false}}]
   (with-open [store (store/open-store store-filename {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
           cancel-c (async/chan)
-          data-c (importer/load-snomed dir :nthreads nthreads)
+          data-c (importer/load-snomed dir :nthreads nthreads :quiet? quiet?)
           pool (Executors/newFixedThreadPool nthreads)
           tasks (repeat nthreads
                         (fn [] (try (loop [[batch ch] (async/alts!! [cancel-c data-c])]
@@ -514,17 +514,17 @@
 (defn import-snomed
   "Import SNOMED distribution files from the directories `dirs` specified into
   the database directory `root` specified."
-  [root dirs]
+  [root dirs & {:keys [quiet?] :or {quiet? false}}]
   (let [manifest (open-manifest root true)
         store-filename (get-absolute-filename root (:store manifest))]
     (doseq [dir dirs]
-      (log-metadata dir)
-      (do-import-snomed store-filename dir))))
+      (when-not quiet? (log-metadata dir))
+      (do-import-snomed store-filename dir :quiet? quiet?))))
 
 (defn compact
-  [root]
+  [root & {:keys [quiet?] :or {quiet? false}}]
   (let [manifest (open-manifest root false)]
-    (log/info "Compacting database at " root "...")
+    (when-not quiet? (log/info "Compacting database at " root "..."))
     (let [root-path (Paths/get root (into-array String []))
           file-size (Files/size (.resolve root-path ^String (:store manifest)))
           heap-size (.maxMemory (Runtime/getRuntime))]
@@ -534,7 +534,7 @@
                    :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
       (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
         (store/compact st))
-      (log/info "Compacting database... complete."))))
+      (when-not quiet? (log/info "Compacting database... complete.")))))
 
 (defn build-search-index
   ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
@@ -546,10 +546,10 @@
                                 language-priority-list)
      (log/info "Building search index... complete."))))
 
-(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
+(defn get-status [root & {:keys [counts? installed-refsets? quiet?] :or {counts? false installed-refsets? true quiet? false}}]
   (let [manifest (open-manifest root)]
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
-      (log/info "Status information for database at '" root "'...")
+      (when-not quiet? (log/info "Status information for database at '" root "'..."))
       (merge
         {:installed-releases (map :term (store/get-release-information st))}
         (when installed-refsets? {:installed-refsets (->> (store/get-installed-reference-sets st)

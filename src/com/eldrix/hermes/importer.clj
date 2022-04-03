@@ -100,7 +100,7 @@
    - :parser    : a parser that can take each row and give you data
    - :headings  : a sequence of headings from the original file
    - :data      : a sequence of vectors representing each column."
-  [filename out-c batchSize]
+  [filename out-c & {:keys [batch-size quiet?] :or {batch-size 1000 quiet? false}}]
   (with-open [reader (io/reader filename)]
     (let [snofile (snomed/parse-snomed-filename filename)
           parser (:parser snofile)]
@@ -109,12 +109,12 @@
               headings (first csv-data)
               data (rest csv-data)
               batches (->> data
-                           (partition-all batchSize)
+                           (partition-all batch-size)
                            (map #(hash-map :type (:identifier snofile)
                                            :parser parser
                                            :headings headings
                                            :data %)))]
-          (log/info "Processing: " filename " type: " (:component snofile))
+          (when-not quiet? (log/info "Processing: " filename " type: " (:component snofile)))
           (doseq [batch batches]
             (when-not (async/>!! out-c batch)
               (throw (InterruptedException. "process cancelled")))))))))
@@ -147,11 +147,11 @@
   "Imports a SNOMED-CT distribution from the specified directory, returning
   results on the returned channel which will be closed once all files have been
   sent through."
-  [dir & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
+  [dir & {:keys [nthreads batch-size quiet?] :or {nthreads 4 batch-size 5000 quiet? false}}]
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (importable-files dir)]
-    (log/info "importing files from " dir)
+    (when-not quiet? (log/info "importing files from " dir))
     (async/pipeline nthreads
                     processed-c
                     (map snomed/parse-batch)
@@ -161,7 +161,7 @@
     (async/thread
       (when-not (seq files) (log/warn "no files found to import in " dir))
       (doseq [file files]
-        (process-file (:path file) raw-c batch-size))
+        (process-file (:path file) raw-c :batch-size batch-size :quiet? quiet?))
       (async/close! raw-c))
     processed-c))
 
