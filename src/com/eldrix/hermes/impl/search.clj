@@ -143,7 +143,7 @@
                                                {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
         (async/<!!                                          ;; block until pipeline complete
-          (async/pipeline                                   ;; pipeline for side-effects
+          (async/pipeline-blocking                          ;; pipeline for side-effects
             (.availableProcessors (Runtime/getRuntime))     ;; Parallelism factor
             (doto (async/chan) (async/close!))              ;; Output channel - /dev/null
             (map (partial write-batch! store writer langs'))
