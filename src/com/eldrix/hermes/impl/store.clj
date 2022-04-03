@@ -157,7 +157,7 @@
    (stream-all-concepts store ch true))
   ([^MapDBStore store ch close?]
    (let [concepts (iterator-seq (.valueIterator ^BTreeMap (.concepts store)))]
-     (async/onto-chan! ch concepts close?))))
+     (async/onto-chan!! ch concepts close?))))
 
 (defn compact [^MapDBStore store]
   (.compact (.getStore ^BTreeMap (.concepts store))))
