@@ -2,10 +2,13 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [0.9.486] - 2022-04-03
 
 * Add specifications for all supported SNOMED CT entities
 * Add generative tests for parsing and unparsing SNOMED data files
+* Add synth_test.clj to export and then re-import generated synthetic data
+* Bump to Clojure 1.11.0
+* Speed up import and indexing
 
 ## [0.9.458] - 2022-03-27
 
