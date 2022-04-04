@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.synth-test
-  (:require [clojure.java.io :as io]
+  (:require [clojure.tools.logging.readable :as log]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
@@ -40,8 +41,8 @@
     (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components temp-dir "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
     (write-components temp-dir "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" lang-refsets)
-    (hermes/import-snomed db-path [(.toString (.toAbsolutePath temp-dir))] :quiet? true)
-    (hermes/compact db-path :quiet? true)
+    (hermes/import-snomed db-path [(.toString (.toAbsolutePath temp-dir))])
+    (hermes/compact db-path)
     (let [status (hermes/get-status db-path :counts? true :quiet? true)]
       (is (= n (:concepts status)))
       (is (= n (:descriptions status)))
