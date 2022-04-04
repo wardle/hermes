@@ -70,11 +70,11 @@
 (deftest write-simple-refsets-test
   (with-open [st (store/open-store)]
     (let [n-concepts (rand-int 10000)
-          [refset & concepts] (gen/sample rf2/gen-concept n-concepts)
+          [refset & concepts] (gen/sample (rf2/gen-concept) n-concepts)
           refset-id (:id refset)
           members (set (take (/ n-concepts (inc (rand-int 10))) (shuffle concepts)))
           non-members (set/difference (set concepts) members)
-          refset-items (map #(gen/generate (rf2/gen-simple-refset-from {:refsetId refset-id :active true :referencedComponentId (:id %)})) members)]
+          refset-items (map #(gen/generate (rf2/gen-simple-refset {:refsetId refset-id :active true :referencedComponentId (:id %)})) members)]
       (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)

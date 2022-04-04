@@ -23,7 +23,7 @@
 (defn reset-identifier-counter []
   (reset! counter 0))
 
-(def gen-unique-identifier
+(defn gen-unique-identifier []
   (gen/fmap (fn [_] (swap! counter inc)) (gen/return nil)))
 
 (defn- gen-identifier
@@ -34,7 +34,7 @@
   [t]
   (gen/fmap (fn [[id partition]]
               (Long/parseLong (verhoeff/append (str id partition))))
-            (gen/tuple gen-unique-identifier (gen-partition t))))
+            (gen/tuple (gen-unique-identifier) (gen-partition t))))
 
 (defn gen-concept-id []
   (gen-identifier :info.snomed/Concept))
@@ -50,13 +50,13 @@
   (s/with-gen boolean? #(gen/frequency [[8 (gen/return true)] [2 (gen/return false)]])))
 
 (s/def ::effectiveTime
-  (s/with-gen #(instance? LocalDate %) gen-effective-time))
+  (s/with-gen #(instance? LocalDate %) #(gen-effective-time)))
 
 ;;;;
 ;;;; RF2 concept specification
 ;;;;
 (s/def :info.snomed.Concept/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Concept (snomed/identifier->type %)))
-                                           gen-concept-id))
+                                           #(gen-concept-id)))
 (s/def :info.snomed.Concept/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Concept/active ::active)
 (s/def :info.snomed.Concept/moduleId :info.snomed.Concept/id)
@@ -64,26 +64,26 @@
 (s/def :info.snomed/Concept (s/keys :req-un [:info.snomed.Concept/id :info.snomed.Concept/effectiveTime
                                              :info.snomed.Concept/active :info.snomed.Concept/moduleId :info.snomed.Concept/definitionStatusId]))
 
-(def gen-concept
-  "A generator of SNOMED RF2 Concept entities."
-  (gen/fmap snomed/map->Concept (s/gen :info.snomed/Concept)))
 
-(s/fdef gen-concept-from
-  :args (s/cat :concept (s/keys :opt-un [:info.snomed.Concept/id
-                                         :info.snomed.Concept/effectiveTime
-                                         :info.snomed.Concept/active
-                                         :info.snomed.Concept/moduleId
-                                         :info.snomed.Concept/definitionStatusId])))
-(defn gen-concept-from
-  "A generator of Concept entities using the concept specified as basis."
-  [concept]
-  (gen/fmap #(merge % concept) gen-concept))
+(s/fdef gen-concept
+  :args (s/cat :concept (s/? (s/keys :opt-un [:info.snomed.Concept/id
+                                              :info.snomed.Concept/effectiveTime
+                                              :info.snomed.Concept/active
+                                              :info.snomed.Concept/moduleId
+                                              :info.snomed.Concept/definitionStatusId]))))
+(defn gen-concept
+  "A generator of SNOMED RF2 Concept entities."
+  ([]
+   (gen/fmap snomed/map->Concept (s/gen :info.snomed/Concept)))
+  ([concept]
+   (gen/fmap #(merge % concept) (gen-concept))))
+
 
 ;;;;
 ;;;; RF2 description specification.
 ;;;;
 (s/def :info.snomed.Description/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Description (snomed/identifier->type %)))
-                                               gen-description-id))
+                                               #(gen-description-id)))
 (s/def :info.snomed.Description/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Description/active ::active)
 (s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
@@ -96,21 +96,19 @@
                                                  :info.snomed.Description/moduleId :info.snomed.Description/conceptId
                                                  :info.snomed.Description/languageCode :info.snomed.Description/typeId
                                                  :info.snomed.Description/term :info.snomed.Description/caseSignificanceId]))
-(def gen-description
+(defn gen-description
   "A generator of SNOMED RF2 Description entities."
-  (gen/fmap snomed/map->Description (s/gen :info.snomed/Description)))
-
-(defn gen-description-from
-  "Creates a generator for descriptions using the given description as basis."
-  [description]
-  (gen/fmap #(merge % description) gen-description))
+  ([]
+   (gen/fmap snomed/map->Description (s/gen :info.snomed/Description)))
+  ([description]
+   (gen/fmap #(merge % description) (gen-description))))
 
 ;;;;
 ;;;; RF2 relationship specification
 ;;;;
 
 (s/def :info.snomed.Relationship/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                                gen-relationship-id))
+                                                #(gen-relationship-id)))
 (s/def :info.snomed.Relationship/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Relationship/active ::active)
 (s/def :info.snomed.Relationship/moduleId :info.snomed.Concept/id)
@@ -128,9 +126,12 @@
                                                   :info.snomed.Relationship/relationshipGroup :info.snomed.Relationship/typeId
                                                   :info.snomed.Relationship/characteristicTypeId :info.snomed.Relationship/modifierId]))
 
-(def gen-relationship
+(defn gen-relationship
   "A generator of SNOMED relationship entities."
-  (gen/fmap snomed/map->Relationship (s/gen :info.snomed/Relationship)))
+  ([]
+   (gen/fmap snomed/map->Relationship (s/gen :info.snomed/Relationship)))
+  ([rel]
+   (gen/fmap #(merge % rel) (gen-relationship))))
 
 (s/fdef gen-relationships-for-parent
   :args (s/cat :parent-concept-id :info.snomed.Concept/id
@@ -146,7 +147,7 @@
                                 :active true
                                 :destinationId parent-concept-id
                                 :typeId type-id)) rels child-concepts))
-            (gen/vector gen-relationship (count child-concepts))))
+            (gen/vector (gen-relationship) (count child-concepts))))
 
 (s/def :info.snomed.RefsetItem/id uuid?)
 (s/def :info.snomed.RefsetItem/effectiveTime ::effectiveTime)
@@ -177,19 +178,12 @@
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId]))
 
-(def gen-simple-refset
+(defn gen-simple-refset
   "A generator of SNOMED SimpleRefset entities."
-  (gen/fmap snomed/map->SimpleRefsetItem (s/gen :info.snomed/SimpleRefset)))
-
-(s/fdef gen-simple-refset-from
-  :args (s/cat :rel (s/keys :opt-un [:info.snomed.RefsetItem/refsetId
-                                     :info.snomed.RefsetItem/active
-                                     :info.snomed.RefsetItem/referencedComponentId])))
-(defn gen-simple-refset-from
-  "Create a generator for the given refset, that uses the given relationship
-  as its basis."
-  [rel]
-  (gen/fmap #(merge % rel) gen-simple-refset))
+  ([]
+   (gen/fmap snomed/map->SimpleRefsetItem (s/gen :info.snomed/SimpleRefset)))
+  ([refset]
+   (gen/fmap #(merge % refset) (gen-simple-refset))))
 
 
 (s/def :info.snomed/AssociationRefset
@@ -210,19 +204,16 @@
                    :info.snomed.RefsetItem/referencedComponentId
                    :info.snomed.RefsetItem/acceptabilityId]))
 
-(def gen-language-refset
+(s/fdef gen-language-refset
+  :args (s/cat :item (s/? (s/keys :opt-un [:info.snomed.RefsetItem/refsetId
+                                           :info.snomed.RefsetItem/active
+                                           :info.snomed.RefsetItem/referencedComponentId]))))
+(defn gen-language-refset
   "A generator of SNOMED LanguageRefset entities."
-  (gen/fmap snomed/map->LanguageRefsetItem (s/gen :info.snomed/LanguageRefset)))
-
-(s/fdef gen-language-refset-from
-  :args (s/cat :rel (s/keys :opt-un [:info.snomed.RefsetItem/refsetId
-                                     :info.snomed.RefsetItem/active
-                                     :info.snomed.RefsetItem/referencedComponentId])))
-(defn gen-language-refset-from
-  "Create a generator for the given refset, that uses the given relationship
-  as its basis."
-  [rel]
-  (gen/fmap #(merge % rel) gen-language-refset))
+  ([]
+   (gen/fmap snomed/map->LanguageRefsetItem (s/gen :info.snomed/LanguageRefset)))
+  ([item]
+   (gen/fmap #(merge % item) (gen-language-refset))))
 
 (s/def :info.snomed/RefsetDescriptorRefsetItem
   (s/keys :req-un [:info.snomed.RefsetItem/id

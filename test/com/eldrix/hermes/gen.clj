@@ -9,10 +9,10 @@
   (:import (com.eldrix.hermes.snomed Concept)))
 
 (defn make-simple-hierarchy []
-  (let [concepts (gen/sample rf2/gen-concept 500)
+  (let [concepts (gen/sample (rf2/gen-concept) 500)
         root-concept (first concepts)
         all-children (next concepts)
-        descriptions (mapcat #(gen/sample (rf2/gen-description-from {:conceptId (:id %)})) concepts)
+        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %)})) concepts)
         relationships (loop [parent-id (:id root-concept)
                              batches (partition-all 20 all-children)
                              result []]

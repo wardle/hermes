@@ -36,10 +36,10 @@
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
         db-path (str (.toAbsolutePath (.resolve temp-dir "snomed.db")))
         n 5000
-        concepts (gen/sample rf2/gen-concept n)
-        descriptions (gen/sample rf2/gen-description n)
-        relationships (gen/sample rf2/gen-relationship n)
-        lang-refsets (gen/sample rf2/gen-language-refset n)]
+        concepts (gen/sample (rf2/gen-concept) n)
+        descriptions (gen/sample (rf2/gen-description) n)
+        relationships (gen/sample (rf2/gen-relationship) n)
+        lang-refsets (gen/sample (rf2/gen-language-refset) n)]
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" concepts)
     (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components temp-dir "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
@@ -55,10 +55,10 @@
 
 (deftest test-localisation
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
-        concepts (gen/sample rf2/gen-concept)
-        en-GB-refset (gen/generate (rf2/gen-concept-from { :id 999001261000000100 :active true}))
-        en-US-refset (gen/generate (rf2/gen-concept-from {:id 900000000000509007 :active true}))
-        descriptions (mapcat #(gen/sample (rf2/gen-description-from {:conceptId (:id %) :typeId snomed/Synonym :active true})) (conj concepts en-US-refset en-GB-refset))
+        concepts (gen/sample (rf2/gen-concept))
+        en-GB-refset (gen/generate (rf2/gen-concept { :id 999001261000000100 :active true}))
+        en-US-refset (gen/generate (rf2/gen-concept {:id 900000000000509007 :active true}))
+        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) (conj concepts en-US-refset en-GB-refset))
         en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
         en-US (hgen/make-language-refset-items descriptions {:refsetId (:id en-US-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})]
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset en-US-refset))
