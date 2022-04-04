@@ -50,5 +50,24 @@
       (is (= n (:refsets status))))
     (delete-all temp-dir)))
 
+(deftest test-localisation
+  (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
+        concepts (hgen/make-concepts)
+        en-GB-refset (hgen/make-concept :id 999001261000000100 :active true)
+        en-US-refset (hgen/make-concept :id 900000000000509007 :active true)
+        descriptions (mapcat #(hgen/make-descriptions % {:typeId snomed/Synonym :active true}) (conj concepts en-US-refset en-GB-refset))
+        en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
+        en-US (hgen/make-language-refset-items descriptions {:refsetId (:id en-US-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})]
+    (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset en-US-refset))
+    (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
+    (write-components temp-dir "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" (concat en-GB en-US))
+    (let [db-path (.toAbsolutePath (.resolve temp-dir "snomed.db"))]
+      (hermes/import-snomed (str db-path) [(str (.toAbsolutePath temp-dir))])
+      (hermes/compact (str db-path))
+      (with-open [store (com.eldrix.hermes.impl.store/open-store (str (.resolve db-path "store.db")))]
+        (log/info "installed reference sets:" (com.eldrix.hermes.impl.store/get-installed-reference-sets store)))
+      (hermes/build-search-index (str db-path)))
+    (delete-all temp-dir)))
+
 (comment
   (run-tests))
