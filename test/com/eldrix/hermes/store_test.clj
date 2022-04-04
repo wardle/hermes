@@ -1,11 +1,12 @@
 (ns com.eldrix.hermes.store-test
   (:require [clojure.set :as set]
             [clojure.spec.test.alpha :as stest]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer :all]
-            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.specs :as-alias specs])
   (:import (java.time LocalDate)))
@@ -69,11 +70,11 @@
 (deftest write-simple-refsets-test
   (with-open [st (store/open-store)]
     (let [n-concepts (rand-int 10000)
-          [refset & concepts] (hgen/make-concepts :n n-concepts)
+          [refset & concepts] (gen/sample rf2/gen-concept n-concepts)
           refset-id (:id refset)
           members (set (take (/ n-concepts (inc (rand-int 10))) (shuffle concepts)))
           non-members (set/difference (set concepts) members)
-          refset-items (map #(hgen/make-simple-refset-item {:refsetId refset-id :active true :referencedComponentId (:id %)}) members)]
+          refset-items (map #(gen/generate (rf2/gen-simple-refset-from {:refsetId refset-id :active true :referencedComponentId (:id %)})) members)]
       (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)

@@ -6,18 +6,21 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer :all]
             [com.eldrix.hermes.gen :as hgen]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.impl.store :as store])
-  (:import (java.nio.file Paths Files FileVisitOption)
+            [clojure.spec.test.alpha :as stest])
+  (:import (java.nio.file Paths Files FileVisitOption Path)
            (java.nio.file.attribute FileAttribute)))
+
+(stest/instrument)
 
 (defn delete-all
   "Delete all files from the `path` specified, where `path` can be a
   `java.nio.file.Path` or anything coercible to a `file` using
   [[clojure.java.io/as-file]]."
   [path]
-  (let [path' (if (instance? java.nio.file.Path path) path (.toPath (io/as-file path)))]
+  (let [path' (if (instance? Path path) path (.toPath (io/as-file path)))]
     (dorun (->> (iterator-seq (.iterator (Files/walk path' (make-array FileVisitOption 0))))
                 sort
                 reverse
@@ -33,10 +36,10 @@
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
         db-path (str (.toAbsolutePath (.resolve temp-dir "snomed.db")))
         n 5000
-        concepts (map snomed/map->Concept (gen/sample (s/gen :info.snomed/Concept) n))
-        descriptions (map snomed/map->Description (gen/sample (s/gen :info.snomed/Description) n))
-        relationships (map snomed/map->Relationship (gen/sample (s/gen :info.snomed/Relationship) n))
-        lang-refsets (map snomed/map->LanguageRefsetItem (gen/sample (s/gen :info.snomed/LanguageRefset) n))]
+        concepts (gen/sample rf2/gen-concept n)
+        descriptions (gen/sample rf2/gen-description n)
+        relationships (gen/sample rf2/gen-relationship n)
+        lang-refsets (gen/sample rf2/gen-language-refset n)]
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" concepts)
     (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components temp-dir "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
@@ -52,10 +55,10 @@
 
 (deftest test-localisation
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
-        concepts (hgen/make-concepts)
-        en-GB-refset (hgen/make-concept :id 999001261000000100 :active true)
-        en-US-refset (hgen/make-concept :id 900000000000509007 :active true)
-        descriptions (mapcat #(hgen/make-descriptions % {:typeId snomed/Synonym :active true}) (conj concepts en-US-refset en-GB-refset))
+        concepts (gen/sample rf2/gen-concept)
+        en-GB-refset (gen/generate (rf2/gen-concept-from { :id 999001261000000100 :active true}))
+        en-US-refset (gen/generate (rf2/gen-concept-from {:id 900000000000509007 :active true}))
+        descriptions (mapcat #(gen/sample (rf2/gen-description-from {:conceptId (:id %) :typeId snomed/Synonym :active true})) (conj concepts en-US-refset en-GB-refset))
         en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
         en-US (hgen/make-language-refset-items descriptions {:refsetId (:id en-US-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})]
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset en-US-refset))
