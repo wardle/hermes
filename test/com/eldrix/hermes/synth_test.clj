@@ -56,7 +56,7 @@
 (deftest test-localisation
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
         concepts (gen/sample (rf2/gen-concept))
-        en-GB-refset (gen/generate (rf2/gen-concept { :id 999001261000000100 :active true}))
+        en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
         en-US-refset (gen/generate (rf2/gen-concept {:id 900000000000509007 :active true}))
         descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) (conj concepts en-US-refset en-GB-refset))
         en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
@@ -69,7 +69,13 @@
       (hermes/compact (str db-path))
       (with-open [store (com.eldrix.hermes.impl.store/open-store (str (.resolve db-path "store.db")))]
         (log/info "installed reference sets:" (com.eldrix.hermes.impl.store/get-installed-reference-sets store)))
-      (hermes/build-search-index (str db-path)))
+      (hermes/build-search-index (str db-path))
+      (with-open [svc (hermes/open (str db-path))]
+        (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
+              en-US-description-ids (set (map :referencedComponentId en-US))]
+          (is (= en-GB-refset (hermes/get-concept svc 999001261000000100)))
+          (is (every? true? (map #(contains? en-GB-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-GB"))) concepts)))
+          (is (every? true? (map #(contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US"))) concepts))))))
     (delete-all temp-dir)))
 
 (comment
