@@ -279,7 +279,7 @@
   (.writeLong out (.-refsetId o))
   (.writeLong out (.-referencedComponentId o)) (.writeLong out (.-attributeDescriptionId o))
   (.writeLong out (.-attributeTypeId o))
-  (.writeLong out (.-attributeOrder o)))
+  (.writeInt out (.-attributeOrder o)))
 
 (defn read-refset-descriptor-refset-item [^DataInput in]
   (let [id (read-uuid in)
