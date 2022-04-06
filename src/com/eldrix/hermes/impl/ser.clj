@@ -277,7 +277,8 @@
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
   (.writeLong out (.-refsetId o))
-  (.writeLong out (.-referencedComponentId o)) (.writeLong out (.-attributeDescriptionId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeLong out (.-attributeDescriptionId o))
   (.writeLong out (.-attributeTypeId o))
   (.writeInt out (.-attributeOrder o)))
 
@@ -397,7 +398,6 @@
   [^DataInput in read-offset]
   (.skipBytes in read-offset)
   (LocalDate/ofEpochDay (.readLong in)))
-
 
 (comment)
 
