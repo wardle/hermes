@@ -1,15 +1,16 @@
 (ns com.eldrix.hermes.synth-test
   (:require [clojure.tools.logging.readable :as log]
             [clojure.java.io :as io]
-            [clojure.string :as str]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.string :as str]
             [clojure.test :refer :all]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.core :as hermes]
-            [clojure.spec.test.alpha :as stest])
+            [com.eldrix.hermes.core :as hermes])
+
   (:import (java.nio.file Paths Files FileVisitOption Path)
            (java.nio.file.attribute FileAttribute)))
 
