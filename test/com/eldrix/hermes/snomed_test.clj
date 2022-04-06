@@ -85,7 +85,7 @@
    {:spec :info.snomed/LanguageRefset
     :make-fn snomed/map->LanguageRefsetItem
     :parse-fn snomed/parse-language-refset-item}
-   {:spec :info.snomed/RefsetDescriptorRefsetItem
+   {:spec :info.snomed/RefsetDescriptor
     :make-fn snomed/map->RefsetDescriptorRefsetItem
     :parse-fn snomed/parse-refset-descriptor-item}
    {:spec :info.snomed/SimpleMapRefset

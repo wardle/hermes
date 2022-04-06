@@ -508,6 +508,7 @@
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
+(derive RefsetDescriptorRefsetItem :info.snomed/RefsetDescriptor)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
 (derive ExtendedRefsetItem :info.snomed/ExtendedRefset)
 (derive AssociationRefsetItem :info.snomed/AssociationRefset)
