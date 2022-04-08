@@ -105,9 +105,12 @@
                                            :parser parser
                                            :headings headings
                                            :data %)))]
-          (when-not quiet? (log/info "Processing: " filename " type: " (:component snofile)))
+          (log/info "Processing: " filename " type: " (:component snofile))
+          (log/debug "Processing " (count batches) " batches")
           (doseq [batch batches]
+            (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
             (when-not (async/>!! out-c batch)
+              (log/debug "Processing cancelled (output channel closed)")
               (throw (InterruptedException. "process cancelled")))))))))
 
 (defn test-csv [filename]
@@ -137,12 +140,11 @@
 (defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning
   results on the returned channel which will be closed once all files have been
-  sent through."
-  [dir & {:keys [nthreads batch-size quiet?] :or {nthreads 4 batch-size 5000 quiet? false}}]
+  sent through. Any exceptions will be passed on the channel."
+  [dir & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (importable-files dir)]
-    (when-not quiet? (log/info "importing files from " dir))
     (async/pipeline nthreads
                     processed-c
                     (map snomed/parse-batch)
