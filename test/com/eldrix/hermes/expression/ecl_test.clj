@@ -11,7 +11,7 @@
 (def ^:dynamic *svc* nil)
 
 (defn live-test-fixture [f]
-  (binding [*svc* (hermes/open "snomed.db" {:quiet? true})]
+  (binding [*svc* (hermes/open "snomed.db")]
     (f)
     (hermes/close *svc*)))
 

@@ -11,7 +11,7 @@
 (def ^:dynamic *registry* nil)
 
 (defn live-test-fixture [f]
-  (with-open [svc (hermes/open "snomed.db" {:quiet? true})]
+  (with-open [svc (hermes/open "snomed.db")]
     (binding [*registry* (-> (pci/register graph/all-resolvers)
                              (assoc ::graph/svc svc))]
       (f))))

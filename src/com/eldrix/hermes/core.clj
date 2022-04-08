@@ -468,13 +468,13 @@
 (defn ^Service open
   "Open a (read-only) SNOMED service from the path `root`."
   ([^String root] (open root {}))
-  ([^String root {:keys [quiet?] :or {quiet? false}}]
+  ([^String root opts]
    (let [manifest (open-manifest root)
          st (store/open-store (get-absolute-filename root (:store manifest)))
          index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
          searcher (IndexSearcher. index-reader)
          locale-match-fn (lang/match-fn st)]
-     (when-not quiet? (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st)))))
+     (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
      (->Service st index-reader searcher locale-match-fn))))
 
 (defn close [^Service svc]
