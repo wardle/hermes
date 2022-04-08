@@ -433,7 +433,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.6
+  {:version 0.7
    :store   "store.db"
    :search  "search.db"})
 

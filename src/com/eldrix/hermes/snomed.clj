@@ -36,7 +36,8 @@
              component version in a delta release represents either a new
              component or a change to an existing component."
 
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.tools.logging.readable :as log]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
@@ -108,24 +109,8 @@
                              ^boolean active
                              ^long moduleId
                              ^long refsetId
-                             ^long referencedComponentId])
-
-;; An ExtendedReferenceSet is an extension to the basic reference set member
-;; file format. This means we support dynamic data attached to a refset item.
-;; Each extended field is one of 'c' 'i' or 's' as defined in the filename pattern
-;; - 'c' : concept identifier - 64 bit positive integer
-;; - 'i' : signed integer
-;; - 's' : a UTF-8 string
-;; More detailed property information for each extended field is encoded in
-;; the associated refset descriptor structures.
-;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.1.2.+Extending+the+Basic+Reference+Set+Member+File+Format
-(defrecord ExtendedRefsetItem [^UUID id
-                               ^LocalDate effectiveTime
-                               ^boolean active
-                               ^long moduleId
-                               ^long refsetId
-                               ^long referencedComponentId
-                               fields])
+                             ^long referencedComponentId
+                             fields])
 
 ;; An Association reference set is a reference set used to represent associations between components
 (defrecord AssociationRefsetItem [^UUID id
@@ -134,7 +119,8 @@
                                   ^long moduleId
                                   ^long refsetId
                                   ^long referencedComponentId
-                                  ^long targetComponentId])
+                                  ^long targetComponentId
+                                  fields])
 
 ;; LanguageReferenceSet is a A 900000000000506000 |Language type reference set| supporting the representation of
 ;; language and dialects preferences for the use of particular descriptions.
@@ -163,7 +149,8 @@
                                ^long moduleId
                                ^long refsetId
                                ^long referencedComponentId
-                               ^long acceptabilityId])
+                               ^long acceptabilityId
+                               fields])
 
 ;; SimpleMapReferenceSet is a straightforward one-to-one map between SNOMED-CT concepts and another
 ;; coding system. This is appropriate for simple maps.
@@ -174,7 +161,8 @@
                                 ^long moduleId
                                 ^long refsetId
                                 ^long referencedComponentId
-                                ^String mapTarget])
+                                ^String mapTarget
+                                fields])
 
 ;; ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
 ;; coding system.
@@ -194,7 +182,8 @@
                                  ^String mapRule            ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
                                  ^String mapAdvice          ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
                                  ^String mapTarget          ;; The target code in the target terminology, classification or code system.
-                                 ^long correlationId])      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+                                 ^long correlationId        ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+                                 fields])
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
 ;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
@@ -210,8 +199,8 @@
                                   ^String mapAdvice         ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
                                   ^String mapTarget         ;; The target code in the target terminology, classification or code system.
                                   ^long correlationId       ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-                                  ^long mapCategoryId])     ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
-
+                                  ^long mapCategoryId       ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
+                                  fields])
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
 (defrecord AttributeValueRefsetItem [^UUID id
@@ -220,8 +209,8 @@
                                      ^long moduleId
                                      ^long refsetId
                                      ^long referencedComponentId
-                                     ^long valueId])
-
+                                     ^long valueId
+                                     fields])
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
 (defrecord OWLExpressionRefsetItem [^UUID id
@@ -230,7 +219,8 @@
                                     ^long moduleId
                                     ^long refsetId          ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
                                     ^long referencedComponentId
-                                    ^String owlExpression])
+                                    ^String owlExpression
+                                    fields])
 
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
@@ -284,19 +274,18 @@
   (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:destinationId r)
                  (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)]))
 
-(defn parse-simple-refset-item [v]
-  (->SimpleRefsetItem
-    (unsafe-parse-uuid (v 0))                               ;; id
-    (parse-date (v 1))                                      ;; effective time
-    (parse-bool (v 2))                                      ;; active?
-    (Long/parseLong (v 3))                                  ;; module Id
-    (Long/parseLong (v 4))                                  ;; refset Id
-    (Long/parseLong (v 5))))                                ;; referenced component Id
+(def refset-standard-patterns
+  {:info.snomed/RefsetDescriptor ""
+   :info.snomed/SimpleRefset ""
+   :info.snomed/AssociationRefset "c"
+   :info.snomed/LanguageRefset "c"
+   :info.snomed/SimpleMapRefset "s"
+   :info.snomed/ComplexMapRefset "iisssc"
+   :info.snomed/ExtendedMapRefset "iissscc"
+   :info.snomed/AttributeValueRefset "i"
+   :info.snomed/OWLExpressionRefset "s"})
 
-(defmethod unparse SimpleRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]))
-
-(defn parse-using-pattern
+(defn parse-fields
   "Parse the values 'v' using the pattern specification 'pattern'.
   Parameters:
   - pattern : a string containing characters c, i or s.
@@ -309,29 +298,30 @@
   See https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention"
   [pattern values]
   (when-not (= (count pattern) (count values))
+    (log/debug "length of pattern values not equal" {:pattern pattern :values values})
     (throw (ex-info "length of pattern values not equal" {:pattern pattern :values values})))
   (mapv (fn [[k v]]
           (case k \c (Long/parseLong v)
                   \i (Long/parseLong v)
                   \s v
                   (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
-       (mapv vector (seq pattern) values)))
+        (mapv vector (seq pattern) values)))
 
-(defn parse-extended-refset-item [pattern v]
-  (->ExtendedRefsetItem
+(defn parse-simple-refset-item [pattern v]
+  (->SimpleRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
-    (Long/parseLong (v 5))
-    (parse-using-pattern pattern (subvec v 6))))
+    (Long/parseLong (v 5))                                  ;; referenced component Id
+    (parse-fields pattern (subvec v 6))))                   ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse ExtendedRefsetItem [r]
+(defmethod unparse SimpleRefsetItem [r]
   (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]
                       (:fields r))))
 
-(defn parse-association-refset-item [v]
+(defn parse-association-refset-item [pattern v]
   (->AssociationRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
@@ -339,12 +329,15 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component Id
-    (Long/parseLong (v 6))))                                ;; target component Id))
+    (Long/parseLong (v 6))                                  ;; target component Id))
+    (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
 (defmethod unparse AssociationRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r) (:targetComponentId r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:targetComponentId r)]
+                      (:fields r))))
 
-(defn parse-language-refset-item [v]
+(defn parse-language-refset-item [pattern v]
   (->LanguageRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
@@ -352,12 +345,15 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (Long/parseLong (v 6))))                                ;; acceptability id
+    (Long/parseLong (v 6))                                  ;; acceptability id
+    (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
 (defmethod unparse LanguageRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r) (:acceptabilityId r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:acceptabilityId r)]
+                      (:fields r))))
 
-(defn parse-refset-descriptor-item [v]
+(defn parse-refset-descriptor-item [_pattern v]
   (->RefsetDescriptorRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
     (parse-date (v 1))                                      ;; effective time
@@ -373,7 +369,7 @@
   (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
                  (:attributeDescriptionId r) (:attributeTypeId r) (:attributeOrder r)]))
 
-(defn parse-simple-map-refset-item [v]
+(defn parse-simple-map-refset-item [pattern v]
   (->SimpleMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
@@ -381,13 +377,15 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (v 6)))                                                 ;; map target
+    (v 6)                                                   ;; map target
+    (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
 (defmethod unparse SimpleMapRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:mapTarget r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:mapTarget r)]
+                      (:fields r))))
 
-(defn parse-complex-map-refset-item [v]
+(defn parse-complex-map-refset-item [pattern v]
   (->ComplexMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
@@ -400,14 +398,15 @@
     (v 8)                                                   ;; map rule
     (v 9)                                                   ;; map advice
     (v 10)                                                  ;; map target
-    (Long/parseLong (v 11))))                               ;; correlation
+    (Long/parseLong (v 11))                                 ;; correlation
+    (parse-fields (subs pattern 6) (subvec v 12))))         ;; slurp remaining fields as defined by rest of pattern
 
 (defmethod unparse ComplexMapRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r)]
+                      (:fields r))))
 
-
-(defn parse-extended-map-refset-item [v]
+(defn parse-extended-map-refset-item [pattern v]
   (->ExtendedMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
@@ -421,14 +420,15 @@
     (v 9)                                                   ;; map advice
     (v 10)                                                  ;; map target
     (Long/parseLong (v 11))                                 ;; correlation
-    (Long/parseLong (v 12))))                               ;; map category id
+    (Long/parseLong (v 12))                                 ;; map category id
+    (parse-fields (subs pattern 7) (subvec v 13))))         ;; slurp all fields into a vector defined by pattern
 
 (defmethod unparse ExtendedMapRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r)
-                 (:correlationId r) (:mapCategoryId r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r) (:mapCategoryId r)]
+                      (:fields r))))
 
-(defn parse-attribute-value-refset-item [v]
+(defn parse-attribute-value-refset-item [pattern v]
   (->AttributeValueRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
@@ -436,13 +436,15 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (Long/parseLong (v 6))))
+    (Long/parseLong (v 6))
+    (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp all fields into a vector defined by pattern
 
 (defmethod unparse AttributeValueRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:valueId r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:valueId r)]
+                      (:fields r))))
 
-(defn parse-owl-expression-refset-item [v]
+(defn parse-owl-expression-refset-item [pattern v]
   (->OWLExpressionRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
     (parse-date (v 1))                                      ;; effective time
@@ -450,11 +452,13 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (v 6)))                                                 ;; OWL expression
+    (v 6)                                                   ;; OWL expression
+    (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp all fields into a vector defined by pattern
 
 (defmethod unparse OWLExpressionRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:owlExpression r)]))
+  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+                       (:owlExpression r)]
+                      (:fields r))))
 
 (def parsers
   {:info.snomed/Concept              parse-concept
@@ -464,7 +468,6 @@
    ;; types of reference set
    :info.snomed/RefsetDescriptor     parse-refset-descriptor-item
    :info.snomed/SimpleRefset         parse-simple-refset-item
-   :info.snomed/ExtendedRefset       parse-extended-refset-item
    :info.snomed/AssociationRefset    parse-association-refset-item
    :info.snomed/LanguageRefset       parse-language-refset-item
    :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
@@ -484,10 +487,8 @@
   (when-not (s/valid? ::batch batch)
     (throw (ex-info "invalid batch:" (s/explain-data ::batch batch))))
   (if-let [parser (or (:parser batch) (get parsers (:type batch)))]
-    (try
-      (assoc batch :data (map parser (:data batch)))
-      (catch Throwable e (println "error parsing:" (dissoc batch :data) e)))
-    (throw (Exception. (str "no parser for batch type" (:type batch))))))
+    (assoc batch :data (doall (map parser (:data batch))))
+    (throw (ex-info "no parser for batch type" (:type batch)))))
 
 (derive :info.snomed/Concept :info.snomed/Component)
 (derive :info.snomed/Description :info.snomed/Component)
@@ -510,7 +511,6 @@
 (derive Relationship :info.snomed/Relationship)
 (derive RefsetDescriptorRefsetItem :info.snomed/RefsetDescriptor)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
-(derive ExtendedRefsetItem :info.snomed/ExtendedRefset)
 (derive AssociationRefsetItem :info.snomed/AssociationRefset)
 (derive LanguageRefsetItem :info.snomed/LanguageRefset)
 (derive SimpleMapRefsetItem :info.snomed/SimpleMapRefset)
@@ -565,17 +565,15 @@
     (when (.matches m)
       (let [entity (.group m "entity")
             pattern (.group m "pattern")
-            refset-type (or (.group m "refsettype")
-                            (when (= "Refset" entity)
-                              (if (str/blank? pattern) "Simple" "Extended")))
+            refset-type (or (.group m "refsettype") (when (= "Refset" entity) "Simple"))
             component-name (str refset-type entity)
             identifier (when-not (str/blank? component-name) (keyword "info.snomed" component-name))]
         {:path              filename
          :filename          nm
          :component         component-name
          :identifier        identifier
-         :parser            (if (= "Extended" refset-type) (partial parse-extended-refset-item pattern)
-                                                           (get parsers identifier))
+         :parser            (when-let [p (get parsers identifier)]
+                              (if (= "Refset" entity) (fn [row] (p pattern row)) p))
          :file-type         (.group m "filetype")
          :status            (.group m "status")
          :type              (.group m "type")

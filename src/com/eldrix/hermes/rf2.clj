@@ -175,6 +175,41 @@
 (s/def :info.snomed.RefsetItem/mapCategoryId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/valueId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/owlExpression string?)       ;;; TODO: could generate arbitrary OWL in future
+(s/def :info.snomed.RefsetItem/field (s/or :concept :info.snomed.Concept/id
+                                           :description :info.snomed.Description/id
+                                           :relationship :info.snomed.Relationship/id
+                                           :integer integer?
+                                           :string string?))
+(s/def :info.snomed.RefsetItem/fields (s/with-gen (s/coll-of :info.snomed.RefsetItem/field)
+                                                  #(gen/frequency [[6 (gen/return [])]
+                                                                   [4 (gen/vector (s/gen :info.snomed.RefsetItem/field) 1 4)]])))
+
+(def ^:private field->pattern
+  {:concept \c
+   :description \c
+   :relationship \c
+   :string \s
+   :integer \i})
+
+(defn pattern-for-fields
+  "Returns a pattern for the fields specified.
+  For example:
+  ```
+  (pattern-for-fields (:fields (gen/generate (gen-extended-map-refset))))
+  => \"ccsccs\"
+  ```"
+  [fields]
+  (when fields
+    (->> (s/conform :info.snomed.RefsetItem/fields fields)
+         (map (fn [[k v]] (field->pattern k)))
+         (apply str))))
+
+(defn pattern-for-refset-item
+  "Generates a pattern for the given reference set item by concatenating the
+  standard pattern for that type with the contents of any extended properties
+  stored as 'fields'."
+  [spec v]
+  (str (snomed/refset-standard-patterns spec) (pattern-for-fields (:fields v))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -184,12 +219,14 @@
                    :info.snomed.RefsetItem/active
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
-                   :info.snomed.RefsetItem/referencedComponentId]))
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-simple-refset
   "A generator of SNOMED SimpleRefset entities."
   ([] (gen/fmap snomed/map->SimpleRefsetItem (s/gen :info.snomed/SimpleRefset)))
   ([refset] (gen/fmap #(merge % refset) (gen-simple-refset))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -200,7 +237,8 @@
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId
-                   :info.snomed.RefsetItem/targetComponentId]))
+                   :info.snomed.RefsetItem/targetComponentId
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-association-refset
   "A generator of SNOMED AssociationRefset entities."
@@ -216,7 +254,8 @@
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId
-                   :info.snomed.RefsetItem/acceptabilityId]))
+                   :info.snomed.RefsetItem/acceptabilityId
+                   :info.snomed.RefsetItem/fields]))
 
 (s/fdef gen-language-refset
   :args (s/cat :item (s/? (s/keys :opt-un [:info.snomed.RefsetItem/refsetId
@@ -254,7 +293,8 @@
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId
-                   :info.snomed.RefsetItem/mapTarget]))
+                   :info.snomed.RefsetItem/mapTarget
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-simple-map-refset
   "A generator of SNOMED SimpleMapRefset entities."
@@ -275,7 +315,8 @@
                    :info.snomed.RefsetItem/mapRule
                    :info.snomed.RefsetItem/mapAdvice
                    :info.snomed.RefsetItem/mapTarget
-                   :info.snomed.RefsetItem/correlationId]))
+                   :info.snomed.RefsetItem/correlationId
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-complex-map-refset
   "A generator of SNOMED ComplexMapRefset entities."
@@ -297,7 +338,8 @@
                    :info.snomed.RefsetItem/mapAdvice
                    :info.snomed.RefsetItem/mapTarget
                    :info.snomed.RefsetItem/correlationId
-                   :info.snomed.RefsetItem/mapCategoryId]))
+                   :info.snomed.RefsetItem/mapCategoryId
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-extended-map-refset
   "A generator of SNOMED ExtendedMapRefset entities."
@@ -313,7 +355,8 @@
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId
-                   :info.snomed.RefsetItem/valueId]))
+                   :info.snomed.RefsetItem/valueId
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-attribute-value-refset
   "A generator of SNOMED AttributeValueRefset entities."
@@ -329,7 +372,8 @@
                    :info.snomed.RefsetItem/moduleId
                    :info.snomed.RefsetItem/refsetId
                    :info.snomed.RefsetItem/referencedComponentId
-                   :info.snomed.RefsetItem/owlExpression]))
+                   :info.snomed.RefsetItem/owlExpression
+                   :info.snomed.RefsetItem/fields]))
 
 (defn gen-owl-expression-refset
   "A generator of SNOMED OWLExpressionRefset entities."

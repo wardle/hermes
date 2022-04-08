@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.synth-test
-  (:require [clojure.tools.logging.readable :as log]
+  (:require [clojure.core.async :as a]
+            [clojure.tools.logging.readable :as log]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
@@ -33,30 +34,48 @@
     (.write writer (str \newline))
     (doall (->> components (map snomed/unparse) (map #(.write writer (str (str/join "\t" %) \newline)))))))
 
+(deftest test-bad-import
+  (let [temp-dir (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
+        db-path (str (.toAbsolutePath (.resolve temp-dir "snomed.db")))
+        refsets (gen/sample (rf2/gen-language-refset))
+        different-extended-fields? (not (apply = (->> refsets ( map :fields) (map count))))]
+    (testing "Generated malformed reference set"
+      (is different-extended-fields? "Generated reference sets all have same number of extension fields"))
+    (write-components temp-dir "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" refsets)
+    (testing "Import of malformed reference set should throw an exception"
+      (is (thrown? Throwable (let [ch (com.eldrix.hermes.importer/load-snomed (str (.toAbsolutePath temp-dir)))]
+                               (loop [o (a/<!! ch)]
+                                 (when (instance? Throwable o)
+                                   (throw (ex-info "SNOMED CT loading error:" (ex-data o))))
+                                 (when o
+                                   (recur (a/<!! ch))))))))))
+
+
 (deftest test-components
-  (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
+  (let [temp-dir (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
         db-path (str (.toAbsolutePath (.resolve temp-dir "snomed.db")))
         n 5000
         concepts (gen/sample (rf2/gen-concept) n)
         descriptions (gen/sample (rf2/gen-description) n)
         relationships (gen/sample (rf2/gen-relationship) n)
-        lang-refsets (gen/sample (rf2/gen-language-refset) n)]
+        lang-refsets (gen/sample (rf2/gen-language-refset {:fields []}) n)]
+    (log/debug "Creating temporary components in " temp-dir)
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" concepts)
     (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components temp-dir "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
     (write-components temp-dir "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" lang-refsets)
     (hermes/import-snomed db-path [(.toString (.toAbsolutePath temp-dir))])
     (hermes/compact db-path)
-    (let [status (hermes/get-status db-path :counts? true :quiet? true)]
+    (let [status (hermes/get-status db-path :counts? true)]
       (is (= n (:concepts status)))
       (is (= n (:descriptions status)))
       (is (= n (:relationships status)))
       (is (= n (:refsets status))))
-    (delete-all temp-dir)))
+    #_(delete-all temp-dir)))
 
 (deftest test-localisation
   (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
-        concepts (gen/sample (rf2/gen-concept))
+        concepts (gen/sample (rf2/gen-concept) 2000)
         en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
         en-US-refset (gen/generate (rf2/gen-concept {:id 900000000000509007 :active true}))
         descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) (conj concepts en-US-refset en-GB-refset))

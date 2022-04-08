@@ -38,9 +38,9 @@
      (->> concept-ids
           (map (fn [concept-id] (-> (gen/generate (s/gen :info.snomed/LanguageRefset))
                                     (merge item)
+                                    (dissoc :fields)
                                     (assoc :referencedComponentId (:id (rand-nth (get descriptions-by-concept concept-id)))))))
           (map snomed/map->LanguageRefsetItem)))))
-
 
 (comment
   (require '[clojure.spec.test.alpha :as stest])
@@ -48,23 +48,4 @@
   (def a1 (make-simple-hierarchy))
   (count (:descriptions a1))
   (count (set (map :id (:descriptions a1))))
-  (s/exercise-fn `make-children)
-  (let [concept (make-concept)]
-    (repeatedly 5 #(make-description (.id concept) :languageCodes #{"en" "fr"} :moduleId (.moduleId concept))))
-  (make-relationship :active false)
-  (make-concept)
-  (make-children (make-concept :moduleId 24700007))
-  (make-descriptions (make-concept) :languageCode "en")
-  (s/exercise-fn `make-concept)
-  (s/exercise-fn `make-description)
-  (clojure.spec.test.alpha/instrument)
-  (s/valid? ::id 24700007)
-  (s/explain ::id 24700007)
-  (pos-int? 24700007)
-  (take 500 (repeatedly make-concept))
-  (gen/list-distinct)
-  (gen/sample gen-local-time)
-  (gen/sample (gen-identifier :info.snomed/Concept))
-  (map snomed/identifier->type (gen/sample (s/gen ::relationship-id)))
-  (gen/generate (s/gen ::description-id))
-  (com.eldrix.hermes.verhoeff/valid? 24700007))
+  (s/exercise-fn `make-children))

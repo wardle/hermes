@@ -25,11 +25,11 @@
     (is (= "en" (:language-code p)))))
 
 (deftest test-refset-filename-pattern
-  (is (= '(1 2 3) (snomed/parse-using-pattern "iii" ["1" "2" "3"])))
-  (is (= '("1" 2 3) (snomed/parse-using-pattern "sii" ["1" "2" "3"])))
-  (is (= '("1" 2 3 "4") (snomed/parse-using-pattern "sics" ["1" "2" "3" "4"])))
-  (is (thrown? Exception (snomed/parse-using-pattern "a" ["1"])))
-  (is (thrown? Exception (snomed/parse-using-pattern "iii" ["1" "2"]))))
+  (is (= '(1 2 3) (snomed/parse-fields "iii" ["1" "2" "3"])))
+  (is (= '("1" 2 3) (snomed/parse-fields "sii" ["1" "2" "3"])))
+  (is (= '("1" 2 3 "4") (snomed/parse-fields "sics" ["1" "2" "3" "4"])))
+  (is (thrown? Exception (snomed/parse-fields "a" ["1"])))
+  (is (thrown? Exception (snomed/parse-fields "iii" ["1" "2"]))))
 
 (deftest test-partition
   (is (= :info.snomed/Concept (snomed/identifier->type 247000007)))
@@ -75,10 +75,7 @@
     :parse-fn snomed/parse-relationship}
    {:spec     :info.snomed/SimpleRefset
     :make-fn  snomed/map->SimpleRefsetItem
-    :parse-fn snomed/parse-simple-refset-item
-    #_{:spec     :info.snomed/ExtendedRefset                ;; TODO:extended refset items need a different custom test
-       :make-fn  snomed/map->ExtendedRefsetItem
-       :parse-fn snomed/parse-extended-refset-item}}
+    :parse-fn snomed/parse-simple-refset-item}
    {:spec     :info.snomed/AssociationRefset
     :make-fn  snomed/map->AssociationRefsetItem
     :parse-fn snomed/parse-association-refset-item}
@@ -106,9 +103,12 @@
 
 (deftest test-parse-unparse
   (doseq [{:keys [spec make-fn parse-fn]} parse-unparse-tests]
-    (is (every? true? (->> (gen/sample (s/gen spec) 1000)
-                           (map #(make-fn %))
-                           (map #(= % (parse-fn (snomed/unparse %)))))))))
+    (dorun (->> (gen/sample (s/gen spec) 4)
+                (map #(make-fn %))
+                (map #(let [refset? (isa? spec :info.snomed/Refset)]
+                        (if refset?
+                          (is (= % (parse-fn (rf2/pattern-for-refset-item spec %) (snomed/unparse %))))
+                          (is (= % (parse-fn (snomed/unparse %)))))))))))
 
 (def refset-examples
   [{:filename "der2_Refset_SimpleFull_INT_20180131.txt"
@@ -211,7 +211,7 @@
     :file-type         "der2"
     :release-type      "Snapshot"
     :language-code     "es-ES"
-    :identifier        :info.snomed/ExtendedRefset
+    :identifier        :info.snomed/SimpleRefset
     :file-extension    "txt"
     :content-type      "Refset"
     :country-namespace nil
@@ -226,7 +226,7 @@
 (deftest test-uk-filenames
   (doseq [example example-filenames]
     (let [parsed (snomed/parse-snomed-filename (:filename example))]
-      (is (= (:identifier example) (:identifier parsed))))))
+      (is (= (:identifier example) (:identifier parsed)) (str "Failed to parse filename: " (:filename example))))))
 
 (comment
   (run-tests)
