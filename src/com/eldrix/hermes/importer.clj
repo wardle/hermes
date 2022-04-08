@@ -100,7 +100,7 @@
    - :parser    : a parser that can take each row and give you data
    - :headings  : a sequence of headings from the original file
    - :data      : a sequence of vectors representing each column."
-  [filename out-c & {:keys [batch-size quiet?] :or {batch-size 1000 quiet? false}}]
+  [filename out-c & {:keys [batch-size] :or {batch-size 1000}}]
   (with-open [reader (io/reader filename)]
     (let [snofile (snomed/parse-snomed-filename filename)
           parser (:parser snofile)]
