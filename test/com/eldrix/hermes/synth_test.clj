@@ -54,23 +54,25 @@
 (deftest test-components
   (let [temp-dir (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
         db-path (str (.toAbsolutePath (.resolve temp-dir "snomed.db")))
-        n 5000
+        n 2000
         concepts (gen/sample (rf2/gen-concept) n)
         descriptions (gen/sample (rf2/gen-description) n)
         relationships (gen/sample (rf2/gen-relationship) n)
-        lang-refsets (gen/sample (rf2/gen-language-refset {:fields []}) n)]
+        lang-refsets (gen/sample (rf2/gen-language-refset {:fields []}) n)
+        refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset) n)]
     (log/debug "Creating temporary components in " temp-dir)
     (write-components temp-dir "sct2_Concept_Snapshot_GB1000000_20180401.txt" concepts)
     (write-components temp-dir "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components temp-dir "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
     (write-components temp-dir "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" lang-refsets)
+    (write-components temp-dir "der2_cciRefset_RefsetDescriptorUKEDSnapshot_GB_20220316.txt" refset-descriptors)
     (hermes/import-snomed db-path [(.toString (.toAbsolutePath temp-dir))])
     (hermes/compact db-path)
     (let [status (hermes/get-status db-path :counts? true)]
       (is (= n (:concepts status)))
       (is (= n (:descriptions status)))
       (is (= n (:relationships status)))
-      (is (= n (:refsets status))))
+      (is (= (*  n 2) (:refsets status))))
     #_(delete-all temp-dir)))
 
 (deftest test-localisation

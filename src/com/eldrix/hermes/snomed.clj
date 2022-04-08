@@ -275,15 +275,15 @@
                  (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)]))
 
 (def refset-standard-patterns
-  {:info.snomed/RefsetDescriptor ""
-   :info.snomed/SimpleRefset ""
-   :info.snomed/AssociationRefset "c"
-   :info.snomed/LanguageRefset "c"
-   :info.snomed/SimpleMapRefset "s"
-   :info.snomed/ComplexMapRefset "iisssc"
-   :info.snomed/ExtendedMapRefset "iissscc"
+  {:info.snomed/RefsetDescriptor     "cci"
+   :info.snomed/SimpleRefset         ""
+   :info.snomed/AssociationRefset    "c"
+   :info.snomed/LanguageRefset       "c"
+   :info.snomed/SimpleMapRefset      "s"
+   :info.snomed/ComplexMapRefset     "iisssc"
+   :info.snomed/ExtendedMapRefset    "iissscc"
    :info.snomed/AttributeValueRefset "i"
-   :info.snomed/OWLExpressionRefset "s"})
+   :info.snomed/OWLExpressionRefset  "s"})
 
 (defn parse-fields
   "Parse the values 'v' using the pattern specification 'pattern'.
@@ -361,9 +361,9 @@
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
     (Long/parseLong (v 5))                                  ;; referenced component id
-    (Long/parseLong (v 6))
-    (Long/parseLong (v 7))
-    (Integer/parseInt (v 8))))
+    (Long/parseLong (v 6))                                  ;; attribute description id (a descendant of 900000000000457003)
+    (Long/parseLong (v 7))                                  ;; attribute type id (a descendant of 900000000000459000)
+    (Integer/parseInt (v 8))))                              ;; attribute order
 
 (defmethod unparse RefsetDescriptorRefsetItem [r]
   (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
@@ -461,20 +461,20 @@
                       (:fields r))))
 
 (def parsers
-  {:info.snomed/Concept              parse-concept
-   :info.snomed/Description          parse-description
-   :info.snomed/Relationship         parse-relationship
+  {:info.snomed/Concept                parse-concept
+   :info.snomed/Description            parse-description
+   :info.snomed/Relationship           parse-relationship
 
    ;; types of reference set
-   :info.snomed/RefsetDescriptor     parse-refset-descriptor-item
-   :info.snomed/SimpleRefset         parse-simple-refset-item
-   :info.snomed/AssociationRefset    parse-association-refset-item
-   :info.snomed/LanguageRefset       parse-language-refset-item
-   :info.snomed/SimpleMapRefset      parse-simple-map-refset-item
-   :info.snomed/ComplexMapRefset     parse-complex-map-refset-item
-   :info.snomed/ExtendedMapRefset    parse-extended-map-refset-item
-   :info.snomed/AttributeValueRefset parse-attribute-value-refset-item
-   :info.snomed/OWLExpressionRefset  parse-owl-expression-refset-item})
+   :info.snomed/RefsetDescriptorRefset parse-refset-descriptor-item
+   :info.snomed/SimpleRefset           parse-simple-refset-item
+   :info.snomed/AssociationRefset      parse-association-refset-item
+   :info.snomed/LanguageRefset         parse-language-refset-item
+   :info.snomed/SimpleMapRefset        parse-simple-map-refset-item
+   :info.snomed/ComplexMapRefset       parse-complex-map-refset-item
+   :info.snomed/ExtendedMapRefset      parse-extended-map-refset-item
+   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item
+   :info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -494,7 +494,7 @@
 (derive :info.snomed/Description :info.snomed/Component)
 (derive :info.snomed/Relationship :info.snomed/Component)
 (derive :info.snomed/Refset :info.snomed/Component)
-(derive :info.snomed/RefsetDescriptor :info.snomed/Refset)
+(derive :info.snomed/RefsetDescriptorRefset :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
 (derive :info.snomed/ExtendedRefset :info.snomed/Refset)
 (derive :info.snomed/AssociationRefset :info.snomed/Refset)

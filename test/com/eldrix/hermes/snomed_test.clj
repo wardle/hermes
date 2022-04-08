@@ -82,7 +82,7 @@
    {:spec :info.snomed/LanguageRefset
     :make-fn snomed/map->LanguageRefsetItem
     :parse-fn snomed/parse-language-refset-item}
-   {:spec :info.snomed/RefsetDescriptor
+   {:spec :info.snomed/RefsetDescriptorRefset
     :make-fn snomed/map->RefsetDescriptorRefsetItem
     :parse-fn snomed/parse-refset-descriptor-item}
    {:spec :info.snomed/SimpleMapRefset
@@ -225,8 +225,9 @@
 ;; On the face of it, a callous disregard for good data design sensibility.
 (deftest test-uk-filenames
   (doseq [example example-filenames]
-    (let [parsed (snomed/parse-snomed-filename (:filename example))]
-      (is (= (:identifier example) (:identifier parsed)) (str "Failed to parse filename: " (:filename example))))))
+    (let [snofile (snomed/parse-snomed-filename (:filename example))]
+      (is (= (:identifier example) (:identifier snofile)) (str "Failed to parse filename: " (:filename example)))
+      (is (:parser snofile)))))
 
 (comment
   (run-tests)

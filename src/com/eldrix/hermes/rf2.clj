@@ -268,7 +268,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(s/def :info.snomed/RefsetDescriptor
+(s/def :info.snomed/RefsetDescriptorRefset
   (s/keys :req-un [:info.snomed.RefsetItem/id
                    :info.snomed.RefsetItem/effectiveTime
                    :info.snomed.RefsetItem/active
@@ -281,7 +281,7 @@
 
 (defn gen-refset-descriptor-refset
   "A generator of SNOMED RefsetDescriptorRefsetItem entities."
-  ([] (gen/fmap snomed/map->RefsetDescriptorRefsetItem (s/gen :info.snomed/RefsetDescriptor)))
+  ([] (gen/fmap snomed/map->RefsetDescriptorRefsetItem (s/gen :info.snomed/RefsetDescriptorRefset)))
   ([item] (gen/fmap #(merge % item) (gen-refset-descriptor-refset))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
