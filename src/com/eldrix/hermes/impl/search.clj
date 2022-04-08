@@ -131,7 +131,7 @@
 (defn build-search-index
   "Build a search index using the SNOMED CT store at `store-filename`."
   [store-filename search-filename language-priority-list]
-  (let [ch (async/chan 1 (partition-all 5000))]             ;; chunk concepts into batches
+  (let [ch (async/chan 1 (partition-all 50000))]             ;; chunk concepts into batches
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
       (let [langs (lang/match store language-priority-list)
