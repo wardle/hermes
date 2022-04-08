@@ -82,15 +82,6 @@
   (doall (->> (metadata-files dir)
               (map read-metadata))))
 
-(defn csv-data->maps
-  "Turn CSV data into maps, assuming first row is the header."
-  [csv-data]
-  (map zipmap
-       (->> (first csv-data)
-            (map keyword)
-            repeat)
-       (rest csv-data)))
-
 (defn- process-file
   "Process the specified file, streaming batched results to the channel
   specified, blocking if channel not being drained.
