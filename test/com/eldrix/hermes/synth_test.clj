@@ -74,7 +74,7 @@
     #_(delete-all temp-dir)))
 
 (deftest test-localisation
-  (let [temp-dir (Files/createTempDirectory "hermes" (make-array FileAttribute 0))
+  (let [temp-dir (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
         concepts (gen/sample (rf2/gen-concept) 2000)
         en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
         en-US-refset (gen/generate (rf2/gen-concept {:id 900000000000509007 :active true}))
