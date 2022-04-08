@@ -125,7 +125,9 @@
             (println "Processing " filename "\n" line))
           (try
             (when (> i 0) (parser line))
-            (catch Throwable e (throw (Exception. (str "Error parsing " filename " line:" i "\nline : " line "\nError: " e)))))
+            (catch Throwable e (throw (ex-info "Error parsing file" {:filename filename
+                                                                     :line i :content line
+                                                                     :error (ex-data e)}))))
           (when (and (not= 0 n) (not= n (count line)))
             (println "incorrect number of columns; expected" n " got:" (count line)) {})
           (recur (inc i)
@@ -145,17 +147,22 @@
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
         files (importable-files dir)]
-    (async/pipeline nthreads
-                    processed-c
-                    (map snomed/parse-batch)
-                    raw-c
-                    true
-                    (fn [err] (log/error "failed to import:" err)))
     (async/thread
       (when-not (seq files) (log/warn "no files found to import in " dir))
-      (doseq [file files]
-        (process-file (:path file) raw-c :batch-size batch-size :quiet? quiet?))
+      (try
+        (doseq [file files]
+          (process-file (:path file) raw-c :batch-size batch-size))
+        (catch Throwable e
+          (log/debug "Error during raw import: " e)
+          (async/>!! processed-c e)))
       (async/close! raw-c))
+    (async/pipeline-blocking
+      nthreads
+      processed-c
+      (map snomed/parse-batch)
+      raw-c
+      true
+      (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err))  err))
     processed-c))
 
 

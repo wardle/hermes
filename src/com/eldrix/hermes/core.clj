@@ -483,25 +483,27 @@
 (defn- do-import-snomed
   "Import a SNOMED distribution from the specified directory `dir` into a local
    file-based database `store-filename`.
-   Blocking; will return when done. "
+   Blocking; will return when done. Throws an exception on the calling thread if
+   there are any import problems."
   [store-filename dir]
   (with-open [store (store/open-store store-filename {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
-          cancel-c (async/chan)
-          data-c (importer/load-snomed dir :nthreads nthreads)
-          pool (Executors/newFixedThreadPool nthreads)
-          tasks (repeat nthreads
-                        (fn [] (try (loop [[batch ch] (async/alts!! [cancel-c data-c])]
-                                      (when (and (= ch data-c) batch)
-                                        (store/write-batch-with-fallback batch store)
-                                        (recur (async/alts!! [cancel-c data-c]))))
-                                    (catch Throwable e
-                                      (async/close! cancel-c) e))))]
-      (doseq [future (.invokeAll pool tasks)]
-        (when-let [e (.get ^Future future)]
-          (when-not (instance? InterruptedException e)        ;; only show the original cause
-            (throw (ex-info (str "Error during import: " (.getMessage ^Throwable e)) (Throwable->map e))))))
-      (.shutdown pool))))
+          result-c (async/chan)
+          data-c (importer/load-snomed dir :nthreads nthreads)]
+      (async/pipeline-blocking
+        nthreads
+        result-c
+        (map #(if (instance? Throwable %)                   ;; if channel contains an exception, throw it on
+                (throw %)
+                (do (store/write-batch-with-fallback % store) true)))
+        data-c
+        true
+        (fn ex-handler [err] err))                          ;; and the exception handler then passes the exception through to results channel
+      (loop []
+        (when-let [v (async/<!! result-c)]
+          (if (instance? Throwable v)
+            (throw v)
+            (recur)))))))
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)]
