@@ -381,7 +381,7 @@
 (defmethod write-refset-item :info.snomed/AttributeValueRefset [^DataOutput out o]
   (.writeByte out 7)
   (write-attribute-value-refset-item out o))
-(defmethod write-refset-item :info.snomed/RefsetDescriptor [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/RefsetDescriptorRefset [^DataOutput out o]
   (.writeByte out 8)
   (write-refset-descriptor-refset-item out o))
 (defmethod write-refset-item :info.snomed/AssociationRefset [^DataOutput out o]
