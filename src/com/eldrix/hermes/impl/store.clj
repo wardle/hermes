@@ -74,10 +74,10 @@
   Closeable
   (close [_] (.close db)))
 
-(defn- ^DB open-database
+(defn- open-database
   "Open a file-based key-value database from the file specified, optionally read
   only. Use in a `with-open` block or manually (.close) when done"
-  [filename {:keys [read-only? skip-check?]}]
+  ^DB [filename {:keys [read-only? skip-check?]}]
   (when (and read-only? (not (.exists (io/as-file filename))))
     (throw (FileNotFoundException. (str "file `" filename "` opened read-only but not found"))))
   (.make (cond-> (-> (DBMaker/fileDB ^String filename)
@@ -86,13 +86,14 @@
                  skip-check? (.checksumHeaderBypass)
                  read-only? (.readOnly))))
 
-(defn- ^DB open-temp-database []
+(defn- open-temp-database
+  ^DB []
   (-> (DBMaker/tempFileDB)
       (.fileMmapEnable)
       (.closeOnJvmShutdown)
       (.make)))
 
-(defn- ^BTreeMap open-bucket
+(defn- open-bucket
   "Create or open the named b-tree map with the specified value and key
   serializers.
    
@@ -100,14 +101,15 @@
   - db               - mapdb database (org.mapdb.DB)
   - key-serializer   - serializer for key
   - value-serializer - serializer for value."
-  [^DB db ^String nm ^Serializer key-serializer ^Serializer value-serializer]
+  ^BTreeMap [^DB db ^String nm ^Serializer key-serializer ^Serializer value-serializer]
   (.createOrOpen (.treeMap db nm key-serializer value-serializer)))
 
-(defn- ^NavigableSet open-index
+(defn- open-index
   "Create or open the named set, by default, made up of an array of java long primitives.
   - db         : mapdb database
   - nm         : name of index
   - serializer : serializer to use, by default LONG_ARRAY"
+  ^NavigableSet
   ([^DB db ^String nm]
    (open-index db nm Serializer/LONG_ARRAY))
   ([^DB db ^String nm ^Serializer serializer]
@@ -409,10 +411,10 @@
   {:read-only?  true
    :skip-check? false})
 
-(defn ^Closeable open-store
-  ([] (open-store nil nil))
-  ([filename] (open-store filename nil))
-  ([filename opts]
+(defn open-store
+  (^Closeable [] (open-store nil nil))
+  (^Closeable [filename] (open-store filename nil))
+  (^Closeable [filename opts]
    (let [db (if filename
               (open-database filename (merge default-opts opts))
               (open-temp-database))

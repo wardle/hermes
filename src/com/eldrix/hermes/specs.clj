@@ -2,13 +2,12 @@
   "Specifications for the core API of hermes."
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
-            [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.rf2 :as-alias rf2]
+            [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Result)
            (org.apache.lucene.search Query IndexSearcher)

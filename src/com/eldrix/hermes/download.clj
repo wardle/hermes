@@ -42,7 +42,7 @@
   []
   (clojure.pprint/print-table (map #(hash-map :identifier %) (keys registry))))
 
-(defn ^Path download
+(defn download
   "Download the named distribution.
   Parameters:
   - nm         : name of the provider   e.g. \"uk.nhs/sct-clinical\"
@@ -50,7 +50,7 @@
 
   The parameters will depend on the exact nature of the provider.
   Returns the java.nio.file.Path of the directory containing unzipped files."
-  [nm parameters]
+  ^Path [nm parameters]
   (if-not (s/valid? ::provider-parameters parameters)
     (println "Parameters must be given as key value pairs. e.g. \"api-key key.txt" \" (expound/expound-str ::provider-parameters parameters))
     (let [{:keys [f spec]} (get registry nm)]
@@ -67,6 +67,6 @@
 
   (download "uk.nhs/sct-clinical" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-drug-ext" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
-  (download "uk.nhs/sct-clinical" [])
+  (download "uk.nhs/sct-clinical" []))
 
-  )
+

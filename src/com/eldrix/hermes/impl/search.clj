@@ -14,7 +14,6 @@
 ;;;;
 (ns com.eldrix.hermes.impl.search
   (:require [clojure.core.async :as async]
-            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
@@ -115,16 +114,16 @@
   (dorun (map (partial write-concept! store writer language-refset-ids) concepts))
   (.commit writer))
 
-(defn ^IndexWriter open-index-writer
-  [filename]
+(defn  open-index-writer
+  ^IndexWriter [filename]
   (let [analyzer (StandardAnalyzer.)
         directory (FSDirectory/open (Paths/get filename (into-array String [])))
         writer-config (doto (IndexWriterConfig. analyzer)
                         (.setOpenMode IndexWriterConfig$OpenMode/CREATE))]
     (IndexWriter. directory writer-config)))
 
-(defn ^IndexReader open-index-reader
-  [filename]
+(defn open-index-reader
+  ^IndexReader [filename]
   (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
     (DirectoryReader/open directory)))
 
@@ -263,7 +262,8 @@
   [^Query q]
   (FunctionScoreQuery. q (DoubleValuesSource/fromDoubleField "length-boost")))
 
-(defn- ^Query make-search-query
+(defn- make-search-query
+  ^Query
   [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? concept-refsets properties]
     :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
   (let [query (cond-> (BooleanQuery$Builder.)

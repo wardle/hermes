@@ -29,15 +29,14 @@
             [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (com.eldrix.hermes.snomed Result)
-           (org.apache.lucene.search IndexSearcher Query)
+           (org.apache.lucene.search IndexSearcher)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
            (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDateTime)
-           (java.io Closeable)
-           (java.util.concurrent Executors Future)))
+           (java.io Closeable)))
 
 (set! *warn-on-reflection* true)
 
@@ -515,17 +514,16 @@
   (let [root-path (Paths/get root (into-array String []))]
     (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
 
-(defn ^Service open
+(defn open
   "Open a (read-only) SNOMED service from the path `root`."
-  ([^String root] (open root {}))
-  ([^String root opts]
-   (let [manifest (open-manifest root)
-         st (store/open-store (get-absolute-filename root (:store manifest)))
-         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-         searcher (IndexSearcher. index-reader)
-         locale-match-fn (lang/match-fn st)]
-     (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
-     (->Service st index-reader searcher locale-match-fn))))
+  ^Service [^String root]
+  (let [manifest (open-manifest root)
+        st (store/open-store (get-absolute-filename root (:store manifest)))
+        index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
+        searcher (IndexSearcher. index-reader)
+        locale-match-fn (lang/match-fn st)]
+    (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
+    (->Service st index-reader searcher locale-match-fn)))
 
 (defn close [^Service svc]
   (.close svc))

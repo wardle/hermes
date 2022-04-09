@@ -91,9 +91,9 @@
   (.writeLong out (.getMostSignificantBits uuid))
   (.writeLong out (.getLeastSignificantBits uuid)))
 
-(defn ^UUID read-uuid
+(defn read-uuid
   "Read two long integers as a 128-bit UUID."
-  [^DataInput in]
+  ^UUID [^DataInput in]
   (UUID. (.readLong in) (.readLong in)))
 
 
