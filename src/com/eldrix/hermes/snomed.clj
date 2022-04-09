@@ -46,6 +46,8 @@
            (java.io File)
            (java.util UUID)))
 
+(defmulti ->vec "Turn a SNOMED entity into a vector" type)
+
 (defn- ^LocalDate parse-date [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
 (defn- ^Boolean parse-bool [^String s] (if (= "1" s) true false))
 (defn- ^UUID unsafe-parse-uuid [^String s] (UUID/fromString s))
@@ -57,6 +59,7 @@
 (defmethod unparse Integer [v] (str v))
 (defmethod unparse String [v] v)
 (defmethod unparse UUID [v] (.toString ^UUID v))
+(defmethod unparse :info.snomed/Component [v]  (mapv unparse (->vec v)))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -240,8 +243,8 @@
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))))
 
-(defmethod unparse Concept [c]
-  (mapv unparse [(:id c) (:effectiveTime c) (:active c) (:moduleId c) (:definitionStatusId c)]))
+(defmethod ->vec Concept [c]
+  [(:id c) (:effectiveTime c) (:active c) (:moduleId c) (:definitionStatusId c)])
 
 (defn parse-description [v]
   (->Description
@@ -255,9 +258,9 @@
     (v 7)
     (Long/parseLong (v 8))))
 
-(defmethod unparse Description [d]
-  (mapv unparse [(:id d) (:effectiveTime d) (:active d) (:moduleId d) (:conceptId d)
-                 (:languageCode d) (:typeId d) (:term d) (:caseSignificanceId d)]))
+(defmethod ->vec Description [d]
+  [(:id d) (:effectiveTime d) (:active d) (:moduleId d) (:conceptId d)
+   (:languageCode d) (:typeId d) (:term d) (:caseSignificanceId d)])
 
 (defn parse-relationship [v]
   (->Relationship
@@ -272,9 +275,9 @@
     (Long/parseLong (v 8))                                  ;; characteristicTypeId
     (Long/parseLong (v 9))))                                ;; modifierId
 
-(defmethod unparse Relationship [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:destinationId r)
-                 (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)]))
+(defmethod ->vec Relationship [r]
+  [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:destinationId r)
+   (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)])
 
 (def refset-standard-patterns
   {:info.snomed/RefsetDescriptor     "cci"
@@ -299,23 +302,16 @@
 (defn- reify-extended-map-refset-item [item]
   (let [[mapGroup mapPriority mapRule mapAdvice mapTarget correlationId mapCategoryId & more] (:fields item)]
     (map->ExtendedMapRefsetItem (assoc item
-                                  :mapGroup mapGroup
-                                  :mapPriority mapPriority
-                                  :mapRule mapRule
-                                  :mapAdvice mapAdvice
-                                  :mapTarget mapTarget
-                                  :correlationId correlationId
-                                  :mapCategoryId mapCategoryId
-                                  :fields (or more [])))))
+                                  :mapGroup mapGroup :mapPriority mapPriority
+                                  :mapRule mapRule :mapAdvice mapAdvice
+                                  :mapTarget mapTarget :correlationId correlationId
+                                  :mapCategoryId mapCategoryId :fields (or more [])))))
 (defn- reify-complex-map-refset-item [item]
   (let [[mapGroup mapPriority mapRule mapAdvice mapTarget correlationId & more] (:fields item)]
     (map->ComplexMapRefsetItem (assoc item
-                                 :mapGroup mapGroup
-                                 :mapPriority mapPriority
-                                 :mapRule mapRule
-                                 :mapAdvice mapAdvice
-                                 :mapTarget mapTarget
-                                 :correlationId correlationId
+                                 :mapGroup mapGroup :mapPriority mapPriority
+                                 :mapRule mapRule :mapAdvice mapAdvice
+                                 :mapTarget mapTarget :correlationId correlationId
                                  :fields (or more [])))))
 (defn- reify-attribute-value-refset-item [item]
   (let [[valueId & more] (:fields item)]
@@ -339,10 +335,10 @@
                [[449608002 900000000000511003 & more]] reify-language-refset-item
                [[900000000000500006 900000000000505001 & more]] reify-simple-map-refset-item
                [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
-                 1193546000 609330002 & more]]  reify-extended-map-refset-item
+                 1193546000 609330002 & more]] reify-extended-map-refset-item
                [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
                  1193546000 & more]] reify-complex-map-refset-item
-               [[449608002 900000000000491004 & more]]  reify-attribute-value-refset-item ;; AttributeValueRefsetItem
+               [[449608002 900000000000491004 & more]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
                [[449608002 762677007 & more]] reify-owl-expression-refset-item
                :else identity))
 
@@ -378,9 +374,9 @@
     (Long/parseLong (v 5))                                  ;; referenced component Id
     (parse-fields pattern (subvec v 6))))                   ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse SimpleRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]
-                      (:fields r))))
+(defmethod ->vec SimpleRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)]
+        (:fields r)))
 
 (defn parse-association-refset-item [pattern v]
   (->AssociationRefsetItem
@@ -393,10 +389,10 @@
     (Long/parseLong (v 6))                                  ;; target component Id))
     (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse AssociationRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:targetComponentId r)]
-                      (:fields r))))
+(defmethod ->vec AssociationRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:targetComponentId r)]
+        (:fields r)))
 
 (defn parse-language-refset-item [pattern v]
   (->LanguageRefsetItem
@@ -409,10 +405,10 @@
     (Long/parseLong (v 6))                                  ;; acceptability id
     (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse LanguageRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:acceptabilityId r)]
-                      (:fields r))))
+(defmethod ->vec LanguageRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:acceptabilityId r)]
+        (:fields r)))
 
 (defn parse-refset-descriptor-item [_pattern v]
   (->RefsetDescriptorRefsetItem
@@ -426,9 +422,9 @@
     (Long/parseLong (v 7))                                  ;; attribute type id (a descendant of 900000000000459000)
     (Integer/parseInt (v 8))))                              ;; attribute order
 
-(defmethod unparse RefsetDescriptorRefsetItem [r]
-  (mapv unparse [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                 (:attributeDescriptionId r) (:attributeTypeId r) (:attributeOrder r)]))
+(defmethod ->vec RefsetDescriptorRefsetItem [r]
+  [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+   (:attributeDescriptionId r) (:attributeTypeId r) (:attributeOrder r)])
 
 (defn parse-simple-map-refset-item [pattern v]
   (->SimpleMapRefsetItem
@@ -441,10 +437,10 @@
     (v 6)                                                   ;; map target
     (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse SimpleMapRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:mapTarget r)]
-                      (:fields r))))
+(defmethod ->vec SimpleMapRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:mapTarget r)]
+        (:fields r)))
 
 (defn parse-complex-map-refset-item [pattern v]
   (->ComplexMapRefsetItem
@@ -462,10 +458,10 @@
     (Long/parseLong (v 11))                                 ;; correlation
     (parse-fields (subs pattern 6) (subvec v 12))))         ;; slurp remaining fields as defined by rest of pattern
 
-(defmethod unparse ComplexMapRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r)]
-                      (:fields r))))
+(defmethod ->vec ComplexMapRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r)]
+        (:fields r)))
 
 (defn parse-extended-map-refset-item [pattern v]
   (->ExtendedMapRefsetItem
@@ -484,10 +480,10 @@
     (Long/parseLong (v 12))                                 ;; map category id
     (parse-fields (subs pattern 7) (subvec v 13))))         ;; slurp all fields into a vector defined by pattern
 
-(defmethod unparse ExtendedMapRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r) (:mapCategoryId r)]
-                      (:fields r))))
+(defmethod ->vec ExtendedMapRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:mapGroup r) (:mapPriority r) (:mapRule r) (:mapAdvice r) (:mapTarget r) (:correlationId r) (:mapCategoryId r)]
+        (:fields r)))
 
 (defn parse-attribute-value-refset-item [pattern v]
   (->AttributeValueRefsetItem
@@ -500,10 +496,10 @@
     (Long/parseLong (v 6))
     (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp all fields into a vector defined by pattern
 
-(defmethod unparse AttributeValueRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:valueId r)]
-                      (:fields r))))
+(defmethod ->vec AttributeValueRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:valueId r)]
+        (:fields r)))
 
 (defn parse-owl-expression-refset-item [pattern v]
   (->OWLExpressionRefsetItem
@@ -516,10 +512,10 @@
     (v 6)                                                   ;; OWL expression
     (parse-fields (subs pattern 1) (subvec v 7))))          ;; slurp all fields into a vector defined by pattern
 
-(defmethod unparse OWLExpressionRefsetItem [r]
-  (mapv unparse (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
-                       (:owlExpression r)]
-                      (:fields r))))
+(defmethod ->vec OWLExpressionRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:owlExpression r)]
+        (:fields r)))
 
 (def parsers
   {:info.snomed/Concept                parse-concept
