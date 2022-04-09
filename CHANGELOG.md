@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released [0.10.xxx] 
+## [0.10.516] - 2022-04-09 
 
 * Improve speed and error handling in import
 * Revise approach to extended fields in reference set items
