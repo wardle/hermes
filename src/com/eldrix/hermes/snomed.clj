@@ -36,7 +36,8 @@
              component version in a delta release represents either a new
              component or a change to an existing component."
 
-  (:require [clojure.tools.logging.readable :as log]
+  (:require [clojure.core.match :as match]
+            [clojure.tools.logging.readable :as log]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.hermes.verhoeff :as verhoeff])
@@ -87,7 +88,8 @@
 
 ;; ReferenceSet support customization and enhancement of SNOMED CT content. These include representation of subsets,
 ;; language preferences maps for or from other code systems. There are multiple reference set types which extend
-;; this structure.
+;; this structure. We have concrete versions of the most useful reference set types permitting hand-crafted
+;; serialization and straightforward consumption by typed clients such as java.
 
 ;; RefSetDescriptorRefsetItem is a type of reference set that provides information about a different reference set
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.11+Reference+Set+Descriptor
@@ -284,6 +286,65 @@
    :info.snomed/ExtendedMapRefset    "iissscc"
    :info.snomed/AttributeValueRefset "i"
    :info.snomed/OWLExpressionRefset  "s"})
+
+(defn- reify-association-refset-item [item]
+  (let [[target & more] (:fields item)]
+    (map->AssociationRefsetItem (assoc item :targetComponentId target :fields (or more [])))))
+(defn- reify-language-refset-item [item]
+  (let [[acceptability & more] (:fields item)]
+    (map->LanguageRefsetItem (assoc item :acceptabilityId acceptability :fields (or more [])))))
+(defn- reify-simple-map-refset-item [item]
+  (let [[map-target & more] (:fields item)]
+    (map->SimpleMapRefsetItem (assoc item :mapTarget map-target :fields (or more [])))))
+(defn- reify-extended-map-refset-item [item]
+  (let [[mapGroup mapPriority mapRule mapAdvice mapTarget correlationId mapCategoryId & more] (:fields item)]
+    (map->ExtendedMapRefsetItem (assoc item
+                                  :mapGroup mapGroup
+                                  :mapPriority mapPriority
+                                  :mapRule mapRule
+                                  :mapAdvice mapAdvice
+                                  :mapTarget mapTarget
+                                  :correlationId correlationId
+                                  :mapCategoryId mapCategoryId
+                                  :fields (or more [])))))
+(defn- reify-complex-map-refset-item [item]
+  (let [[mapGroup mapPriority mapRule mapAdvice mapTarget correlationId & more] (:fields item)]
+    (map->ComplexMapRefsetItem (assoc item
+                                 :mapGroup mapGroup
+                                 :mapPriority mapPriority
+                                 :mapRule mapRule
+                                 :mapAdvice mapAdvice
+                                 :mapTarget mapTarget
+                                 :correlationId correlationId
+                                 :fields (or more [])))))
+(defn- reify-attribute-value-refset-item [item]
+  (let [[valueId & more] (:fields item)]
+    (map->AttributeValueRefsetItem (assoc item :valueId valueId :fields (or more [])))))
+
+(defn- reify-owl-expression-refset-item [item]
+  (let [[owlExpression & more] (:fields item)]
+    (map->OWLExpressionRefsetItem (assoc item :owlExpression owlExpression :fields (or more [])))))
+
+(defn refset-reifier
+  "Given a sequence of attribute description concept identifiers, return a
+  function to reify a SimpleRefset into its concrete subtype.
+
+  The canonical pattern of attribute description concept identifiers is provided
+  by SNOMED CT. For example, those for complex maps are found [here](https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3.3+Complex+and+Extended+Map+from+SNOMED+CT+Reference+Sets)
+
+  Reification of refset items could occur at time of import, or at runtime."
+  [attribute-description-concept-ids]
+  (match/match [attribute-description-concept-ids]
+               [[449608002 900000000000533001 & more]] reify-association-refset-item
+               [[449608002 900000000000511003 & more]] reify-language-refset-item
+               [[900000000000500006 900000000000505001 & more]] reify-simple-map-refset-item
+               [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
+                 1193546000 609330002 & more]]  reify-extended-map-refset-item
+               [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
+                 1193546000 & more]] reify-complex-map-refset-item
+               [[449608002 900000000000491004 & more]]  reify-attribute-value-refset-item ;; AttributeValueRefsetItem
+               [[449608002 762677007 & more]] reify-owl-expression-refset-item
+               :else identity))
 
 (defn parse-fields
   "Parse the values 'v' using the pattern specification 'pattern'.

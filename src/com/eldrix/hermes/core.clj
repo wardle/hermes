@@ -122,6 +122,34 @@
   [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
 
+(defn get-refset-descriptor-attribute-ids
+  "Return a vector of attribute description concept ids for the given reference
+  set."
+  [^Service svc refset-id]
+  (->> (get-component-refset-items svc refset-id 900000000000456007)
+       (sort-by :attributeOrder)
+       (mapv :attributeDescriptionId)))
+
+(defn reify-refset-items
+  "Reifies refset items.
+
+  Most refset items are imported and stored reified. However, some refset items
+  are imported as SimpleRefsets because their filenames do not specify a
+  specific refset type. A SimpleRefset can sometimes be reified into a more
+  concrete refset type, depending on runtime information available in the refset
+  descriptor.
+
+  This is designed for use at runtime, rather that during import. Reification at
+  runtime will not be necessary if import is modified to perform reification of refset items for
+  those edge-cases when the filename doesn't provide the concrete type."
+  ([svc items]
+   (vals (reduce-kv (fn [acc k v]
+                     (let [descriptors (get-refset-descriptor-attribute-ids svc k)
+                           reifier (snomed/refset-reifier descriptors)]
+                       (assoc acc k (mapv reifier v))))
+                   {}
+                   (group-by :refsetId items)))))
+
 (defn active-association-targets
   "Return the active association targets for a given component."
   [^Service svc component-id refset-id]

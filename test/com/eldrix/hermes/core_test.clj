@@ -19,15 +19,15 @@
 (deftest ^:live basic-gets
   (is (= 24700007 (.id (hermes/get-concept *svc* 24700007))))
   (let [multiple-sclerosis (hermes/get-extended-concept *svc* 24700007)]
-      (is ((get-in multiple-sclerosis [:parentRelationships 116680003]) 6118003) "Multiple sclerosis is a type of CNS demyelinating disorder")
-      (is (s/valid? :info.snomed/Concept (:concept multiple-sclerosis)))
-      (is (every? true? (map #(s/valid? :info.snomed/Description %) (:descriptions multiple-sclerosis))))))
+    (is ((get-in multiple-sclerosis [:parentRelationships 116680003]) 6118003) "Multiple sclerosis is a type of CNS demyelinating disorder")
+    (is (s/valid? :info.snomed/Concept (:concept multiple-sclerosis)))
+    (is (every? true? (map #(s/valid? :info.snomed/Description %) (:descriptions multiple-sclerosis))))))
 
 (deftest ^:live test-reverse-map-range
   (let [synonyms (->> (hermes/reverse-map-range *svc* 447562003 "I30")
                       (map :referencedComponentId)
                       (map #(:term (hermes/get-preferred-synonym *svc* % "en"))))]
-       (is (some #{"Viral pericarditis"} synonyms))))
+    (is (some #{"Viral pericarditis"} synonyms))))
 
 (deftest ^:live test-cross-map
   (is (contains? (set (map :mapTarget (hermes/get-component-refset-items *svc* 24700007 447562003))) "G35") "Multiple sclerosis should map to ICD code G35"))
@@ -71,3 +71,4 @@
 #_(deftest ^:live test-historical-assumptions
     (let [counts (#'hermes/historical-association-counts *svc*)]
       (is (= 1 (get counts snomed/ReplacedByReferenceSet)))))
+

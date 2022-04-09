@@ -2,6 +2,14 @@
 
 This log documents significant changes for each release.
 
+## Not yet released [0.10.xxx] 
+
+* Improve speed and error handling in import
+* Revise approach to extended fields in reference set items
+* Bump to version 0.7 of the file-based database given changes in schema.
+This means this version will refuse to read databases created in prior versions.
+* Add runtime reification of refset items for those not reified during import.
+
 ## [0.9.486] - 2022-04-03
 
 * Add specifications for all supported SNOMED CT entities

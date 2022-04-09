@@ -5,9 +5,10 @@
     [clojure.test :refer :all]
     [com.eldrix.hermes.verhoeff :as verhoeff]
     [com.eldrix.hermes.snomed :as snomed]
-    [com.eldrix.hermes.rf2 :as-alias rf2]
+    [com.eldrix.hermes.rf2 :as rf2]
     [clojure.java.io :as io])
-  (:import [java.time LocalDate]))
+  (:import [java.time LocalDate]
+           (com.eldrix.hermes.snomed OWLExpressionRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AssociationRefsetItem)))
 
 (deftest test-filenames
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
@@ -228,6 +229,15 @@
     (let [snofile (snomed/parse-snomed-filename (:filename example))]
       (is (= (:identifier example) (:identifier snofile)) (str "Failed to parse filename: " (:filename example)))
       (is (:parser snofile)))))
+
+
+(deftest test-refset-reification
+  (testing "Association refset reification"
+    (let [item (gen/generate (rf2/gen-simple-refset { :active true :refsetId 1322291000000109 :fields [163071000000106]}))
+          reifier (snomed/refset-reifier [449608002 900000000000533001])
+          item' (reifier item)]
+      (is (instance? AssociationRefsetItem item'))
+      (is (= 163071000000106 (:targetComponentId item'))))))
 
 (comment
   (run-tests)

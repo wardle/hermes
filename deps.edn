@@ -2,6 +2,7 @@
 
  :deps    {org.clojure/clojure                      {:mvn/version "1.11.0"}
            org.clojure/core.async                   {:mvn/version "1.5.648"}
+           org.clojure/core.match                   {:mvn/version "1.0.0"}
            org.clojure/data.xml                     {:mvn/version "0.2.0-alpha6"}
            org.clojure/data.zip                     {:mvn/version "1.0.0"}
            org.clojure/tools.logging                {:mvn/version "1.2.4"}
