@@ -104,7 +104,7 @@
                               :refset-id :info.snomed.Concept/id
                               :concepts (s/coll-of :info.snomed.Concept/id))))
 
-(s/fdef snomed/parse-using-pattern
+(s/fdef snomed/parse-fields
   :args (s/cat :pattern ::refset-filename-pattern
                :values (s/coll-of string?)))
 
