@@ -130,8 +130,29 @@
        (sort-by :attributeOrder)
        (mapv :attributeDescriptionId)))
 
-(defn reify-refset-items
-  "Reifies refset items.
+(defn refset-item->attribute-map
+  "Turn a refset item into an attribute map.
+  Example from the UK edition:
+  ```
+  (refset-item->attribute-map svc (get-refset-item svc #uuid\"fee430d8-96ed-11ea-bbef-08002728e8ff\"))
+  =>
+  {:id #uuid\"fee430d8-96ed-11ea-bbef-08002728e8ff\",
+   :effectiveTime #object[java.time.LocalDate 0x28405c66 \"2020-05-13\"],
+   :active true,
+   :moduleId 999000031000000106,
+   :refsetId 1322291000000109,
+   449608002 75423003,
+   900000000000533001 163021000000107}
+  ```"
+  [svc item]
+  (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))]
+    (merge
+      (select-keys item [:id :effectiveTime :active :moduleId :refsetId])
+      (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
+
+(defn reify-refset-item
+  "Reifies a refset item when possible, turning it into a concrete class and
+  adding :attributes, a map of attribute to value.
 
   Most refset items are imported and stored reified. However, some refset items
   are imported as SimpleRefsets because their filenames do not specify a
@@ -139,16 +160,17 @@
   concrete refset type, depending on runtime information available in the refset
   descriptor.
 
-  This is designed for use at runtime, rather that during import. Reification at
-  runtime will not be necessary if import is modified to perform reification of refset items for
-  those edge-cases when the filename doesn't provide the concrete type."
-  ([svc items]
-   (vals (reduce-kv (fn [acc k v]
-                     (let [descriptors (get-refset-descriptor-attribute-ids svc k)
-                           reifier (snomed/refset-reifier descriptors)]
-                       (assoc acc k (mapv reifier v))))
-                   {}
-                   (group-by :refsetId items)))))
+  This is designed for use at runtime, rather than during import. Reification at
+  runtime will not be necessary if import is modified to perform reification of
+  refset items for those edge-cases when the filename doesn't provide the
+  concrete type."
+  ([svc item]
+   (if-not (seq (:fields item))
+     item
+     (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))
+           reifier (snomed/refset-reifier attr-ids)
+           attributes (zipmap attr-ids (subvec (snomed/->vec item) 5))]
+       (-> (reifier item) (assoc :attributes attributes))))))
 
 (defn active-association-targets
   "Return the active association targets for a given component."
