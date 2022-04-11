@@ -49,7 +49,7 @@
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
 (defn- parse-date ^LocalDate [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
-(defn- parse-bool ^Boolean  [^String s] (if (= "1" s) true false))
+(defn- parse-bool ^Boolean [^String s] (if (= "1" s) true false))
 (defn- unsafe-parse-uuid ^UUID [^String s] (UUID/fromString s))
 
 (defmulti unparse "Export data as per the SNOMED RF2 file format specification." type)
@@ -59,7 +59,7 @@
 (defmethod unparse Integer [v] (str v))
 (defmethod unparse String [v] v)
 (defmethod unparse UUID [v] (.toString ^UUID v))
-(defmethod unparse :info.snomed/Component [v]  (mapv unparse (->vec v)))
+(defmethod unparse :info.snomed/Component [v] (mapv unparse (->vec v)))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
 (defrecord Concept [^long id
@@ -609,6 +609,7 @@
   # file extension
   (?<fileextension>.*?)
   $")
+
 
 (defn parse-snomed-filename
   "Parse a filename according the specifications outlined in
