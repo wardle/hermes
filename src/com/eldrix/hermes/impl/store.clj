@@ -245,8 +245,8 @@
         (map seq)
         (map #(let [[_component-id _refset-id item-msb item-lsb] %] (get-refset-item store item-msb item-lsb))))))
 
-(defn get-component-refsets
-  "Return the refset-id's to which this component belongs."
+(defn get-component-refset-ids
+  "Return the refset-ids to which this component belongs."
   [^MapDBStore store component-id]
   (->> (.subSet ^NavigableSet (.componentRefsets store)
                 (long-array [component-id])                 ;; lower limit = first element of composite key
@@ -729,7 +729,7 @@
                           (get-concept-descriptions store concept-id))
         parent-relationships (get-parent-relationships-expanded store concept-id)
         direct-parent-relationships (get-parent-relationships store concept-id)
-        refsets (into #{} (get-component-refsets store concept-id))]
+        refsets (into #{} (get-component-refset-ids store concept-id))]
     (snomed/->ExtendedConcept
       concept
       descriptions

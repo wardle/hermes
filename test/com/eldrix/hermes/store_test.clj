@@ -79,8 +79,8 @@
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
       (is (= #{refset-id} (store/get-installed-reference-sets st)))
-      (is (every? true? (map #(= (list refset-id) (store/get-component-refsets st (:id %))) members)))
-      (is (every? true? (map #(empty? (store/get-component-refsets st (:id %))) non-members)))
+      (is (every? true? (map #(= (list refset-id) (store/get-component-refset-ids st (:id %))) members)))
+      (is (every? true? (map #(empty? (store/get-component-refset-ids st (:id %))) non-members)))
       (is (every? true? (map #(let [[item & more] (store/get-component-refset-items st (.-referencedComponentId %))]
                                 (and (nil? more) (= item %))) refset-items)))
       (is (every? true? (map #(= % (store/get-refset-item st (.-id %))) refset-items)))
