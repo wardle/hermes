@@ -8,9 +8,10 @@
             [clojure.string :as str]
             [clojure.test :refer :all]
             [com.eldrix.hermes.gen :as hgen]
+            [com.eldrix.hermes.importer :as importer]
+            [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.core :as hermes])
 
   (:import (java.nio.file Paths Files FileVisitOption Path)
@@ -26,8 +27,7 @@
   [path]
   (let [path' (if (instance? Path path) path (.toPath (io/as-file path)))]
     (dorun (->> (iterator-seq (.iterator (Files/walk path' (make-array FileVisitOption 0))))
-                sort
-                reverse
+                sort reverse
                 (map #(Files/delete %))))))
 
 
@@ -65,7 +65,7 @@
       (is different-extended-fields? "Generated reference sets must have same number of extension fields"))
     (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" refsets)
     (testing "Import of malformed reference set should throw an exception"
-      (is (thrown? Throwable (let [ch (com.eldrix.hermes.importer/load-snomed (str release-path))]
+      (is (thrown? Throwable (let [ch (importer/load-snomed (str release-path))]
                                (loop [o (a/<!! ch)]
                                  (when (instance? Throwable o)
                                    (throw (ex-info "SNOMED CT loading error:" (ex-data o))))
@@ -124,8 +124,8 @@
     (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" (concat en-GB en-US))
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
-    (with-open [store (com.eldrix.hermes.impl.store/open-store (str store-path))]
-      (log/info "installed reference sets:" (com.eldrix.hermes.impl.store/get-installed-reference-sets store)))
+    (with-open [store (store/open-store (str store-path))]
+      (log/info "installed reference sets:" (store/get-installed-reference-sets store)))
     (hermes/build-search-index (str db-path))
     (with-open [svc (hermes/open (str db-path))]
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
