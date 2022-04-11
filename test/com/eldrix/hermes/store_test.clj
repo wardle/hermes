@@ -9,29 +9,33 @@
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.specs :as-alias specs])
-  (:import (java.time LocalDate)))
+  (:import (java.time LocalDate)
+           (java.io FileNotFoundException)))
 
 (stest/instrument)
 
 (deftest simple-store
-  (with-open [st (store/open-store)]
-    (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 0 0)]
-      (store/write-batch {:type :info.snomed/Concept
-                          :data [concept]} st)
-      (is (= concept (store/get-concept st 24700007))))
-    (let [description (snomed/map->Description {:id                 754365011,
-                                                :effectiveTime      (LocalDate/of 2020 11 11)
-                                                :active             true,
-                                                :moduleId           900000000000207008,
-                                                :conceptId          24700007,
-                                                :languageCode       "en",
-                                                :typeId             900000000000003001,
-                                                :term               "Multiple sclerosis (disorder)",
-                                                :caseSignificanceId 900000000000448009})]
-      (store/write-batch {:type :info.snomed/Description
-                          :data [description]} st)
-      (is (= description (store/get-description st 754365011)))
-      (is (= description (store/get-fully-specified-name st 24700007))))))
+  (testing "Throws exception if store doesn't exist and opened read-only"
+    (is (thrown? FileNotFoundException (store/open-store "store.db"))))
+  (testing "Simple manual store and retrieval"
+    (with-open [st (store/open-store)]
+      (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 0 0)]
+        (store/write-batch {:type :info.snomed/Concept
+                            :data [concept]} st)
+        (is (= concept (store/get-concept st 24700007))))
+      (let [description (snomed/map->Description {:id                 754365011,
+                                                  :effectiveTime      (LocalDate/of 2020 11 11)
+                                                  :active             true,
+                                                  :moduleId           900000000000207008,
+                                                  :conceptId          24700007,
+                                                  :languageCode       "en",
+                                                  :typeId             900000000000003001,
+                                                  :term               "Multiple sclerosis (disorder)",
+                                                  :caseSignificanceId 900000000000448009})]
+        (store/write-batch {:type :info.snomed/Description
+                            :data [description]} st)
+        (is (= description (store/get-description st 754365011)))
+        (is (= description (store/get-fully-specified-name st 24700007)))))))
 
 (deftest write-concept-test
   (with-open [st (store/open-store)]
