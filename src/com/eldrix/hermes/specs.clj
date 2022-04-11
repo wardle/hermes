@@ -116,7 +116,7 @@
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
 
 (s/fdef search/do-search
-  :args (s/cat :searcher ::searcher :parans ::search-params-impl))
+  :args (s/cat :searcher ::searcher :params ::search-params-impl))
 
 (s/fdef importer/load-snomed-files
   :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
