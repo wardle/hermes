@@ -6,6 +6,7 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.rf2 :as-alias rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
