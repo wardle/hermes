@@ -134,8 +134,7 @@
    :enter (fn [context]
             (let [svc (get-in context [:request ::service])]
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (assoc context :result (->> (hermes/get-component-refset-items svc concept-id)
-                                            (map #(hermes/reify-refset-item svc %)))))))})
+                (assoc context :result (hermes/get-component-refset-items-attrs svc concept-id)))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
