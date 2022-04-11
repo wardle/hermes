@@ -32,9 +32,11 @@
 
   Each result is a map of SNOMED information from the filename as per
   the [release file documentation](https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention),
-  with
-  * :path : the path of the file,
-  * :component the canonical name of the SNOMED component (e.g. 'Concept', 'SimpleRefset')"
+  with additional keys:
+
+  path            : the path of the file,
+  component       : the canonical name of the SNOMED component (e.g. 'Concept', 'SimpleRefset')
+  component-order : the sort order as defined by component type"
   [dir]
   (->> dir
        clojure.java.io/file
@@ -139,23 +141,22 @@
   (doseq [filename (map :path (importable-files dir))]
     (test-csv filename)))
 
-(defn load-snomed
-  "Imports a SNOMED-CT distribution from the specified directory, returning
+(defn load-snomed-files
+  "Imports a SNOMED-CT distribution from the specified files, returning
   results on the returned channel which will be closed once all files have been
   sent through. Any exceptions will be passed on the channel."
-  [dir & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
+  [files & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        processed-c (async/chan)                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
-        files (importable-files dir)]
+        processed-c (async/chan)]                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
     (async/thread
-      (when-not (seq files) (log/warn "no files found to import in " dir))
-      (try
-        (doseq [file files]
-          (process-file (:path file) raw-c :batch-size batch-size))
-        (catch Throwable e
-          (log/debug "Error during raw import: " e)
-          (async/>!! processed-c e)))
-      (async/close! raw-c))
+     (log/info "Processing " (count files) " files")
+     (try
+       (doseq [file files]
+         (process-file (:path file) raw-c :batch-size batch-size))
+       (catch Throwable e
+         (log/debug "Error during raw SNOMED file import: " e)
+         (async/>!! processed-c e)))
+     (async/close! raw-c))
     (async/pipeline-blocking
       nthreads
       processed-c
@@ -165,6 +166,13 @@
       (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err))  err))
     processed-c))
 
+(defn ^:deprecated load-snomed
+  "Imports a SNOMED-CT distribution from the specified directory, returning
+  results on the returned channel which will be closed once all files have been
+  sent through. Any exceptions will be passed on the channel."
+  [dir & opts]
+  (let [files (snomed-file-seq dir)]
+    (load-snomed-files files opts)))
 
 (defn examine-distribution-files
   [dir]

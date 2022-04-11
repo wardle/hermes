@@ -185,11 +185,11 @@
                                                                    [4 (gen/vector (s/gen :info.snomed.RefsetItem/field) 1 4)]])))
 
 (def ^:private field->pattern
-  {:concept \c
-   :description \c
+  {:concept      \c
+   :description  \c
    :relationship \c
-   :string \s
-   :integer \i})
+   :string       \s
+   :integer      \i})
 
 (defn pattern-for-fields
   "Returns a pattern for the fields specified.
@@ -379,3 +379,45 @@
   "A generator of SNOMED OWLExpressionRefset entities."
   ([] (gen/fmap snomed/map->OWLExpressionRefsetItem (s/gen :info.snomed/OWLExpressionRefset)))
   ([item] (gen/fmap #(merge % item) (gen-owl-expression-refset))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;
+;;;; RF2 release file name specification
+;;;;
+(s/def :info.snomed.ReleaseFile/path string?)
+(s/def :info.snomed.ReleaseFile/format string?)
+(s/def :info.snomed.ReleaseFile/filename string?)
+(s/def :info.snomed.ReleaseFile/component string?)
+(s/def :info.snomed.ReleaseFile/version-date ::effectiveTime)
+(s/def :info.snomed.ReleaseFile/identifier keyword?)
+(s/def :info.snomed.ReleaseFile/parser (s/nilable ifn?))
+(s/def :info.snomed.ReleaseFile/language-code (s/nilable string?))
+(s/def :info.snomed.ReleaseFile/doc-status (s/nilable string?))
+(s/def :info.snomed.ReleaseFile/refset-type (s/nilable string?))
+(s/def :info.snomed/ReleaseFile
+  (s/keys :req-un [:info.snomed.ReleaseFile/path
+                   :info.snomed.ReleaseFile/filename
+                   :info.snomed.ReleaseFile/component
+                   :info.snomed.ReleaseFile/identifier
+                   :info.snomed.ReleaseFile/parser
+                   :info.snomed.ReleaseFile/file-type
+                   :info.snomed.ReleaseFile/status
+                   :info.snomed.ReleaseFile/type
+                   :info.snomed.ReleaseFile/format
+                   :info.snomed.ReleaseFile/content-type
+                   :info.snomed.ReleaseFile/pattern
+                   :info.snomed.ReleaseFile/entity
+                   :info.snomed.ReleaseFile/content-subtype
+                   :info.snomed.ReleaseFile/summary
+                   :info.snomed.ReleaseFile/refset-type
+                   :info.snomed.ReleaseFile/summary-extra
+                   :info.snomed.ReleaseFile/release-type
+                   :info.snomed.ReleaseFile/doc-status
+                   :info.snomed.ReleaseFile/language-code
+                   :info.snomed.ReleaseFile/country-namespace
+                   :info.snomed.ReleaseFile/country-code
+                   :info.snomed.ReleaseFile/namespace-id
+                   :info.snomed.ReleaseFile/version-date
+                   :info.snomed.ReleaseFile/file-extension]
+          :opt-un [:info.snomed.ReleaseFile/parser]))

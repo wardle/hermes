@@ -116,3 +116,11 @@
 
 (s/fdef search/do-search
   :args (s/cat :searcher ::searcher :parans ::search-params-impl))
+
+(s/fdef importer/load-snomed-files
+  :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
+               :opts (s/keys* :opt-un [::nthreads ::batch-size])))
+
+(s/fdef hermes/do-import-snomed
+  :args (s/cat :store-filename string?
+               :files (s/coll-of :info.snomed/ReleaseFile)))

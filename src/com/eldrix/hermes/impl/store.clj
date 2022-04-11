@@ -26,7 +26,7 @@
            (org.mapdb.serializer SerializerArrayTuple GroupSerializerObjectArray)
            (java.util NavigableSet UUID)
            (java.time LocalDate)
-           (com.eldrix.hermes.snomed Concept ExtendedConcept)))
+           (com.eldrix.hermes.snomed Concept ExtendedConcept SimpleRefsetItem)))
 
 (set! *warn-on-reflection* true)
 
@@ -254,6 +254,25 @@
        (map seq)
        (map second)))
 
+(defn get-refset-descriptor-attribute-ids
+  "Return a vector of attribute description concept ids for the given reference
+  set."
+  [^MapDBStore store refset-id]
+  (->> (get-component-refset-items store refset-id 900000000000456007)
+       (sort-by :attributeOrder)
+       (mapv :attributeDescriptionId)))
+
+(defn reify-refset-item
+  "Reifies a refset item when possible, turning it into a concrete class.
+  Suitable for use at import as long as refset descriptor refsets have already
+  been imported."
+  ([^MapDBStore store item]
+   (if (and (:active item) (seq (:fields item)) (instance? SimpleRefsetItem item))
+     (let [attr-ids (get-refset-descriptor-attribute-ids store (:refsetId item))
+           reifier (snomed/refset-reifier attr-ids)]
+       (reifier item))
+     item)))
+
 (defn get-reverse-map
   "Returns the reverse mapping from the reference set and mapTarget specified."
   [^MapDBStore store refset-id s]
@@ -374,10 +393,11 @@
         reverse-map ^NavigableSet (.mapTargetComponent store)
         associations ^NavigableSet (.associations store)]
     (doseq [o objects]
-      (let [{:keys [^UUID id referencedComponentId refsetId active mapTarget targetComponentId]} o
+      (let [o' (reify-refset-item store o)
+            {:keys [^UUID id referencedComponentId refsetId active mapTarget targetComponentId]} o'
             uuid-msb (.getMostSignificantBits id)
             uuid-lsb (.getLeastSignificantBits id)]
-        (when (write-object refsets o (long-array [uuid-msb uuid-lsb]))
+        (when (write-object refsets o' (long-array [uuid-msb uuid-lsb]))
           (.add installed refsetId)
           (write-index-entry components (long-array [referencedComponentId refsetId uuid-msb uuid-lsb]) active)
           (when mapTarget

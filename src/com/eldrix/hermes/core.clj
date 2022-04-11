@@ -125,9 +125,7 @@
   "Return a vector of attribute description concept ids for the given reference
   set."
   [^Service svc refset-id]
-  (->> (get-component-refset-items svc refset-id 900000000000456007)
-       (sort-by :attributeOrder)
-       (mapv :attributeDescriptionId)))
+  (store/get-refset-descriptor-attribute-ids (.-store svc) refset-id))
 
 (defn refset-item->attribute-map
   "Turn a refset item into an attribute map.
@@ -149,27 +147,23 @@
       (select-keys item [:id :effectiveTime :active :moduleId :refsetId])
       (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
 
-(defn reify-refset-item
-  "Reifies a refset item when possible, turning it into a concrete class and
-  adding :attributes, a map of attribute to value.
+(defn refset-item-with-attributes
+  "Associates a map of extended attributes to the specified reference set item.
+  The attributes will be keyed based on information from the reference set
+  descriptor information."
+  [svc item]
+  (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))]
+    (assoc item :attributes (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
 
-  Most refset items are imported and stored reified. However, some refset items
-  are imported as SimpleRefsets because their filenames do not specify a
-  specific refset type. A SimpleRefset can sometimes be reified into a more
-  concrete refset type, depending on runtime information available in the refset
-  descriptor.
-
-  This is designed for use at runtime, rather than during import. Reification at
-  runtime will not be necessary if import is modified to perform reification of
-  refset items for those edge-cases when the filename doesn't provide the
-  concrete type."
-  ([svc item]
-   (if-not (seq (:fields item))
-     item
-     (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))
-           reifier (snomed/refset-reifier attr-ids)
-           attributes (zipmap attr-ids (subvec (snomed/->vec item) 5))]
-       (-> (reifier item) (assoc :attributes attributes))))))
+(defn get-component-refset-items-attrs
+  "Returns a sequence of refset items for the given component, supplemented
+  with a map of extended attributes as defined by the refset descriptor"
+  ([^Service svc component-id]
+   (->> (store/get-component-refset-items (.-store svc) component-id)
+        (map #(refset-item-with-attributes svc %))))
+  ([^Service svc component-id refset-id]
+   (->> (store/get-component-refset-items (.-store svc) component-id refset-id)
+        (map #(refset-item-with-attributes svc %)))))
 
 (defn active-association-targets
   "Return the active association targets for a given component."
@@ -529,29 +523,23 @@
   (.close svc))
 
 (defn- do-import-snomed
-  "Import a SNOMED distribution from the specified directory `dir` into a local
+  "Import a SNOMED distribution from the specified files into a local
    file-based database `store-filename`.
    Blocking; will return when done. Throws an exception on the calling thread if
    there are any import problems."
-  [store-filename dir]
+  [store-filename files]
   (with-open [store (store/open-store store-filename {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
           result-c (async/chan)
-          data-c (importer/load-snomed dir :nthreads nthreads)]
-      (async/pipeline-blocking
-        nthreads
-        result-c
+          data-c (importer/load-snomed-files files :nthreads nthreads)]
+      (async/pipeline-blocking nthreads result-c
         (map #(if (instance? Throwable %)                   ;; if channel contains an exception, throw it on
                 (throw %)
                 (do (store/write-batch-with-fallback % store) true)))
-        data-c
-        true
-        (fn ex-handler [err] err))                          ;; and the exception handler then passes the exception through to results channel
+        data-c true (fn ex-handler [err] err))                          ;; and the exception handler then passes the exception through to results channel
       (loop []
         (when-let [v (async/<!! result-c)]
-          (if (instance? Throwable v)
-            (throw v)
-            (recur)))))))
+          (if (instance? Throwable v) (throw v) (recur)))))))
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)]
@@ -561,15 +549,22 @@
       (log/info "distribution: " (:name dist))
       (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))))
 
+(def ^:private core-components
+  #{"Concept" "Description" "Relationship" "RefsetDescriptorRefset"})
+
 (defn import-snomed
   "Import SNOMED distribution files from the directories `dirs` specified into
-  the database directory `root` specified."
+  the database directory `root` specified. Import is performed in two phases
+  for each directory - firstly core components and essential metadata, and
+  secondly non-core and extension files."
   [root dirs]
   (let [manifest (open-manifest root true)
         store-filename (get-absolute-filename root (:store manifest))]
     (doseq [dir dirs]
       (log-metadata dir)
-      (do-import-snomed store-filename dir))))
+      (let [files (importer/importable-files dir)]
+        (do-import-snomed store-filename (->> files (filter #(core-components (:component %)))))
+        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))))))
 
 (defn compact
   [root]
