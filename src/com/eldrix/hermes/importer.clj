@@ -166,10 +166,13 @@
       (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err))  err))
     processed-c))
 
-(defn ^:deprecated load-snomed
+(defn load-snomed
   "Imports a SNOMED-CT distribution from the specified directory, returning
   results on the returned channel which will be closed once all files have been
-  sent through. Any exceptions will be passed on the channel."
+  sent through. Any exceptions will be passed on the channel.
+
+  This streams data in a single pass; in generally usage you will usually want
+  to stream data in multiple passes."
   [dir & opts]
   (let [files (snomed-file-seq dir)]
     (load-snomed-files files opts)))
