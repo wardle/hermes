@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* New two-phase import permitting reification of refset items on import.
+* Return refset items with extended attributes by default in graph and HTTP APIs.
+
 ## [0.10.519] - 2022-04-09 
 
 * Improve speed and error handling in import
