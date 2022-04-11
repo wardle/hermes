@@ -131,6 +131,5 @@
       ;; invoke command
       :else (invoke-command command options (rest arguments)))))
 
-(comment
+(comment)
 
-  )
