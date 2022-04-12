@@ -21,6 +21,7 @@
     [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
     [com.eldrix.hermes.snomed :as snomed])
+            [clojure.spec.alpha :as s]
   (:import (java.io File)
            (com.fasterxml.jackson.core JsonParseException)))
 
@@ -140,6 +141,10 @@
 (defn test-all-csv [dir]
   (doseq [filename (map :path (importable-files dir))]
     (test-csv filename)))
+
+(s/fdef load-snomed-files
+  :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
+               :opts (s/keys* :opt-un [::nthreads ::batch-size])))
 
 (defn load-snomed-files
   "Imports a SNOMED-CT distribution from the specified files, returning

@@ -152,6 +152,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
+;;;; Extended concept specification
+;;;;
+(s/def :info.snomed/ExtendedConcept (s/keys :req-un [::concept
+                                                     ::descriptions
+                                                     ::parentRelationships
+                                                     ::directParentRelationships
+                                                     ::refsets]))
+(s/def ::concept :info.snomed/Concept)
+(s/def ::descriptions (s/coll-of :info.snomed/Description))
+(s/def ::parentRelationships (s/nilable (s/map-of :info.snomed.Concept/id (s/coll-of :info.snomed.Concept/id :kind set?))))
+(s/def ::directParentRelationships (s/nilable (s/map-of :info.snomed.Concept/id (s/coll-of :info.snomed.Concept/id :kind set?))))
+(s/def ::refsets (s/nilable (s/coll-of :info.snomed.Concept/id :kind set?)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;
 ;;;; RF2 refset specifications
 ;;;;
 
@@ -191,6 +207,8 @@
    :string       \s
    :integer      \i})
 
+(s/fdef pattern-for-fields
+  :args (s/cat :fields (s/nilable :info.snomed.RefsetItem/fields)))
 (defn pattern-for-fields
   "Returns a pattern for the fields specified.
   For example:
@@ -204,6 +222,9 @@
          (map (fn [[k v]] (field->pattern k)))
          (apply str))))
 
+(s/fdef pattern-for-refset-item
+  :args (s/cat :spec (s/and qualified-keyword? #(isa? % :info.snomed/Refset))
+               :v (s/keys :opt-un [:info.snomed.RefsetItem/fields])))
 (defn pattern-for-refset-item
   "Generates a pattern for the given reference set item by concatenating the
   standard pattern for that type with the contents of any extended properties

@@ -39,6 +39,7 @@
   (:require [clojure.core.match :as match]
             [clojure.tools.logging.readable :as log]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.string :as str]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
@@ -341,6 +342,14 @@
                [[449608002 900000000000491004 & more]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
                [[449608002 762677007 & more]] reify-owl-expression-refset-item
                :else identity))
+
+(s/def ::refset-filename-pattern
+  (s/with-gen (s/and string? #(every? #{\c \i \s} %))
+              #(gen/fmap (fn [n] (apply str (repeatedly n (fn [] (rand-nth [\c \i \s])))))
+                         (s/gen (s/int-in 1 10)))))
+(s/fdef parse-fields
+  :args (s/cat :pattern ::refset-filename-pattern
+               :values (s/coll-of string?)))
 
 (defn parse-fields
   "Parse the values 'v' using the pattern specification 'pattern'.

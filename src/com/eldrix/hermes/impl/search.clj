@@ -14,6 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.impl.search
   (:require [clojure.core.async :as async]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
@@ -33,6 +34,25 @@
            (org.apache.lucene.analysis Analyzer)))
 
 (set! *warn-on-reflection* true)
+
+
+(s/def ::store any?)
+(s/def ::searcher #(instance? IndexSearcher %))
+(s/def ::writer #(instance? IndexWriter %))
+(s/def ::search-params (s/keys :req-un [::s]
+                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                                        ::properties ::concept-refsets]))
+(s/def ::s string?)
+(s/def ::max-hits pos-int?)
+(s/def ::fuzzy (s/int-in 0 2))
+(s/def ::fallback-fuzzy (s/int-in 0 2))
+(s/def ::query #(instance? Query %))
+(s/def ::show-fsn? boolean?)
+(s/def ::inactive-concepts? boolean?)
+(s/def ::inactive-descriptions? boolean?)
+(s/def ::properties (s/map-of int? int?))
+(s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 
 ;; A Lucene results collector that collects *all* results into the mutable
 ;; java collection 'coll'.
@@ -319,6 +339,9 @@
         (map doc->result)))
   ([^IndexSearcher searcher ^Query q max-hits]
    (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
+
+(s/fdef do-search
+        :args (s/cat :searcher ::searcher :params ::search-params))
 
 (defn do-search
   "Perform a search against the index.

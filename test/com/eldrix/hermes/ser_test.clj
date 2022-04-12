@@ -5,8 +5,7 @@
             [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.hermes.impl.ser :as ser]
             [com.eldrix.hermes.rf2 :as rf2]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.specs :as specs])
+            [com.eldrix.hermes.snomed :as snomed])
   (:import [java.time LocalDate]
            (java.io DataInputStream ByteArrayOutputStream DataOutputStream ByteArrayInputStream)
            (java.util UUID)))

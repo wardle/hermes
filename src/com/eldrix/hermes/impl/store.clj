@@ -17,6 +17,7 @@
   (:require [clojure.core.async :as async]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.ser :as ser]
@@ -73,6 +74,10 @@
 
   Closeable
   (close [_] (.close db)))
+
+(s/def ::store #(instance? MapDBStore %))
+
+
 
 (defn- open-database
   "Open a file-based key-value database from the file specified, optionally read
@@ -177,6 +182,8 @@
   [^MapDBStore store]
   (into #{} (.installedRefsets store)))
 
+(s/fdef get-concept
+  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
 (defn get-concept
   "Returns the concept specified."
   [^MapDBStore store concept-id]
@@ -679,6 +686,9 @@
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
+(s/fdef get-preferred-description
+  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
+  :ret (s/nilable :info.snomed/Description))
 (defn get-preferred-description
   "Return the preferred description for the concept specified as defined by
   the language reference set specified for the description type.
@@ -725,22 +735,36 @@
   [store concept-id language-refset-ids]
   (some identity (map (partial get-preferred-description store concept-id snomed/Synonym) language-refset-ids)))
 
+(s/fdef get-preferred-fully-specified-name
+  :args (s/cat :store ::store
+               :concept-id :info.snomed.Concept/id
+               :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :ret (s/nilable :info.snomed/Description))
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
   (some identity (map (partial get-preferred-description store concept-id snomed/FullySpecifiedName) language-refset-ids)))
 
+(s/fdef get-fully-specified-name
+  :args (s/alt
+          :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
+          :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
+                            :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback?  boolean?))
+  :ret (s/nilable :info.snomed/Description))
 (defn get-fully-specified-name
   "Return the fully specified name for the concept specified. If no language preferences are provided the first
   description of type FSN will be returned. If language preferences are provided, but there is no
   match *and* `fallback?` is true, then the first description of type FSN will be returned."
-  ([^MapDBStore store concept-id] (get-fully-specified-name store concept-id nil true))
+  ([^MapDBStore store concept-id] (get-fully-specified-name store concept-id [] true))
   ([^MapDBStore store concept-id language-refset-ids fallback?]
-   (if (nil? language-refset-ids)
+   (if-not (seq language-refset-ids)
      (first (filter snomed/is-fully-specified-name? (get-concept-descriptions store concept-id)))
      (let [preferred (get-preferred-fully-specified-name store concept-id language-refset-ids)]
        (if (and fallback? (nil? preferred))
          (get-fully-specified-name store concept-id)
          preferred)))))
 
+(s/fdef make-extended-concept
+  :args (s/cat :store ::store :concept :info.snomed/Concept)
+  :ret (s/nilable #(instance? ExtendedConcept %)))
 (defn make-extended-concept [^MapDBStore store concept]
   (when-not (map? concept)
     (throw (IllegalArgumentException. "invalid concept")))
@@ -757,7 +781,11 @@
       direct-parent-relationships
       refsets)))
 
-(defn get-extended-concept [^MapDBStore store concept-id]
+(s/fdef get-extended-concept
+  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
+(defn get-extended-concept
+  "Get an extended concept for the concept specified."
+  [^MapDBStore store concept-id]
   (make-extended-concept store (get-concept store concept-id)))
 
 (defn get-release-information

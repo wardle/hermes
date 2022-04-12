@@ -18,6 +18,7 @@
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.ecl :as ecl]
@@ -26,10 +27,11 @@
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.importer :as importer]
-            [com.eldrix.hermes.snomed :as snomed])
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.impl.store MapDBStore)
            (com.eldrix.hermes.snomed Result)
-           (org.apache.lucene.search IndexSearcher)
+           (org.apache.lucene.search IndexSearcher Query)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
            (java.nio.file.attribute FileAttribute)
@@ -40,6 +42,25 @@
 
 (set! *warn-on-reflection* true)
 
+(s/def ::svc any?)
+(s/def ::non-blank-string (s/and string? (complement str/blank?)))
+(s/def ::component-id (s/and pos-int? verhoeff/valid?))
+(s/def ::search-params (s/keys :req-un [(or ::s ::constraint)]
+                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                                        ::properties ::concept-refsets]))
+(s/def ::s string?)
+(s/def ::constraint string?)
+(s/def ::max-hits pos-int?)
+(s/def ::fuzzy (s/int-in 0 2))
+(s/def ::fallback-fuzzy (s/int-in 0 2))
+(s/def ::query #(instance? Query %))
+(s/def ::show-fsn? boolean?)
+(s/def ::inactive-concepts? boolean?)
+(s/def ::inactive-descriptions? boolean?)
+(s/def ::properties (s/map-of int? int?))
+(s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
+
 (deftype Service [^MapDBStore store
                   ^IndexReader index-reader
                   ^IndexSearcher searcher
@@ -47,11 +68,15 @@
   Closeable
   (close [_] (.close store) (.close index-reader)))
 
+(s/fdef get-concept
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-concept
   "Return the concept with the specified identifier."
   [^Service svc concept-id]
   (store/get-concept (.-store svc) concept-id))
 
+(s/fdef get-extended-concept
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-extended-concept
   "Return an extended concept that includes the concept, its descriptions,
   its relationships and its refset memberships. See
@@ -60,11 +85,15 @@
   (when-let [concept (store/get-concept (.-store svc) concept-id)]
     (store/make-extended-concept (.-store svc) concept)))
 
+(s/fdef get-descriptions
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-descriptions
   "Return a sequence of descriptions for the given concept."
   [^Service svc concept-id]
   (store/get-concept-descriptions (.-store svc) concept-id))
 
+(s/fdef get-synonyms
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-synonyms
   "Returns a sequence of synonyms for the given concept."
   [^Service svc concept-id]
@@ -99,6 +128,8 @@
   [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
+(s/fdef get-component-refset-items
+  :args (s/cat :svc ::svc :component-id ::component-id :refset-id (s/? :info.snomed.Concept/id)))
 (defn get-component-refset-items
   "Returns a sequence of refset items for the given component."
   ([^Service svc component-id]
@@ -111,6 +142,8 @@
   [^Service svc component-id]
   (get-component-refset-items svc component-id))
 
+(s/fdef get-component-refset-ids
+  :args (s/cat :svc ::svc :component-id ::component-id))
 (defn get-component-refset-ids
   "Returns a collection of refset identifiers to which this concept is a member."
   [^Service svc component-id]
@@ -206,6 +239,10 @@
   ([^Service svc component-id refset-ids]
    (mapcat #(store/get-source-association-referenced-components (.-store svc) component-id %) refset-ids)))
 
+(s/fdef with-historical
+  :args (s/cat :svc ::svc
+               :concept-ids (s/coll-of :info.snomed.Concept/id)
+               :refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
 (defn with-historical
   "For a given sequence of concept identifiers, expand to include historical
   associations both backwards and forwards in time.
@@ -231,10 +268,18 @@
   [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
+(s/fdef reverse-map
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
 (defn reverse-map
   "Returns the reverse mapping from the reference set and mapTarget specified."
   [^Service svc refset-id code]
   (store/get-reverse-map (.-store svc) refset-id code))
+
+(s/fdef reverse-map-range
+  :args (s/cat :svc ::svc
+               :refset-id :info.snomed.Concept/id
+               :code (s/alt :prefix ::non-blank-string
+                            :range (s/cat :lower-bound ::non-blank-string :upper-bound ::non-blank-string))))
 
 (defn reverse-map-range
   "Returns the reverse mapping from the reference set specified, performing
@@ -244,6 +289,9 @@
   ([^Service svc refset-id lower-bound upper-bound]
    (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
 
+
+(s/fdef get-preferred-synonym
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
 (defn get-preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
@@ -260,6 +308,8 @@
    (let [locale-match-fn (.-locale_match_fn svc)]
      (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
+(s/fdef get-fully-specified-name
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-fully-specified-name [^Service svc concept-id]
   (store/get-fully-specified-name (.-store svc) concept-id))
 
@@ -283,11 +333,18 @@
 (defn parse-expression [^Service svc s]
   (scg/parse s))
 
+(s/fdef search
+  :args (s/cat :svc ::svc :params ::search-params)
+  :ret (s/coll-of ::result))
 (defn search [^Service svc params]
   (if-let [constraint (:constraint params)]
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
     (search/do-search (.-searcher svc) params)))
 
+
+(s/fdef expand-ecl
+  :args (s/cat :svc ::svc :ecl ::non-blank-string)
+  :ret (s/coll-of ::result))
 (defn expand-ecl
   "Expand an ECL expression."
   [^Service svc ecl]
@@ -295,6 +352,10 @@
         q2 (search/q-not q1 (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) q2)))
 
+
+(s/fdef expand-ecl-historic
+  :args (s/cat :svc ::svc :ecl ::non-blank-string)
+  :ret (s/coll-of ::result))
 (defn expand-ecl-historic
   "Expand an ECL expression and include historic associations of the results,
   so that the results will include now inactive/deprecated concept identifiers."
@@ -314,6 +375,9 @@
 
 (s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
+(s/fdef all-transitive-synonyms
+  :args (s/cat :svc ::svc
+               :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of :info.snomed.Concept/id))))
 (defn all-transitive-synonyms
   "Returns all of the synonyms of the specified concepts, including those
   of its descendants.
@@ -335,6 +399,10 @@
                           :by-concept-ids v)]
         (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
 
+(s/fdef ecl-contains?
+  :args (s/cat :svc ::svc
+               :concept-ids (s/coll-of :info.snomed.Concept/id)
+               :ecl ::non-blank-string))
 (defn ecl-contains?
   "Do any of the concept-ids satisfy the constraint expression specified?
   This is an alternative to expanding the valueset and then checking membership."
@@ -343,6 +411,8 @@
         q2 (search/q-concept-ids concept-ids)]
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 
+(s/fdef get-refset-members
+  :args (s/cat :svc ::svc :refset-ids (s/+ :info.snomed.Concept/id)))
 (defn get-refset-members
   "Return a set of identifiers for the members of the given refset(s).
 
@@ -352,6 +422,12 @@
   (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
     (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
 
+(s/fdef map-into
+  :args (s/cat :svc ::svc
+               :source-concept-ids (s/coll-of :info.snomed.Concept/id)
+               :target (s/alt :ecl string?
+                              :refset-id :info.snomed.Concept/id
+                              :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset.
@@ -410,7 +486,6 @@
          (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
          (map #(store/get-leaves (.-store svc) %)))))
 
-
 (defn ^:deprecated map-features
   "DEPRECATED: Use [[map-into]] instead."
   [^Service svc source-concept-ids target]
@@ -442,8 +517,11 @@
                             result
                             (historical-associations svc (:id c)))))))))
 
+(s/fdef get-example-historical-associations
+  :args (s/cat :svc ::svc :type-id :info.snomed.Concept/id :n pos-int?))
 (defn- get-example-historical-associations
-  [^Service svc type n]
+  "Returns 'n' examples of the type of historical association specified."
+  [^Service svc type-id n]
   (let [ch (async/chan 100 (remove :active))]
     (store/stream-all-concepts (.-store svc) ch)
     (loop [i 0
@@ -452,11 +530,13 @@
         (if-not (and c (< i n))
           result
           (let [assocs (historical-associations svc (:id c))
-                append? (contains? assocs type)]
+                append? (contains? assocs type-id)]
             (recur (if append? (inc i) i)
                    (if append? (conj result {(:id c) assocs}) result))))))))
 
 
+(s/fdef paths-to-root
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn paths-to-root [^Service svc concept-id]
   (store/paths-to-root (.-store svc) concept-id))
 
@@ -522,6 +602,9 @@
 (defn close [^Service svc]
   (.close svc))
 
+(s/fdef do-import-snomed
+  :args (s/cat :store-filename string?
+               :files (s/coll-of :info.snomed/ReleaseFile)))
 (defn- do-import-snomed
   "Import a SNOMED distribution from the specified files into a local
    file-based database `store-filename`.
