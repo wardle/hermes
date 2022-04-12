@@ -14,14 +14,13 @@
 ;;;;
 (ns com.eldrix.hermes.importer
   "Provides import functionality for processing directories of files"
-  (:require
-    [cheshire.core :as json]
-    [clojure.core.async :as async]
-    [clojure.java.io :as io]
-    [clojure.string :as str]
-    [clojure.tools.logging.readable :as log]
-    [com.eldrix.hermes.snomed :as snomed])
+  (:require [cheshire.core :as json]
+            [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.io File)
            (com.fasterxml.jackson.core JsonParseException)))
 
@@ -129,8 +128,8 @@
           (try
             (when (> i 0) (parser line))
             (catch Throwable e (throw (ex-info "Error parsing file" {:filename filename
-                                                                     :line i :content line
-                                                                     :error (ex-data e)}))))
+                                                                     :line     i :content line
+                                                                     :error    (ex-data e)}))))
           (when (and (not= 0 n) (not= n (count line)))
             (println "incorrect number of columns; expected" n " got:" (count line)) {})
           (recur (inc i)
@@ -152,23 +151,23 @@
   sent through. Any exceptions will be passed on the channel."
   [files & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        processed-c (async/chan)]                            ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
+        processed-c (async/chan)]                           ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
     (async/thread
-     (log/info "Processing " (count files) " files")
-     (try
-       (doseq [file files]
-         (process-file (:path file) raw-c :batch-size batch-size))
-       (catch Throwable e
-         (log/debug "Error during raw SNOMED file import: " e)
-         (async/>!! processed-c e)))
-     (async/close! raw-c))
+      (log/info "Processing " (count files) " files")
+      (try
+        (doseq [file files]
+          (process-file (:path file) raw-c :batch-size batch-size))
+        (catch Throwable e
+          (log/debug "Error during raw SNOMED file import: " e)
+          (async/>!! processed-c e)))
+      (async/close! raw-c))
     (async/pipeline-blocking
       nthreads
       processed-c
       (map snomed/parse-batch)
       raw-c
       true
-      (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err))  err))
+      (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err)) err))
     processed-c))
 
 (defn load-snomed
