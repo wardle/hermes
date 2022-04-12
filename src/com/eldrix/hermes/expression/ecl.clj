@@ -180,7 +180,7 @@
       (and (= "=" boolean-comparison-operator) ecl-concept-references)
       (search/q-typeAny ecl-concept-references)
 
-      ;; for '!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
+      ;; for "!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
       (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
       (search/q-typeAny (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference))
 
