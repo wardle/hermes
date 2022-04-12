@@ -484,7 +484,7 @@
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
   ([root] (open-manifest root false))
   ([root create?]
-   (let [root-path (Paths/get root (into-array String []))
+   (let [root-path (Paths/get (str root) (into-array String []))
          manifest-path (.resolve root-path "manifest.edn")
          exists? (Files/exists manifest-path (into-array LinkOption []))]
      (cond
