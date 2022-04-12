@@ -532,11 +532,13 @@
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
           result-c (async/chan)
           data-c (importer/load-snomed-files files :nthreads nthreads)]
-      (async/pipeline-blocking nthreads result-c
+      (async/pipeline-blocking
+        nthreads
+        result-c
         (map #(if (instance? Throwable %)                   ;; if channel contains an exception, throw it on
                 (throw %)
                 (do (store/write-batch-with-fallback % store) true)))
-        data-c true (fn ex-handler [err] err))                          ;; and the exception handler then passes the exception through to results channel
+        data-c true (fn ex-handler [err] err))              ;; and the exception handler then passes the exception through to results channel
       (loop []
         (when-let [v (async/<!! result-c)]
           (if (instance? Throwable v) (throw v) (recur)))))))
