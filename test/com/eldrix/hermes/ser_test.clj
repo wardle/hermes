@@ -11,6 +11,8 @@
            (java.io DataInputStream ByteArrayOutputStream DataOutputStream ByteArrayInputStream)
            (java.util UUID)))
 
+(stest/instrument)
+
 (def n 2000)
 
 (defn test-ser [write-fn read-fn data]

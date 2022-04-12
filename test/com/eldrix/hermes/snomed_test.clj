@@ -2,6 +2,7 @@
   (:require
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
+    [clojure.spec.test.alpha :as stest]
     [clojure.test :refer :all]
     [com.eldrix.hermes.verhoeff :as verhoeff]
     [com.eldrix.hermes.snomed :as snomed]
@@ -9,6 +10,8 @@
     [clojure.java.io :as io])
   (:import [java.time LocalDate]
            (com.eldrix.hermes.snomed OWLExpressionRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AssociationRefsetItem)))
+
+(stest/instrument)
 
 (deftest test-filenames
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
