@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [clojure.spec.test.alpha :as stest]))
 
@@ -127,6 +128,13 @@
       (when f2 (dorun (->> results
                            (map #(hermes/get-extended-concept *svc* (:conceptId %)))
                            (map f2)))))))
+
+(deftest ^:live test-history
+  (let [r1 (hermes/expand-ecl *svc* "<<  195967001 |Asthma|")
+        r2 (hermes/expand-ecl-historic *svc* "<<  195967001 |Asthma|")
+        r3 (hermes/expand-ecl *svc* "<< 195967001 {{+HISTORY}}")]
+    (is (< (count r1) (count r2)))
+    (is (= (set r2) (set r3)))))
 
 (comment
   (run-tests))

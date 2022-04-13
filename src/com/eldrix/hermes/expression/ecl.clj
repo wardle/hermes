@@ -19,17 +19,19 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.zip :as zip]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.rf2 :as-alias rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query)))
 
 (def ecl-parser
-  (insta/parser (io/resource "ecl-v1.5.abnf") :input-format :abnf :output-format :enlive))
+  (insta/parser (io/resource "ecl-v2.0.abnf") :input-format :abnf :output-format :enlive))
 
 (declare parse)
 (declare parse-ecl-attribute-set)
@@ -517,8 +519,45 @@
       :else sub-refinement)))
 
 
+(defn- parse-history-supplement
+  "historySupplement = {{ ws + ws historyKeyword [ historyProfileSuffix / ws historySubset ] ws }}
+
+  Returns a query for the reference set identifiers to use in sourcing historical associations."
+  [ctx loc]
+  (let [history-keyword (zx/xml1-> loc :historyKeyword zx/text)
+        history-profile-suffix (zx/xml1-> loc :historyProfileSuffix zx/text)
+        profile (keyword (when history-profile-suffix (str/upper-case (str history-keyword history-profile-suffix))))
+        history-subset (zx/xml1-> loc :historySubset :expressionConstraint #(parse-expression-constraint ctx %))]
+    (if history-subset
+      history-subset
+      (search/q-concept-ids (store/history-profile (:store ctx) profile)))))
+
+(defn- apply-filter-constraints
+  [base-query _ctx filter-constraints]
+  (if filter-constraints
+    (search/q-and (conj filter-constraints base-query))
+    base-query))
+
+(s/def ::query #(instance? Query %))
+(s/def ::ctx (s/keys :req-un [::store ::searcher]))
+(s/fdef apply-history-supplement
+  :args (s/cat :base-query ::query :ctx ::ctx :history-supplement (s/nilable ::query)))
+(defn- apply-history-supplement
+  [base-query ctx history-supplement]
+  (if history-supplement
+    (let [concept-ids (realise-concept-ids ctx base-query)
+          refset-ids (realise-concept-ids ctx history-supplement)
+          concept-ids' (store/with-historical (:store ctx) concept-ids refset-ids)]
+      (search/q-concept-ids concept-ids'))
+    base-query))
+
 (defn- parse-subexpression-constraint
-  "subExpressionConstraint = [constraintOperator ws] [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws filterConstraint)"
+  "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws memberFilterConstraint)) / (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
+
+  For the history supplement, the current implementation is naive, realising the
+  main constraint and then expanding to include historic associations. An
+  alternative approach would be first-class indexing of these associations
+  within the search index."
   [ctx loc]
   (let [constraint-operator (zx/xml1-> loc :constraintOperator parse-constraint-operator)
         member-of (zx/xml1-> loc :memberOf)
@@ -526,6 +565,7 @@
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
         filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))
+        history-supplement (zx/xml1-> loc :historySupplement #(parse-history-supplement ctx %))
         base-query (cond
                      ;; "*"
                      (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
@@ -637,9 +677,10 @@
                                       :focus-concept         focus-concept
                                       :expression-constraint expression-constraint
                                       :filter-constraints    filter-constraints})))]
-    (if filter-constraints
-      (search/q-and (conj filter-constraints base-query))
-      base-query)))
+    ;; now take base query (as 'b') and process according to the constraints
+    (-> base-query
+        (apply-filter-constraints ctx filter-constraints)
+        (apply-history-supplement ctx history-supplement))))
 
 (defn- parse-refined-expression-constraint
   [ctx loc]
@@ -676,8 +717,8 @@
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
     (require '[clojure.pprint :as pp])
     (def testq (comp pp/print-table (partial search/test-query store searcher)))
-    (def pe (partial parse store searcher))
-    )
+    (def pe (partial parse store searcher)))
+
   (pe "404684003 |Clinical finding|")
   (pe "<  404684003 |Clinical finding|")
   (pe " <<  73211009 |Diabetes mellitus|")
@@ -708,5 +749,4 @@
      ((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )")
 
 
-  (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000)
-  )
+  (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000))
