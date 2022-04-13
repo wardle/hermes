@@ -100,6 +100,8 @@
   (->> (get-descriptions svc concept-id)
        (filter #(= snomed/Synonym (:typeId %)))))
 
+(s/fdef get-all-parents
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-parents
   "Returns all parents of the specified concept. By design, this includes the
   concept itself."
@@ -108,6 +110,8 @@
   ([^Service svc concept-id type-id]
    (store/get-all-parents (.-store svc) concept-id type-id)))
 
+(s/fdef get-all-children
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-children
   "Return all children of the specified concept. By design, this includes the
   concept itself."
@@ -116,12 +120,16 @@
   ([^Service svc concept-id type-id]
    (store/get-all-children (.-store svc) concept-id type-id)))
 
+(s/fdef get-parent-relationships-of-type
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
 (defn get-parent-relationships-of-type
   "Returns a collection of identifiers representing the parent relationships of
   the specified type of the specified concept."
   [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
+(s/fdef get-child-relationships-of-type
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
 (defn get-child-relationships-of-type
   "Returns a collection of identifiers representing the child relationships of
   the specified type of the specified concept."
@@ -149,17 +157,23 @@
   [^Service svc component-id]
   (store/get-component-refset-ids (.-store svc) component-id))
 
+(s/fdef get-refset-item
+  :args (s/cat :svc ::svc :uuid uuid?))
 (defn get-refset-item
   "Return a specific refset item by UUID."
   [^Service svc ^UUID uuid]
   (store/get-refset-item (.-store svc) uuid))
 
+(s/fdef get-refset-descriptor-attribute-ids
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id))
 (defn get-refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
   set."
   [^Service svc refset-id]
   (store/get-refset-descriptor-attribute-ids (.-store svc) refset-id))
 
+(s/fdef refset-item->attribute-map
+  :args (s/cat :svc ::svc :item :info.snomed/Refset))
 (defn refset-item->attribute-map
   "Turn a refset item into an attribute map.
   Example from the UK edition:
