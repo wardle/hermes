@@ -1,5 +1,5 @@
 (ns com.eldrix.hermes.expression.ecl-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
