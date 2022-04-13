@@ -245,9 +245,23 @@
     (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
                          (hash-map % (set result))) refset-ids))))
 
+(s/fdef history-profile
+  :args (s/cat :svc ::svc :profile (s/? #{:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX}))
+  :ret (s/coll-of :info.snomed.Concept/id))
+(defn history-profile
+  "Return a sequence of reference set identifiers representing the history
+  profile requested, or HISTORY-MAX, if not specified.
+  See https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements"
+  ([^Service svc] (history-profile svc :HISTORY-MAX))
+  ([^Service svc profile]
+   (case profile
+     :HISTORY-MIN [snomed/SameAsReferenceSet]
+     :HISTORY-MOD [snomed/SameAsReferenceSet snomed/ReplacedByReferenceSet snomed/WasAReferenceSet snomed/PartiallyEquivalentToReferenceSet]
+     :HISTORY-MAX (get-all-children svc snomed/HistoricalAssociationReferenceSet))))
+
 (defn source-historical
   "Return the requested historical associations for the component of types as
-  defined by assoc-refset-ids, or all association refsets if omitted."
+  defined by refset-ids, or all association refsets if omitted."
   ([^Service svc component-id]
    (source-historical svc component-id (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
   ([^Service svc component-id refset-ids]

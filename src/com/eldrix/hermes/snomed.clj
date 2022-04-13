@@ -813,6 +813,7 @@
 (def SimilarToReferenceSet 900000000000529008)
 (def SameAsReferenceSet 900000000000527005)
 (def WasAReferenceSet 900000000000528000)
+(def PartiallyEquivalentToReferenceSet 1186924009)
 (def MovedToReferenceSet 900000000000524003)                ;; |MOVED TO association reference set|
 (def MovedFromReferenceSet 900000000000525002)              ;; |MOVED FROM association reference set|
 (def AlternativeReferenceSet 900000000000530003)            ;; |ALTERNATIVE association reference set|
