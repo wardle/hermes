@@ -3,7 +3,6 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.specs :as-alias specs]
             [clojure.spec.test.alpha :as stest]))
 
 (stest/instrument)

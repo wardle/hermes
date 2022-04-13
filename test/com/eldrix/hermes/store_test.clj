@@ -7,8 +7,7 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as rf2]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.specs :as-alias specs])
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.time LocalDate)
            (java.io FileNotFoundException)))
 
