@@ -245,27 +245,13 @@
     (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
                          (hash-map % (set result))) refset-ids))))
 
-(s/fdef history-profile
-  :args (s/cat :svc ::svc :profile (s/? #{:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX}))
-  :ret (s/coll-of :info.snomed.Concept/id))
-(defn history-profile
-  "Return a sequence of reference set identifiers representing the history
-  profile requested, or HISTORY-MAX, if not specified.
-  See https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements"
-  ([^Service svc] (history-profile svc :HISTORY-MAX))
-  ([^Service svc profile]
-   (case profile
-     :HISTORY-MIN [snomed/SameAsReferenceSet]
-     :HISTORY-MOD [snomed/SameAsReferenceSet snomed/ReplacedByReferenceSet snomed/WasAReferenceSet snomed/PartiallyEquivalentToReferenceSet]
-     :HISTORY-MAX (get-all-children svc snomed/HistoricalAssociationReferenceSet))))
-
 (defn source-historical
   "Return the requested historical associations for the component of types as
   defined by refset-ids, or all association refsets if omitted."
   ([^Service svc component-id]
-   (source-historical svc component-id (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
+   (store/source-historical (.-store svc) component-id))
   ([^Service svc component-id refset-ids]
-   (mapcat #(store/get-source-association-referenced-components (.-store svc) component-id %) refset-ids)))
+   (store/source-historical (.-store svc) component-id refset-ids)))
 
 (s/fdef with-historical
   :args (s/cat :svc ::svc
@@ -282,14 +268,9 @@
   By default, all types of historical associations except MoveTo and MovedFrom
   are included, but this is configurable. "
   ([^Service svc concept-ids]
-   (with-historical svc concept-ids
-                    (disj (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
-  ([^Service svc concept-ids assoc-refset-ids]
-   (let [historical-refsets assoc-refset-ids
-         future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items svc %) concept-ids)))
-         modern (set/union (set concept-ids) (set future))
-         historic (set (mapcat #(source-historical svc % assoc-refset-ids) modern))]
-     (set/union modern historic))))
+   (store/with-historical (.-store svc) concept-ids))
+  ([^Service svc concept-ids refset-ids]
+   (store/with-historical (.-store svc) concept-ids refset-ids)))
 
 (defn get-installed-reference-sets
   "Return the installed reference sets."

@@ -519,8 +519,10 @@
     (catch Exception _
       (write-batch-one-by-one batch store))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
-;;;;
+;;;; Functions that do not have a direct dependency on the backing store
+;;;; implementation
 ;;;;
 
 (defn get-all-parents
@@ -799,6 +801,60 @@
         core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
         others (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
     (cons core others)))
+
+
+(s/fdef history-profile
+  :args (s/cat :store ::store :profile (s/? (s/nilable #{:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX})))
+  :ret (s/coll-of :info.snomed.Concept/id))
+(defn history-profile
+  "Return a sequence of reference set identifiers representing the history
+  profile requested, or HISTORY-MAX, if not specified.
+  See https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements"
+  ([^MapDBStore st] (history-profile st :HISTORY-MAX))
+  ([^MapDBStore st profile]
+   (case (or profile :HISTORY-MAX)
+     :HISTORY-MIN [snomed/SameAsReferenceSet]
+     :HISTORY-MOD [snomed/SameAsReferenceSet snomed/ReplacedByReferenceSet snomed/WasAReferenceSet snomed/PartiallyEquivalentToReferenceSet]
+     :HISTORY-MAX (get-all-children st snomed/HistoricalAssociationReferenceSet))))
+
+(defn source-historical
+  "Return the requested historical associations for the component of types as
+  defined by refset-ids, or all association refsets if omitted."
+  ([^MapDBStore st component-id]
+   (source-historical st component-id (get-all-children st snomed/HistoricalAssociationReferenceSet)))
+  ([^MapDBStore st component-id refset-ids]
+   (mapcat #(get-source-association-referenced-components st component-id %) refset-ids)))
+
+(s/fdef with-historical
+  :args (s/cat :st ::store
+               :concept-ids (s/coll-of :info.snomed.Concept/id)
+               :refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+(defn with-historical
+  "For a given sequence of concept identifiers, expand to include historical
+  associations both backwards and forwards in time.
+
+  For a currently active concept, this will return historic inactivated concepts
+  in which it is the target. For a now inactive concept, this will return the
+  active associations and their historic associations.
+
+  By default, all types of historical associations except MoveTo and MovedFrom
+  are included, but this is configurable. "
+  ([^MapDBStore st concept-ids]
+   (with-historical st concept-ids
+                    (disj (get-all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
+  ([^MapDBStore st concept-ids assoc-refset-ids]
+   (let [historical-refsets assoc-refset-ids
+         future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items st %) concept-ids)))
+         modern (set/union (set concept-ids) (set future))
+         historic (set (mapcat #(source-historical st % assoc-refset-ids) modern))]
+     (set/union modern historic))))
+
+
+
+
+
+
+
 
 (defmulti is-a? (fn [_store concept _parent-id] (class concept)))
 
