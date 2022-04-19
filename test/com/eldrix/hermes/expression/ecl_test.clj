@@ -136,5 +136,14 @@
     (is (< (count r1) (count r2)))
     (is (= (set r2) (set r3)))))
 
+(deftest ^:live test-member-filter
+  (dorun (->> (hermes/expand-ecl *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}")
+              (map :conceptId)
+              (map #(hermes/get-component-refset-items *svc* % 447562003))
+              (map #(map :mapTarget %))
+              (map #(some (fn [s] (.startsWith "J45.9" s)) %))
+              (map #(is true? %)))))
+
+
 (comment
   (run-tests))

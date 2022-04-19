@@ -518,6 +518,115 @@
       (search/q-or (conj disjunction-refinement-set sub-refinement))
       :else sub-refinement)))
 
+(s/fdef parse-member-filter-typed-search-term
+  :args (s/cat :ctx ::ctx
+               :refset-id :info.snomed.Concept/id
+               :refset-field-name string?
+               :comparison-op #{"=" "!="} :loc ::loc))
+(defn- parse-member-filter-typed-search-term
+  "Parse a typedSearchTerm in the context of a member filter.
+
+  This currently supports only mapTarget as the member field to be checked. The
+  definitive solution would be to leverage Lucene to build an index of all
+  reference set member fields, and then simply search on them as required. I
+  have no use for member filters outside of mapTarget, so this is a low
+  priority although essential for ECL2.0 conformance.
+
+  typedSearchTerm = ( [ match ws : ws ] matchSearchTermSet ) / ( wild ws : ws wildSearchTermSet )
+  match = (m/M) (a/A) (t/T) (c/C) (h/H)
+  matchSearchTermSet = QM ws matchSearchTerm *(mws matchSearchTerm) ws QM
+  wildSearchTermSet = QM wildSearchTerm QM"
+  [{:keys [store]} refset-id refset-field-name comparison-op loc]
+  (when-not (= "=" comparison-op)
+    (throw (ex-info "Inequality comparison for member filter typed search term not supported"
+                    {:typedSearchTerm (zx/text loc) :refsetId refset-id :field refset-field-name :comparisonOp comparison-op})))
+
+  (let [search-terms (zx/xml-> loc :matchSearchTermSet :matchSearchTerm zx/text)
+        wildcard-terms (zx/xml-> loc :wildSearchTermSet :wildSearchTerm zx/text)
+        items
+        (case refset-field-name
+          "mapTarget" ;; we have an optimised reverse map for the mapTarget field of any refset member
+          (if search-terms (mapcat #(store/get-reverse-map-range store refset-id %) search-terms)
+                           (mapcat #(store/get-reverse-map store refset-id %) wildcard-terms))
+          ;; TODO: add a sane fallback, if a field doesn't have an indexed solution [ the fix is to index all properties ]
+          (throw (ex-info "Unsupported field for member search term."
+                          {:typedSearchTerm (zx/text loc) :refsetId refset-id :field refset-field-name :comparisonOp comparison-op})))]
+
+    (search/q-concept-ids (set (map :referencedComponentId items)))))
+
+(defn- parse-time-value
+  [ctx refset-id loc]
+  (throw (ex-info "Unsupported member field filter using time value" {:text (zx/text loc) :loc (zip/node loc)})))
+
+(defn- parse-member-field-filter
+  "memberFieldFilter = refsetFieldName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws
+  # numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue /
+  ws timeComparisonOperator ws (timeValue / timeValueSet) )"
+  [ctx refset-id loc]
+  (let [refset-field-name (zx/xml1-> loc :refsetFieldName zx/text)
+        comparison-op (or (zx/xml1-> loc :stringComparisonOperator zx/text)
+                          (zx/xml1-> loc :expressionComparisonOperator zx/text)
+                          (zx/xml1-> loc :numericComparisonOperator zx/text)
+                          (zx/xml1-> loc :booleanComparisonOperator zx/text)
+                          (zx/xml1-> loc :timeComparisonOperator))
+        subexpression-constraint (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))
+        numeric-value (zx/xml1-> loc :numericValue zx/text parse-long)
+        boolean-value (zx/xml1-> loc :booleanValue zx/text)]
+    (when-not (= "=" comparison-op)
+      (throw (ex-info "Member field filter comparison operation not supported" {:text (zx/text loc) :comparison-operator comparison-op})))
+    (or (zx/xml-> loc :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %))
+        (zx/xml-> loc :typedSearchTermSet :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %))
+        (zx/xml-> loc :timeValue #(parse-time-value ctx refset-id %))
+        (zx/xml-> loc :timeValueSet :timeValue #(parse-time-value ctx refset-id %))
+        (throw (ex-info "Unsupported member field filter:" {:memberFieldFilter   (zx/text loc)
+                                                            :loc                 (zip/node loc)
+                                                            :refset-field-name   refset-field-name
+                                                            :comparison-operator comparison-op})))))
+
+
+
+(defn- parse-active-filter
+  [ctx refset-id loc]
+  (throw (ex-info "Unsupported member filter constraint" {:activeFilter (zx/text loc)})))
+
+(defn- parse-module-filter
+  [ctx refset-id loc]
+  (throw (ex-info "Unsupported member filter constraint" {:moduleFilter (zx/text loc)})))
+
+(defn- parse-effective-time-filter
+  [ctx refset-id loc]
+  (throw (ex-info "Unsupported member filter constraint" {:effectiveTimeFilter (zx/text loc)})))
+
+(defn- parse-member-filter
+  "memberFilter = memberFieldFilter / moduleFilter / effectiveTimeFilter / activeFilter"
+  [ctx refset-id loc]
+  (or (zx/xml1-> loc :memberFieldFilter #(parse-member-field-filter ctx refset-id %))
+      (zx/xml1-> loc :activeFilter #(parse-active-filter ctx refset-id %))
+      (zx/xml1-> loc :moduleFilter #(parse-module-filter ctx refset-id %))
+      (zx/xml1-> loc :effectiveTimeFilter #(parse-effective-time-filter ctx refset-id %))))
+
+(s/fdef parse-member-filter-constraint
+  :args (s/cat :ctx ::ctx
+               :refsets (s/or :wildcard #(= :wildcard %)
+                              :focus-concept (s/keys :req-un [::conceptId])
+                              :expression-constraint #(instance? Query %))
+               :loc any?))
+(defn- parse-member-filter-constraint
+  "Parse a member filter constraint. Unlike most parsers, we must have the
+  context of the wider expression as 'refsets', which is a query for concepts
+  that are a type of reference set. As such, we are forced to realise that query, and then
+  filter accordingly. Refsets should be a Lucene query, or :wildcard,
+  representing all reference sets.
+  memberFilterConstraint = {{ ws (m / M) ws memberFilter *(ws , ws memberFilter) ws }}"
+  [{:keys [store] :as ctx} refsets loc]
+  (let [refset-ids (cond (= :wildcard refsets)
+                         (store/get-installed-reference-sets store)
+                         (:conceptId refsets)
+                         [(:conceptId refsets)]
+                         :else
+                         (realise-concept-ids ctx (search/q-and [(search/q-descendantOf 900000000000455006) refsets])))]
+    (when (seq refset-ids)
+      (search/q-and (map (fn [refset-id] (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))) refset-ids)))))
 
 (defn- parse-history-supplement
   "historySupplement = {{ ws + ws historyKeyword [ historyProfileSuffix / ws historySubset ] ws }}
@@ -552,19 +661,38 @@
     base-query))
 
 (defn- parse-subexpression-constraint
-  "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") *(ws memberFilterConstraint)) / (eclFocusConcept / \"(\" ws expressionConstraint ws \")\") ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
+  "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / ( ws expressionConstraint ws )) *(ws memberFilterConstraint)) / (eclFocusConcept / ( ws expressionConstraint ws )) ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
 
-  For the history supplement, the current implementation is naive, realising the
-  main constraint and then expanding to include historic associations. An
-  alternative approach would be first-class indexing of these associations
-  within the search index."
-  [ctx loc]
+  For the history supplement, the current implementation realises the main
+  constraint and then expands to include historic associations. An alternative
+  approach would be first-class indexing of these associations within the search
+  index.
+
+  From the documentation:
+
+  \"A sub expression constraint optionally begins with a constraint operator
+  and/or a memberOf function. It then includes either a single focus concept or
+  an expression constraint (enclosed in brackets). If the memberOf function
+  is applied, a member filter may be used. A sub expression constraint may then
+  optionally include one or more concept or description filter constraints,
+  followed optionally by a history supplement.
+
+  Notes: A memberOf function should be used only when the eclFocusConcept or
+  expressionConstraint refers to a reference set concept, a set of reference set
+  concepts, or a wild card. When both a constraintOperator and a memberOf
+  function are used, they are applied from the inside to out (i.e. from right to
+  left) - see 5.4 Order of Operation. Therefore, if a constraintOperator is
+  followed by a memberOf function, then the memberOf function is processed prior
+  to the constraintOperator.\""
+  [{:keys [store] :as ctx} loc]
   (let [constraint-operator (zx/xml1-> loc :constraintOperator parse-constraint-operator)
         member-of (zx/xml1-> loc :memberOf)
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
         filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))
+        member-filter-constraints (zx/xml-> loc :memberFilterConstraint
+                                            #(parse-member-filter-constraint ctx (or focus-concept expression-constraint) %))
         history-supplement (zx/xml1-> loc :historySupplement #(parse-history-supplement ctx %))
         base-query (cond
                      ;; "*"
@@ -597,7 +725,11 @@
 
                      ;; "^ *"
                      (and member-of wildcard?)              ;; "^ *" = all concepts that are referenced by any reference set in the substrate:
-                     (search/q-memberOfInstalledReferenceSet (:store ctx))
+                     (search/q-memberOfInstalledReferenceSet store)
+
+                     ;; "^ conceptId {{ M mapTarget="J45.9"}}"   ;; member of, but with filter constraints
+                     (and member-of (:conceptId focus-concept) (seq member-filter-constraints))
+                     (search/q-and member-filter-constraints)
 
                      ;; "^ conceptId"
                      (and member-of (:conceptId focus-concept))
