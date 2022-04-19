@@ -28,7 +28,14 @@
             [com.eldrix.hermes.rf2 :as-alias rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
-  (:import (org.apache.lucene.search Query)))
+  (:import (org.apache.lucene.search Query IndexSearcher)
+           (com.eldrix.hermes.impl.store MapDBStore)))
+
+(s/def ::query #(instance? Query %))
+(s/def ::store #(instance? MapDBStore %))
+(s/def ::searcher #(instance? IndexSearcher %))
+(s/def ::ctx (s/keys :req-un [::store ::searcher]))
+(s/def ::loc any?)
 
 (def ecl-parser
   (insta/parser (io/resource "ecl-v2.0.abnf") :input-format :abnf :output-format :enlive))
@@ -52,7 +59,10 @@
            (when term {:term term}))))
 
 (defn- parse-constraint-operator
-  "constraintOperator = childOf / childOrSelfOf / descendantOrSelfOf / descendantOf / parentOf / parentOrSelfOf / ancestorOrSelfOf / ancestorOf"
+  "Returns constraint operator as a keyword.
+  For example, :descendantOrSelfOf
+
+  constraintOperator = childOf / childOrSelfOf / descendantOrSelfOf / descendantOf / parentOf / parentOrSelfOf / ancestorOrSelfOf / ancestorOf"
   [loc]
   (:tag (first (zip/down loc))))
 
@@ -62,10 +72,12 @@
   (let [cr (zx/xml1-> loc :eclConceptReference parse-concept-reference)]
     (if cr cr :wildcard)))
 
+(s/fdef realise-concept-ids
+  :args (s/cat :ctx ::ctx :q ::query))
 (defn realise-concept-ids
   "Realise a query as a set of concept identifiers."
-  [ctx ^Query q]
-  (search/do-query-for-concepts (:searcher ctx) q))
+  [{:keys [searcher]} ^Query q]
+  (search/do-query-for-concepts searcher q))
 
 (defn- parse-conjunction-expression-constraint
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
@@ -106,14 +118,14 @@
       type that is any subtype of  |Associated with|),
    3. From these attribute value concepts, finding the value of any
    |Finding sites| attribute. "
-  [ctx base-concept-ids dotted-expression-attributes]
+  [{:keys [store] :as ctx} base-concept-ids dotted-expression-attributes]
   (loop [concept-ids base-concept-ids
          attributes dotted-expression-attributes]
     (let [expression (first attributes)]
       (if-not expression
         (search/q-concept-ids concept-ids)                  ;; return result as a query against the concept identifiers.
         (let [attrs-concept-ids (realise-concept-ids ctx expression) ;; realise the concept-identifiers for the property (e.g. all descendants of "associated with")
-              result (into #{} (mapcat #(store/get-parent-relationships-of-types (:store ctx) % attrs-concept-ids) concept-ids))] ;; and get those values for all of our current concepts
+              result (into #{} (mapcat #(store/get-parent-relationships-of-types store % attrs-concept-ids) concept-ids))] ;; and get those values for all of our current concepts
           (recur result (next attributes)))))))
 
 (defn- parse-dotted-expression-constraint
@@ -145,7 +157,10 @@
   (let [terms (zx/xml-> loc :typedSearchTerm parse-typed-search-term)]
     (search/q-and terms)))
 
-(defn- parse-typed-search-term [loc]
+(s/fdef parse-typed-search-term
+  :args (s/cat :loc ::loc))
+(defn- parse-typed-search-term
+  [loc]
   (or (zx/xml1-> loc :matchSearchTermSet parse-match-search-term-set)
       (zx/xml1-> loc :wildSearchTermSet parse-wild-search-term-set)))
 
@@ -171,7 +186,7 @@
 
 (defn- parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
-  [ctx loc]
+  [{:keys [store] :as ctx} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
         ecl-concept-reference (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
         ecl-concept-references (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId)]
@@ -184,10 +199,10 @@
 
       ;; for "!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
       (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
-      (search/q-typeAny (disj (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-reference))
+      (search/q-typeAny (disj (store/get-all-children store 900000000000446008) ecl-concept-reference))
 
       (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (search/q-typeAny (set/difference (store/get-all-children (:store ctx) 900000000000446008) ecl-concept-references))
+      (search/q-typeAny (set/difference (store/get-all-children store 900000000000446008) ecl-concept-references))
 
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
@@ -201,14 +216,14 @@
   "type ws booleanComparisonOperator ws (typeToken / typeTokenSet)
   typeToken = synonym / fullySpecifiedName / definition
   typeTokenSet = \"(\" ws typeToken *(mws typeToken) ws \")\""
-  [ctx loc]
+  [{:keys [store] :as ctx} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
         type-token (keyword (zx/xml1-> loc :typeToken zx/text))
         type-tokens (map keyword (zx/xml-> loc :typeTokenSet :typeToken zx/text))
         types (map type-token->type-id (filter identity (conj type-tokens type-token)))
         type-ids (case boolean-comparison-operator
                    "=" types
-                   "!=" (set/difference (store/get-all-children (:store ctx) 900000000000446008) (set types))
+                   "!=" (set/difference (store/get-all-children store 900000000000446008) (set types))
                    (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
@@ -266,7 +281,9 @@
             acceptability (zx/xml1-> tag :acceptabilitySet parse-acceptability-set->kws)]
         (recur
           (zip/next tag)
-          (let [c (count results)]
+          (let [c (count results)
+                is-even? (even? c)
+                is-odd? (not is-even?)]
             (cond
               (and (nil? alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
               results
@@ -274,22 +291,22 @@
               (and alias (nil? mapped))
               (throw (ex-info (str "unknown dialect: '" alias "'") {:s (zx/text loc)}))
 
-              (and (even? c) mapped)                        ;; if it's an alias or id, and we're ready for it, add it
+              (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
               (conj results mapped)
 
-              (and (even? c) concept-id)
+              (and is-even? concept-id)
               (conj results concept-id)
 
-              (and (odd? c) mapped)                         ;; if it's an alias or id, and we're not ready, insert an acceptability first
+              (and is-odd? mapped)                          ;; if it's an alias or id, and we're not ready, insert an acceptability first
               (apply conj results [default-acceptability mapped])
 
-              (and (odd? c) concept-id)
+              (and is-odd? concept-id)
               (apply conj results [default-acceptability concept-id])
 
-              (and (even? c) acceptability)                 ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
+              (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
               (throw (ex-info "parse error: acceptability before dialect alias" {:s (zx/text loc) :alias alias :acceptability acceptability :results results :count count}))
 
-              (and (odd? c) acceptability)                  ;; if it's an acceptability and we're ready, add it.
+              (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
               (conj results acceptability))))))))
 
 (defn- parse-dialect-id-filter
@@ -632,14 +649,14 @@
   "historySupplement = {{ ws + ws historyKeyword [ historyProfileSuffix / ws historySubset ] ws }}
 
   Returns a query for the reference set identifiers to use in sourcing historical associations."
-  [ctx loc]
+  [{:keys [store] :as ctx} loc]
   (let [history-keyword (zx/xml1-> loc :historyKeyword zx/text)
         history-profile-suffix (zx/xml1-> loc :historyProfileSuffix zx/text)
         profile (keyword (when history-profile-suffix (str/upper-case (str history-keyword history-profile-suffix))))
         history-subset (zx/xml1-> loc :historySubset :expressionConstraint #(parse-expression-constraint ctx %))]
     (if history-subset
       history-subset
-      (search/q-concept-ids (store/history-profile (:store ctx) profile)))))
+      (search/q-concept-ids (store/history-profile store profile)))))
 
 (defn- apply-filter-constraints
   [base-query _ctx filter-constraints]
@@ -647,16 +664,14 @@
     (search/q-and (conj filter-constraints base-query))
     base-query))
 
-(s/def ::query #(instance? Query %))
-(s/def ::ctx (s/keys :req-un [::store ::searcher]))
 (s/fdef apply-history-supplement
   :args (s/cat :base-query ::query :ctx ::ctx :history-supplement (s/nilable ::query)))
 (defn- apply-history-supplement
-  [base-query ctx history-supplement]
+  [base-query {:keys [store] :as ctx} history-supplement]
   (if history-supplement
     (let [concept-ids (realise-concept-ids ctx base-query)
           refset-ids (realise-concept-ids ctx history-supplement)
-          concept-ids' (store/with-historical (:store ctx) concept-ids refset-ids)]
+          concept-ids' (store/with-historical store concept-ids refset-ids)]
       (search/q-concept-ids concept-ids'))
     base-query))
 
@@ -754,16 +769,16 @@
                      (make-nested-query ctx expression-constraint search/q-childOrSelfOfAny)
 
                      (and (= :ancestorOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOfAny (:store ctx)))
+                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOfAny store))
 
                      (and (= :ancestorOrSelfOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOrSelfOfAny (:store ctx)))
+                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOrSelfOfAny store))
 
                      (and (= :parentOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-parentOfAny (:store ctx)))
+                     (make-nested-query ctx expression-constraint (partial search/q-parentOfAny store))
 
                      (and (= :parentOrSelfOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-parentOrSelfOfAny (:store ctx)))
+                     (make-nested-query ctx expression-constraint (partial search/q-parentOrSelfOfAny store))
 
                      ;; "conceptId"  == SELF
                      (and (nil? constraint-operator) (:conceptId focus-concept))
@@ -787,19 +802,19 @@
 
                      ;; "> conceptId"
                      (and (= :ancestorOf constraint-operator) (:conceptId focus-concept))
-                     (search/q-ancestorOf (:store ctx) (:conceptId focus-concept))
+                     (search/q-ancestorOf store (:conceptId focus-concept))
 
                      ;; ">> conceptId"
                      (and (= :ancestorOrSelfOf constraint-operator) (:conceptId focus-concept))
-                     (search/q-ancestorOrSelfOf (:store ctx) (:conceptId focus-concept))
+                     (search/q-ancestorOrSelfOf store (:conceptId focus-concept))
 
                      ;; ">! conceptId"
                      (and (= :parentOf constraint-operator) (:conceptId focus-concept))
-                     (search/q-parentOf (:store ctx) (:conceptId focus-concept))
+                     (search/q-parentOf store (:conceptId focus-concept))
 
                      ;; ">>! conceptId"
                      (and (= :parentOrSelfOf constraint-operator) (:conceptId focus-concept))
-                     (search/q-parentOrSelfOf (:store ctx) (:conceptId focus-concept))
+                     (search/q-parentOrSelfOf store (:conceptId focus-concept))
 
                      :else
                      (throw (ex-info "error: unimplemented expression fragment; use `(ex-data *e)` to see context."
