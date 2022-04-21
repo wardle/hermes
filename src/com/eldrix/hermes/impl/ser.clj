@@ -96,6 +96,22 @@
   ^UUID [^DataInput in]
   (UUID. (.readLong in) (.readLong in)))
 
+(defn write-field-names
+  "Write a sequence of field names."
+  [^DataOutput out field-names]
+  (.writeInt out (count field-names))
+  (doseq [field-name field-names]
+    (.writeUTF out field-name)))
+
+(defn read-field-names
+  "Read a sequence of field names."
+  [^DataInput in]
+  (let [n-fields (.readInt in)]                             ;; read in count of custom fields, may be zero
+    (loop [n 0 result []]
+      (if (= n n-fields)
+        result
+        (recur (inc n)
+               (conj result (.readUTF in)))))))
 
 (defmulti write-field (fn [_ v] (class v)))
 (defmethod write-field Long [^DataOutput out v]

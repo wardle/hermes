@@ -36,6 +36,9 @@
 (deftest ser-relationship
   (doall (map #(test-ser ser/write-relationship ser/read-relationship %) (gen/sample (rf2/gen-relationship) n))))
 
+(deftest ser-field-names
+  (doall (map #(test-ser ser/write-field-names ser/read-field-names %) (gen/sample (s/gen (s/coll-of string?))))))
+
 (def refset-generators
   [(rf2/gen-simple-refset)
    (rf2/gen-association-refset)
