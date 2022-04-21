@@ -22,7 +22,8 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err])
+            [io.pedestal.interceptor.error :as intc-err]
+            [com.eldrix.hermes.core :as hermes])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (java.util Locale)
@@ -51,7 +52,7 @@
   (.append out (.format (DateTimeFormatter/ISO_DATE) o))
   (.append out \"))
 
-(extend LocalDate json/JSONWriter  {:-write write-local-date})
+(extend LocalDate json/JSONWriter {:-write write-local-date})
 
 (defn transform-content
   [body content-type]
@@ -134,7 +135,7 @@
    :enter (fn [context]
             (let [svc (get-in context [:request ::service])]
               (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (assoc context :result (hermes/get-component-refset-items-attrs svc concept-id)))))})
+                (assoc context :result (hermes/get-component-refset-items-extended svc concept-id)))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions

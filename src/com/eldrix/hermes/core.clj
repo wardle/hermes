@@ -194,23 +194,28 @@
       (select-keys item [:id :effectiveTime :active :moduleId :refsetId])
       (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
 
-(defn refset-item-with-attributes
-  "Associates a map of extended attributes to the specified reference set item.
+(defn extended-refset-item
+  "Merges a map of extended attributes to the specified reference set item.
   The attributes will be keyed based on information from the reference set
-  descriptor information."
-  [svc item]
-  (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))]
-    (assoc item :attributes (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
+  descriptor information and known field names."
+  [^Service svc {:keys [refsetId] :as item}]
+  (let [attr-ids (get-refset-descriptor-attribute-ids svc refsetId)
+        field-names (map keyword (subvec (store/get-refset-field-names (.-store svc) refsetId) 5))
+        fields (subvec (snomed/->vec item) 5)]
+    (merge
+      (zipmap field-names fields)
+      (zipmap attr-ids fields)
+      (dissoc item :fields))))
 
-(defn get-component-refset-items-attrs
+(defn get-component-refset-items-extended
   "Returns a sequence of refset items for the given component, supplemented
   with a map of extended attributes as defined by the refset descriptor"
   ([^Service svc component-id]
    (->> (store/get-component-refset-items (.-store svc) component-id)
-        (map #(refset-item-with-attributes svc %))))
+        (map #(extended-refset-item svc %))))
   ([^Service svc component-id refset-id]
    (->> (store/get-component-refset-items (.-store svc) component-id refset-id)
-        (map #(refset-item-with-attributes svc %)))))
+        (map #(extended-refset-item svc %)))))
 
 (defn active-association-targets
   "Return the active association targets for a given component."
@@ -273,7 +278,7 @@
    (store/with-historical (.-store svc) concept-ids refset-ids)))
 
 (defn get-installed-reference-sets
-  "Return the installed reference sets."
+  "Return a set of identifiers representing installed reference sets."
   [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
@@ -565,7 +570,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.7
+  {:version 0.11
    :store   "store.db"
    :search  "search.db"})
 
@@ -629,7 +634,9 @@
         result-c
         (map #(if (instance? Throwable %)                   ;; if channel contains an exception, throw it on
                 (throw %)
-                (do (store/write-batch-with-fallback % store) true)))
+                (do (store/write-batch-with-fallback % store)
+                    ;; important to return true
+                    true)))
         data-c true (fn ex-handler [err] err))              ;; and the exception handler then passes the exception through to results channel
       (loop []
         (when-let [v (async/<!! result-c)]

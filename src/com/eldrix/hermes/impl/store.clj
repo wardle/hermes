@@ -59,16 +59,23 @@
     (deserialize [in _i]
       (ser/read-refset-item in))))
 
+(def RefsetFieldNamesSerializer
+  (proxy [GroupSerializerObjectArray] []
+    (serialize [^DataOutput2 out o]
+      (ser/write-field-names out o))
+    (deserialize [in _i]
+      (ser/read-field-names in))))
+
 (deftype MapDBStore [^DB db
                      ^BTreeMap concepts                     ;; conceptId -- concept
                      ^NavigableSet descriptionsConcept      ;; descriptionId -- conceptId
                      ^BTreeMap relationships                ;; relationshipId - relationship
-                     ^BTreeMap refsets                      ;; refset-item-id -- refset-item
+                     ^BTreeMap refsets                      ;; refset-item-id -- refset-item   ;; TODO: rename to refsetItems
+                     ^BTreeMap refsetFieldNames             ;; refset-id -- field-names
                      ^BTreeMap descriptions                 ;; conceptId--id--description
                      ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- group -- destinationId
                      ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- group -- sourceId
-                     ^NavigableSet installedRefsets         ;; refsetId
-                     ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- id
+                     ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- msb -- lsb
                      ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
                      ^NavigableSet associations]            ;; targetComponentId -- refsetId -- referencedComponentId - id
 
@@ -76,8 +83,6 @@
   (close [_] (.close db)))
 
 (s/def ::store #(instance? MapDBStore %))
-
-
 
 (defn- open-database
   "Open a file-based key-value database from the file specified, optionally read
@@ -170,17 +175,18 @@
   (.compact (.getStore ^BTreeMap (.concepts store))))
 
 (defn get-installed-reference-sets
-  "Returns the installed reference sets.
+  "Returns a set of identifiers representing installed reference sets.
+
   While it is possible to use the SNOMED ontology to find all reference sets:
     ```
     (get-leaves store (get-all-children store 900000000000455006))
     ```
-  This will return reference sets with no actual members in the installed
+  That might return reference sets with no actual members in the installed
   edition. Instead, we keep track of installed reference sets as we import
   reference set items, thus ensuring we have a list that contains only
   reference sets with members."
   [^MapDBStore store]
-  (into #{} (.installedRefsets store)))
+  (set (.keySet ^BTreeMap (.-refsetFieldNames store))))
 
 (s/fdef get-concept
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
@@ -257,9 +263,31 @@
   [^MapDBStore store component-id]
   (->> (.subSet ^NavigableSet (.componentRefsets store)
                 (long-array [component-id])                 ;; lower limit = first element of composite key
-                (long-array [component-id Long/MAX_VALUE Long/MAX_VALUE]))
+                (long-array [component-id Long/MAX_VALUE Long/MAX_VALUE Long/MAX_VALUE Long/MAX_VALUE]))
        (map seq)
        (map second)))
+
+(defn get-all-refset-members
+  [^MapDBStore store]
+  (->> (.-componentRefsets store)
+       (map seq)
+       (map #(let [[_component-id _refset-id uuid-msb uuid-lsb] %]
+               (get-refset-item store uuid-msb uuid-lsb)))))
+
+(defn get-refset-field-names
+  "Returns the field names for the given reference set.
+
+  The reference set descriptors provide a human-readable description and a type
+  for each column in a reference set, but do not include the camel-cased column
+  identifier in the original source file. On import, we store those column names
+  and provide the lookup here."
+  [^MapDBStore store refset-id]
+  (.get ^BTreeMap (.-refsetFieldNames store) refset-id))
+
+(defn get-refset-descriptors
+  [^MapDBStore store refset-id]
+  (->> (get-component-refset-items store refset-id 900000000000456007)
+       (sort-by :attributeOrder)))
 
 (defn get-refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
@@ -280,22 +308,26 @@
        (reifier item))
      item)))
 
-(defn get-reverse-map
-  "Returns the reverse mapping from the reference set and mapTarget specified."
+(defn ^:deprecated get-reverse-map
+  "DEPRECATED: Use new reference set index instead.
+
+  Returns the reverse mapping from the reference set and mapTarget specified."
   [^MapDBStore store refset-id s]
   (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
                          (to-array [refset-id s])
                          (to-array [refset-id s nil])))
        (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb)))))
 
-(defn prefix-upper-bound
+(defn ^:deprecated prefix-upper-bound
   "Given a string, generate an upper bound suitable for a prefix search.
   For example, 123 should give 124."
   [s]
   (when-not (str/blank? s) (str (apply str (butlast s)) (char (unchecked-inc (int (last s)))))))
 
-(defn get-reverse-map-range
-  "Returns the reverse mapping from the reference set specified, performing
+(defn ^:deprecated get-reverse-map-range
+  "DEPRECATED: Use new reference set index instead.
+
+  Returns the reverse mapping from the reference set specified, performing
   what is essentially a prefix search using the parameters.
   For example (get-reverse-map-range store \"D86.\") will return all items
   with a map target with prefix 'D86.' in the specified reference set.
@@ -340,9 +372,9 @@
                 (long-array [component-id refset-id Long/MAX_VALUE Long/MAX_VALUE Long/MAX_VALUE]))
        (map #(aget ^"[J" % 2))))
 
-(defn- write-concepts [^MapDBStore store objects]
+(defn- write-concepts [^MapDBStore store {:keys [data]}]
   (let [bucket (.concepts store)]
-    (doseq [o objects]
+    (doseq [o data]
       (write-object bucket o))))
 
 (defn- write-descriptions
@@ -352,10 +384,10 @@
   | Index                   | Compound key                 |
   |:------------------------|:-----------------------------|
   | .descriptionsConcept    | descriptionId -- conceptId   |"
-  [^MapDBStore store objects]
+  [^MapDBStore store {:keys [data]}]
   (let [d-bucket (.descriptions store)
         dc-index ^NavigableSet (.descriptionsConcept store)]
-    (doseq [o objects]
+    (doseq [o data]
       (let [id (:id o) conceptId (:conceptId o)]
         (when (write-object d-bucket o (long-array [conceptId id]))
           (write-index-entry dc-index (long-array [id conceptId]) true))))))
@@ -368,11 +400,11 @@
   |:----------------------------|:---------------------------------------------|
   | .conceptChildRelationships  | destinationId -- typeId -- group -- sourceId |
   | .conceptParentRelationships | sourceId -- typeId -- group -- destinationId |"
-  [^MapDBStore store objects]
+  [^MapDBStore store {:keys [data]}]
   (let [rel-bucket (.relationships store)
         child-bucket (.conceptChildRelationships store)
         parent-bucket (.conceptParentRelationships store)]
-    (doseq [o objects]
+    (doseq [o data]
       (when (write-object rel-bucket o)
         (let [{:keys [sourceId typeId active relationshipGroup destinationId]} o]
           (write-index-entry parent-bucket (long-array [sourceId typeId relationshipGroup destinationId]) active)
@@ -387,25 +419,25 @@
   |:--------------------|:-----------------------------------------------------|
   | .componentRefsets   | referencedComponentId - refsetId - itemId1 - itemId2 |
   | .mapTargetComponent | refsetId -- mapTarget - itemId1 - itemId2            |
-  | .installedRefsets   | refsetId                                             |
+  | .refsetFieldNames   | refsetId -- headings
   | .associations       | targetComponentId - refsetId -                       |
   |                     |  - referencedComponentId - itemId1 -itemId2          |
   
    An itemID is a 128 bit integer (UUID) so is stored as two longs (itemId1
   itemId2)."
-  [^MapDBStore store objects]
+  [^MapDBStore store {:keys [headings data]}]
   (let [refsets (.refsets store)
-        installed ^NavigableSet (.installedRefsets store)
+        field-names ^BTreeMap (.-refsetFieldNames store)
         components ^NavigableSet (.componentRefsets store)
         reverse-map ^NavigableSet (.mapTargetComponent store)
         associations ^NavigableSet (.associations store)]
-    (doseq [o objects]
+    (doseq [o data]
       (let [o' (reify-refset-item store o)
             {:keys [^UUID id referencedComponentId refsetId active mapTarget targetComponentId]} o'
             uuid-msb (.getMostSignificantBits id)
             uuid-lsb (.getLeastSignificantBits id)]
         (when (write-object refsets o' (long-array [uuid-msb uuid-lsb]))
-          (.add installed refsetId)
+          (.putIfAbsent field-names refsetId (or headings []))
           (write-index-entry components (long-array [referencedComponentId refsetId uuid-msb uuid-lsb]) active)
           (when mapTarget
             (write-index-entry reverse-map (to-array [refsetId mapTarget uuid-msb uuid-lsb]) active))
@@ -424,14 +456,14 @@
         indices (future {:descriptions-concept         (.size ^NavigableSet (.descriptionsConcept store))
                          :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
                          :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
-                         :installed-refsets            (.size ^NavigableSet (.installedRefsets store))
                          :component-refsets            (.size ^NavigableSet (.componentRefsets store))
                          :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))
                          :associations                 (.size ^NavigableSet (.associations store))})]
     {:concepts      @concepts
      :descriptions  @descriptions
      :relationships @relationships
-     :refsets       @refsets
+     :refsets       (.size ^BTreeMap (.refsetFieldNames store))
+     :refset-items  @refsets
      :indices       @indices}))
 
 (def default-opts
@@ -451,6 +483,9 @@
          relationships (open-bucket db "r" Serializer/LONG RelationshipSerializer)
          refsets (open-bucket db "rs" Serializer/LONG_ARRAY RefsetItemSerializer)
 
+         ;; we store a list of headings for each refset, keyed by refset id
+         refset-field-names (open-bucket db "r-fn" Serializer/LONG RefsetFieldNamesSerializer)
+
          ;; as fetching a list of descriptions [including content] common, store tuple (concept-id description-id)=d
          concept-descriptions (open-bucket db "c-ds" Serializer/LONG_ARRAY DescriptionSerializer)
 
@@ -463,9 +498,6 @@
          ;; a) determining whether a component is part of a refset, and
          ;; b) returning the items for a given component from a specific refset.
          component-refsets (open-index db "c-rs" Serializer/LONG_ARRAY)
-
-         ;; cache a set of installed reference sets
-         installed-refsets (open-index db "installed-rs" Serializer/LONG)
 
          ;; for any map refsets, we store (refsetid--mapTarget--itemId'--itemId'') to
          ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
@@ -480,28 +512,28 @@
                    descriptions-concept
                    relationships
                    refsets
+                   refset-field-names
                    concept-descriptions
                    concept-parent-relationships
                    concept-child-relationships
-                   installed-refsets
                    component-refsets
                    map-target-component
                    associations))))
 
 (defmulti write-batch
-  "Write a batch of SNOMED components to the store.
+  "Write a batch of SNOMED components to the store. Returns nil.
   Parameters:
   - batch - a map containing :type and :data keys
   - store - SNOMED CT store implementation"
   :type)
 (defmethod write-batch :info.snomed/Concept [batch store]
-  (write-concepts store (:data batch)))
+  (write-concepts store batch))
 (defmethod write-batch :info.snomed/Description [batch store]
-  (write-descriptions store (:data batch)))
+  (write-descriptions store batch))
 (defmethod write-batch :info.snomed/Relationship [batch store]
-  (write-relationships store (:data batch)))
+  (write-relationships store batch))
 (defmethod write-batch :info.snomed/Refset [batch store]
-  (write-refset-items store (:data batch)))
+  (write-refset-items store batch))
 
 (defn write-batch-one-by-one
   "Write out a batch one item at a time. "
@@ -511,7 +543,8 @@
       (write-batch b store)
       (catch Exception e
         (log/error "import error: failed to import data: " b)
-        (throw (ex-info "Import error" {:data b :exception (Throwable->map e)}))))))
+        (throw (ex-info "Import error" {:batch (dissoc batch :data)
+                                        :data  b :exception (Throwable->map e)}))))))
 
 (defn write-batch-with-fallback [batch store]
   (try
@@ -749,7 +782,7 @@
   :args (s/alt
           :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
           :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
-                            :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback?  boolean?))
+                            :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
   :ret (s/nilable :info.snomed/Description))
 (defn get-fully-specified-name
   "Return the fully specified name for the concept specified. If no language preferences are provided the first

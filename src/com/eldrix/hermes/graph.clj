@@ -130,7 +130,7 @@
   [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   (let [refset-id (or (:refsetId (pco/params env)) 0)]
-    {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items-attrs svc id refset-id))}))
+    {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items-extended svc id refset-id))}))
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
