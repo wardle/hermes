@@ -308,6 +308,19 @@
        (reifier item))
      item)))
 
+(defn extended-refset-item
+  "Merges a map of extended attributes to the specified reference set item.
+  The attributes will be keyed based on information from the reference set
+  descriptor information and known field names."
+  [^MapDBStore store {:keys [refsetId] :as item} & {:keys [attr-ids?] :or {attr-ids? true}}]
+  (let [attr-ids (when attr-ids? (get-refset-descriptor-attribute-ids store refsetId))
+        field-names (map keyword (subvec (get-refset-field-names store refsetId) 5))
+        fields (subvec (snomed/->vec item) 5)]
+    (merge
+      (zipmap field-names fields)
+      (when attr-ids? (zipmap attr-ids fields))
+      (dissoc item :fields))))
+
 (defn ^:deprecated get-reverse-map
   "DEPRECATED: Use new reference set index instead.
 

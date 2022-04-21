@@ -172,40 +172,14 @@
   [^Service svc refset-id]
   (store/get-refset-descriptor-attribute-ids (.-store svc) refset-id))
 
-(s/fdef refset-item->attribute-map
+(s/fdef extended-refset-item
   :args (s/cat :svc ::svc :item :info.snomed/Refset))
-(defn refset-item->attribute-map
-  "Turn a refset item into an attribute map.
-  Example from the UK edition:
-  ```
-  (refset-item->attribute-map svc (get-refset-item svc #uuid\"fee430d8-96ed-11ea-bbef-08002728e8ff\"))
-  =>
-  {:id #uuid\"fee430d8-96ed-11ea-bbef-08002728e8ff\",
-   :effectiveTime #object[java.time.LocalDate 0x28405c66 \"2020-05-13\"],
-   :active true,
-   :moduleId 999000031000000106,
-   :refsetId 1322291000000109,
-   449608002 75423003,
-   900000000000533001 163021000000107}
-  ```"
-  [svc item]
-  (let [attr-ids (get-refset-descriptor-attribute-ids svc (:refsetId item))]
-    (merge
-      (select-keys item [:id :effectiveTime :active :moduleId :refsetId])
-      (zipmap attr-ids (subvec (snomed/->vec item) 5)))))
-
 (defn extended-refset-item
   "Merges a map of extended attributes to the specified reference set item.
   The attributes will be keyed based on information from the reference set
   descriptor information and known field names."
-  [^Service svc {:keys [refsetId] :as item}]
-  (let [attr-ids (get-refset-descriptor-attribute-ids svc refsetId)
-        field-names (map keyword (subvec (store/get-refset-field-names (.-store svc) refsetId) 5))
-        fields (subvec (snomed/->vec item) 5)]
-    (merge
-      (zipmap field-names fields)
-      (zipmap attr-ids fields)
-      (dissoc item :fields))))
+  [^Service svc item]
+  (store/extended-refset-item (.-store svc) item))
 
 (defn get-component-refset-items-extended
   "Returns a sequence of refset items for the given component, supplemented
