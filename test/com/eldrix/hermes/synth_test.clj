@@ -14,7 +14,7 @@
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.core :as hermes])
 
-  (:import (java.nio.file Paths Files FileVisitOption Path)
+  (:import (java.nio.file Files FileVisitOption Path)
            (java.nio.file.attribute FileAttribute)
            (com.eldrix.hermes.snomed SimpleRefsetItem AssociationRefsetItem)))
 
@@ -35,27 +35,29 @@
 
 (defn temporary-paths-fixture
   "Fixture to create a temporary directory and associated subpaths."
-  [f]
+  [f & {:keys [delete?] :or {delete? true}}]
   (let [root-path (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
-        release-path (.toAbsolutePath (.resolve root-path "synth"))
-        db-path (.toAbsolutePath (.resolve root-path "snomed.db"))
-        store-path (.toAbsolutePath (.resolve db-path "store.db"))]
-    (Files/createDirectory release-path (make-array FileAttribute 0))
-    (binding [*paths* {:root-path root-path
-                       :release-path release-path
-                       :db-path  db-path
-                       :store-path store-path}]
-      (f)
-      (delete-all root-path))))
+          release-path (.toAbsolutePath (.resolve root-path "synth"))
+          db-path (.toAbsolutePath (.resolve root-path "snomed.db"))
+          store-path (.toAbsolutePath (.resolve db-path "store.db"))]
+      (Files/createDirectory release-path (make-array FileAttribute 0))
+      (binding [*paths* {:root-path root-path
+                         :release-path release-path
+                         :db-path  db-path
+                         :store-path store-path}]
+        (f)
+        (when delete? (delete-all root-path)))))
 
 (use-fixtures :each temporary-paths-fixture)
 
-
 (defn write-components
-  [dir filename components]
+  [dir filename components & {:keys [field-headings]}]
   (with-open [writer (io/writer (.toFile (.resolve dir filename)))]
-    (.write writer (str \newline))
-    (doall (->> components (map snomed/unparse) (map #(.write writer (str (str/join "\t" %) \newline)))))))
+    (let [component (first components)
+          headings (concat (map name (keys (dissoc component :fields)))
+                           (or field-headings (gen/generate (s/gen (s/coll-of ::hermes/non-blank-string :count (count (:fields component)))))))]
+      (.write writer (str (str/join "\t" headings) \newline))
+      (doall (->> components (map snomed/unparse) (map #(.write writer (str (str/join "\t" %) \newline))))))))
 
 (deftest test-bad-import
   (let [{:keys [release-path]} *paths*
@@ -126,7 +128,7 @@
     (hermes/compact (str db-path))
     (with-open [store (store/open-store (str store-path))]
       (log/info "installed reference sets:" (store/get-installed-reference-sets store)))
-    (hermes/build-search-index (str db-path))
+    (hermes/build-search-indices (str db-path))
     (with-open [svc (hermes/open (str db-path))]
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
             en-US-description-ids (set (map :referencedComponentId en-US))]
@@ -135,4 +137,5 @@
         (is (every? true? (map #(contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US"))) concepts)))))))
 
 (comment
-  (run-tests))
+  (run-tests)
+  (temporary-paths-fixture test-localisation :delete? false))

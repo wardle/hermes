@@ -24,6 +24,7 @@
             [com.eldrix.hermes.expression.ecl :as ecl]
             [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.language :as lang]
+            [com.eldrix.hermes.impl.members :as members]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.importer :as importer]
@@ -62,11 +63,16 @@
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 
 (deftype Service [^MapDBStore store
-                  ^IndexReader index-reader
+                  ^IndexReader indexReader
                   ^IndexSearcher searcher
+                  ^IndexReader memberReader
+                  ^IndexSearcher memberSearcher
                   locale-match-fn]
   Closeable
-  (close [_] (.close store) (.close index-reader)))
+  (close [_]
+    (.close store)
+    (.close indexReader)
+    (.close memberReader)))
 
 (s/fdef get-concept
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
@@ -256,27 +262,58 @@
   [^Service svc]
   (store/get-installed-reference-sets (.-store svc)))
 
+(defn member-field
+  "Returns a set of referenced component identifiers that are members of the
+  given reference set with a matching 'value' for the 'field' specified.
+  For example, to perform a reverse map from ICD-10:
+  ```
+  (member-field svc 447562003 \"mapTarget\" \"G35\")
+  ```"
+  [^Service svc refset-id field value]
+  (members/search (.-memberSearcher svc)
+                  (members/q-and
+                    [(members/q-refset-id refset-id) (members/q-term field value)])))
+
+(defn member-field-prefix
+  [^Service svc refset-id field prefix]
+  (members/search (.-memberSearcher svc)
+                  (members/q-and
+                    [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
+
 (s/fdef reverse-map
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
 (defn reverse-map
-  "Returns the reverse mapping from the reference set and mapTarget specified."
+  "Returns a sequence of reference set items representing the reverse mapping
+  from the reference set and mapTarget specified. It's almost always better to
+  use [[member-field]] or [[member-field-prefix]] directly."
   [^Service svc refset-id code]
-  (store/get-reverse-map (.-store svc) refset-id code))
+  (->> (member-field svc refset-id "mapTarget" code)
+       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))))
+
+(s/fdef reverse-map-prefix
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :prefix ::non-blank-string))
+(defn reverse-map-prefix
+  "Returns a sequence of reference set items representing the reverse mapping
+  from the reference set and mapTarget. It is almost always better to use
+  [[member-field]] or [[member-field-prefix]] directly."
+  [^Service svc refset-id prefix]
+  (->> (member-field-prefix svc refset-id "mapTarget" prefix)
+       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))))
 
 (s/fdef reverse-map-range
   :args (s/cat :svc ::svc
                :refset-id :info.snomed.Concept/id
                :code (s/alt :prefix ::non-blank-string
                             :range (s/cat :lower-bound ::non-blank-string :upper-bound ::non-blank-string))))
+(defn ^:deprecated reverse-map-range
+  "DEPRECATED: Use [[reverse-map-prefix]] or [[members-field-prefix]] instead.
 
-(defn reverse-map-range
-  "Returns the reverse mapping from the reference set specified, performing
+  Returns the reverse mapping from the reference set specified, performing
   what is essentially a prefix search using the parameters."
   ([^Service svc refset-id prefix]
    (store/get-reverse-map-range (.-store svc) refset-id prefix))
   ([^Service svc refset-id lower-bound upper-bound]
    (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
-
 
 (s/fdef get-preferred-synonym
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
@@ -546,7 +583,8 @@
   "Defines the current expected manifest."
   {:version 0.11
    :store   "store.db"
-   :search  "search.db"})
+   :search  "search.db"
+   :members "members.db"})
 
 (defn- open-manifest
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
@@ -583,9 +621,16 @@
         st (store/open-store (get-absolute-filename root (:store manifest)))
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
         searcher (IndexSearcher. index-reader)
+        member-reader (com.eldrix.hermes.impl.members/open-index-reader (get-absolute-filename root (:members manifest)))
+        member-searcher (IndexSearcher. member-reader)
         locale-match-fn (lang/match-fn st)]
     (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
-    (->Service st index-reader searcher locale-match-fn)))
+    (->Service st
+               index-reader
+               searcher
+               member-reader
+               member-searcher
+               locale-match-fn)))
 
 (defn close [^Service svc]
   (.close svc))
@@ -656,15 +701,21 @@
         (store/compact st))
       (log/info "Compacting database... complete."))))
 
-(defn build-search-index
-  ([root] (build-search-index root (.toLanguageTag (Locale/getDefault))))
+(defn build-search-indices
+  ([root] (build-search-indices root (.toLanguageTag (Locale/getDefault))))
   ([root language-priority-list]
    (let [manifest (open-manifest root false)]
-     (log/info "Building search index" {:root root :languages language-priority-list})
+     (log/info "Building indices" {:root root :languages language-priority-list})
      (search/build-search-index (get-absolute-filename root (:store manifest))
                                 (get-absolute-filename root (:search manifest))
                                 language-priority-list)
-     (log/info "Building search index... complete."))))
+     (members/build-members-index (get-absolute-filename root (:store manifest))
+                                  (get-absolute-filename root (:members manifest)))
+     (log/info "Building indices... complete."))))
+
+(def ^:deprecated build-search-index
+  "DEPRECATED: Use [[build-search-indices]] instead"
+  build-search-indices)
 
 (defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
   (let [manifest (open-manifest root)]
