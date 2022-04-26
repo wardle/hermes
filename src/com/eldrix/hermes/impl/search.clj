@@ -169,16 +169,6 @@
             ch))
         (.forceMerge writer 1)))))
 
-(defn- create-test-search
-  ([store-filename search-filename] (create-test-search store-filename search-filename [73211009 46635009 195353004 232369001 711158005]))
-  ([store-filename search-filename concept-ids]
-   ;;(clojure.java.shell/sh "rm" "-rf" search-filename)
-   ;; let's create a really small index for testing
-   (with-open [store (store/open-store store-filename)
-               writer (open-index-writer search-filename)]
-     (let [concepts (map (partial store/get-concept store) concept-ids)]
-       (write-batch! store writer [] concepts)))))
-
 (defn- make-token-query
   [^String token fuzzy]
   (let [term (Term. "term" token)
