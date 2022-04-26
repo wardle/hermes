@@ -9,9 +9,9 @@
 
            com.eldrix/trud                          {:mvn/version "1.0.75"}
 
-           com.wsscode/pathom3                      {:mvn/version "2022.03.17-alpha"}
+           com.wsscode/pathom3                      {:mvn/version "2022.04.20-alpha"}
            expound/expound                          {:mvn/version "0.9.0"}
-           instaparse/instaparse                    {:mvn/version "1.4.10"}
+           instaparse/instaparse                    {:mvn/version "1.4.11"}
 
            org.apache.lucene/lucene-core            {:mvn/version "9.1.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.1.0"}
@@ -41,7 +41,7 @@
            {:extra-deps {org.clojure/test.check           {:mvn/version "1.1.1"}
                          criterium/criterium              {:mvn/version "0.4.6"}
                          com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                         djblue/portal                    {:mvn/version "0.23.0"}}}
+                         djblue/portal                    {:mvn/version "0.24.0"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
