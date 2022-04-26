@@ -13,6 +13,7 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.hermes.impl.search
+  "Search creates a Lucene search index for descriptions."
   (:require [clojure.core.async :as async]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
