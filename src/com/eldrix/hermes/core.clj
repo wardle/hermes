@@ -363,7 +363,9 @@
   :ret (s/coll-of ::result))
 (defn search [^Service svc params]
   (if-let [constraint (:constraint params)]
-    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (.-store svc) (.-searcher svc) constraint)))
+    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse {:store (.-store svc)
+                                                                        :searcher (.-searcher svc)
+                                                                        :member-searcher (.-memberSearcher svc)} constraint)))
     (search/do-search (.-searcher svc) params)))
 
 
@@ -373,7 +375,10 @@
 (defn expand-ecl
   "Expand an ECL expression."
   [^Service svc ecl]
-  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+  (let [q1 (ecl/parse {:store           (.-store svc)
+                       :searcher        (.-searcher svc)
+                       :member-searcher (.-memberSearcher svc)}
+                      ecl)
         q2 (search/q-not q1 (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) q2)))
 
@@ -385,7 +390,9 @@
   "Expand an ECL expression and include historic associations of the results,
   so that the results will include now inactive/deprecated concept identifiers."
   [^Service svc ^String ecl]
-  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+  (let [q1 (ecl/parse {:store  (.-store svc)
+                       :searcher (.-searcher svc)
+                       :member-searcher (.-memberSearcher svc)} ecl)
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
         historic-concept-ids (apply set/union (->> base-concept-ids
@@ -432,7 +439,7 @@
   "Do any of the concept-ids satisfy the constraint expression specified?
   This is an alternative to expanding the valueset and then checking membership."
   [^Service svc concept-ids ^String ecl]
-  (let [q1 (ecl/parse (.-store svc) (.-searcher svc) ecl)
+  (let [q1 (ecl/parse {:store (.-store svc) :searcher (.-searcher svc) :member-searcher (.-memberSearcher svc)} ecl)
         q2 (search/q-concept-ids concept-ids)]
     (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 

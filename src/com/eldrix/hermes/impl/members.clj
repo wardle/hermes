@@ -4,7 +4,7 @@
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [clojure.core.async :as async])
-  (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query)
+  (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery)
            (org.apache.lucene.document Document Field Field$Store StringField LongPoint StoredField)
            (java.util UUID Collection)
            (java.time ZoneId LocalDate)
@@ -106,6 +106,23 @@
   (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
     (DirectoryReader/open directory)))
 
+
+(defn q-or [queries]
+  (search/q-or queries))
+
+(defn q-and [queries]
+  (search/q-and queries))
+
+(defn q-not
+  "Returns the logical query of q1 NOT q2"
+  [^Query q1 ^Query q2]
+  (search/q-not q1 q2))
+
+(defn q-all
+  "Returns a query to match all documents."
+  []
+  (MatchAllDocsQuery.))
+
 (defn q-prefix
   "Create a prefix query for the field specified."
   ^Query [^String field-name ^String term]
@@ -136,45 +153,65 @@
   ^Query [^Collection module-ids]
   (LongPoint/newSetQuery "moduleId" module-ids))
 
-(defn q-gte-effective-time
+(defn q-effective-time>=
   "Create a query for items with an effective time greater or equal than 'd'."
   ^Query [d]
   (LongPoint/newRangeQuery "effectiveTime" (localdate->epoch-milli d) Long/MAX_VALUE))
 
-(defn q-gt-effective-time
+(defn q-effective-time>
   "Create a query for items with an effective time greater than 'd'."
   ^Query [d]
   (LongPoint/newRangeQuery "effectiveTime" (inc (localdate->epoch-milli d)) Long/MAX_VALUE))
 
-(defn q-eq-effective-time
+(defn q-effective-time=
   ^Query [d]
   (LongPoint/newExactQuery "effectiveTime" (localdate->epoch-milli d)))
 
-(defn q-lt-effective-time
+(defn q-effective-time<
   "Create a query for items with an effective time less than 'd'."
   ^Query [d]
   (LongPoint/newRangeQuery "effectiveTime" 0 (dec (localdate->epoch-milli d))))
 
-(defn q-lte-effective-time
+(defn q-effective-time<=
   "Create a query for items with an effective time less than or equal to 'd'."
   ^Query [d]
   (LongPoint/newRangeQuery "effectiveTime" 0 (localdate->epoch-milli d)))
+
+(defn q-field=
+  "Create a query for items with a field equal to"
+  [^String field ^long value]
+  (LongPoint/newExactQuery field value))
+
+(defn q-field!=
+  "Create a query for items with a field not equal to"
+  [^String field ^long value]
+  (q-and [(LongPoint/newRangeQuery field Long/MIN_VALUE (dec value))
+          (LongPoint/newRangeQuery field (inc value) Long/MAX_VALUE)]))
+
+(defn q-field<
+  [^String field ^long value]
+  (LongPoint/newRangeQuery field Long/MIN_VALUE (dec value)))
+
+(defn q-field>
+  [^String field ^long value]
+  (LongPoint/newRangeQuery field (inc value) Long/MAX_VALUE))
+
+(defn q-field<=
+  [^String field ^long value]
+  (LongPoint/newRangeQuery field Long/MIN_VALUE value))
+
+(defn q-field>=
+  [^String field ^long value]
+  (LongPoint/newRangeQuery field value Long/MAX_VALUE))
+
+(defn q-field-in
+  [^String field ^Collection values]
+  (LongPoint/newSetQuery field values))
 
 (defn q-referenced-component
   "Create a query for items relating to the specified component."
   ^Query [component-id]
   (LongPoint/newExactQuery "referencedComponentId" component-id))
-
-(defn q-or [queries]
-  (search/q-or queries))
-
-(defn q-and [queries]
-  (search/q-and queries))
-
-(defn q-not
-  "Returns the logical query of q1 NOT q2"
-  [^Query q1 ^Query q2]
-  (search/q-not q1 q2))
 
 (defn search
   "Performs the search, returning a set of referenced component identifiers."
