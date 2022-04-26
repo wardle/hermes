@@ -125,16 +125,7 @@
   (->> (make-extended-descriptions store language-refset-ids concept)
        (map extended-description->document)))
 
-(defn write-concept! [store ^IndexWriter writer language-refset-ids concept]
-  (let [docs (concept->documents store language-refset-ids concept)]
-    (doseq [doc docs]
-      (.addDocument writer doc))))
-
-(defn write-batch! [store ^IndexWriter writer language-refset-ids concepts]
-  (dorun (map (partial write-concept! store writer language-refset-ids) concepts))
-  (.commit writer))
-
-(defn  open-index-writer
+(defn open-index-writer
   ^IndexWriter [filename]
   (let [analyzer (StandardAnalyzer.)
         directory (FSDirectory/open (Paths/get filename (into-array String [])))
@@ -150,23 +141,28 @@
 (defn build-search-index
   "Build a search index using the SNOMED CT store at `store-filename`."
   [store-filename search-filename language-priority-list]
-  (let [ch (async/chan 1 (partition-all 50000))]             ;; chunk concepts into batches
+  (let [ch (async/chan 50)]
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
       (let [langs (lang/match store language-priority-list)
-            langs' (if (seq langs) langs
-                                   (do (log/warn "No language refset for any locale in requested priority list" {:priority-list language-priority-list :store-filename store-filename})
-                                       (log/warn "Falling back to default of 'en-US'")
-                                       (lang/match store "en-US")))]
+            langs' (if (seq langs)
+                     langs
+                     (do (log/warn "No language refset for any locale in requested priority list" {:priority-list language-priority-list :store-filename store-filename})
+                         (log/warn "Falling back to default of 'en-US'")
+                         (lang/match store "en-US")))]
         (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
                                                {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
-        (async/<!!                                          ;; block until pipeline complete
-          (async/pipeline-blocking                          ;; pipeline for side-effects
-            (.availableProcessors (Runtime/getRuntime))     ;; Parallelism factor
+        (async/<!! ;; block until pipeline complete
+          (async/pipeline-blocking                            ;; pipeline for side-effects
+            (.availableProcessors (Runtime/getRuntime))       ;; Parallelism factor
             (doto (async/chan) (async/close!))              ;; Output channel - /dev/null
-            (map (partial write-batch! store writer langs'))
-            ch))
+            (comp (mapcat #(concept->documents store langs' %))
+                  (map #(.addDocument writer %)))
+            ch
+            true
+            (fn ex-handler [ex]
+              (log/error ex) (async/close! ch) nil)))
         (.forceMerge writer 1)))))
 
 (defn- make-token-query
