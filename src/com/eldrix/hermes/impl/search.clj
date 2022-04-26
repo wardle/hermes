@@ -327,7 +327,7 @@
    (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
 
 (s/fdef do-search
-        :args (s/cat :searcher ::searcher :params ::search-params))
+  :args (s/cat :searcher ::searcher :params ::search-params))
 
 (defn do-search
   "Perform a search against the index.
