@@ -153,9 +153,9 @@
         (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
                                                {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
-        (async/<!! ;; block until pipeline complete
-          (async/pipeline-blocking                            ;; pipeline for side-effects
-            (.availableProcessors (Runtime/getRuntime))       ;; Parallelism factor
+        (async/<!!                                          ;; block until pipeline complete
+          (async/pipeline-blocking                          ;; pipeline for side-effects
+            (.availableProcessors (Runtime/getRuntime))     ;; Parallelism factor
             (doto (async/chan) (async/close!))              ;; Output channel - /dev/null
             (comp (mapcat #(concept->documents store langs' %))
                   (map #(.addDocument writer %)))
