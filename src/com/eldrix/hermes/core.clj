@@ -368,6 +368,11 @@
                                                                         :member-searcher (.-memberSearcher svc)} constraint)))
     (search/do-search (.-searcher svc) params)))
 
+(defn- make-svc-map
+  [^Service svc]
+  {:store           (.-store svc)
+   :searcher        (.-searcher svc)
+   :member-searcher (.-memberSearcher svc)})
 
 (s/fdef expand-ecl
   :args (s/cat :svc ::svc :ecl ::non-blank-string)
@@ -375,13 +380,9 @@
 (defn expand-ecl
   "Expand an ECL expression."
   [^Service svc ecl]
-  (let [q1 (ecl/parse {:store           (.-store svc)
-                       :searcher        (.-searcher svc)
-                       :member-searcher (.-memberSearcher svc)}
-                      ecl)
+  (let [q1 (ecl/parse (make-svc-map svc) ecl)
         q2 (search/q-not q1 (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) q2)))
-
 
 (s/fdef expand-ecl-historic
   :args (s/cat :svc ::svc :ecl ::non-blank-string)
@@ -390,9 +391,7 @@
   "Expand an ECL expression and include historic associations of the results,
   so that the results will include now inactive/deprecated concept identifiers."
   [^Service svc ^String ecl]
-  (let [q1 (ecl/parse {:store  (.-store svc)
-                       :searcher (.-searcher svc)
-                       :member-searcher (.-memberSearcher svc)} ecl)
+  (let [q1 (ecl/parse (make-svc-map svc) ecl)
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
         historic-concept-ids (apply set/union (->> base-concept-ids
