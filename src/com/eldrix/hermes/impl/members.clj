@@ -190,7 +190,7 @@
   (^Query [d] (q-time!= "effectiveTime" d))
   (^Query [^String field d]
    (let [v (localdate->epoch-milli d)]
-     (q-and [(q-time< field (dec v)) (q-time> field (inc v))]))))
+     (q-or [(q-time< field (dec v)) (q-time> field (inc v))]))))
 
 (defn q-field=
   "Create a query for items with a field equal to"
@@ -200,8 +200,8 @@
 (defn q-field!=
   "Create a query for items with a field not equal to"
   [^String field ^long value]
-  (q-and [(LongPoint/newRangeQuery field Long/MIN_VALUE (dec value))
-          (LongPoint/newRangeQuery field (inc value) Long/MAX_VALUE)]))
+  (q-or [(LongPoint/newRangeQuery field Long/MIN_VALUE (dec value))
+         (LongPoint/newRangeQuery field (inc value) Long/MAX_VALUE)]))
 
 (defn q-field<
   [^String field ^long value]
