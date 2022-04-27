@@ -33,7 +33,7 @@
   This could use additional runtime information if it became necessary in the
   future. At the moment, we simply use the class of the value but could use
   the attribute type information from the attribute reference set if required."
-  (fn [k v] (class v)))
+  (fn [_k v] (class v)))
 (defmethod make-fields Long [k v]
   (if (stored-fields k)
     [(LongPoint. (name k) (long-array [v]))
