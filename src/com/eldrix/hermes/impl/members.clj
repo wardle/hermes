@@ -5,7 +5,7 @@
             [com.eldrix.hermes.impl.store :as store]
             [clojure.core.async :as async])
   (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
-           (org.apache.lucene.document Document Field Field$Store StringField LongPoint StoredField)
+           (org.apache.lucene.document Document Field$Store StringField LongPoint StoredField)
            (java.util UUID Collection)
            (java.time ZoneId LocalDate)
            (org.apache.lucene.store ByteBuffersDirectory FSDirectory)
