@@ -786,7 +786,9 @@
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
   (search svc {:constraint "<24700007" :inactive-concepts? true})
-  (def ecl-q (ecl/parse (.-store svc) (.-searcher svc) "<24700007"))
+  (def ecl-q (ecl/parse {:store (.-store svc)
+                         :searcher (.-searcher svc)
+                         :member-searcher (.-memberSearcher svc)} "<24700007"))
   ecl-q
   (def q1 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? true})]))
   (def q2 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? false})]))
