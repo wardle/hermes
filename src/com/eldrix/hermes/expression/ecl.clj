@@ -30,7 +30,9 @@
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher MatchAllDocsQuery)
-           (com.eldrix.hermes.impl.store MapDBStore)))
+           (com.eldrix.hermes.impl.store MapDBStore)
+           (java.time LocalDate)
+           (java.time.format DateTimeFormatter)))
 
 (s/def ::query #(instance? Query %))
 (s/def ::store #(instance? MapDBStore %))
@@ -543,18 +545,20 @@
   Note, as an optimisation, we bring through the reference set identifier "
   [ctx refset-id refset-field-name comparison-op loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)
-        query (members/q-or (map #(members/q-term refset-field-name %) terms))]
+        query (members/q-or (map #(members/q-prefix refset-field-name %) terms))]
     (case comparison-op
       "=" (members/q-and [(members/q-refset-id refset-id) query])
-      "!=" (members/q-and [(members/q-refset-id refset-id) (members/q-not (members/q-refset-id refset-id) query)]))))
+      "!=" (members/q-not (members/q-refset-id refset-id) query))))
 
 (defn- parse-member-filter--wild-search-term-set
+  "wildSearchTermSet = QM wildSearchTerm QM
+  wildSearchTerm = 1*(anyNonEscapedChar / escapedWildChar)"
   [ctx refset-id refset-field-name comparison-op loc]
-  (throw (ex-info "wildcard search for member filter not yet implemented"
-                  {:text          (zx/text loc)
-                   :refset-id     refset-id
-                   :field-name    refset-field-name
-                   :comparison-op comparison-op})))
+  (let [terms (zx/xml-> loc :wildSearchTerm zx/text)
+        query (members/q-or (map #(members/q-wildcard refset-field-name %) terms))]
+    (case comparison-op
+      "=" (members/q-and [(members/q-refset-id refset-id) query])
+      "!=" (members/q-not (members/q-refset-id refset-id) query))))
 
 (s/fdef parse-member-filter-typed-search-term
   :args (s/cat :ctx ::ctx
@@ -569,42 +573,42 @@
   wildSearchTermSet = QM wildSearchTerm QM"
   [ctx refset-id refset-field-name comparison-op loc]
   (or (zx/xml1-> loc :matchSearchTermSet #(parse-member-filter--match-search-term-set ctx refset-id refset-field-name comparison-op %))
-      (zx/xml1-> loc :wildSearchTermSet #(parse-member-filter--wild-search-term-set ctx refset-id refset-field-name comparison-op %)))
-  #_(let [search-terms (zx/xml-> loc :matchSearchTermSet :matchSearchTerm zx/text)
-          wildcard-terms (zx/xml-> loc :wildSearchTermSet :wildSearchTerm zx/text)
-          items
-          (case refset-field-name
-            "mapTarget"                                     ;; we have an optimised reverse map for the mapTarget field of any refset member
-            (if search-terms (mapcat #(store/get-reverse-map-range store refset-id %) search-terms)
-                             (mapcat #(store/get-reverse-map store refset-id %) wildcard-terms))
-            ;; TODO: add a sane fallback, if a field doesn't have an indexed solution [ the fix is to index all properties ]
-            (throw (ex-info "Unsupported field for member search term."
-                            {:typedSearchTerm (zx/text loc) :refsetId refset-id :field refset-field-name :comparisonOp comparison-op})))]
+      (zx/xml1-> loc :wildSearchTermSet #(parse-member-filter--wild-search-term-set ctx refset-id refset-field-name comparison-op %))))
 
-      (search/q-concept-ids (set (map :referencedComponentId items)))))
+(def numeric-comparison-ops
+  {"="  members/q-field=
+   "<"  members/q-field<
+   "<=" members/q-field<=
+   ">"  members/q-field>
+   ">=" members/q-field>=
+   "!=" members/q-field!=})
 
 (defn- parse-member-filter--numeric
   [ctx refset-id refset-field-name comparison-op loc]
-  (let [v (zx/xml1-> loc zx/text parse-long)]
-    (members/q-and
-      [(members/q-refset-id refset-id)
-       (case comparison-op
-         "=" (members/q-field= refset-field-name v)
-         "<" (members/q-field< refset-field-name v)
-         "<=" (members/q-field<= refset-field-name v)
-         ">" (members/q-field> refset-field-name v)
-         ">=" (members/q-field>= refset-field-name v)
-         "!=" (members/q-field!= refset-field-name v)
-         (throw (ex-info "Unsupported comparison operator" {:op   comparison-op
-                                                            :text (zx/text loc)})))])))
+  (let [v (zx/xml1-> loc zx/text parse-long)
+        f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:text (zx/text loc) :op comparison-op})))]
+    (members/q-and [(members/q-refset-id refset-id) (f refset-field-name v)])))
 
 (defn parse-member-filter--subexpression-constraint
+  "Parse a member filter that is a subexpression constraint.
+  We realise the concept identifiers for the subexpression, and simply use them
+  in our member filter.
+  ```
+  ^ [targetComponentId]  900000000000527005 |SAME AS association reference set|  {{ M referencedComponentId =  67415000 |Hay asthma|  }}
+  ```"
   [ctx refset-id refset-field-name comparison-op loc]
   (let [values (realise-concept-ids ctx (parse-subexpression-constraint ctx loc))]
     (case comparison-op
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-in refset-field-name values)])
       "!=" (members/q-not (members/q-refset-id refset-id) (members/q-field-in refset-field-name values))
       (throw (ex-info "Invalid operation for subexpression constraint" {:op comparison-op :text (zx/text loc)})))))
+
+(defn parse-member-field--boolean
+  [ctx refset-id refset-field-name comparison-op loc]
+  (let [v (parse-boolean (zx/text loc))]
+    (case comparison-op
+      "=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-boolean refset-field-name v)])
+      "!=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-boolean refset-field-name (not v))]))))
 
 (defn- parse-member-field-filter
   "memberFieldFilter = refsetFieldName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws
@@ -616,37 +620,73 @@
                           (zx/xml1-> loc :expressionComparisonOperator zx/text)
                           (zx/xml1-> loc :numericComparisonOperator zx/text)
                           (zx/xml1-> loc :booleanComparisonOperator zx/text)
-                          (zx/xml1-> loc :timeComparisonOperator))]
+                          (zx/xml1-> loc :timeComparisonOperator zx/text))]
     (or (seq (zx/xml-> loc :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %)))
         (seq (zx/xml-> loc :typedSearchTermSet :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %)))
         (seq (zx/xml-> loc :numericValue #(parse-member-filter--numeric ctx refset-id refset-field-name comparison-op %)))
         (seq (zx/xml-> loc :subExpressionConstraint #(parse-member-filter--subexpression-constraint ctx refset-id refset-field-name comparison-op %)))
-        (throw (ex-info "Unsupported member field filter:" {:memberFieldFilter   (zx/text loc)
-                                                            :loc                 (zip/node loc)
+        (seq (zx/xml1-> loc :booleanValue #(parse-member-field--boolean ctx refset-id refset-field-name comparison-op %)))
+        (throw (ex-info "Unsupported member field filter:" {:text                (zx/text loc)
                                                             :refset-field-name   refset-field-name
                                                             :comparison-operator comparison-op})))))
 
+(def time-comparison-ops
+  {"="  members/q-time=
+   ">"  members/q-time>
+   "<"  members/q-time<
+   ">=" members/q-time>=
+   "<=" members/q-time<=
+   "!=" members/q-time!=})
 
+(defn- parse-time-value
+  "timeValue = QM [ year month day ] QM"
+  [loc]
+  (let [^int year (zx/xml1-> loc :year zx/text #(Integer/parseInt %))
+        ^int month (zx/xml1-> loc :month zx/text #(Integer/parseInt %))
+        ^int day (zx/xml1-> loc :day zx/text #(Integer/parseInt %))]
+    (LocalDate/of year month day)))
 
-(defn- parse-active-filter
+(defn- parse-member-effective-time-filter
+  "effectiveTimeFilter = effectiveTimeKeyword ws timeComparisonOperator ws ( timeValue / timeValueSet )
+   timeValueSet = \"(\" ws timeValue *(mws timeValue) ws \")"
   [ctx refset-id loc]
-  (throw (ex-info "Unsupported member filter constraint" {:activeFilter (zx/text loc)})))
+  (let [op (zx/xml1-> loc :timeComparisonOperator zx/text)
+        f (get time-comparison-ops op)
+        values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))
+        _ (println "values: " {:op op :f f :values values})]
+    (members/q-and (into [(members/q-refset-id refset-id)] (mapv #(f "effectiveTime" %) values)))))
 
-(defn- parse-module-filter
+(defn- parse-member-filter--active-filter
+  "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
+   booleanComparisonOperator = \"=\" / \"!=\"
+   activeValue = activeTrueValue / activeFalseValue"
   [ctx refset-id loc]
-  (throw (ex-info "Unsupported member filter constraint" {:moduleFilter (zx/text loc)})))
+  (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
+        op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+    (println {:active? active? :op op})
+    (members/q-and [(members/q-refset-id refset-id)
+                    (members/q-field-boolean "active" (if (= "=" op) active? (not active?)))])))
 
-(defn- parse-effective-time-filter
+(defn- parse-member-filter--module-filter
+  "moduleFilter = moduleIdKeyword ws booleanComparisonOperator ws (subExpressionConstraint / eclConceptReferenceSet)"
   [ctx refset-id loc]
-  (throw (ex-info "Unsupported member filter constraint" {:effectiveTimeFilter (zx/text loc)})))
+  (let [concept-ids (or (seq (zx/xml1-> loc :subExpressionConstraint
+                                        #(parse-subexpression-constraint ctx %)
+                                        #(realise-concept-ids ctx %)))
+                        (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))
+        op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+    (case op
+      "=" (members/q-and [(members/q-refset-id refset-id) (members/q-module-ids concept-ids)])
+      "!=" (members/q-and [(members/q-refset-id refset-id)]))))
 
 (defn- parse-member-filter
   "memberFilter = memberFieldFilter / moduleFilter / effectiveTimeFilter / activeFilter"
   [ctx refset-id loc]
-  (or (zx/xml1-> loc :memberFieldFilter #(parse-member-field-filter ctx refset-id %))
-      (zx/xml1-> loc :activeFilter #(parse-active-filter ctx refset-id %))
-      (zx/xml1-> loc :moduleFilter #(parse-module-filter ctx refset-id %))
-      (zx/xml1-> loc :effectiveTimeFilter #(parse-effective-time-filter ctx refset-id %))))
+  ;; note, must try to parse memberFieldFilter last as least specific
+  (or (zx/xml1-> loc :activeFilter #(parse-member-filter--active-filter ctx refset-id %))
+      (zx/xml1-> loc :moduleFilter #(parse-member-filter--module-filter ctx refset-id %))
+      (zx/xml1-> loc :effectiveTimeFilter #(parse-member-effective-time-filter ctx refset-id %))
+      (zx/xml1-> loc :memberFieldFilter #(parse-member-field-filter ctx refset-id %))))
 
 (s/fdef parse-member-filter-constraint
   :args (s/cat :ctx ::ctx

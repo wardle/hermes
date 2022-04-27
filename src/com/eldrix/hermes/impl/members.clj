@@ -158,29 +158,39 @@
   ^Query [^Collection module-ids]
   (LongPoint/newSetQuery "moduleId" module-ids))
 
-(defn q-effective-time>=
-  "Create a query for items with an effective time greater or equal than 'd'."
-  ^Query [d]
-  (LongPoint/newRangeQuery "effectiveTime" (localdate->epoch-milli d) Long/MAX_VALUE))
+(defn q-time>=
+  "Create a query for items with a field, or an effective time, greater or equal
+  than 'd'."
+  (^Query [d] (q-time>= "effectiveTime" d))
+  (^Query [^String field d] (LongPoint/newRangeQuery field (localdate->epoch-milli d) Long/MAX_VALUE)))
 
-(defn q-effective-time>
-  "Create a query for items with an effective time greater than 'd'."
-  ^Query [d]
-  (LongPoint/newRangeQuery "effectiveTime" (inc (localdate->epoch-milli d)) Long/MAX_VALUE))
+(defn q-time>
+  "Create a query for items with a field, or an effective time, greater than 'd'."
+  ( ^Query [d] (q-time> "effectiveTime" d))
+  ( ^Query [^String field d] (LongPoint/newRangeQuery field (inc (localdate->epoch-milli d)) Long/MAX_VALUE)))
 
-(defn q-effective-time=
-  ^Query [d]
-  (LongPoint/newExactQuery "effectiveTime" (localdate->epoch-milli d)))
+(defn q-time=
+  "Create a query for items with a field, or an effective time, equal to 'd'."
+  (^Query [d] (q-time= "effectiveTime" d))
+  (^Query [^String field d] (LongPoint/newExactQuery field (localdate->epoch-milli d))))
 
-(defn q-effective-time<
-  "Create a query for items with an effective time less than 'd'."
-  ^Query [d]
-  (LongPoint/newRangeQuery "effectiveTime" 0 (dec (localdate->epoch-milli d))))
+(defn q-time<
+  "Create a query for items with a field, or an effective time, less than 'd'."
+  (^Query [d] (q-time< "effectiveTime" d))
+  (^Query [^String field d] (LongPoint/newRangeQuery field 0 (dec (localdate->epoch-milli d)))))
 
-(defn q-effective-time<=
-  "Create a query for items with an effective time less than or equal to 'd'."
-  ^Query [d]
-  (LongPoint/newRangeQuery "effectiveTime" 0 (localdate->epoch-milli d)))
+(defn q-time<=
+  "Create a query for items with a field, or an effective time, less than or
+  equal to 'd'."
+  (^Query [d] (q-time<= "effectiveTime" d))
+  (^Query [^String field d] (LongPoint/newRangeQuery field 0 (localdate->epoch-milli d))))
+
+(defn q-time!=
+  "Create a query for items with a field, or an effective time, not equal to 'd'."
+  (^Query [d] (q-time!= "effectiveTime" d))
+  (^Query [^String field d]
+   (let [v (localdate->epoch-milli d)]
+     (q-and [(q-time< field (dec v)) (q-time> field (inc v))]))))
 
 (defn q-field=
   "Create a query for items with a field equal to"
@@ -258,10 +268,10 @@
   (def reader (open-index-reader "snomed.db/members.db"))
   (def searcher (IndexSearcher. reader))
   (search searcher (q-refset-id 447562003))
-  (search searcher (q-and [ (q-prefix "mapTarget" "G21.0") (q-refset-id 447562003)]))
+  (search searcher (q-and [(q-prefix "mapTarget" "G21.0") (q-refset-id 447562003)]))
   (time
-    (do (def ids (search searcher (q-and [ (q-prefix "mapTarget" "G50") (q-refset-id 447562003)])))
-      (map #(store/get-component-refset-items store % 447562003) ids)))
+    (do (def ids (search searcher (q-and [(q-prefix "mapTarget" "G50") (q-refset-id 447562003)])))
+        (map #(store/get-component-refset-items store % 447562003) ids)))
   (def directory (ByteBuffersDirectory.))
   (def config (IndexWriterConfig. (StandardAnalyzer.)))
   (def writer (IndexWriter. directory config))
