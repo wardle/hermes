@@ -621,11 +621,11 @@
                           (zx/xml1-> loc :numericComparisonOperator zx/text)
                           (zx/xml1-> loc :booleanComparisonOperator zx/text)
                           (zx/xml1-> loc :timeComparisonOperator zx/text))]
-    (or (seq (zx/xml-> loc :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %)))
-        (seq (zx/xml-> loc :typedSearchTermSet :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %)))
-        (seq (zx/xml-> loc :numericValue #(parse-member-filter--numeric ctx refset-id refset-field-name comparison-op %)))
-        (seq (zx/xml-> loc :subExpressionConstraint #(parse-member-filter--subexpression-constraint ctx refset-id refset-field-name comparison-op %)))
-        (seq (zx/xml1-> loc :booleanValue #(parse-member-field--boolean ctx refset-id refset-field-name comparison-op %)))
+    (or (zx/xml1-> loc :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %))
+        (zx/xml1-> loc :typedSearchTermSet :typedSearchTerm #(parse-member-filter-typed-search-term ctx refset-id refset-field-name comparison-op %))
+        (zx/xml1-> loc :numericValue #(parse-member-filter--numeric ctx refset-id refset-field-name comparison-op %))
+        (zx/xml1-> loc :subExpressionConstraint #(parse-member-filter--subexpression-constraint ctx refset-id refset-field-name comparison-op %))
+        (zx/xml1-> loc :booleanValue #(parse-member-field--boolean ctx refset-id refset-field-name comparison-op %))
         (throw (ex-info "Unsupported member field filter:" {:text                (zx/text loc)
                                                             :refset-field-name   refset-field-name
                                                             :comparison-operator comparison-op})))))
