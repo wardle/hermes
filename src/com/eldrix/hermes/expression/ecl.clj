@@ -701,7 +701,7 @@
   filter accordingly. 'refsets' should be a Lucene query, or :wildcard,
   representing all reference sets.
   memberFilterConstraint = {{ ws (m / M) ws memberFilter *(ws , ws memberFilter) ws }}"
-  [{:keys [store] :as ctx} refsets loc]
+  [{:keys [store member-searcher] :as ctx} refsets loc]
   (let [refset-ids (cond (= :wildcard refsets)
                          (store/get-installed-reference-sets store)
                          (:conceptId refsets)
@@ -709,7 +709,10 @@
                          :else
                          (realise-concept-ids ctx (search/q-and [(search/q-descendantOf 900000000000455006) refsets])))]
     (when (seq refset-ids)
-      (search/q-or (map (fn [refset-id] (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))) refset-ids)))))
+      (let [queries (mapcat (fn [refset-id] (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))) refset-ids)
+            q (members/q-or queries)
+            referenced-component-ids (members/search member-searcher q)]
+        (search/q-concept-ids referenced-component-ids)))))
 
 (defn- parse-history-supplement
   "historySupplement = {{ ws + ws historyKeyword [ historyProfileSuffix / ws historySubset ] ws }}
