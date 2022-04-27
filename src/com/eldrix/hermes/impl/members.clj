@@ -4,7 +4,7 @@
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [clojure.core.async :as async])
-  (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery)
+  (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
            (org.apache.lucene.document Document Field Field$Store StringField LongPoint StoredField)
            (java.util UUID Collection)
            (java.time ZoneId LocalDate)
@@ -133,6 +133,11 @@
   ^Query [^String field-name ^String term]
   (TermQuery. (Term. field-name term)))
 
+(defn q-wildcard
+  "Create a wildcard query for the field specified."
+  ^Query [^String field ^String term]
+  (WildcardQuery. (Term. field term)))
+
 (defn q-refset-id
   "Create a query for items belonging to the reference set specified"
   ^Query [refset-id]
@@ -207,6 +212,10 @@
 (defn q-field-in
   [^String field ^Collection values]
   (LongPoint/newSetQuery field values))
+
+(defn q-field-boolean
+  [^String field x]
+  (q-term field (str x)))
 
 (defn q-referenced-component
   "Create a query for items relating to the specified component."
