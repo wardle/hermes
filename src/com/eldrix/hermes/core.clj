@@ -330,7 +330,7 @@
   [^Service svc refset-id prefix]
   (->> (member-field-prefix svc refset-id "mapTarget" prefix)
        (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
-       (filter #(.startsWith (:mapTarget %) prefix))))
+       (filter #(.startsWith ^String (:mapTarget %) prefix))))
 
 (s/fdef reverse-map-range
   :args (s/cat :svc ::svc
