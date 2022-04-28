@@ -338,15 +338,6 @@
                :refset-id :info.snomed.Concept/id
                :code (s/alt :prefix ::non-blank-string
                             :range (s/cat :lower-bound ::non-blank-string :upper-bound ::non-blank-string))))
-(defn ^:deprecated reverse-map-range
-  "DEPRECATED: Use [[reverse-map-prefix]] or [[members-field-prefix]] instead.
-
-  Returns the reverse mapping from the reference set specified, performing
-  what is essentially a prefix search using the parameters."
-  ([^Service svc refset-id prefix]
-   (store/get-reverse-map-range (.-store svc) refset-id prefix))
-  ([^Service svc refset-id lower-bound upper-bound]
-   (store/get-reverse-map-range (.-store svc) refset-id lower-bound upper-bound)))
 
 (s/fdef get-preferred-synonym
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))

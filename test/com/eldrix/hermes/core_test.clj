@@ -23,9 +23,8 @@
     (is (s/valid? :info.snomed/Concept (:concept multiple-sclerosis)))
     (is (every? true? (map #(s/valid? :info.snomed/Description %) (:descriptions multiple-sclerosis))))))
 
-(deftest ^:live test-reverse-map-range
-  (let [synonyms (->> (hermes/reverse-map-range *svc* 447562003 "I30")
-                      (map :referencedComponentId)
+(deftest ^:live test-reverse-map-prefix
+  (let [synonyms (->> (hermes/member-field-prefix *svc* 447562003 "mapTarget" "I30")
                       (map #(:term (hermes/get-preferred-synonym *svc* % "en"))))]
     (is (some #{"Viral pericarditis"} synonyms))))
 

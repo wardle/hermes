@@ -76,7 +76,6 @@
                      ^NavigableSet conceptParentRelationships ;; sourceId -- typeId -- group -- destinationId
                      ^NavigableSet conceptChildRelationships ;; destinationId -- typeId -- group -- sourceId
                      ^NavigableSet componentRefsets         ;; referencedComponentId -- refsetId -- msb -- lsb
-                     ^NavigableSet mapTargetComponent       ;; refsetId -- mapTarget -- id
                      ^NavigableSet associations]            ;; targetComponentId -- refsetId -- referencedComponentId - id
 
   Closeable
@@ -321,50 +320,6 @@
       (when attr-ids? (zipmap attr-ids fields))
       (dissoc item :fields))))
 
-(defn ^:deprecated get-reverse-map
-  "DEPRECATED: Use new reference set index instead.
-
-  Returns the reverse mapping from the reference set and mapTarget specified."
-  [^MapDBStore store refset-id s]
-  (->> (map seq (.subSet ^NavigableSet (.-mapTargetComponent store)
-                         (to-array [refset-id s])
-                         (to-array [refset-id s nil])))
-       (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb)))))
-
-(defn ^:deprecated prefix-upper-bound
-  "Given a string, generate an upper bound suitable for a prefix search.
-  For example, 123 should give 124."
-  [s]
-  (when-not (str/blank? s) (str (apply str (butlast s)) (char (unchecked-inc (int (last s)))))))
-
-(defn ^:deprecated get-reverse-map-range
-  "DEPRECATED: Use new reference set index instead.
-
-  Returns the reverse mapping from the reference set specified, performing
-  what is essentially a prefix search using the parameters.
-  For example (get-reverse-map-range store \"D86.\") will return all items
-  with a map target with prefix 'D86.' in the specified reference set.
-
-  
-  - store        : a MapDBStore
-  - refset-id    : the reference set in which to search
-  - lower-bound  : lower bound prefix, inclusive
-  - upper-bound  : upper bound prefix, exclusive
-  - prefix       : prefix; lower and upper bounds derived automatically
-
-  Prefixes are case sensitive, with natural string sorting used."
-  ([^MapDBStore store refset-id prefix]
-   (get-reverse-map-range store refset-id prefix nil))
-  ([^MapDBStore store refset-id lower-bound upper-bound]
-   (let [index ^NavigableSet (.-mapTargetComponent store)
-         least (.ceiling index (to-array [refset-id lower-bound]))
-         greatest (.floor index (to-array [refset-id (if upper-bound upper-bound (prefix-upper-bound lower-bound))]))
-         invalid? (or (str/blank? lower-bound) (and least greatest (pos? (.compare (.comparator index) least greatest))))]
-     (when-not invalid?
-       (->> (.subSet index least greatest)
-            (map seq)
-            (map #(let [[_refset-id _map-target uuid-msb uuid-lsb] %] (get-refset-item store uuid-msb uuid-lsb))))))))
-
 (defn get-source-associations
   "Returns the associations in which this component is the target.
   targetComponentId - refsetId - itemId1 -itemId2."
@@ -431,7 +386,6 @@
   | index               | simple or compound key                               |
   |:--------------------|:-----------------------------------------------------|
   | .componentRefsets   | referencedComponentId - refsetId - itemId1 - itemId2 |
-  | .mapTargetComponent | refsetId -- mapTarget - itemId1 - itemId2            |
   | .refsetFieldNames   | refsetId -- headings
   | .associations       | targetComponentId - refsetId -                       |
   |                     |  - referencedComponentId - itemId1 -itemId2          |
@@ -442,18 +396,15 @@
   (let [refsets (.refsets store)
         field-names ^BTreeMap (.-refsetFieldNames store)
         components ^NavigableSet (.componentRefsets store)
-        reverse-map ^NavigableSet (.mapTargetComponent store)
         associations ^NavigableSet (.associations store)]
     (doseq [o data]
       (let [o' (reify-refset-item store o)
-            {:keys [^UUID id referencedComponentId refsetId active mapTarget targetComponentId]} o'
+            {:keys [^UUID id referencedComponentId refsetId active targetComponentId]} o'
             uuid-msb (.getMostSignificantBits id)
             uuid-lsb (.getLeastSignificantBits id)]
         (when (write-object refsets o' (long-array [uuid-msb uuid-lsb]))
           (.putIfAbsent field-names refsetId (or headings []))
           (write-index-entry components (long-array [referencedComponentId refsetId uuid-msb uuid-lsb]) active)
-          (when mapTarget
-            (write-index-entry reverse-map (to-array [refsetId mapTarget uuid-msb uuid-lsb]) active))
           (when targetComponentId
             (write-index-entry associations (long-array [targetComponentId refsetId referencedComponentId uuid-msb uuid-lsb]) active)))))))
 
@@ -470,7 +421,6 @@
                          :concept-parent-relationships (.size ^NavigableSet (.conceptParentRelationships store))
                          :concept-child-relationships  (.size ^NavigableSet (.conceptChildRelationships store))
                          :component-refsets            (.size ^NavigableSet (.componentRefsets store))
-                         :map-target-component         (.size ^NavigableSet (.mapTargetComponent store))
                          :associations                 (.size ^NavigableSet (.associations store))})]
     {:concepts      @concepts
      :descriptions  @descriptions
@@ -512,10 +462,6 @@
          ;; b) returning the items for a given component from a specific refset.
          component-refsets (open-index db "c-rs" Serializer/LONG_ARRAY)
 
-         ;; for any map refsets, we store (refsetid--mapTarget--itemId'--itemId'') to
-         ;; allow reverse mapping from, e.g. Read code to SNOMED-CT
-         map-target-component (open-index db "r-ti" (SerializerArrayTuple. (into-array Serializer [Serializer/LONG Serializer/STRING Serializer/LONG Serializer/LONG])))
-
          ;; for association reference sets, we store an index to permit search from
          ;; target to source components - e.g. find components that this target has replaced
          ;; targetComponentId - refsetId - referencedComponentId - itemId1 -itemId2
@@ -530,7 +476,6 @@
                    concept-parent-relationships
                    concept-child-relationships
                    component-refsets
-                   map-target-component
                    associations))))
 
 (defmulti write-batch
