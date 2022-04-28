@@ -300,9 +300,8 @@
   character.
   Example:
   ```
-    (member-field-wildcard svc 447562003 \"mapTarget\" \"G3?\")
-  ```
-  "
+      (member-field-wildcard svc 447562003 \"mapTarget\" \"G3?\")
+  ```"
   [^Service svc refset-id field s]
   (members/search (.-memberSearcher svc)
                   (members/q-and [(members/q-refset-id refset-id)
@@ -310,8 +309,10 @@
 
 (s/fdef reverse-map
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
-(defn reverse-map
-  "Returns a sequence of reference set items representing the reverse mapping
+(defn ^:deprecated reverse-map
+  "DEPRECATED: Use [[member-field]] instead.
+
+  Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget specified. It's almost always better to
   use [[member-field]] or [[member-field-prefix]] directly."
   [^Service svc refset-id code]
