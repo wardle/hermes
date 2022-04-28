@@ -303,17 +303,21 @@
   use [[member-field]] or [[member-field-prefix]] directly."
   [^Service svc refset-id code]
   (->> (member-field svc refset-id "mapTarget" code)
-       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))))
+       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
+       (filter #(= (:mapTarget %) code))))
 
 (s/fdef reverse-map-prefix
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :prefix ::non-blank-string))
-(defn reverse-map-prefix
-  "Returns a sequence of reference set items representing the reverse mapping
+(defn ^:deprecated reverse-map-prefix
+  "DEPRECATED: Use [[member-field-prefix]] instead.
+
+  Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget. It is almost always better to use
   [[member-field]] or [[member-field-prefix]] directly."
   [^Service svc refset-id prefix]
   (->> (member-field-prefix svc refset-id "mapTarget" prefix)
-       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))))
+       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
+       (filter #(.startsWith (:mapTarget %) prefix))))
 
 (s/fdef reverse-map-range
   :args (s/cat :svc ::svc
