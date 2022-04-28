@@ -7,7 +7,7 @@ This log documents significant changes for each release.
 * Bump file-based database to 0.11 so application and database version matched
 * Improve refset extended attribute support
 * Add new search index 'members.db' for search of reference set members
-* ECL v2.0 support including +HISTORY and member filters
+* Partial ECL v2.0 support including +HISTORY and member filters
 * Add support for lucene v8 usage when required (e.g. for java 8 compatibility)
 
 ## [0.10.533] - 2022-04-11
