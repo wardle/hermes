@@ -280,6 +280,21 @@
                   (members/q-and
                     [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
 
+(defn member-field-wildcard
+  "Perform a member field wildcard search.
+  Supported wildcards are *, which matches any character sequence (including
+  the empty one), and ?, which matches any single character. '\\' is the escape
+  character.
+  Example:
+  ```
+    (member-field-wildcard svc 447562003 \"mapTarget\" \"G3?\")
+  ```
+  "
+  [^Service svc refset-id field s]
+  (members/search (.-memberSearcher svc)
+                  (members/q-and [(members/q-refset-id refset-id)
+                                  (members/q-wildcard field s)])))
+
 (s/fdef reverse-map
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
 (defn reverse-map
