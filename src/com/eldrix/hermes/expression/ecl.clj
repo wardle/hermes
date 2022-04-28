@@ -29,10 +29,9 @@
             [com.eldrix.hermes.rf2 :as-alias rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
-  (:import (org.apache.lucene.search Query IndexSearcher MatchAllDocsQuery)
+  (:import (org.apache.lucene.search Query IndexSearcher)
            (com.eldrix.hermes.impl.store MapDBStore)
-           (java.time LocalDate)
-           (java.time.format DateTimeFormatter)))
+           (java.time LocalDate)))
 
 (s/def ::query #(instance? Query %))
 (s/def ::store #(instance? MapDBStore %))
