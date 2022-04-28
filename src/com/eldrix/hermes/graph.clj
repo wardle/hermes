@@ -212,7 +212,7 @@
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
   [{::keys [svc]} {:info.read/keys [ctv3]}]
   {::pco/output [:info.snomed.Concept/id]}
-  {:info.snomed.Concept/id (:referencedComponentId (first (hermes/reverse-map svc 900000000000497000 ctv3)))})
+  {:info.snomed.Concept/id (first (hermes/member-field svc 900000000000497000 "mapTarget" ctv3))})
 
 (pco/defresolver concept-readctv3
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
