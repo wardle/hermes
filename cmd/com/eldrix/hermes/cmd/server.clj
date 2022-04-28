@@ -173,7 +173,7 @@
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (hermes/reverse-map (get-in context [:request ::service]) refset-id (str/upper-case code))]
+                (when-let [rfs (hermes/reverse-map (get-in context [:request ::service]) refset-id code)]
                   (assoc context :result rfs)))))})
 
 (def subsumed-by?
