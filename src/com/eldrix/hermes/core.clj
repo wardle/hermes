@@ -257,6 +257,19 @@
   ([^Service svc concept-ids refset-ids]
    (store/with-historical (.-store svc) concept-ids refset-ids)))
 
+(s/fdef history-profile
+  :args (s/cat :svc ::svc :profile #{:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX})
+  :ret (s/coll-of :info.snomed.Concept/id))
+(defn history-profile
+  "Returns a set of reference sets matching the named profile. Use in
+  conjunction with [[with-historical]]:
+  ```
+  (with-historical svc [24700007] (history-profile :HISTORY-MIN)
+  ```
+  See https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements"
+  [^Service svc profile]
+  (store/history-profile (.-store svc) profile))
+
 (defn get-installed-reference-sets
   "Return a set of identifiers representing installed reference sets."
   [^Service svc]
