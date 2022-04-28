@@ -889,7 +889,7 @@
    (with-historical st concept-ids
                     (disj (get-all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
   ([^MapDBStore st concept-ids assoc-refset-ids]
-   (let [historical-refsets assoc-refset-ids
+   (let [historical-refsets (set assoc-refset-ids)
          future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(get-component-refset-items st %) concept-ids)))
          modern (set/union (set concept-ids) (set future))
          historic (set (mapcat #(source-historical st % assoc-refset-ids) modern))]
