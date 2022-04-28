@@ -282,10 +282,10 @@
   ```
   (member-field svc 447562003 \"mapTarget\" \"G35\")
   ```"
-  [^Service svc refset-id field value]
+  [^Service svc refset-id field s]
   (members/search (.-memberSearcher svc)
                   (members/q-and
-                    [(members/q-refset-id refset-id) (members/q-term field value)])))
+                    [(members/q-refset-id refset-id) (members/q-term field s)])))
 
 (defn member-field-prefix
   [^Service svc refset-id field prefix]
@@ -395,8 +395,8 @@
   :ret (s/coll-of ::result))
 (defn search [^Service svc params]
   (if-let [constraint (:constraint params)]
-    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse {:store (.-store svc)
-                                                                        :searcher (.-searcher svc)
+    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse {:store           (.-store svc)
+                                                                        :searcher        (.-searcher svc)
                                                                         :member-searcher (.-memberSearcher svc)} constraint)))
     (search/do-search (.-searcher svc) params)))
 
@@ -817,8 +817,8 @@
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
   (search svc {:constraint "<24700007" :inactive-concepts? true})
-  (def ecl-q (ecl/parse {:store (.-store svc)
-                         :searcher (.-searcher svc)
+  (def ecl-q (ecl/parse {:store           (.-store svc)
+                         :searcher        (.-searcher svc)
                          :member-searcher (.-memberSearcher svc)} "<24700007"))
   ecl-q
   (def q1 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? true})]))
