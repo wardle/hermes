@@ -134,7 +134,13 @@
   (TermQuery. (Term. field-name term)))
 
 (defn q-wildcard
-  "Create a wildcard query for the field specified."
+  "Create a wildcard query for the field specified.
+  From the Lucene documentation:
+    \"Supported wildcards are *, which matches any character sequence (including
+     the empty one), and ?, which matches any single character. '\\' is the
+     escape character. Note this query can be slow, as it needs to iterate over
+     many terms. In order to prevent extremely slow wildcard queries, a term
+     should not start with the wildcard *\"."
   ^Query [^String field ^String term]
   (WildcardQuery. (Term. field term)))
 
