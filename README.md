@@ -403,7 +403,7 @@ clj -A:dev
 You can obtain status information about any index by using:
 
 ```shell
-clj -M:run --db snomed.db status
+clj -M:run --db snomed.db status --verbose
 ```
 
 Result:
