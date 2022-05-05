@@ -30,11 +30,10 @@
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher)
-           (com.eldrix.hermes.impl.store MapDBStore)
            (java.time LocalDate)))
 
 (s/def ::query #(instance? Query %))
-(s/def ::store #(instance? MapDBStore %))
+(s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
 (s/def ::member-searcher #(instance? IndexSearcher %))
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::member-searcher]))

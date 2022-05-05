@@ -1,12 +1,12 @@
 (ns com.eldrix.hermes.synth-test
   (:require [clojure.core.async :as a]
-            [clojure.tools.logging.readable :as log]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
             [clojure.test :refer :all]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.impl.store :as store]
@@ -35,18 +35,19 @@
 
 (defn temporary-paths-fixture
   "Fixture to create a temporary directory and associated subpaths."
-  [f & {:keys [delete?] :or {delete? true}}]
+  [f & {:keys [delete? print?] :or {delete? true print? false}}]
   (let [root-path (Files/createTempDirectory "hermes-" (make-array FileAttribute 0))
-          release-path (.toAbsolutePath (.resolve root-path "synth"))
-          db-path (.toAbsolutePath (.resolve root-path "snomed.db"))
-          store-path (.toAbsolutePath (.resolve db-path "store.db"))]
-      (Files/createDirectory release-path (make-array FileAttribute 0))
-      (binding [*paths* {:root-path root-path
-                         :release-path release-path
-                         :db-path  db-path
-                         :store-path store-path}]
-        (f)
-        (when delete? (delete-all root-path)))))
+        release-path (.toAbsolutePath (.resolve root-path "synth"))
+        db-path (.toAbsolutePath (.resolve root-path "snomed.db"))
+        store-path (.toAbsolutePath (.resolve db-path "store.db"))]
+    (Files/createDirectory release-path (make-array FileAttribute 0))
+    (binding [*paths* {:root-path    root-path
+                       :release-path release-path
+                       :db-path      db-path
+                       :store-path   store-path}]
+      (when print? (println *paths*))
+      (f)
+      (when delete? (delete-all root-path)))))
 
 (use-fixtures :each temporary-paths-fixture)
 
@@ -82,13 +83,13 @@
         refset-items (gen/sample (rf2/gen-simple-refset {:refsetId 1322291000000109 :active true :fields [24700007]}))]
     (write-components release-path "sct2_Concept_Snapshot_GB1000000_20180401.txt" [refset-concept])
     (write-components release-path "der2_cciRefset_RefsetDescriptorUKEDSnapshot_GB_20220316.txt" [rd1 rd2])
-    (write-components release-path "der2_cRefset_CareRecordElementUKCLSnapshot_GB_20220216.txt" refset-items)
+    (write-components release-path "der2_cRefset_CareRecordElementUKCLSnapshot_GB_20220216.txt" refset-items :field-headings ["targetComponentId"])
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (with-open [store (store/open-store (str store-path))]
       (is (= refset-concept (store/get-concept store (:id refset-concept))))
-      (is (every? #(instance? SimpleRefsetItem % ) refset-items))
-      (doseq [item refset-items]  ;; has every instance been reified to the correct type of reference set?
+      (is (every? #(instance? SimpleRefsetItem %) refset-items))
+      (doseq [item refset-items]                            ;; has every instance been reified to the correct type of reference set?
         (is (instance? AssociationRefsetItem (store/get-refset-item store (:id item))))))))
 
 (deftest test-components
@@ -111,7 +112,7 @@
       (is (= n (:concepts status)))
       (is (= n (:descriptions status)))
       (is (= n (:relationships status)))
-      (is (= (* n 2) (:refsets status))))))
+      (is (= (count (set (map :refsetId (concat lang-refsets refset-descriptors))))) (:refsets status)))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*
@@ -133,9 +134,10 @@
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
             en-US-description-ids (set (map :referencedComponentId en-US))]
         (is (= en-GB-refset (hermes/get-concept svc 999001261000000100)))
-        (is (every? true? (map #(contains? en-GB-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-GB"))) concepts)))
-        (is (every? true? (map #(contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US"))) concepts)))))))
+        (dorun (map #(is (contains? en-GB-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-GB")))) concepts))
+        (dorun (map #(is (contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US")))) concepts))))))
 
 (comment
   (run-tests)
-  (temporary-paths-fixture test-localisation :delete? false))
+  (temporary-paths-fixture test-localisation :delete? false)
+  (temporary-paths-fixture test-reify-refset))

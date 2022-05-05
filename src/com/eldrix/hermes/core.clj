@@ -62,7 +62,7 @@
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 
-(deftype Service [^MapDBStore store
+(deftype Service [^Closeable store
                   ^IndexReader indexReader
                   ^IndexSearcher searcher
                   ^IndexReader memberReader

@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.store-test
   (:require [clojure.set :as set]
-            [clojure.spec.test.alpha :as stest]
             [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer :all]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
@@ -15,7 +15,7 @@
 
 (deftest simple-store
   (testing "Throws exception if store doesn't exist and opened read-only"
-    (is (thrown? FileNotFoundException (store/open-store "store.db"))))
+    (is (thrown? Exception (store/open-store "store.db"))))
   (testing "Simple manual store and retrieval"
     (with-open [st (store/open-store)]
       (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 0 0)]
@@ -82,7 +82,8 @@
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
       (is (= #{refset-id} (store/get-installed-reference-sets st)))
-      (is (every? true? (map #(= (list refset-id) (store/get-component-refset-ids st (:id %))) members)))
+      (dorun (map #(is (= % (store/get-refset-item st (:id %)))) refset-items))
+      (is (every? true? (map #(= #{refset-id} (store/get-component-refset-ids st (:id %))) members)))
       (is (every? true? (map #(empty? (store/get-component-refset-ids st (:id %))) non-members)))
       (is (every? true? (map #(let [[item & more] (store/get-component-refset-items st (.-referencedComponentId %))]
                                 (and (nil? more) (= item %))) refset-items)))
@@ -94,7 +95,27 @@
         (is (= 1 (:refsets status)))
         (is (= (count refset-items) (get-in status [:indices :component-refsets])))))))
 
+(deftest write-refsets
+  (with-open [store (store/open-store)]
+    (let [simple (gen/sample (rf2/gen-simple-refset))
+          refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset))]
+      (store/write-batch {:type :info.snomed/SimpleRefset
+                          :data simple} store)
+      (store/write-batch {:type :info.snomed/RefsetDescriptorRefset
+                          :data refset-descriptors} store)
+      (dorun (map #(is (= % (store/get-refset-item store (:id %)))) (concat simple refset-descriptors))))))
 
+(deftest test-refset-descriptors
+  (let [refset-concept (gen/generate (rf2/gen-concept {:id 1322291000000109 :active true}))
+        rd1 (gen/generate (rf2/gen-refset-descriptor-refset {:refsetId 900000000000456007 :referencedComponentId 1322291000000109 :active true :attributeOrder 0 :attributeDescriptionId 449608002}))
+        rd2 (gen/generate (rf2/gen-refset-descriptor-refset {:refsetId 900000000000456007 :referencedComponentId 1322291000000109 :active true :attributeOrder 1 :attributeDescriptionId 900000000000533001}))]
+    (with-open [store (store/open-store)]
+      (store/write-batch {:type :info.snomed/Concept :data [refset-concept]} store)
+      (store/write-batch {:type :info.snomed/RefsetDescriptorRefset :data [rd1 rd2]} store)
+      (is (= rd1 (store/get-refset-item store (:id rd1))))
+      (is (= rd2 (store/get-refset-item store (:id rd2))))
+      (is (= (list rd1 rd2) (store/get-refset-descriptors store 1322291000000109)))
+      (is (= (list 449608002 900000000000533001) (store/get-refset-descriptor-attribute-ids store 1322291000000109))))))
 
 (deftest ^:live live-store
   (with-open [store (store/open-store "snomed.db/store.db")]
@@ -126,4 +147,5 @@
 
 (comment
   (run-tests)
+  (write-components-test)
   (live-store))
