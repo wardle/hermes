@@ -735,9 +735,11 @@
   ([root language-priority-list]
    (let [manifest (open-manifest root false)]
      (log/info "Building indices" {:root root :languages language-priority-list})
+     (log/info "Building search index")
      (search/build-search-index (get-absolute-filename root (:store manifest))
                                 (get-absolute-filename root (:search manifest))
                                 language-priority-list)
+     (log/info "Building members index")
      (members/build-members-index (get-absolute-filename root (:store manifest))
                                   (get-absolute-filename root (:members manifest)))
      (log/info "Building indices... complete."))))
