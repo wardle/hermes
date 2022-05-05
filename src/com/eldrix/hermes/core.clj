@@ -30,8 +30,7 @@
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
-  (:import (com.eldrix.hermes.impl.store MapDBStore)
-           (com.eldrix.hermes.snomed Result)
+  (:import (com.eldrix.hermes.snomed Result)
            (org.apache.lucene.search IndexSearcher Query)
            (org.apache.lucene.index IndexReader)
            (java.nio.file Paths Files LinkOption)
