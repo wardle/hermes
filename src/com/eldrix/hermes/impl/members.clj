@@ -87,10 +87,10 @@
 (defn build-members-index
   "Build a refset members index using the SNOMED CT store at `store-filename`."
   [store-filename refset-index-filename]
-  (let [ch (async/chan 100)]
+  (let [ch (async/chan 5)]
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer refset-index-filename)]
-      (async/onto-chan!! ch (store/get-all-refset-members store))
+      (store/stream-all-refset-items store ch)
       (async/<!!                                            ;; block until pipeline complete
         (async/pipeline-blocking                            ;; pipeline for side-effects
           (.availableProcessors (Runtime/getRuntime))       ;; Parallelism factor
@@ -281,7 +281,9 @@
   (def directory (ByteBuffersDirectory.))
   (def config (IndexWriterConfig. (StandardAnalyzer.)))
   (def writer (IndexWriter. directory config))
-  (def items (take 200 (store/get-all-refset-members store)))
+  (def ch (async/chan 200))
+  (store/stream-all-refset-items store)
+  (def items (async/<!! 200))
   (def docs (->> items
                  (map #(store/extended-refset-item store % :attr-ids? false))
                  (map make-document)))
