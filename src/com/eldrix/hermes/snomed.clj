@@ -37,10 +37,10 @@
              component or a change to an existing component."
 
   (:require [clojure.core.match :as match]
-            [clojure.tools.logging.readable :as log]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter DateTimeParseException]

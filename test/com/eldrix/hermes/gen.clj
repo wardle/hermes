@@ -2,7 +2,7 @@
   "Generators of synthetic SNOMED CT data, useful in creating a synthetic
   distribution for testing."
   (:require [clojure.spec.alpha :as s]
-            [clojure.test.check.generators :as gen]
+            [clojure.spec.gen.alpha :as gen]
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])

@@ -1,12 +1,10 @@
 (ns com.eldrix.hermes.expression.ecl-test
-  (:require [clojure.set :as set]
-            [clojure.test :refer [deftest is use-fixtures run-tests]]
+  (:require [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
-            [clojure.spec.test.alpha :as stest]
-            [com.eldrix.hermes.impl.members :as members]))
+            [clojure.spec.test.alpha :as stest]))
 
 (stest/instrument)
 
