@@ -153,7 +153,7 @@
   (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (async/chan)]                           ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
     (async/thread
-      (log/info "Processing " (count files) " files")
+      (log/debug "Processing " (count files) " files")
       (try
         (doseq [file files]
           (process-file (:path file) raw-c :batch-size batch-size))
