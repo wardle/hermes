@@ -281,15 +281,15 @@
    (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)])
 
 (def refset-standard-patterns
-  {:info.snomed/RefsetDescriptor     "cci"
-   :info.snomed/SimpleRefset         ""
-   :info.snomed/AssociationRefset    "c"
-   :info.snomed/LanguageRefset       "c"
-   :info.snomed/SimpleMapRefset      "s"
-   :info.snomed/ComplexMapRefset     "iisssc"
-   :info.snomed/ExtendedMapRefset    "iissscc"
-   :info.snomed/AttributeValueRefset "i"
-   :info.snomed/OWLExpressionRefset  "s"})
+  {:info.snomed/RefsetDescriptorRefset "cci"
+   :info.snomed/SimpleRefset           ""
+   :info.snomed/AssociationRefset      "c"
+   :info.snomed/LanguageRefset         "c"
+   :info.snomed/SimpleMapRefset        "s"
+   :info.snomed/ComplexMapRefset       "iisssc"
+   :info.snomed/ExtendedMapRefset      "iissscc"
+   :info.snomed/AttributeValueRefset   "i"
+   :info.snomed/OWLExpressionRefset    "s"})
 
 (defn- reify-association-refset-item [item]
   (let [[target & more] (:fields item)]
