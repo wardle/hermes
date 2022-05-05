@@ -373,7 +373,7 @@
 ;;
 ;;
 (defmulti write-refset-item
-  "Serialize a refset item with a single byte header indicated subtype."
+  "Serialize a refset item with a single byte header indicating subtype."
   (fn [^DataOutput _out o] (class o)))
 
 (defmethod write-refset-item :info.snomed/SimpleRefset [^DataOutput out o]
