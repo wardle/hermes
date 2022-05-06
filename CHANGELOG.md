@@ -6,7 +6,7 @@ This log documents significant changes for each release.
 
 * Switch to new lmdb-based backend  (a release for testing is [available](https://github.com/wardle/hermes/releases/tag/v0.12.602-lmdb-alpha))
 
-## [0.11.602] - not yet released
+## [0.11.604] - 2022-05-06
 
 * Bump file-based database to 0.11
 * Improve refset extended attribute support

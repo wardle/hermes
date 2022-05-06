@@ -16,7 +16,7 @@
 
 (defn jar [_]
   (clean nil)
-  (println "Building" lib version)
+  (println "Building" jar-file)
   (b/compile-clj {:basis      jar-basis
                   :class-dir  class-dir
                   :src-dir    ["src"]
@@ -39,7 +39,7 @@
   "Installs pom and library jar in local maven repository"
   [_]
   (jar nil)
-  (println "Installing" lib version)
+  (println "Installing" jar-file)
   (b/install {:basis     jar-basis
               :lib       lib
               :class-dir class-dir
@@ -51,6 +51,7 @@
   "Deploy library to clojars.
   Environment variables CLOJARS_USERNAME and CLOJARS_PASSWORD must be set."
   [_]
+  (println "Deploying" jar-file)
   (clean nil)
   (jar nil)
   (dd/deploy {:installer :remote
@@ -60,6 +61,7 @@
 (defn uber
   "Build an executable uberjar file for hermes HTTP server"
   [_]
+  (println "Building uberjar:" uber-file)
   (clean nil)
   (b/copy-dir {:src-dirs   ["src" "cmd" "resources"]
                :target-dir class-dir})
