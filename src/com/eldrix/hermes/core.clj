@@ -610,7 +610,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version 0.11
+  {:version 12
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
@@ -780,6 +780,8 @@
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
   (get-all-children svc 24700007)
+  (time (get-all-parents svc 24700007))
+  (time (get-extended-concept svc 24700007))
   (s/valid? :info.snomed/Concept (get-concept svc 24700007))
 
   (tap> (get-concept svc 24700007))
