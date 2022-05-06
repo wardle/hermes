@@ -250,7 +250,7 @@
        (loop [continue? (.first cursor)]
          (if continue?
            (do (async/>!! ch (read-fn (ByteBufInputStream. (.val cursor))))
-               (.clear ^ByteBuf (.val cursor))             ;; reset position in value otherwise .next will throw an exception on second item
+               (.resetReaderIndex ^ByteBuf (.val cursor))             ;; reset position in value otherwise .next will throw an exception on second item
                (recur (.next cursor)))
            (when close? (clojure.core.async/close! ch))))))))
 
@@ -325,7 +325,7 @@
             (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
               (persistent! results)
               (let [d (ser/read-description (ByteBufInputStream. (.val cursor)))]
-                (.clear ^ByteBuf (.val cursor))             ;; reset position in value otherwise .next will throw an exception on second item
+                (.resetReaderIndex ^ByteBuf (.val cursor))             ;; reset position in value otherwise .next will throw an exception on second item
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
 
