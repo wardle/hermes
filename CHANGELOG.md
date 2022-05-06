@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [0.11.???] - not yet released
+## [0.11.603] - not yet released
 
 * Bump file-based database to 0.11 so application and database version matched
 * Improve refset extended attribute support
