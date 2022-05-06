@@ -2,9 +2,13 @@
 
 This log documents significant changes for each release.
 
-## [0.11.603] - not yet released
+## [0.12] - not yet released
 
-* Bump file-based database to 0.11 so application and database version matched
+* Switch to new lmdb-based backend  (a release for testing is [available](https://github.com/wardle/hermes/releases/tag/v0.12.602-lmdb-alpha))
+
+## [0.11.602] - not yet released
+
+* Bump file-based database to 0.11
 * Improve refset extended attribute support
 * Add new search index 'members.db' for search of reference set members
 * Partial ECL v2.0 support including +HISTORY and member filters
