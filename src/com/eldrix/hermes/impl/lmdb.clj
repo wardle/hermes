@@ -50,7 +50,7 @@
   (close [_] (.close ^Env env)))
 
 (def ^:private rw-env-flags [EnvFlags/MDB_NOTLS EnvFlags/MDB_WRITEMAP EnvFlags/MDB_MAPASYNC EnvFlags/MDB_NOMETASYNC EnvFlags/MDB_NORDAHEAD])
-(def ^:private ro-env-flags [EnvFlags/MDB_NOTLS EnvFlags/MDB_RDONLY_ENV])
+(def ^:private ro-env-flags [EnvFlags/MDB_NOTLS EnvFlags/MDB_NOLOCK EnvFlags/MDB_RDONLY_ENV])
 (defn make-dbi-flags
   ^"[Lorg.lmdbjava.DbiFlags;" [read-only? & flags]
   (into-array DbiFlags (if read-only? flags (conj flags DbiFlags/MDB_CREATE))))
