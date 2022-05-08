@@ -10,15 +10,15 @@
                                      OWLExpressionRefsetItem
                                      AssociationRefsetItem)
            (java.time LocalDate)
-           (io.netty.buffer ByteBuf)
+           (io.netty.buffer ByteBuf ByteBufUtil)
            (java.util UUID)
            (java.nio.charset StandardCharsets)))
 
 (set! *warn-on-reflection* true)
 
 (defn writeUTF [^ByteBuf b ^String s]
-  (.writeShort b (.length s))
-  (.writeCharSequence b s StandardCharsets/UTF_8))
+  (.writeShort b (ByteBufUtil/utf8Bytes s))
+  (ByteBufUtil/writeUtf8 b s))
 
 (defn readUTF [^ByteBuf b]
     (.readCharSequence b (.readShort b) StandardCharsets/UTF_8))

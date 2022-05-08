@@ -22,6 +22,10 @@
       (finally
         (.release b)))))
 
+(deftest ser-string
+  (doall (map #(test-ser ser/writeUTF ser/readUTF %) (gen/sample (s/gen string?) n)))
+  (test-ser ser/writeUTF ser/readUTF "\uD835\uDD20ծềſģȟᎥ\uD835\uDC8Bǩľḿꞑȯ\uD835\uDE31\uD835\uDC5E\uD835\uDDCB\uD835\uDE34ȶ\uD835\uDF84\uD835\uDF08ψ\uD835\uDC99\uD835\uDE06\uD835\uDEA31234567"))
+
 (deftest ser-uuid
   (doall (map #(test-ser ser/write-uuid ser/read-uuid %) (repeatedly n #(UUID/randomUUID)))))
 
