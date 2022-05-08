@@ -21,7 +21,7 @@
             [com.eldrix.hermes.impl.ser :as ser])
   (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp]
            (java.nio.file.attribute FileAttribute)
-           (io.netty.buffer ByteBufInputStream PooledByteBufAllocator ByteBufOutputStream ByteBuf)
+           (io.netty.buffer PooledByteBufAllocator ByteBuf)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Description Relationship Concept)
            (java.util UUID)
@@ -121,7 +121,7 @@
   the stored component, if found."
   [^Dbi dbi ^Txn txn ^ByteBuf kb read-offset ^LocalDate effectiveTime]
   (let [existing (.get dbi txn kb)]
-    (or (not existing) (.isAfter effectiveTime (ser/read-effective-time (ByteBufInputStream. existing) read-offset)))))
+    (or (not existing) (.isAfter effectiveTime (ser/read-effective-time existing read-offset)))))
 
 (defn write-concepts
   "Each concept is stored as an entity in the 'concepts' db keyed by identifier."
@@ -129,13 +129,12 @@
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [db ^Dbi (.-concepts store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)
-          out (ByteBufOutputStream. vb)]
+          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try (doseq [^Concept concept concepts]
              (doto kb .clear (.writeLong (.-id concept)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime concept))
                (.clear vb)
-               (ser/write-concept out concept)
+               (ser/write-concept vb concept)
                (.put db txn kb vb put-flags)))
            (.commit txn)
            (finally (.release kb) (.release vb))))))
@@ -153,14 +152,13 @@
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)
           idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)
-          out (ByteBufOutputStream. vb)]
+          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
       (try (doseq [^Description description descriptions]
              (doto kb .clear (.writeLong (.-conceptId description)) (.writeLong (.-id description)))
              (doto idx-key .clear (.writeLong (.-id description)) (.writeLong (.-conceptId description)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime description))
                (.clear vb)
-               (ser/write-description out description)
+               (ser/write-description vb description)
                (.put db txn kb vb put-flags)
                (.put idx txn idx-key idx-val put-flags)))
            (.commit txn)
@@ -181,21 +179,21 @@
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64) ;; relationship entity
           parent-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; sourceId -- typeId -- group -- destinationId
           child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)
-          out (ByteBufOutputStream. vb)]
+          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
       (try (doseq [^Relationship relationship relationships]
              (doto kb .clear (.writeLong (.-id relationship)))
              (doto parent-idx-key .clear (.writeLong (.-sourceId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-destinationId relationship)))
              (doto child-idx-key .clear (.writeLong (.-destinationId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-sourceId relationship)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime relationship)) ;; skip a 8 byte key (relationship-id)
-               (ser/write-relationship out relationship)
+               (.clear vb)
+               (ser/write-relationship vb relationship)
                (.put db txn kb vb put-flags)
                (if (.-active relationship)
                  (do (.put parent-idx txn parent-idx-key idx-val put-flags)
                      (.put child-idx txn child-idx-key idx-val put-flags))
                  (do (.delete parent-idx txn parent-idx-key) ;; if its inactive, we're careful to delete any existing indices
-                     (.delete child-idx txn child-idx-key))) ;; so that update-in-place does work
-               (.clear vb)))
+                     (.delete child-idx txn child-idx-key))))) ;; so that update-in-place does work
+
            (.commit txn)
            (finally (.release kb) (.release vb) (.release parent-idx-key) (.release child-idx-key) (.release idx-val))))))
 
@@ -206,7 +204,7 @@
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try (.writeLong kb refset-id)
-           (ser/write-field-names (ByteBufOutputStream. vb) (or headings []))
+           (ser/write-field-names vb (or headings []))
            (.put headings-db txn kb vb put-flags)
            (finally (.release kb)
                     (.release vb))))))
@@ -242,7 +240,7 @@
               (doto component-kb .clear (.writeLong (:referencedComponentId item)) (.writeLong (:refsetId item)) (.writeLong msb) (.writeLong lsb))
               (when (should-write-object? items-db refsets-txn item-kb 17 (:effectiveTime item)) ;; skip a 17 byte key (type-msb-lsb; type = 1 byte, msb = 8 bytes, lsb = 8 bytes)
                 (.clear vb)
-                (ser/write-refset-item (ByteBufOutputStream. vb) item)
+                (ser/write-refset-item vb item)
                 (.put items-db refsets-txn item-kb vb put-flags)
                 (when target-id
                   (doto assoc-kb .clear (.writeLong target-id) (.writeLong (:refsetId item)) (.writeLong (:referencedComponentId item)) (.writeLong msb) (.writeLong lsb)))
@@ -266,7 +264,7 @@
                  cursor (.openCursor ^Dbi dbi txn)]
        (loop [continue? (.first cursor)]
          (if continue?
-           (do (async/>!! ch (read-fn (ByteBufInputStream. (.val cursor))))
+           (do (async/>!! ch (read-fn (.val cursor)))
                (.resetReaderIndex ^ByteBuf (.val cursor))   ;; reset position in value otherwise .next will throw an exception on second item
                (recur (.next cursor)))
            (when close? (clojure.core.async/close! ch))))))))
@@ -278,7 +276,7 @@
       (try
         (.writeLong kb id)
         (when-let [rb (.get dbi txn kb)]
-          (read-fn (ByteBufInputStream. rb)))
+          (read-fn rb))
         (finally (.release kb))))))
 
 (defn get-concept
@@ -303,7 +301,7 @@
             (when (= description-id did)
               (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
               (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
-                (ser/read-description (ByteBufInputStream. vb)))))))
+                (ser/read-description vb))))))
       (finally (.release kb)))))
 
 (defn map-keys-in-range
@@ -342,7 +340,7 @@
           (loop [results (transient []) continue? true]
             (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
               (persistent! results)
-              (let [d (ser/read-description (ByteBufInputStream. (.val cursor)))]
+              (let [d (ser/read-description (.val cursor))]
                 (.resetReaderIndex ^ByteBuf (.val cursor))  ;; reset position in value otherwise .next will throw an exception on second item
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
@@ -365,7 +363,7 @@
        (try
          (doto kb (.writeLong msb) (.writeLong lsb))
          (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
-           (ser/read-refset-item (ByteBufInputStream. vb)))
+           (ser/read-refset-item vb))
          (finally (.release kb)))))))
 
 

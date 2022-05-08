@@ -7,7 +7,7 @@
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed])
   (:import [java.time LocalDate]
-           (java.io DataInputStream ByteArrayOutputStream DataOutputStream ByteArrayInputStream)
+           (io.netty.buffer PooledByteBufAllocator)
            (java.util UUID)))
 
 (stest/instrument)
@@ -15,13 +15,12 @@
 (def n 2000)
 
 (defn test-ser [write-fn read-fn data]
-  (let [baos (ByteArrayOutputStream.)
-        out (DataOutputStream. baos)
-        _ (write-fn out data)
-        bais (ByteArrayInputStream. (.toByteArray baos))
-        in (DataInputStream. bais)
-        data' (read-fn in)]
-    (is (= data data'))))
+  (let [b (.directBuffer (PooledByteBufAllocator/DEFAULT))]
+    (try
+      (write-fn b data)
+      (is (= (read-fn b) data))
+      (finally
+        (.release b)))))
 
 (deftest ser-uuid
   (doall (map #(test-ser ser/write-uuid ser/read-uuid %) (repeatedly n #(UUID/randomUUID)))))

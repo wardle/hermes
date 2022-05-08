@@ -10,18 +10,27 @@
                                      OWLExpressionRefsetItem
                                      AssociationRefsetItem)
            (java.time LocalDate)
-           (java.io DataInput DataOutput)
-           (java.util UUID)))
+           (io.netty.buffer ByteBuf)
+           (java.util UUID)
+           (java.nio.charset StandardCharsets)))
 
 (set! *warn-on-reflection* true)
 
-(defn write-concept [^DataOutput out ^Concept o]
+(defn writeUTF [^ByteBuf b ^String s]
+  (.writeShort b (.length s))
+  (.writeCharSequence b s StandardCharsets/UTF_8))
+
+(defn readUTF [^ByteBuf b]
+    (.readCharSequence b (.readShort b) StandardCharsets/UTF_8))
+
+(defn write-concept [^ByteBuf out ^Concept o]
   (.writeLong out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
-  (.writeLong out (.-moduleId o)) (.writeLong out (.-definitionStatusId o)))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-definitionStatusId o)))
 
-(defn read-concept [^DataInput in]
+(defn read-concept [^ByteBuf in]
   (let [id (.readLong in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -29,31 +38,31 @@
         definition-status-id (.readLong in)]
     (snomed/->Concept id effectiveTime active moduleId definition-status-id)))
 
-(defn write-description [^DataOutput out ^Description o]
+(defn write-description [^ByteBuf out ^Description o]
   (.writeLong out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
   (.writeLong out (.-conceptId o))
-  (.writeUTF out (.-languageCode o))
+  (writeUTF out (.-languageCode o))
   (.writeLong out (.-typeId o))
-  (.writeUTF out (.-term o))
+  (writeUTF out (.-term o))
   (.writeLong out (.-caseSignificanceId o)))
 
-(defn read-description [^DataInput in]
+(defn read-description [^ByteBuf in]
   (let [id (.readLong in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
         moduleId (.readLong in)
         concept-id (.readLong in)
-        language-code (.readUTF in)
+        language-code (readUTF in)
         type-id (.readLong in)
-        term (.readUTF in)
+        term (readUTF in)
         case-significance-id (.readLong in)]
     (snomed/->Description
       id effectiveTime active moduleId concept-id language-code type-id term case-significance-id)))
 
-(defn write-relationship [^DataOutput out ^Relationship o]
+(defn write-relationship [^ByteBuf out ^Relationship o]
   (.writeLong out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -64,7 +73,7 @@
   (.writeLong out (.-characteristicTypeId o))
   (.writeLong out (.-modifierId o)))
 
-(defn read-relationship [^DataInput in]
+(defn read-relationship [^ByteBuf in]
   (let [id (.readLong in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -87,55 +96,55 @@
 
 (defn write-uuid
   "Write a UUID as two long integers (16 bytes)."
-  [^DataOutput out ^UUID uuid]
+  [^ByteBuf out ^UUID uuid]
   (.writeLong out (.getMostSignificantBits uuid))
   (.writeLong out (.getLeastSignificantBits uuid)))
 
 (defn read-uuid
   "Read two long integers as a 128-bit UUID."
-  ^UUID [^DataInput in]
+  ^UUID [^ByteBuf in]
   (UUID. (.readLong in) (.readLong in)))
 
 (defn write-field-names
   "Write a sequence of field names."
-  [^DataOutput out field-names]
+  [^ByteBuf out field-names]
   (.writeInt out (count field-names))
   (doseq [field-name field-names]
-    (.writeUTF out field-name)))
+    (writeUTF out field-name)))
 
 (defn read-field-names
   "Read a sequence of field names."
-  [^DataInput in]
+  [^ByteBuf in]
   (let [n-fields (.readInt in)]                             ;; read in count of custom fields, may be zero
     (loop [n 0 result []]
       (if (= n n-fields)
         result
         (recur (inc n)
-               (conj result (.readUTF in)))))))
+               (conj result (readUTF in)))))))
 
 (defmulti write-field (fn [_ v] (class v)))
-(defmethod write-field Long [^DataOutput out v]
+(defmethod write-field Long [^ByteBuf out v]
   (.writeByte out (int \i))
   (.writeLong out v))
-(defmethod write-field String [^DataOutput out v]
+(defmethod write-field String [^ByteBuf out v]
   (.writeByte out (int \s))
-  (.writeUTF out v))
+  (writeUTF out v))
 
-(defn read-field [^DataInput in]
+(defn read-field [^ByteBuf in]
   (let [field-type (char (.readByte in))]
     (case field-type
       \i (.readLong in)
-      \s (.readUTF in)
+      \s (readUTF in)
       (throw (ex-info "unknown refset field type" {:got      field-type
                                                    :expected #{\i \s}})))))
 (defn write-fields
-  [^DataOutput out fields]
+  [^ByteBuf out fields]
   (.writeInt out (count fields))                            ;; write out a count of the custom fields, may be zero
   (doseq [field fields]
     (write-field out field)))
 
 (defn read-fields
-  [^DataInput in]
+  [^ByteBuf in]
   (let [n-fields (.readInt in)]                             ;; read in count of custom fields, may be zero
     (loop [n 0 result []]
       (if (= n n-fields)
@@ -144,7 +153,7 @@
                (conj result (read-field in)))))))
 
 
-(defn write-simple-refset-item [^DataOutput out ^SimpleRefsetItem o]
+(defn write-simple-refset-item [^ByteBuf out ^SimpleRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -153,7 +162,7 @@
   (.writeLong out (.-referencedComponentId o))
   (write-fields out (.-fields o)))
 
-(defn read-simple-refset-item [^DataInput in]
+(defn read-simple-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -165,7 +174,7 @@
       id effectiveTime active moduleId refsetId referencedComponentId fields)))
 
 
-(defn write-association-refset-item [^DataOutput out ^AssociationRefsetItem o]
+(defn write-association-refset-item [^ByteBuf out ^AssociationRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -175,7 +184,7 @@
   (.writeLong out (.-targetComponentId o))
   (write-fields out (.-fields o)))
 
-(defn read-association-refset-item [^DataInput in]
+(defn read-association-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -187,7 +196,7 @@
     (snomed/->AssociationRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId targetComponentId fields)))
 
-(defn write-language-refset-item [^DataOutput out ^LanguageRefsetItem o]
+(defn write-language-refset-item [^ByteBuf out ^LanguageRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -197,7 +206,7 @@
   (.writeLong out (.-acceptabilityId o))
   (write-fields out (.-fields o)))
 
-(defn read-language-refset-item [^DataInput in]
+(defn read-language-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -210,30 +219,30 @@
       id effectiveTime active moduleId refsetId referencedComponentId acceptabilityId fields)))
 
 
-(defn write-simple-map-refset-item [^DataOutput out ^SimpleMapRefsetItem o]
+(defn write-simple-map-refset-item [^ByteBuf out ^SimpleMapRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
   (.writeLong out (.-refsetId o))
   (.writeLong out (.-referencedComponentId o))
-  (.writeUTF out (.-mapTarget o))
+  (writeUTF out (.-mapTarget o))
   (write-fields out (.-fields o)))
 
-(defn read-simple-map-refset-item [^DataInput in]
+(defn read-simple-map-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
         moduleId (.readLong in)
         refsetId (.readLong in)
         referencedComponentId (.readLong in)
-        mapTarget (.readUTF in)
+        mapTarget (readUTF in)
         fields (read-fields in)]
     (snomed/->SimpleMapRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId mapTarget fields)))
 
 
-(defn write-complex-map-refset-item [^DataOutput out ^ComplexMapRefsetItem o]
+(defn write-complex-map-refset-item [^ByteBuf out ^ComplexMapRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -241,13 +250,13 @@
   (.writeLong out (.-refsetId o))
   (.writeLong out (.-referencedComponentId o)) (.writeLong out (.-mapGroup o))
   (.writeLong out (.-mapPriority o))
-  (.writeUTF out (.-mapRule o))
-  (.writeUTF out (.-mapAdvice o))
-  (.writeUTF out (.-mapTarget o))
+  (writeUTF out (.-mapRule o))
+  (writeUTF out (.-mapAdvice o))
+  (writeUTF out (.-mapTarget o))
   (.writeLong out (.-correlationId o))
   (write-fields out (.-fields o)))
 
-(defn read-complex-map-refset-item [^DataInput in]
+(defn read-complex-map-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -256,9 +265,9 @@
         referencedComponentId (.readLong in)
         mapGroup (.readLong in)
         mapPriority (.readLong in)
-        mapRule (.readUTF in)
-        mapAdvice (.readUTF in)
-        mapTarget (.readUTF in)
+        mapRule (readUTF in)
+        mapAdvice (readUTF in)
+        mapTarget (readUTF in)
         correlationId (.readLong in)
         fields (read-fields in)]
     (snomed/->ComplexMapRefsetItem
@@ -266,7 +275,7 @@
       mapGroup mapPriority mapRule mapAdvice mapTarget correlationId fields)))
 
 
-(defn write-extended-map-refset-item [^DataOutput out ^ExtendedMapRefsetItem o]
+(defn write-extended-map-refset-item [^ByteBuf out ^ExtendedMapRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -274,14 +283,14 @@
   (.writeLong out (.-refsetId o))
   (.writeLong out (.-referencedComponentId o)) (.writeLong out (.-mapGroup o))
   (.writeLong out (.-mapPriority o))
-  (.writeUTF out (.-mapRule o))
-  (.writeUTF out (.-mapAdvice o))
-  (.writeUTF out (.-mapTarget o))
+  (writeUTF out (.-mapRule o))
+  (writeUTF out (.-mapAdvice o))
+  (writeUTF out (.-mapTarget o))
   (.writeLong out (.-correlationId o))
   (.writeLong out (.-mapCategoryId o))
   (write-fields out (.-fields o)))
 
-(defn read-extended-map-refset-item [^DataInput in]
+(defn read-extended-map-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -290,9 +299,9 @@
         referencedComponentId (.readLong in)
         mapGroup (.readLong in)
         mapPriority (.readLong in)
-        mapRule (.readUTF in)
-        mapAdvice (.readUTF in)
-        mapTarget (.readUTF in)
+        mapRule (readUTF in)
+        mapAdvice (readUTF in)
+        mapTarget (readUTF in)
         correlationId (.readLong in)
         mapCategoryId (.readLong in)
         fields (read-fields in)]
@@ -300,7 +309,7 @@
       id effectiveTime active moduleId refsetId referencedComponentId
       mapGroup mapPriority mapRule mapAdvice mapTarget correlationId mapCategoryId fields)))
 
-(defn write-attribute-value-refset-item [^DataOutput out ^AttributeValueRefsetItem o]
+(defn write-attribute-value-refset-item [^ByteBuf out ^AttributeValueRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -310,7 +319,7 @@
   (.writeLong out (.-valueId o))
   (write-fields out (.-fields o)))
 
-(defn read-attribute-value-refset-item [^DataInput in]
+(defn read-attribute-value-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -322,29 +331,29 @@
     (snomed/->AttributeValueRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId valueId fields)))
 
-(defn write-owl-expression-refset-item [^DataOutput out ^OWLExpressionRefsetItem o]
+(defn write-owl-expression-refset-item [^ByteBuf out ^OWLExpressionRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
   (.writeLong out (.-refsetId o))
   (.writeLong out (.-referencedComponentId o))
-  (.writeUTF out (.-owlExpression o))                       ;; TODO: add compression?
+  (writeUTF out (.-owlExpression o))                       ;; TODO: add compression?
   (write-fields out (.-fields o)))
-(defn read-owl-expression-refset-item [^DataInput in]
+(defn read-owl-expression-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
         moduleId (.readLong in)
         refsetId (.readLong in)
         referencedComponentId (.readLong in)
-        owlExpression (.readUTF in)
+        owlExpression (readUTF in)
         fields (read-fields in)]
     (snomed/->OWLExpressionRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId owlExpression fields)))
 
 
-(defn write-refset-descriptor-refset-item [^DataOutput out ^RefsetDescriptorRefsetItem o]
+(defn write-refset-descriptor-refset-item [^ByteBuf out ^RefsetDescriptorRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
@@ -355,7 +364,7 @@
   (.writeLong out (.-attributeTypeId o))
   (.writeInt out (.-attributeOrder o)))
 
-(defn read-refset-descriptor-refset-item [^DataInput in]
+(defn read-refset-descriptor-refset-item [^ByteBuf in]
   (let [id (read-uuid in)
         effectiveTime (LocalDate/ofEpochDay (.readLong in))
         active (.readBoolean in)
@@ -374,37 +383,37 @@
 ;;
 (defmulti write-refset-item
   "Serialize a refset item with a single byte header indicating subtype."
-  (fn [^DataOutput _out o] (class o)))
+  (fn [^ByteBuf _out o] (class o)))
 
-(defmethod write-refset-item :info.snomed/SimpleRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/SimpleRefset [^ByteBuf out o]
   (.writeByte out 1)
   (write-simple-refset-item out o))
-(defmethod write-refset-item :info.snomed/LanguageRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/LanguageRefset [^ByteBuf out o]
   (.writeByte out 2)
   (write-language-refset-item out o))
-(defmethod write-refset-item :info.snomed/SimpleMapRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/SimpleMapRefset [^ByteBuf out o]
   (.writeByte out 3)
   (write-simple-map-refset-item out o))
-(defmethod write-refset-item :info.snomed/ComplexMapRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/ComplexMapRefset [^ByteBuf out o]
   (.writeByte out 4)
   (write-complex-map-refset-item out o))
-(defmethod write-refset-item :info.snomed/ExtendedMapRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/ExtendedMapRefset [^ByteBuf out o]
   (.writeByte out 5)
   (write-extended-map-refset-item out o))
-(defmethod write-refset-item :info.snomed/OWLExpressionRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/OWLExpressionRefset [^ByteBuf out o]
   (.writeByte out 6)
   (write-owl-expression-refset-item out o))
-(defmethod write-refset-item :info.snomed/AttributeValueRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/AttributeValueRefset [^ByteBuf out o]
   (.writeByte out 7)
   (write-attribute-value-refset-item out o))
-(defmethod write-refset-item :info.snomed/RefsetDescriptorRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/RefsetDescriptorRefset [^ByteBuf out o]
   (.writeByte out 8)
   (write-refset-descriptor-refset-item out o))
-(defmethod write-refset-item :info.snomed/AssociationRefset [^DataOutput out o]
+(defmethod write-refset-item :info.snomed/AssociationRefset [^ByteBuf out o]
   (.writeByte out 9)
   (write-association-refset-item out o))
 
-(defn read-refset-item [^DataInput in]
+(defn read-refset-item [^ByteBuf in]
   (case (.readByte in)
     1 (read-simple-refset-item in)
     2 (read-language-refset-item in)
@@ -420,9 +429,8 @@
   "Optimised fetch of only the effectiveTime of a SNOMED component.
   Core SNOMED concepts have an identifier of 8 bytes (64-bit unsigned long).
   Refset items have an identifier of 16 bytes (128-bit UUID)."
-  [^DataInput in read-offset]
-  (.skipBytes in read-offset)
-  (LocalDate/ofEpochDay (.readLong in)))
+  [^ByteBuf in read-offset]
+  (LocalDate/ofEpochDay (.getLong in read-offset)))
 
 (comment)
 
