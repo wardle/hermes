@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [0.12.613] - 2022-05-08
+## [0.12.627] - 2022-05-08
 
 * Switch to new lmdb storage backend, version 'lmdb/14'
 
