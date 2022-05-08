@@ -124,12 +124,12 @@
   (is (isa? :info.snomed/Concept :info.snomed/Component)))
 
 (def example-filenames
-  [{:filename     "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
-    :component    "OWLExpressionRefset"
-    :identifier   :info.snomed/OWLExpressionRefset
-    :release-type "Snapshot"
-    :content      "Refset"
-    :summary      "OwlExpression"}
+  [#_{:filename     "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt"
+      :component    "OWLExpressionRefset"
+      :identifier   :info.snomed/OWLExpressionRefset
+      :release-type "Snapshot"
+      :content      "Refset"
+      :summary      "OwlExpression"}
    {:filename          "der2_cRefset_AssociationSnapshot_GB1000000_20180401.txt"
     :format            "2"
     :content-subtype   "AssociationSnapshot"

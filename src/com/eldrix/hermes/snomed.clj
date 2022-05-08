@@ -539,8 +539,8 @@
    :info.snomed/SimpleMapRefset        parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset       parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset      parse-extended-map-refset-item
-   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item
-   :info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
+   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item})
+   ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)

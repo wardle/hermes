@@ -17,7 +17,7 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.impl.mapdb :as kv]
+            [com.eldrix.hermes.impl.lmdb :as kv]
             [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.snomed Concept ExtendedConcept SimpleRefsetItem)
            (java.io Closeable)))

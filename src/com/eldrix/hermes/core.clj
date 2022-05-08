@@ -42,6 +42,15 @@
 
 (set! *warn-on-reflection* true)
 
+
+(def ^:private expected-manifest
+  "Defines the current expected manifest."
+  {:version "lmdb/14"
+   :store   "store.db"
+   :search  "search.db"
+   :members "members.db"})
+
+
 (s/def ::svc any?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 (s/def ::component-id (s/and pos-int? verhoeff/valid?))
@@ -608,13 +617,6 @@
 ;;;;
 ;;;;
 
-(def ^:private expected-manifest
-  "Defines the current expected manifest."
-  {:version 0.11
-   :store   "store.db"
-   :search  "search.db"
-   :members "members.db"})
-
 (defn- open-manifest
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
   ([root] (open-manifest root false))
@@ -780,6 +782,8 @@
   (def svc (open "snomed.db"))
   (get-concept svc 24700007)
   (get-all-children svc 24700007)
+  (time (get-all-parents svc 24700007))
+  (time (get-extended-concept svc 24700007))
   (s/valid? :info.snomed/Concept (get-concept svc 24700007))
 
   (tap> (get-concept svc 24700007))

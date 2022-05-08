@@ -2,9 +2,9 @@
 
 This log documents significant changes for each release.
 
-## [0.12] - not yet released
+## [0.12.613] - 2022-05-08
 
-* Switch to new lmdb-based backend  (a release for testing is [available](https://github.com/wardle/hermes/releases/tag/v0.12.602-lmdb-alpha))
+* Switch to new lmdb storage backend, version 'lmdb/14'
 
 ## [0.11.604] - 2022-05-06
 
