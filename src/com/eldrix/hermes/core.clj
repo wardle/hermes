@@ -42,6 +42,15 @@
 
 (set! *warn-on-reflection* true)
 
+
+(def ^:private expected-manifest
+  "Defines the current expected manifest."
+  {:version "lmdb/14"
+   :store   "store.db"
+   :search  "search.db"
+   :members "members.db"})
+
+
 (s/def ::svc any?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 (s/def ::component-id (s/and pos-int? verhoeff/valid?))
@@ -607,13 +616,6 @@
 ;;;;
 ;;;;
 ;;;;
-
-(def ^:private expected-manifest
-  "Defines the current expected manifest."
-  {:version 13
-   :store   "store.db"
-   :search  "search.db"
-   :members "members.db"})
 
 (defn- open-manifest
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
