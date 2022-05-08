@@ -87,7 +87,7 @@
 (defn build-members-index
   "Build a refset members index using the SNOMED CT store at `store-filename`."
   [store-filename refset-index-filename]
-  (let [ch (async/chan 5)]
+  (let [ch (async/chan 50)]
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer refset-index-filename)]
       (store/stream-all-refset-items store ch)
