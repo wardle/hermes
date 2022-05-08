@@ -47,7 +47,7 @@
 
 (defn status [{:keys [db verbose]} _]
   (if db
-    (pp/pprint (hermes/get-status db :counts? verbose :installed-refsets? true))
+    (pp/pprint (hermes/get-status db :counts? true :installed-refsets? verbose))
     (log/error "no database directory specified")))
 
 (defn serve [{:keys [db _port _bind-address allowed-origins] :as params} _]
