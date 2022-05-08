@@ -79,16 +79,15 @@ If you've downloaded a distribution manually, import like this:
 clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
-My tiny i5 'NUC' machine takes 4 minutes to import the UK edition of SNOMED CT and a further 2 minutes to import the UK dictionary
+My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT and a further minute to import the UK dictionary
 of medicines and devices.
 
-4. Compact and index
+4. Index
 ```shell
-clj -J-Xmx8g -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
 ```
 
-My machine takes 6 seconds to compact the database and 2 minutes to build the search index. 
+My machine takes 6 minutes for indexing. 
 
 5. Run a server!
 ```shell
@@ -340,36 +339,9 @@ clj -M:run --db snomed.db import ~/Downloads/snomed-2020/
 ```
 
 The import of both International and UK distribution files takes
-a total of less than 3 minutes on my machine.
+a minute on my machine.
 
-#### 2. Compact database (optional).
-
-This reduces the file size by around 20% and takes about 1 minute.
-This is an optional step, but recommended.
-
-```shell
-java -jar hermes.jar --db snomed.db compact
-```
-
-or
-
-```shell
-clj -M:run --db snomed.db compact
-```
-
-You may need to give java more memory for compaction; I only need to do so after 
-importing three different distributions, but it will depend on the size of each.
-
-For example
-```shell
-java -Xmx8g -jar hermes.jar --db snomed.db compact
-```
-
-```shell 
-clj -J-Xmx8g -M:run --db snomed.db compact
-```
-
-#### 3. Build search index
+#### 2. Build search index
 
 Run 
 ```shell
@@ -381,9 +353,9 @@ or
 ```shell
 clj -M:run --db snomed.db index
 ```
-This will build the search index; it takes about 2 minutes on my machine.
+This will build the search index; it takes about 6 minutes on my machine.
 
-#### 4. Run a REPL (optional)
+#### 3. Run a REPL (optional)
 
 When I first built terminology tools, either in java or in golang, I needed to
 also build a custom command-line interface in order to explore the ontology.
@@ -398,7 +370,7 @@ REPL from within my IDE.
 ```
 clj -A:dev
 ```
-#### 5. Get the status of your installed index
+#### 4. Get the status of your installed index
 
 You can obtain status information about any index by using:
 
@@ -428,7 +400,7 @@ Result:
 The result will be different after I also import the UK dm+d 
 (dictionary of medicines and devices) distribution.
 
-#### 6. Run a terminology web service
+#### 5. Run a terminology web service
 
 By default, data are returned using [edn](https://github.com/edn-format/edn) but
 of course, simply add "Accept:application/json" in the request header and it
@@ -885,7 +857,7 @@ You get a more general concept - 'encephalitis' (`45170000`) that is in the
 emergency unit reference set. This makes it straightforward to map concepts
 into subsets of terms as defined by a reference set for analytics.
 
-#### 7. Embed into another application
+#### 6. Embed into another application
 
 You can use git coordinates in a deps.edn file, or use maven: 
 
