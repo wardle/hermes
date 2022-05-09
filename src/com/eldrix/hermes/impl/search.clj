@@ -261,6 +261,14 @@
   []
   (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName))
 
+(defn q-concept-active
+  [active?]
+  (TermQuery. (Term. "concept-active" (str active?))))
+
+(defn q-description-active
+  [active?]
+  (TermQuery. (Term. "description-active" (str active?))))
+
 (defn boost-length-query
   "Returns a new query with scores boosted by the inverse of the length"
   [^Query q]

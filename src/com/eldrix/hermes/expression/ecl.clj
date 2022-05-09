@@ -371,6 +371,18 @@
     (or (zx/xml1-> loc :dialectIdFilter (partial parse-dialect-id-filter acceptability-set))
         (zx/xml1-> loc :dialectAliasFilter (partial parse-dialect-alias-filter acceptability-set)))))
 
+(defn- parse-description-active-filter
+  "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
+  activeValue = activeTrueValue / activeFalseValue
+  activeTrueValue = \"1\" / \"true\"
+  activeFalseValue = \"0\" / \"false\""
+  [ctx loc]
+  (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
+        op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+    (case op
+      "=" (search/q-description-active active?)
+      "!=" (search/q-description-active (not active?)))))
+
 (defn- parse-description-filter
   "2.0: descriptionFilter = termFilter / languageFilter / typeFilter / dialectFilter / moduleFilter / effectiveTimeFilter / activeFilter\n
   1.5: filter = termFilter / languageFilter / typeFilter / dialectFilter"
@@ -379,6 +391,7 @@
       (zx/xml1-> loc :languageFilter parse-language-filter)
       (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
       (zx/xml1-> loc :dialectFilter parse-dialect-filter)
+      (zx/xml1-> loc :activeFilter #(parse-description-active-filter ctx %))
       (throw (ex-info "Description filter not yet implemented" {:ecl (zx/text loc)}))))
 
 (defn- parse-description-filter-constraint
@@ -659,6 +672,7 @@
         values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))
         _ (println "values: " {:op op :f f :values values})]
     (members/q-and (into [(members/q-refset-id refset-id)] (mapv #(f "effectiveTime" %) values)))))
+
 
 (defn- parse-member-filter--active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
