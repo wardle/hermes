@@ -167,21 +167,24 @@
       (zx/xml1-> loc :wildSearchTermSet parse-wild-search-term-set)))
 
 (defn- parse-term-filter
-  "termFilter = termKeyword ws booleanComparisonOperator ws (typedSearchTerm / typedSearchTermSet)"
+  "termFilter = termKeyword ws stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet)\n"
   [loc]
-  (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text) ;; "=" or "!="
-        typed-search-term (zx/xml-> loc :typedSearchTerm parse-typed-search-term)
+  (let [op (zx/xml1-> loc :stringComparisonOperator zx/text) ;; "=" or "!="
+        typed-search-term (zx/xml1-> loc :typedSearchTerm parse-typed-search-term)
         typed-search-term-set (zx/xml1-> loc :typedSearchTermSet parse-typed-search-term-set)]
     (cond
-      (and (= "=" boolean-comparison-operator) (seq typed-search-term))
+      (and (= "=" op) typed-search-term)
       typed-search-term
 
-      (and (= "=" boolean-comparison-operator) (seq typed-search-term-set))
+      (and (= "=" op) typed-search-term-set)
       typed-search-term-set
 
       ;; TODO: support "!=" as a boolean comparison operator
       :else
-      (throw (ex-info "unsupported term filter" {:s (zx/text loc)})))))
+      (throw (ex-info "unsupported term filter" {:s (zx/text loc)
+                                                 :op op
+                                                 :term typed-search-term
+                                                 :term-sets typed-search-term-set})))))
 
 (defn- parse-language-filter [loc]
   (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
@@ -368,18 +371,21 @@
     (or (zx/xml1-> loc :dialectIdFilter (partial parse-dialect-id-filter acceptability-set))
         (zx/xml1-> loc :dialectAliasFilter (partial parse-dialect-alias-filter acceptability-set)))))
 
-(defn- parse-filter
-  "filter = termFilter / languageFilter / typeFilter / dialectFilter"
+(defn- parse-description-filter
+  "2.0: descriptionFilter = termFilter / languageFilter / typeFilter / dialectFilter / moduleFilter / effectiveTimeFilter / activeFilter\n
+  1.5: filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
   (or (zx/xml1-> loc :termFilter parse-term-filter)
       (zx/xml1-> loc :languageFilter parse-language-filter)
       (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
-      (zx/xml1-> loc :dialectFilter parse-dialect-filter)))
+      (zx/xml1-> loc :dialectFilter parse-dialect-filter)
+      (throw (ex-info "Description filter not yet implemented" {:ecl (zx/text loc)}))))
 
-(defn- parse-filter-constraint
-  "filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
+(defn- parse-description-filter-constraint
+  "2.0: descriptionFilterConstraint = \"{{\" ws [ \"d\" / \"D\" ] ws descriptionFilter *(ws \",\" ws descriptionFilter) ws \"}}\"\n
+  1.5 : filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
   [ctx loc]
-  (search/q-and (zx/xml-> loc :filter (partial parse-filter ctx))))
+  (search/q-and (zx/xml-> loc :descriptionFilter (partial parse-description-filter ctx))))
 
 (defn- parse-cardinality [loc]
   (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
@@ -772,7 +778,7 @@
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
-        filter-constraints (zx/xml-> loc :filterConstraint (partial parse-filter-constraint ctx))
+        description-filter-constraints (zx/xml-> loc :descriptionFilterConstraint (partial parse-description-filter-constraint ctx))
         member-filter-constraints (zx/xml-> loc :memberFilterConstraint
                                             #(parse-member-filter-constraint ctx (or focus-concept expression-constraint) %))
         history-supplement (zx/xml1-> loc :historySupplement #(parse-history-supplement ctx %))
@@ -885,15 +891,15 @@
 
                      :else
                      (throw (ex-info "error: unimplemented expression fragment; use `(ex-data *e)` to see context."
-                                     {:text                  (zx/text loc)
-                                      :constraint-operator   constraint-operator
-                                      :member-of             member-of
-                                      :focus-concept         focus-concept
-                                      :expression-constraint expression-constraint
-                                      :filter-constraints    filter-constraints})))]
+                                     {:text                           (zx/text loc)
+                                      :constraint-operator            constraint-operator
+                                      :member-of                      member-of
+                                      :focus-concept                  focus-concept
+                                      :expression-constraint          expression-constraint
+                                      :description-filter-constraints description-filter-constraints})))]
     ;; now take base query (as 'b') and process according to the constraints
     (-> base-query
-        (apply-filter-constraints ctx filter-constraints)
+        (apply-filter-constraints ctx description-filter-constraints)
         (apply-history-supplement ctx history-supplement))))
 
 (defn- parse-refined-expression-constraint
@@ -936,7 +942,7 @@
     (def ctx {:store store :searcher searcher :member-searcher member-searcher})
     (require '[clojure.pprint :as pp])
     (def testq (comp pp/print-table (partial search/test-query store searcher)))
-    (def pe (partial parse store searcher)))
+    (def pe (partial parse ctx)))
 
   (pe "404684003 |Clinical finding|")
   (pe "<  404684003 |Clinical finding|")
@@ -968,4 +974,5 @@
      ((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )")
 
 
-  (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000))
+  (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000)
+  (pe "<  64572001 |Disease| {{ term = wild:\"cardi*opathy\"}}"))
