@@ -376,7 +376,7 @@
   activeValue = activeTrueValue / activeFalseValue
   activeTrueValue = \"1\" / \"true\"
   activeFalseValue = \"0\" / \"false\""
-  [ctx loc]
+  [loc]
   (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
         op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
     (case op
@@ -391,14 +391,34 @@
       (zx/xml1-> loc :languageFilter parse-language-filter)
       (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
       (zx/xml1-> loc :dialectFilter parse-dialect-filter)
-      (zx/xml1-> loc :activeFilter #(parse-description-active-filter ctx %))
-      (throw (ex-info "Description filter not yet implemented" {:ecl (zx/text loc)}))))
+      (zx/xml1-> loc :activeFilter #(parse-description-active-filter %))
+      (throw (ex-info "Unsupported description filter" {:ecl (zx/text loc)}))))
 
 (defn- parse-description-filter-constraint
   "2.0: descriptionFilterConstraint = \"{{\" ws [ \"d\" / \"D\" ] ws descriptionFilter *(ws \",\" ws descriptionFilter) ws \"}}\"\n
   1.5 : filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
   [ctx loc]
   (search/q-and (zx/xml-> loc :descriptionFilter (partial parse-description-filter ctx))))
+
+(defn- parse-concept-active-filter
+  "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue"
+  [loc]
+  (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
+        op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+    (case op
+      "=" (search/q-concept-active active?)
+      "!=" (search/q-concept-active (not active?)))))
+
+(defn- parse-concept-filter
+  "conceptFilter = definitionStatusFilter / moduleFilter / effectiveTimeFilter / activeFilter"
+  [ctx loc]
+  (or (zx/xml1-> loc :activeFilter #(parse-concept-active-filter %))
+      (throw (ex-info "Unsupported concept filter" {:text (zx/text loc)}))))
+
+(defn- parse-concept-filter-constraint
+  "conceptFilterConstraint = {{\" ws (\"c\" / \"C\") ws conceptFilter *(ws \",\" ws conceptFilter) ws \"}}"
+  [ctx loc]
+  (search/q-and (zx/xml-> loc :conceptFilter #(parse-concept-filter ctx %))))
 
 (defn- parse-cardinality [loc]
   (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
@@ -746,7 +766,7 @@
 
 (defn- apply-filter-constraints
   [base-query _ctx filter-constraints]
-  (if filter-constraints
+  (if (seq filter-constraints)
     (search/q-and (conj filter-constraints base-query))
     base-query))
 
@@ -792,6 +812,7 @@
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
         description-filter-constraints (zx/xml-> loc :descriptionFilterConstraint (partial parse-description-filter-constraint ctx))
+        concept-filter-constraints (zx/xml-> loc :conceptFilterConstraint #(parse-concept-filter-constraint ctx %))
         member-filter-constraints (zx/xml-> loc :memberFilterConstraint
                                             #(parse-member-filter-constraint ctx (or focus-concept expression-constraint) %))
         history-supplement (zx/xml1-> loc :historySupplement #(parse-history-supplement ctx %))
@@ -912,6 +933,7 @@
                                       :description-filter-constraints description-filter-constraints})))]
     ;; now take base query (as 'b') and process according to the constraints
     (-> base-query
+        (apply-filter-constraints ctx concept-filter-constraints)
         (apply-filter-constraints ctx description-filter-constraints)
         (apply-history-supplement ctx history-supplement))))
 
