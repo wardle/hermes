@@ -157,7 +157,7 @@
   "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
   [loc]
   (let [terms (zx/xml-> loc :typedSearchTerm parse-typed-search-term)]
-    (search/q-and terms)))
+    (search/q-or terms)))
 
 (s/fdef parse-typed-search-term
   :args (s/cat :loc ::loc))
