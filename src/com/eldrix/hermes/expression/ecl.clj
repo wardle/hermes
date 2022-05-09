@@ -667,7 +667,6 @@
   [ctx refset-id loc]
   (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
         op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
-    (println {:active? active? :op op})
     (members/q-and [(members/q-refset-id refset-id)
                     (members/q-field-boolean "active" (if (= "=" op) active? (not active?)))])))
 
