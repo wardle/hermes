@@ -39,7 +39,7 @@
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::member-searcher]))
 (s/def ::loc any?)
 
-(def ecl-parser
+(def ^:private ecl-parser
   (insta/parser (io/resource "ecl-v2.0.abnf") :input-format :abnf :output-format :enlive))
 
 (declare parse)
@@ -76,7 +76,7 @@
 
 (s/fdef realise-concept-ids
   :args (s/cat :ctx ::ctx :q ::query))
-(defn realise-concept-ids
+(defn- realise-concept-ids
   "Realise a query as a set of concept identifiers."
   [{:keys [searcher]} ^Query q]
   (search/do-query-for-concepts searcher q))
@@ -612,7 +612,7 @@
   (or (zx/xml1-> loc :matchSearchTermSet #(parse-member-filter--match-search-term-set ctx refset-id refset-field-name comparison-op %))
       (zx/xml1-> loc :wildSearchTermSet #(parse-member-filter--wild-search-term-set ctx refset-id refset-field-name comparison-op %))))
 
-(def numeric-comparison-ops
+(def ^:private numeric-comparison-ops
   {"="  members/q-field=
    "<"  members/q-field<
    "<=" members/q-field<=
@@ -626,7 +626,7 @@
         f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:text (zx/text loc) :op comparison-op})))]
     (members/q-and [(members/q-refset-id refset-id) (f refset-field-name v)])))
 
-(defn parse-member-filter--subexpression-constraint
+(defn- parse-member-filter--subexpression-constraint
   "Parse a member filter that is a subexpression constraint.
   We realise the concept identifiers for the subexpression, and simply use them
   in our member filter.
@@ -640,7 +640,7 @@
       "!=" (members/q-not (members/q-refset-id refset-id) (members/q-field-in refset-field-name values))
       (throw (ex-info "Invalid operation for subexpression constraint" {:op comparison-op :text (zx/text loc)})))))
 
-(defn parse-member-field--boolean
+(defn- parse-member-field--boolean
   [ctx refset-id refset-field-name comparison-op loc]
   (let [v (parse-boolean (zx/text loc))]
     (case comparison-op
@@ -667,7 +667,7 @@
                                                             :refset-field-name   refset-field-name
                                                             :comparison-operator comparison-op})))))
 
-(def time-comparison-ops
+(def ^:private time-comparison-ops
   {"="  members/q-time=
    ">"  members/q-time>
    "<"  members/q-time<
