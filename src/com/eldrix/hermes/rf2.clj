@@ -401,6 +401,42 @@
   ([] (gen/fmap snomed/map->OWLExpressionRefsetItem (s/gen :info.snomed/OWLExpressionRefset)))
   ([item] (gen/fmap #(merge % item) (gen-owl-expression-refset))))
 
+(defn- refset-counts
+  "A private function to returns a map of reference set counts keyed by type.
+  This simply iterates over all stored items
+  Example results from the UK distribution:
+  ```
+  {com.eldrix.hermes.snomed.SimpleMapRefsetItem        508618,      ;; ~4 %
+   com.eldrix.hermes.snomed.LanguageRefsetItem         5829820,     ;; ~45 %
+   com.eldrix.hermes.snomed.ExtendedMapRefsetItem      1858024,     ;; ~14 %
+   com.eldrix.hermes.snomed.SimpleRefsetItem           1972073,     ;; ~15 %
+   com.eldrix.hermes.snomed.AttributeValueRefsetItem   1261587,     ;; ~10 %
+   com.eldrix.hermes.snomed.AssociationRefsetItem      1263064,     ;; ~10 %
+   com.eldrix.hermes.snomed.RefsetDescriptorRefsetItem 1131}        ;; 0.01 %
+   ```."
+  [svc]
+  (require '[com.eldrix.hermes.impl.store]
+           '[clojure.core.async])
+  (let [ch (clojure.core.async/chan)]
+    (com.eldrix.hermes.impl.store/stream-all-refset-items (.-store svc) ch)
+    (loop [results {}]
+      (if-let [item (clojure.core.async/<!! ch)]
+        (recur (update results (type item) (fnil inc 0)))
+        results))))
+
+(defn gen-refset
+  "Generate a random reference set item, in frequencies approximately equal to
+  the UK distribution"
+  []
+  (gen/frequency
+    [[4 (gen-simple-map-refset)]
+     [45 (gen-language-refset)]
+     [14 (gen-extended-map-refset)]
+     [15 (gen-simple-refset)]
+     [10 (gen-attribute-value-refset)]
+     [10 (gen-association-refset)]
+     [1 (gen-refset-descriptor-refset)]]))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
