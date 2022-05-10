@@ -2,9 +2,10 @@
 
 This log documents significant changes for each release.
 
-## [0.12.627] - 2022-05-08
+## [0.12.640] - 2022-05-10
 
-* Switch to new lmdb storage backend, version 'lmdb/14'
+* Switch to new lmdb storage backend, version 'lmdb/15'
+* Speed improvements and optional compaction step to reduce database size
 
 ## [0.11.604] - 2022-05-06
 
