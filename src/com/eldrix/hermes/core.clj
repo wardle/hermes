@@ -771,7 +771,7 @@
   ([root import-from locale-preference-string]              ;; There are four steps:
    (import-snomed root import-from)                         ;; import the files
    (compact root)                                           ;; compact the store
-   (build-search-index root locale-preference-string)))     ;; build the search index
+   (build-search-indices root locale-preference-string)))   ;; build the search index
 
 
 
