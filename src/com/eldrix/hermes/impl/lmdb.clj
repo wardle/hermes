@@ -60,7 +60,7 @@
   ^"[Lorg.lmdbjava.DbiFlags;" [read-only? & flags]
   (into-array DbiFlags (if read-only? flags (conj flags DbiFlags/MDB_CREATE))))
 
-(def ^:private default-map-size (* 10 1024 1024 1024))
+(def ^:private default-map-size (* 4 1024 1024 1024))
 
 (defn- open*
   "Open a store at the path specified.
