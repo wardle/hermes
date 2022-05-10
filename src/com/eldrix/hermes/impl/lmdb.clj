@@ -84,9 +84,9 @@
                           (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
           base-flags (make-dbi-flags read-only?)
           ;; core env
-          concepts (.openDbi ^Env core-env "c" (make-dbi-flags read-only? DbiFlags/MDB_INTEGERKEY))
-          conceptDescriptions (.openDbi ^Env core-env "d" (make-dbi-flags read-only?))
-          relationships (.openDbi ^Env core-env "r" (make-dbi-flags read-only? DbiFlags/MDB_INTEGERKEY))
+          concepts (.openDbi ^Env core-env "c" base-flags)
+          conceptDescriptions (.openDbi ^Env core-env "d" base-flags)
+          relationships (.openDbi ^Env core-env "r" base-flags)
           descriptionConcept (.openDbi ^Env core-env "dc" base-flags)
           conceptParentRelationships (.openDbi ^Env core-env "cpr" base-flags)
           conceptChildRelationships (.openDbi ^Env core-env "ccr" base-flags)
@@ -94,7 +94,7 @@
           associations (.openDbi ^Env core-env "a" base-flags)
           ;; refsets env
           refsetItems (.openDbi ^Env refsets-env "rs" base-flags)
-          refsetFieldNames (.openDbi ^Env refsets-env "rs-n" (make-dbi-flags read-only? DbiFlags/MDB_INTEGERKEY))]
+          refsetFieldNames (.openDbi ^Env refsets-env "rs-n" base-flags)]
 
       (->LmdbStore core-env
                    concepts conceptDescriptions relationships descriptionConcept

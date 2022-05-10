@@ -45,7 +45,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version "lmdb/14"
+  {:version "lmdb/15"
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
