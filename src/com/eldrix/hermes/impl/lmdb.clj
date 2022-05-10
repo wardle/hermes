@@ -19,21 +19,22 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [com.eldrix.hermes.impl.ser :as ser])
-  (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp]
+  (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
            (java.nio.file.attribute FileAttribute)
            (io.netty.buffer PooledByteBufAllocator ByteBuf)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Description Relationship Concept)
            (java.util UUID)
            (java.io Closeable File)
-           (java.nio.file Files)))
+           (java.nio.file Files Path CopyOption StandardCopyOption)))
 
 (set! *warn-on-reflection* true)
 
 (s/def ::store any?)
 
 (deftype LmdbStore
-  [;;;; core env
+  [^Path rootPath
+   ;;;; core env
    ^Env coreEnv
    ;; core stores - simple or compound keys and values
    ^Dbi concepts                                            ;; conceptId = concept
@@ -96,7 +97,8 @@
           refsetItems (.openDbi ^Env refsets-env "rs" base-flags)
           refsetFieldNames (.openDbi ^Env refsets-env "rs-n" base-flags)]
 
-      (->LmdbStore core-env
+      (->LmdbStore root-path
+                   core-env
                    concepts conceptDescriptions relationships descriptionConcept
                    conceptParentRelationships conceptChildRelationships componentRefsets associations
                    refsets-env
@@ -106,6 +108,18 @@
   (^Closeable [] (open-store (.toFile (Files/createTempDirectory "hermes-lmdb-" (make-array FileAttribute 0))) {:read-only? false}))
   (^Closeable [f] (open-store f {}))
   (^Closeable [f opts] (open* f opts)))
+
+(defn compact
+  [^LmdbStore store]
+  (let [path ^Path (.-rootPath store)
+        core (.resolve path "core.db")
+        core' (.resolve path "core2.db")
+        refsets (.resolve path "refsets.db")
+        refsets' (.resolve path "refsets2.db")]
+    (.copy ^Env (.-coreEnv store) (.toFile core') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
+    (.copy ^Env (.-refsetsEnv store) (.toFile refsets') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
+    (Files/move core' core (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))
+    (Files/move refsets' refsets (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))))
 
 (defn close
   [^LmdbStore store]
@@ -488,8 +502,6 @@
                           [component-id refset-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 16)))))
 
-(defn compact [^LmdbStore store])
-;;;NOP
 
 (defn status
   [^LmdbStore store]

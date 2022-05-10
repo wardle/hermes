@@ -79,16 +79,16 @@ If you've downloaded a distribution manually, import like this:
 clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
-My tiny i5 'NUC' machine takes 4 minutes to import the UK edition of SNOMED CT and a further 2 minutes to import the UK dictionary
+My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT and a further minute to import the UK dictionary
 of medicines and devices.
 
 4. Compact and index
 ```shell
-clj -J-Xmx8g -M:run --db snomed.db compact
+clj -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
 ```
 
-My machine takes 6 seconds to compact the database and 2 minutes to build the search index. 
+My machine takes 20 seconds to compact the database and 6 minutes to build the search indices. 
 
 5. Run a server!
 ```shell
@@ -344,7 +344,7 @@ a total of less than 3 minutes on my machine.
 
 #### 2. Compact database (optional).
 
-This reduces the file size by around 20% and takes about 1 minute.
+This reduces the file size and takes 20 seconds.
 This is an optional step, but recommended.
 
 ```shell
@@ -357,17 +357,7 @@ or
 clj -M:run --db snomed.db compact
 ```
 
-You may need to give java more memory for compaction; I only need to do so after 
-importing three different distributions, but it will depend on the size of each.
-
-For example
-```shell
-java -Xmx8g -jar hermes.jar --db snomed.db compact
-```
-
-```shell 
-clj -J-Xmx8g -M:run --db snomed.db compact
-```
+Unlike prior versions, you do not need to give java more heap.
 
 #### 3. Build search index
 
@@ -381,7 +371,7 @@ or
 ```shell
 clj -M:run --db snomed.db index
 ```
-This will build the search index; it takes about 2 minutes on my machine.
+This will build the search indices; it takes about 6 minutes on my machine.
 
 #### 4. Run a REPL (optional)
 
@@ -403,7 +393,7 @@ clj -A:dev
 You can obtain status information about any index by using:
 
 ```shell
-clj -M:run --db snomed.db status --verbose
+clj -M:run --db snomed.db status
 ```
 
 Result:
