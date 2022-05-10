@@ -107,7 +107,7 @@
                                            :parser parser
                                            :headings headings
                                            :data %)))]
-          (log/info "Processing: " filename " type: " (:component snofile))
+          (log/info "Processing: " (:filename snofile) " type: " (:component snofile))
           (log/debug "Processing " (count batches) " batches")
           (doseq [batch batches]
             (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
