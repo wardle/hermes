@@ -65,8 +65,8 @@ cd hermes
 If you're a UK user and want to use automatic downloads, you can do this
 
 ```shell
-clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
-clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key=trud-api-key.txt cache-dir=/tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key=trud-api-key.txt cache-dir=/tmp/trud
 ```
 Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
 
@@ -283,8 +283,8 @@ pass in the following parameters:
 For example, these commands will download, cache and install the International
 release, the UK clinical edition and the UK drug extension:
 ```shell
-clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud
-clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key=trud-api-key.txt cache-dir=/tmp/trud
+clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key=trud-api-key.txt cache-dir=/tmp/trud
 ```
 
 `hermes` will tell you what configuration parameters are required:
