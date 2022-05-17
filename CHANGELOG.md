@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [0.12.644] - 2022-05-17
+
+* Improve download provider parameters so can use explicit assignment e.g. api-key=../trud/api-key.txt
+
 ## [0.12.640] - 2022-05-10
 
 * Switch to new lmdb storage backend, version 'lmdb/15'
