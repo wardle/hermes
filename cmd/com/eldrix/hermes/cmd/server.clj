@@ -22,8 +22,7 @@
             [io.pedestal.http.content-negotiation :as conneg]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.interceptor.error :as intc-err]
-            [com.eldrix.hermes.core :as hermes])
+            [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (java.util Locale)
