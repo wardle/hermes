@@ -14,15 +14,9 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(defn compile-java [_]
-  (b/javac {:src-dirs   ["java"]
-            :class-dir  class-dir
-            :basis      jar-basis}))
-
 (defn jar [_]
   (clean nil)
   (println "Building" jar-file)
-  (compile-java nil)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
                 :version   version
