@@ -45,7 +45,10 @@
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
-           (java.util UUID)))
+           (java.util UUID)
+           (com.eldrix.hermes.sct.IConcept IConcept)
+           (com.eldrix.hermes.sct.IDescription IDescription)
+           (com.eldrix.hermes.sct IResult)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
@@ -67,7 +70,13 @@
                     ^LocalDate effectiveTime
                     ^boolean active
                     ^long moduleId
-                    ^long definitionStatusId])
+                    ^long definitionStatusId]
+  IConcept
+  (id [this] id)
+  (effectiveTime [this] effectiveTime)
+  (active [this] active)
+  (moduleId [this] moduleId)
+  (definitionStatusId [this] moduleId))
 
 (defrecord Description [^long id
                         ^LocalDate effectiveTime
@@ -77,7 +86,16 @@
                         ^String languageCode
                         ^long typeId
                         ^String term
-                        ^long caseSignificanceId])
+                        ^long caseSignificanceId]
+  IDescription
+  (id [this] id)
+  (effectiveTime [this] effectiveTime)
+  (moduleId [this] moduleId)
+  (conceptId [this] conceptId)
+  (languageCode [this] languageCode)
+  (typeId [this] typeId)
+  (term [this] term)
+  (caseSignificanceId [this] caseSignificanceId))
 
 (defrecord Relationship [^long id
                          ^LocalDate effectiveTime
@@ -590,7 +608,12 @@
   [^long id
    ^long conceptId
    ^String term
-   ^String preferredTerm])
+   ^String preferredTerm]
+  IResult
+  (id [this] id)
+  (conceptId [this] conceptId)
+  (term [this] term)
+  (preferredTerm [this] preferredTerm))
 
 (def snomed-file-pattern
   #"(?x) # allow white-space and comments
