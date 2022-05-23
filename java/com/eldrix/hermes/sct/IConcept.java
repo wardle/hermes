@@ -1,4 +1,4 @@
-package com.eldrix.hermes.sct.IConcept;
+package com.eldrix.hermes.sct;
 
 import java.time.LocalDate;
 

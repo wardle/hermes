@@ -46,9 +46,7 @@
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
            (java.util UUID)
-           (com.eldrix.hermes.sct.IConcept IConcept)
-           (com.eldrix.hermes.sct.IDescription IDescription)
-           (com.eldrix.hermes.sct IResult)))
+           (com.eldrix.hermes.sct IConcept IDescription IResult)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
