@@ -76,7 +76,7 @@
       (when-not f
         (throw (IllegalArgumentException. (str "Unknown provider: " nm))))
       (let [params (parse-provider-parameters parameters)]
-        (println "Downloading using provider " nm " with params" params)
+        (println "Installing using provider" nm "with params" params)
         (if-not (and spec (s/valid? spec params))
           (println "Invalid parameters for provider '" nm "':\n" (expound/expound-str spec params {:print-specs? false :theme :figwheel-theme}))
           (when-let [zipfile (f params)]
