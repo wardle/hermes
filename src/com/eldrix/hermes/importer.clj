@@ -14,15 +14,14 @@
 ;;;;
 (ns com.eldrix.hermes.importer
   "Provides import functionality for processing directories of files"
-  (:require [cheshire.core :as json]
-            [clojure.core.async :as async]
+  (:require [clojure.core.async :as async]
+            [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
-  (:import (java.io File)
-           (com.fasterxml.jackson.core JsonParseException)))
+  (:import (java.io File)))
 
 (defn is-snomed-file? [f]
   (snomed/parse-snomed-filename (.getName (clojure.java.io/file f))))
@@ -64,10 +63,10 @@
   Raised as issue #32991 with Snomed International."
   [^File f]
   (let [default {:name (.getName (.getParentFile f))}]
-    (try (merge default (json/parse-string (slurp f) true))
-         (catch JsonParseException _e
-           (log/warn "invalid metadata in distribution file" (:name default))
-           (assoc default :error "invalid metadata: invalid json in file")))))
+    (try
+      (merge default (json/read-str (slurp f) :key-fn keyword))
+      (catch Throwable e (log/warn e "Invalid metadata in distribution file" (:name default))
+                         (assoc default :error "Invalid metadata in distribution file")))))
 
 (defn metadata-files
   "Returns a list of release package information files from the directory.
