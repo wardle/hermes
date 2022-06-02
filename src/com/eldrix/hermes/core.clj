@@ -694,15 +694,17 @@
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)
-        module-names (->> metadata (map :modules) (mapcat vals))]
+        module-names (->> metadata (map :modules) (mapcat vals))
+        n-modules (count module-names)]
     (when (seq metadata)
       (log/info "importing" (count metadata) "distributions from" dir))
     (doseq [dist metadata]
       (log/info "distribution: " (:name dist))
       (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))
-    (log/info "importing" (count module-names) "modules")
-    (doseq [module-name module-names]
-      (log/info "module:" module-name))))
+    (when (pos-int? n-modules)
+      (log/info n-modules "modules listed in distribution metadata")
+      (doseq [module-name module-names]
+        (log/info "module:" module-name)))))
 
 (def ^:private core-components
   #{"Concept" "Description" "Relationship" "RefsetDescriptorRefset"})
