@@ -2,6 +2,14 @@
 
 This log documents significant changes for each release.
 
+## [0.12.664] - 2022-06-02
+
+* More deterministic build for uberjars
+* Reduce build product sizes by reducing dependencies
+* Make easier to use for java clients using hermes as a library
+* Improved logging
+* Use Lucene 9.2
+
 ## [0.12.644] - 2022-05-17
 
 * Improve download provider parameters so can use explicit assignment e.g. api-key=../trud/api-key.txt
