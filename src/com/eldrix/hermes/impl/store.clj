@@ -14,7 +14,8 @@
 ;;;;
 (ns com.eldrix.hermes.impl.store
   "Store provides access to a key value store."
-  (:require [clojure.set :as set]
+  (:require [clojure.core.async :as async]
+            [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.lmdb :as kv]
@@ -416,6 +417,26 @@
       (when attr-ids? (zipmap attr-ids fields))
       (dissoc item :fields))))
 
+(defn- refset-counts
+  "A private function to returns a map of reference set counts keyed by type.
+  This simply iterates over all stored items
+  Example results from the UK distribution:
+  ```
+  {com.eldrix.hermes.snomed.SimpleMapRefsetItem        508618,      ;; ~4 %
+   com.eldrix.hermes.snomed.LanguageRefsetItem         5829820,     ;; ~45 %
+   com.eldrix.hermes.snomed.ExtendedMapRefsetItem      1858024,     ;; ~14 %
+   com.eldrix.hermes.snomed.SimpleRefsetItem           1972073,     ;; ~15 %
+   com.eldrix.hermes.snomed.AttributeValueRefsetItem   1261587,     ;; ~10 %
+   com.eldrix.hermes.snomed.AssociationRefsetItem      1263064,     ;; ~10 %
+   com.eldrix.hermes.snomed.RefsetDescriptorRefsetItem 1131}        ;; 0.01 %
+   ```."
+  [store]
+  (let [ch (async/chan)]
+    (stream-all-refset-items store ch)
+    (loop [results {}]
+      (if-let [item (async/<!! ch)]
+        (recur (update results (type item) (fnil inc 0)))
+        results))))
 
 (defmulti write-batch
   "Write a batch of SNOMED components to the store. Returns nil.
