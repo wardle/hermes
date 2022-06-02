@@ -16,9 +16,9 @@
 
            io.netty/netty-buffer                    {:mvn/version "4.1.77.Final"}
 
-           org.apache.lucene/lucene-core            {:mvn/version "9.1.0"}
-           org.apache.lucene/lucene-queries         {:mvn/version "9.1.0"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.1.0"}
+           org.apache.lucene/lucene-core            {:mvn/version "9.2.0"}
+           org.apache.lucene/lucene-queries         {:mvn/version "9.2.0"}
+           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.2.0"}
 
            org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"}}
 
