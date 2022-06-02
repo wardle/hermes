@@ -410,7 +410,8 @@
   descriptor information and known field names."
   [store {:keys [refsetId] :as item} & {:keys [attr-ids?] :or {attr-ids? true}}]
   (let [attr-ids (when attr-ids? (get-refset-descriptor-attribute-ids store refsetId))
-        field-names (map keyword (subvec (kv/get-refset-field-names store refsetId) 5))
+        refset-field-names (or (kv/get-refset-field-names store refsetId) (throw (ex-info "No field names for reference set" {:refsetId refsetId})))
+        field-names (map keyword (subvec refset-field-names 5))
         fields (subvec (snomed/->vec item) 5)]              ;; every reference set has 5 core attributes and then additional fields
     (merge
       (zipmap field-names fields)
