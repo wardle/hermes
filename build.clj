@@ -63,7 +63,8 @@
                :target-dir class-dir})
   (b/compile-clj {:basis      uber-basis
                   :src-dirs   ["src" "cmd"]
-                  :ns-compile ['com.eldrix.hermes.cmd.core]
+                  :ns-compile ['com.eldrix.hermes.cmd.core
+                               'com.eldrix.hermes.snomed]
                   :class-dir  class-dir})
   (b/uber {:class-dir class-dir
            :uber-file uber-file
