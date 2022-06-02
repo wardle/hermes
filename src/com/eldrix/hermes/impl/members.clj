@@ -172,8 +172,8 @@
 
 (defn q-time>
   "Create a query for items with a field, or an effective time, greater than 'd'."
-  ( ^Query [d] (q-time> "effectiveTime" d))
-  ( ^Query [^String field d] (LongPoint/newRangeQuery field (inc (localdate->epoch-milli d)) Long/MAX_VALUE)))
+  (^Query [d] (q-time> "effectiveTime" d))
+  (^Query [^String field d] (LongPoint/newRangeQuery field (inc (localdate->epoch-milli d)) Long/MAX_VALUE)))
 
 (defn q-time=
   "Create a query for items with a field, or an effective time, equal to 'd'."
