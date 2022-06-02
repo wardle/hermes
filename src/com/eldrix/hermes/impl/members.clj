@@ -71,8 +71,9 @@
   descriptors, as we can derive type easily by simply looking at the value."
   ^Document [item]
   (let [doc (Document.)]
-    (doseq [[k v] (seq item)]
-      (dorun (map #(.add doc %) (make-fields k v))))
+    (doseq [[k v] (seq item)
+            field (make-fields k v)]
+      (.add doc field))
     doc))
 
 (defn open-index-writer
