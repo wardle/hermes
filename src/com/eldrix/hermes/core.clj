@@ -187,7 +187,7 @@
   (store/get-refset-descriptor-attribute-ids (.-store svc) refset-id))
 
 (s/fdef extended-refset-item
-  :args (s/cat :svc ::svc :item :info.snomed/Refset))
+  :args (s/cat :svc ::svc :item :info.snomed/SimpleRefset))
 (defn extended-refset-item
   "Merges a map of extended attributes to the specified reference set item.
   The attributes will be keyed based on information from the reference set
