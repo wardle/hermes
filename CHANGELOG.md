@@ -2,17 +2,24 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Improve logging of metadata when importing distribution(s)
+* For uberjar, fully ahead-of-time (AOT) compile, elide some metadata and use direct-linking
+* Reduce logging during build process
+
 ## [0.12.664] - 2022-06-02
 
 * More deterministic build for uberjars
 * Reduce build product sizes by reducing dependencies
-* Make easier to use for java clients using hermes as a library
-* Improved logging
-* Use Lucene 9.2
+* Simplify usage when used as a library by java clients, with an externally defined java API.
+* Avoid ahead-of-time compilation when used as a library
+* Improve logging for distribution import
+* Upgrade dependencies (Lucene v9.2, trud v1.0.80, 
 
 ## [0.12.644] - 2022-05-17
 
-* Improve download provider parameters so can use explicit assignment e.g. api-key=../trud/api-key.txt
+* Improve download provider parameters so can optionally use explicit assignment e.g. api-key=../trud/api-key.txt
 
 ## [0.12.640] - 2022-05-10
 
