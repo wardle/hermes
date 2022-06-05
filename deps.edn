@@ -22,10 +22,10 @@
 
            org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"}}
 
- :aliases {
-           :build {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
-                                slipset/deps-deploy           {:mvn/version "RELEASE"}}
-                   :ns-default build}
+ :aliases {:build
+           {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.2" :git/sha "ba1a2bf"}
+                         slipset/deps-deploy           {:mvn/version "RELEASE"}}
+            :ns-default build}
 
            :run
            {:extra-paths ["cmd"]
