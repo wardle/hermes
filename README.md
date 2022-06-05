@@ -262,7 +262,7 @@ Transfer/sec:      4.18MB
 
 This uses 12 threads to make 300 concurrent HTTP connections. 
 On 99% of occasions, that would provide a fast enough response for 
-autocompletion (<<79>). Of course, that is users typing at exactly the same time, 
+autocompletion (<79ms). Of course, that is users typing at exactly the same time, 
 so a single instance could support more concurrent users than that. Given its design, Hermes is designed to easily scale
 horizontally, because you can simply run more servers and load balance across
 them. Of course, these data are fairly crude, because in real-life you'll be 
