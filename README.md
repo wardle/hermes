@@ -235,9 +235,10 @@ In the end, it is all data.
 
 ### Is hermes fast?
 
-Hermes benefits from the speed of its dependent libraries, particularly [Apache Lucene](https://lucene.apache.org) 
+Hermes benefits from the speed of the libraries it uses, particularly [Apache Lucene](https://lucene.apache.org) 
 and [lmdb](https://www.symas.com/lmdb), and from some fundamental design 
-decisions including read-only operation and memory-mapped data files. 
+decisions including read-only operation and memory-mapped data files. It provides a 
+HTTP server using the lightweight and reliable [jetty web server](https://www.eclipse.org/jetty/).
 
 I have a small i3 NUC server on my local wifi network, and here is an example of
 load testing, in which users are typing 'mnd' and expecting an autocompletion:
