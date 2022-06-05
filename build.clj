@@ -66,6 +66,7 @@
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src" "cmd"]
                   :compile-opts {:direct-linking true}
+                  :java-opts ["-Dlogback.configurationFile=logback-build.xml"]
                   :class-dir    class-dir})
 
   (b/uber {:class-dir class-dir
