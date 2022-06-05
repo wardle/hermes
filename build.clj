@@ -59,11 +59,13 @@
   [_]
   (println "Building uberjar:" uber-file)
   (clean nil)
-  (b/copy-dir {:src-dirs   ["src" "cmd" "resources"]
+  (b/copy-dir {:src-dirs   ["resources"]
                :target-dir class-dir})
   (b/compile-clj {:basis     uber-basis
                   :src-dirs  ["src" "cmd"]
                   :class-dir class-dir})
+  (b/copy-file {:src    "cmd/logback.xml"
+                :target (str class-dir "/logback.xml")})
   (b/uber {:class-dir class-dir
            :uber-file uber-file
            :basis     uber-basis
