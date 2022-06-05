@@ -65,7 +65,8 @@
                 :target (str class-dir "/logback.xml")})
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src" "cmd"]
-                  :compile-opts {:direct-linking true}
+                  :compile-opts {:elide-meta [:doc :added]
+                                 :direct-linking true}
                   :java-opts ["-Dlogback.configurationFile=logback-build.xml"]
                   :class-dir    class-dir})
 
