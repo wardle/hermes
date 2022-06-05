@@ -55,7 +55,7 @@
               :pom-file  (b/pom-path {:lib       lib
                                       :class-dir class-dir})}))
 (defn uber
-  "Build an executable uberjar file for hermes HTTP server"
+  "Build an executable uberjar file for HTTP server and CLI tooling."
   [_]
   (println "Building uberjar:" uber-file)
   (clean nil)
