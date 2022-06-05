@@ -233,7 +233,7 @@ to resources representing the type. Instead, just as in real-life, we record eve
 In the end, it is all data.
 
 
-# Is hermes fast?
+### Is hermes fast?
 
 Hermes benefits from the speed of its dependent libraries, particularly [Apache Lucene](https://lucene.apache.org) 
 and [lmdb](https://www.symas.com/lmdb), and from some fundamental design 
