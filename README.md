@@ -73,6 +73,19 @@ Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/gro
 This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend 
 installing both. 
 
+You can download a specific edition using an ISO 6801 formatted date:
+```shell
+clj -M:run download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud release-date 2021-03-24
+clj -M:run download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud release-date 2021-03-24
+```
+
+These are most useful for building reproducible container images. 
+You can get a list of available UK versions by simply looking at the TRUD website, or using:
+
+```shell
+clj -M:run download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud release-date list
+```
+
 If you've downloaded a distribution manually, import like this:
 
 ```shell

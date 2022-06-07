@@ -1,31 +1,44 @@
 (ns com.eldrix.hermes.download
-  (:require [clojure.string :as str]
+  (:require [clojure.tools.logging.readable :as log]
+            [clojure.string :as str]
             [clojure.pprint :as pprint]
             [clojure.spec.alpha :as s]
             [clojure.walk :as walk]
             [com.eldrix.trud.core :as trud]
             [com.eldrix.trud.zip :as zip]
             [expound.alpha :as expound])
-  (:import (java.nio.file Path)))
+  (:import (java.nio.file Path)
+           (java.time LocalDate)
+           (java.time.format DateTimeParseException)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
-(s/def ::uk-trud (s/keys :req-un [::api-key ::cache-dir]))
+(s/def ::release-date string?)
+(s/def ::uk-trud (s/keys :req-un [::api-key ::cache-dir]
+                         :opt-un [::release-date]))
 
 (defn download-from-trud
   "Download an item from TRUD
   Parameters:
-  - item-identifier : item wanted, (e.g. 221)
+  - item-identifier : item wanted, (e.g. 101)
   - config: a map containing:
     :api-key : path to file containing TRUD api-key (e.g.\"/var/hermes/api-key.txt\")
-    :cache-dir : TRUD download cache directory (e.g. \"/tmp/trud\".
+    :cache-dir : TRUD download cache directory (e.g. \"/tmp/trud\")
+    :release-date : (optional) an ISO 8601 date e.g. \"2022-02-03\"
   Returns TRUD metadata about the item specified.
   See com.eldrix.trud.core/get-latest for information about return value."
-  [item-identifier {:keys [api-key cache-dir]}]
+  [item-identifier {:keys [api-key cache-dir release-date]}]
   (let [trud-key (str/trim-newline (slurp api-key))]
-    (trud/get-latest {:api-key   trud-key
-                      :cache-dir cache-dir}
-                     item-identifier)))
+    (if release-date
+      (let [release-date' (try (LocalDate/parse release-date) (catch DateTimeParseException _))
+            release (when release-date' (first (filter #(.isEqual release-date' (:releaseDate %)) (trud/get-releases trud-key item-identifier))))]
+        (if-not release
+          (do (when-not (= "list" release-date) (log/info "Release not found for date:" release-date' "Available releases:"))
+              (dorun (map #(log/info "Release: " (:releaseDate %)) (trud/get-releases trud-key item-identifier))))
+          (trud/download-release cache-dir release)))
+      (trud/get-latest {:api-key   trud-key
+                        :cache-dir cache-dir}
+                       item-identifier))))
 
 (def registry
   "A registry of download providers. "
@@ -87,6 +100,9 @@
   (download "uk.nhs/sct-clinical" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-drug-ext" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
   (download "uk.nhs/sct-clinical" [])
+
+  (def api-key (str/trim (slurp "../trud/api-key.txt")))
+  (trud/get-releases api-key 101)
 
 
   (def params ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
