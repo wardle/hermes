@@ -56,8 +56,8 @@
                                       :class-dir class-dir})}))
 (defn uber
   "Build an executable uberjar file for HTTP server and CLI tooling."
-  [_]
-  (println "Building uberjar:" uber-file)
+  [{:keys [out] :or {out uber-file}}]
+  (println "Building uberjar:" out)
   (clean nil)
   (b/copy-dir {:src-dirs   ["resources"]
                :target-dir class-dir})
@@ -69,8 +69,7 @@
                                  :direct-linking true}
                   :java-opts ["-Dlogback.configurationFile=logback-build.xml"]
                   :class-dir    class-dir})
-
   (b/uber {:class-dir class-dir
-           :uber-file uber-file
+           :uber-file out
            :basis     uber-basis
            :main      'com.eldrix.hermes.cmd.core}))
