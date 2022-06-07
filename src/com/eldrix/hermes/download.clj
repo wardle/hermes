@@ -50,7 +50,7 @@
   ```"
   [args]
   (let [[mode params] (s/conform ::provider-parameters args)]
-    (->> (case mode :pairs (reduce (fn [acc {::keys [key value]}] (assoc acc key value )) {} params)
+    (->> (case mode :pairs (reduce (fn [acc {::keys [key value]}] (assoc acc key value)) {} params)
                     :items (apply hash-map (mapcat #(str/split % #"=") params)))
          (walk/keywordize-keys))))
 
