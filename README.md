@@ -17,7 +17,7 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 * cross-mapping to and from other code systems
 * support for SNOMED CT compositional grammar and the SNOMED CT expression constraint language.
 
-It is designed as both library for embedding into larger applications, or as a microservice. 
+It is designed as both a library for embedding into larger applications and as a standalone microservice. 
 
 It is fast, both for import and for use. It imports and indexes the International
 and UK editions of SNOMED CT in less than 5 minutes; you can have a server
@@ -246,7 +246,7 @@ to resources representing the type. Instead, just as in real-life, we record eve
 In the end, it is all data.
 
 
-### Is hermes fast?
+### Is `hermes` fast?
 
 Hermes benefits from the speed of the libraries it uses, particularly [Apache Lucene](https://lucene.apache.org) 
 and [lmdb](https://www.symas.com/lmdb), and from some fundamental design 
@@ -279,10 +279,7 @@ autocompletion (<79ms). Of course, that is users typing at exactly the same time
 so a single instance could support more concurrent users than that. Given its design, Hermes is designed to easily scale
 horizontally, because you can simply run more servers and load balance across
 them. Of course, these data are fairly crude, because in real-life you'll be 
-doing more complex concurrent calls. It may be you need two instances to support
-a large healthcare facility.
-
-In real deployments, I've only needed one instance for hundreds of concurrent 
+doing more complex concurrent calls. In real deployments, I've only needed one instance for hundreds of concurrent 
 users, but it is nice to know I can scale easily. 
 
 # Documentation
