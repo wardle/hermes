@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [0.12.681] - 2022-06-08
 
 * Improve logging of metadata when importing distribution(s)
 * For uberjar, fully ahead-of-time (AOT) compile, elide some metadata and use direct-linking
