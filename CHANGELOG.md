@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [0.12.684] - 2022-06-12
+
+* Add ability to download a specific release by date, for UK users.
+
 ## [0.12.681] - 2022-06-08
 
 * Improve logging of metadata when importing distribution(s)
