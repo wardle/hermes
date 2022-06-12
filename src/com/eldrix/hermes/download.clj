@@ -35,7 +35,7 @@
         (if-not release
           (do (when-not (= "list" release-date) (log/info "Release not found for date:" release-date' "Available releases:"))
               (dorun (map #(log/info "Release: " (:releaseDate %)) (trud/get-releases trud-key item-identifier))))
-          (trud/download-release cache-dir release)))
+          (assoc release :archiveFilePath (trud/download-release cache-dir release))))
       (trud/get-latest {:api-key   trud-key
                         :cache-dir cache-dir}
                        item-identifier))))
@@ -92,8 +92,9 @@
         (println "Installing using provider" nm "with params" params)
         (if-not (and spec (s/valid? spec params))
           (println "Invalid parameters for provider '" nm "':\n" (expound/expound-str spec params {:print-specs? false :theme :figwheel-theme}))
-          (when-let [zipfile (f params)]
-            (zip/unzip zipfile)))))))
+          (if-let [zipfile (f params)]
+            (zip/unzip zipfile)
+            (log/warn "No files returned" {:provider nm })))))))
 
 (comment
 
