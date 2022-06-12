@@ -282,6 +282,16 @@ them. Of course, these data are fairly crude, because in real-life you'll be
 doing more complex concurrent calls. In real deployments, I've only needed one instance for hundreds of concurrent 
 users, but it is nice to know I can scale easily. 
 
+### Can I use `hermes` with containers?
+
+Yes. It is designed to be containerised, although I have a mixture of different
+approaches in production, including running from source code directly. I would
+usually advise creating a volume and populating that with data, and then 
+permitting read-only access to your service containers. A shared volume can be
+memory mapped by multiple running instances and provide high scalability. 
+
+There are some examples of [different configurations available](https://github.com/wardle/hermes-docker).
+
 # Documentation
 
 ### A. How to download and build a terminology service
