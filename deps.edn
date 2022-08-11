@@ -3,7 +3,7 @@
  :deps    {org.clojure/clojure                      {:mvn/version "1.11.1"}
            org.clojure/core.async                   {:mvn/version "1.5.648"}
            org.clojure/core.match                   {:mvn/version "1.0.0"}
-           org.clojure/data.xml                     {:mvn/version "0.2.0-alpha6"}
+           org.clojure/data.xml                     {:mvn/version "0.2.0-alpha7"}
            org.clojure/data.zip                     {:mvn/version "1.0.0"}
            org.clojure/tools.logging                {:mvn/version "1.2.4"}
 
@@ -14,7 +14,7 @@
            expound/expound                          {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
 
-           io.netty/netty-buffer                    {:mvn/version "4.1.77.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.79.Final"}
 
            org.apache.lucene/lucene-core            {:mvn/version "9.2.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.2.0"}
