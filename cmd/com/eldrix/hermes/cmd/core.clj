@@ -94,7 +94,7 @@
      " index                      Build search index."
      " compact                    Compact database"
      " serve                      Start a terminology server"
-     " status                     Displays status information"]
+     " status                     Display status information"]
     (str/join \newline)))
 
 (def commands
