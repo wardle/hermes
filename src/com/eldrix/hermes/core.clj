@@ -699,7 +699,7 @@
     (when (seq metadata)
       (log/info "importing" (count metadata) "distribution(s) from" dir))
     (doseq [dist metadata]
-      (log/info "distribution: " (:name dist))
+      (log/info "distribution: " (select-keys dist [:name :effectiveTime]))
       (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))
     (when (pos-int? n-modules)
       (log/info n-modules "modules listed in distribution metadata")
