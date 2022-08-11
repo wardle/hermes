@@ -697,7 +697,7 @@
         module-names (->> metadata (map :modules) (mapcat vals))
         n-modules (count module-names)]
     (when (seq metadata)
-      (log/info "importing" (count metadata) "distributions from" dir))
+      (log/info "importing" (count metadata) "distribution(s) from" dir))
     (doseq [dist metadata]
       (log/info "distribution: " (:name dist))
       (log/info "license: " (if (:licenceStatement dist) (:licenceStatement dist) (str "error : " (:error dist)))))
