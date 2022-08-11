@@ -50,6 +50,14 @@
        (filter #(= (:release-type %) "Snapshot"))
        (filter :parser)))
 
+(def ^:private metadata-parsers
+  {:effectiveTime snomed/parse-date
+   :deltaToDate   snomed/parse-date
+   :deltaFromDate snomed/parse-date})
+
+(defn read-metadata-value [k v]
+  ((or (k metadata-parsers) identity) v))
+
 (defn read-metadata
   "Reads the metadata from the file specified.
 
@@ -64,7 +72,9 @@
   [^File f]
   (let [default {:name (.getName (.getParentFile f))}]
     (try
-      (merge default (json/read-str (slurp f) :key-fn keyword))
+      (-> default                                           ;; start with sane default
+          (merge (json/read-str (slurp f) :key-fn keyword :value-fn read-metadata-value)) ;; read in metadata file itself
+          (update :modules update-keys (fn [x] (-> x name parse-long)))) ;; return all module identifiers as longs
       (catch Throwable e (log/warn e "Invalid metadata in distribution file" (:name default))
                          (assoc default :error "Invalid metadata in distribution file")))))
 
