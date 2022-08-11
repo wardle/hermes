@@ -26,12 +26,14 @@
         (println "\n" banner "\n" heading "\n" banner)
         (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
 
-(defn download [opts args]
-  (if-let [[provider & params] (seq args)]
-    (when-let [unzipped-path (download/download provider params)]
-      (import-from opts [(.toString unzipped-path)]))
-    (do (println "No provider specified. Available providers:")
-        (download/print-providers))))
+(defn download [{:keys [db] :as opts} args]
+  (if db
+    (if-let [[provider & params] (seq args)]
+      (when-let [unzipped-path (download/download provider params)]
+        (import-from opts [(.toString unzipped-path)]))
+      (do (println "No provider specified. Available providers:")
+          (download/print-providers)))
+    (log/error "no database directory specified")))
 
 (defn build-index [{:keys [db locale]} _]
   (if db
