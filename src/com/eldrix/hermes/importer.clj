@@ -69,11 +69,12 @@
   metadata file exists at the root of the release, we can guess the name from
   the parent directory and use that if a 'name' isn't in the metadata.
   Raised as issue #32991 with Snomed International."
-  [^File f]
-  (let [default {:name (.getName (.getParentFile f))}]
+  [f]
+  (let [parent (when (instance? File f) (.getParentFile ^File f))
+        default (when parent {:name (.getName parent)})]
     (try
       (-> default                                           ;; start with sane default
-          (merge (json/read-str (slurp f) :key-fn keyword :value-fn read-metadata-value)) ;; read in metadata file itself
+          (merge (json/read-str (slurp f) :key-fn keyword :value-fn read-metadata-value)) ;; read in metadaa
           (update :modules update-keys (fn [x] (-> x name parse-long)))) ;; return all module identifiers as longs
       (catch Throwable e (log/warn e "Invalid metadata in distribution file" (:name default))
                          (assoc default :error "Invalid metadata in distribution file")))))
