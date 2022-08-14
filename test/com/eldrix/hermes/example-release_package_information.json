@@ -1,0 +1,22 @@
+{
+  "effectiveTime": "20220803",
+  "deltaFromDate": "20220706",
+  "deltaToDate": "20220803",
+  "modules": {
+    "999000011000000103": "SNOMED CT United Kingdom clinical extension module",
+    "999000031000000106": "SNOMED CT United Kingdom Edition reference set module"
+  },
+  "documentationURL": "https://hscic.kahootz.com/connect.ti/t_c_home/view?objectID=14540272",
+  "languageRefset": "999001261000000100,999000691000001104",
+  "humanReadableLanguageRefset": [
+    {
+      "id": "999001261000000100",
+      "term": "NHS realm language reference set (clinical part)"
+    },
+    {
+      "id": "999000691000001104",
+      "term": "National Health Service realm language reference set (pharmacy part)"
+    }
+  ],
+  "licenceStatement": "© 2022 International Health Terminology Standards Development Organisation 2002-2022.  All rights reserved.  SNOMED CT® was originally created by the College of American Pathologists.  'SNOMED' and 'SNOMED CT' are registered trademarks of International Health Terminology Standards Development Organisation, trading as SNOMED International.  SNOMED CT has been created by combining SNOMED RT and a computer based nomenclature and classification known as Clinical Terms Version 3, formerly known as Read Codes Version 3, which was created on behalf of the UK Department of Health and is Crown copyright.  This document forms part of the International Edition release of SNOMED CT® distributed by SNOMED International, which is subject to the SNOMED CT® Affiliate License, details of which may be found at https://www.snomed.org/snomed-ct/get-snomed."
+}
