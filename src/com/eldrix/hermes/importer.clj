@@ -125,32 +125,6 @@
               (log/debug "Processing cancelled (output channel closed)")
               (throw (InterruptedException. "process cancelled")))))))))
 
-(defn test-csv [filename]
-  (with-open [rdr (clojure.java.io/reader filename)]
-    (if-let [parser (:parser (snomed/parse-snomed-filename filename))]
-      (loop [i 0
-             n 0
-             data (map #(str/split % #"\t") (line-seq rdr))]
-
-        (when-let [line (first data)]
-          (when (= i 0)
-            (println "Processing " filename "\n" line))
-          (try
-            (when (> i 0) (parser line))
-            (catch Throwable e (throw (ex-info "Error parsing file" {:filename filename
-                                                                     :line     i :content line
-                                                                     :error    (ex-data e)}))))
-          (when (and (not= 0 n) (not= n (count line)))
-            (println "incorrect number of columns; expected" n " got:" (count line)) {})
-          (recur (inc i)
-                 (if (= n 0) (long (count line)) n)
-                 (next data))))
-      (println "no parser for file: " filename))))
-
-(defn test-all-csv [dir]
-  (doseq [filename (map :path (importable-files dir))]
-    (test-csv filename)))
-
 (s/fdef load-snomed-files
   :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
                :opts (s/keys* :opt-un [::nthreads ::batch-size])))
@@ -190,18 +164,6 @@
   [dir & opts]
   (let [files (snomed-file-seq dir)]
     (load-snomed-files files opts)))
-
-(defn examine-distribution-files
-  [dir]
-  (let [results-c (load-snomed dir :batch-size 5000)]
-    (loop [counts {}
-           batch (async/<!! results-c)]
-      (if-not batch
-        (print "Total statistics: \n" counts)
-        (do (print counts "\r")
-            (recur
-              (merge-with + counts {(:type batch) (count (:data batch))})
-              (async/<!! results-c)))))))
 
 (comment
   (snomed/parse-snomed-filename "sct2_Concept_Full_INT_20190731.txt")
