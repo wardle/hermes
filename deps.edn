@@ -53,7 +53,8 @@
                           com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                           :sha     "a85b3b02765fb68684ab9ee4a8598eacf7e471d2"}
                           ch.qos.logback/logback-classic {:mvn/version "1.2.11"}}
-            :main-opts   ["-m" "cognitect.test-runner"]}
+            :main-opts   ["-m" "cognitect.test-runner"]
+            :exec-fn     cognitect.test-runner.api/test}
 
            :test/cloverage
            {:extra-paths ["test"]
