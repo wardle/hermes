@@ -341,12 +341,6 @@
        (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
        (filter #(.startsWith ^String (:mapTarget %) prefix))))
 
-(s/fdef reverse-map-range
-  :args (s/cat :svc ::svc
-               :refset-id :info.snomed.Concept/id
-               :code (s/alt :prefix ::non-blank-string
-                            :range (s/cat :lower-bound ::non-blank-string :upper-bound ::non-blank-string))))
-
 (s/fdef get-preferred-synonym
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
 (defn get-preferred-synonym
