@@ -13,7 +13,7 @@
 (defn record->map
   "Turn a record into a namespaced map."
   [n r]
-  (reduce-kv (fn [m k v] (assoc m (keyword n (name k)) v)) {} r))
+  (reduce-kv (fn [m k v] (assoc m (keyword n (if (number? k) (str k) (name k))) v)) {} r))
 
 (def concept-properties
   [:info.snomed.Concept/id
@@ -122,10 +122,12 @@
 
 (pco/defresolver concept-refset-items
   "Returns the refset items for a concept."
-  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
-  (let [refset-id (or (:refsetId (pco/params env)) 0)]
-    {:info.snomed.Concept/refsetItems (map (partial record->map "info.snomed.RefsetItem") (hermes/get-component-refset-items-extended svc id refset-id))}))
+  {:info.snomed.Concept/refsetItems (map #(record->map "info.snomed.RefsetItem" %)
+                                         (if-let [refset-id (:refsetId (pco/params env))]
+                                           (hermes/get-component-refset-items-extended svc concept-id refset-id)
+                                           (hermes/get-component-refset-items-extended svc concept-id)))})
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
@@ -307,13 +309,14 @@
                  [:info.snomed.Concept/id
                   :info.snomed.Concept/active
                   '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})
-                  :info.snomed.Concept/refsets
+                  :info.snomed.Concept/refsetIds
                   {:info.snomed.Concept/descriptions
                    [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}])
 
   (p.eql/process registry
                  {:info.snomed.Concept/id 24700007}
                  [:info.snomed.Concept/id
+                  :info.snomed.Concept/refsetItems
                   :info.read/ctv3
                   '(:info.snomed.Concept/parentRelationshipIds {:type 116676008})
                   '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})])
