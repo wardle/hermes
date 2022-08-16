@@ -70,11 +70,11 @@
                     ^long moduleId
                     ^long definitionStatusId]
   IConcept
-  (id [this] id)
-  (effectiveTime [this] effectiveTime)
-  (active [this] active)
-  (moduleId [this] moduleId)
-  (definitionStatusId [this] moduleId))
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (definitionStatusId [_] moduleId))
 
 (defrecord Description [^long id
                         ^LocalDate effectiveTime
@@ -86,14 +86,14 @@
                         ^String term
                         ^long caseSignificanceId]
   IDescription
-  (id [this] id)
-  (effectiveTime [this] effectiveTime)
-  (moduleId [this] moduleId)
-  (conceptId [this] conceptId)
-  (languageCode [this] languageCode)
-  (typeId [this] typeId)
-  (term [this] term)
-  (caseSignificanceId [this] caseSignificanceId))
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (moduleId [_] moduleId)
+  (conceptId [_] conceptId)
+  (languageCode [_] languageCode)
+  (typeId [_] typeId)
+  (term [_] term)
+  (caseSignificanceId [_] caseSignificanceId))
 
 (defrecord Relationship [^long id
                          ^LocalDate effectiveTime
@@ -348,15 +348,15 @@
   Reification of refset items could occur at time of import, or at runtime."
   [attribute-description-concept-ids]
   (match/match [attribute-description-concept-ids]
-               [[449608002 900000000000533001 & more]] reify-association-refset-item
-               [[449608002 900000000000511003 & more]] reify-language-refset-item
-               [[900000000000500006 900000000000505001 & more]] reify-simple-map-refset-item
+               [[449608002 900000000000533001 & _]] reify-association-refset-item
+               [[449608002 900000000000511003 & _]] reify-language-refset-item
+               [[900000000000500006 900000000000505001 & _]] reify-simple-map-refset-item
                [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
-                 1193546000 609330002 & more]] reify-extended-map-refset-item
+                 1193546000 609330002 & _]] reify-extended-map-refset-item
                [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
-                 1193546000 & more]] reify-complex-map-refset-item
-               [[449608002 900000000000491004 & more]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
-               [[449608002 762677007 & more]] reify-owl-expression-refset-item
+                 1193546000 & _]] reify-complex-map-refset-item
+               [[449608002 900000000000491004 & _]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
+               [[449608002 762677007 & _]] reify-owl-expression-refset-item
                :else identity))
 
 (s/def ::refset-filename-pattern
@@ -608,10 +608,10 @@
    ^String term
    ^String preferredTerm]
   IResult
-  (id [this] id)
-  (conceptId [this] conceptId)
-  (term [this] term)
-  (preferredTerm [this] preferredTerm))
+  (id [_] id)
+  (conceptId [_] conceptId)
+  (term [_] term)
+  (preferredTerm [_] preferredTerm))
 
 (def snomed-file-pattern
   #"(?x) # allow white-space and comments

@@ -381,7 +381,7 @@
          (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parents))
          (some identity))))
 
-(defn parse-expression [^Service svc s]
+(defn parse-expression [^Service _svc s]
   (scg/parse s))
 
 (s/fdef search
