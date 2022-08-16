@@ -768,7 +768,7 @@
   in a single step. It would be unusual to use this; usually each step would be
   performed interactively by an end-user."
   ([root import-from] (create-service root import-from))
-  ([root import-from locale-preference-string]              ;; There are four steps:
+  ([root import-from locale-preference-string]              ;; There are three steps:
    (import-snomed root import-from)                         ;; import the files
    (compact root)                                           ;; compact the store
    (build-search-indices root locale-preference-string)))   ;; build the search index
