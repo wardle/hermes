@@ -290,12 +290,8 @@
   (concept-replaced-by {::svc svc} {:info.snomed.Concept/id 100005})
 
   (def registry (-> (pci/register all-resolvers)
-                    (p.plugin/register
-                      [pbip/remove-stats-plugin
-                       (pbip/attribute-errors-plugin)])
                     (assoc ::svc svc)))
-  (require '[com.wsscode.pathom.viz.ws-connector.core :as pvc]
-           '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
+  (require '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'hermes})
 
 
