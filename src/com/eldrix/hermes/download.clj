@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.download
-  (:require [clojure.tools.logging.readable :as log]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [clojure.pprint :as pprint]
             [clojure.spec.alpha :as s]
             [clojure.walk :as walk]

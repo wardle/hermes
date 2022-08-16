@@ -31,8 +31,7 @@
            (java.util Collection List ArrayList)
            (java.nio.file Paths)
            (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
-           (org.apache.lucene.analysis Analyzer)
-           (java.io Closeable)))
+           (org.apache.lucene.analysis Analyzer)))
 
 (set! *warn-on-reflection* true)
 

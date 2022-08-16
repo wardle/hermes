@@ -1,9 +1,8 @@
 (ns com.eldrix.hermes.impl.members
   "Members creates a Lucene search index for reference set members."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.core.async :as async]
             [com.eldrix.hermes.impl.search :as search]
-            [com.eldrix.hermes.impl.store :as store]
-            [clojure.core.async :as async])
+            [com.eldrix.hermes.impl.store :as store])
   (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
            (org.apache.lucene.document Document Field$Store StringField LongPoint StoredField)
            (java.util UUID Collection)
