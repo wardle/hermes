@@ -94,7 +94,7 @@
           (println "Invalid parameters for provider '" nm "':\n" (expound/expound-str spec params {:print-specs? false :theme :figwheel-theme}))
           (if-let [zipfile (f params)]
             (zip/unzip zipfile)
-            (log/warn "No files returned" {:provider nm })))))))
+            (log/warn "No files returned" {:provider nm})))))))
 
 (comment
 
