@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.0.701] - 2022-08-14
+## [1.0.712] - 2022-08-14
 
 * Tweak logging during import
 * Refine handling of distribution metadata
