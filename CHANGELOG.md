@@ -2,6 +2,14 @@
 
 This log documents significant changes for each release.
 
+## [1.0.701] - 2022-08-14
+
+* Tweak logging during import
+* Refine handling of distribution metadata
+* Remove unused code
+* Fix graph resolution of a concept's membership of reference sets (via properties /refsetIds and /refsetItems).
+* Upgrade dependencies (Lucene 9.3, netty buffers 4.1.79)
+
 ## [0.12.684] - 2022-06-12
 
 * Add ability to download a specific release by date, for UK users.
