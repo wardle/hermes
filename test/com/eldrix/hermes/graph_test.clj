@@ -87,6 +87,19 @@
       (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
       (is (= 24700007 (get-in ms [:info.snomed.Concept/id]))))))
 
+(deftest ^:live test-refsets
+  (let [svc (::graph/svc *registry*)
+        refset-items (hermes/get-component-refset-items svc 24700007)
+        refset-ids (hermes/get-component-refset-ids svc 24700007)
+        ms (p.eql/process *registry*
+                          {:info.snomed.Concept/id 24700007}
+                          [:info.snomed.Concept/id
+                           :info.snomed.Concept/refsetItems
+                           :info.snomed.Concept/refsetIds])]
+    (is (= (map #(update-keys % (comp keyword name)) (:info.snomed.Concept/refsetItems ms))
+           (map #(update-keys % (comp keyword name)) refset-items)))
+    (is (= (:info.snomed.Concept/refsetIds refset-ids)))))
+
 (comment
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
                                 (assoc ::graph/svc (hermes/open "snomed.db"))))

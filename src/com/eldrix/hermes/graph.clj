@@ -13,7 +13,7 @@
 (defn record->map
   "Turn a record into a namespaced map."
   [n r]
-  (reduce-kv (fn [m k v] (assoc m (keyword n (if (number? k) (str k) (name k))) v)) {} r))
+  (reduce-kv (fn [m k v] (assoc m (keyword n (name k)) v)) {} r))
 
 (def concept-properties
   [:info.snomed.Concept/id
@@ -126,8 +126,8 @@
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map #(record->map "info.snomed.RefsetItem" %)
                                          (if-let [refset-id (:refsetId (pco/params env))]
-                                           (hermes/get-component-refset-items-extended svc concept-id refset-id)
-                                           (hermes/get-component-refset-items-extended svc concept-id)))})
+                                           (hermes/get-component-refset-items svc concept-id refset-id)
+                                           (hermes/get-component-refset-items svc concept-id)))})
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
