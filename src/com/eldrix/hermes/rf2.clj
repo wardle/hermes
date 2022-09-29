@@ -403,7 +403,9 @@
 
 (defn gen-refset
   "Generate a random reference set item, in frequencies approximately equal to
-  the UK distribution."
+  the UK distribution.
+  See [[com.eldrix.hermes.impl.store/refset-counts]] for the code to calculate
+  frequencies from installed distributions."
   []
   (gen/frequency
     [[4 (gen-simple-map-refset)]
