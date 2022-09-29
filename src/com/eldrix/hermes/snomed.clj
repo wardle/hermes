@@ -861,7 +861,8 @@
   [^Description d]
   (= Synonym (:typeId d)))
 
-
+(s/fdef term->lowercase
+  :args (s/cat :description :info.snomed/Description))
 (defn term->lowercase
   "Return the term of the description as a lower-case string,
   if possible, as determined by the case significance flag."
