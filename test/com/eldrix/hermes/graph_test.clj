@@ -57,6 +57,20 @@
     (is (= 37340000 (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/id])))
     (is (= "Motor neuron disease" (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
+(deftest ^:live test-search-resolver
+  (let [result (p.eql/process *registry*
+                              ['({:info.snomed.Search/search [:info.snomed.Concept/id
+                                                              :info.snomed.Description/id
+                                                              :info.snomed.Description/term
+                                                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                                                              :info.snomed.Concept/active]}
+                                 {:s          "mnd"
+                                  :constraint "<404684003"
+                                  :max-hits   1})])]
+
+    (is (= 37340000 (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/id])))
+    (is (= "Motor neuron disease" (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
+
 (deftest ^:live test-replaced-by
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 203004}

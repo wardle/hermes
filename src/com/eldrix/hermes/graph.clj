@@ -6,7 +6,8 @@
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql])
+            [com.wsscode.pathom3.interface.eql :as p.eql]
+            [clojure.spec.alpha :as s])
   (:import (java.util Locale)
            (com.eldrix.hermes.core Service)))
 
@@ -217,6 +218,24 @@
   {::pco/output [:info.read/ctv3]}
   {:info.read/ctv3 (:mapTarget (first (hermes/get-component-refset-items svc id 900000000000497000)))})
 
+(s/fdef perform-search :args (s/cat :hermes/svc ::hermes/svc :params ::hermes/search-params))
+(defn perform-search [svc params]
+  (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))
+       (mapv (fn [{:keys [id conceptId term preferredTerm]}]
+               {:info.snomed.Description/id               id
+                :info.snomed.Concept/id                   conceptId
+                :info.snomed.Description/term             term
+                :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}}))))
+
+(pco/defresolver search-resolver
+  [{::keys [svc] :as env} _]
+  {::pco/output [{:info.snomed.Search/search
+                  [:info.snomed.Description/id
+                   :info.snomed.Concept/id
+                   :info.snomed.Description/term
+                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+  {:info.snomed.Search/search (perform-search svc (pco/params env))})
+
 (pco/defmutation search
   "Performs a search. Parameters:
     |- :s                  : search string to use
@@ -232,12 +251,7 @@
                   :info.snomed.Concept/id
                   :info.snomed.Description/term
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-
-  (mapv (fn [result] {:info.snomed.Description/id               (:id result)
-                      :info.snomed.Concept/id                   (:conceptId result)
-                      :info.snomed.Description/term             (:term result)
-                      :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:preferredTerm result)}})
-        (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))))
+  (perform-search svc params))
 
 (pco/defresolver installed-refsets
   [{::keys [svc]} _]
@@ -267,6 +281,7 @@
    fully-specified-name
    concept-relationships
    lowercase-term
+   search-resolver
    search
    installed-refsets])
 
