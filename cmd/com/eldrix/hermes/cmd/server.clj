@@ -195,8 +195,8 @@
             (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
             (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
             (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset)))
-            (#{"true" "1"} fuzzy) (assoc :fuzzy 2)
-            (#{"true" "1"} fallbackFuzzy) (assoc :fallback-fuzzy 2)
+            fuzzy (assoc :fuzzy (if (#{"true" "1"} fuzzy) 2 0))
+            fallbackFuzzy (assoc :fallback-fuzzy (if (#{"true" "1"} fallbackFuzzy) 2 0))
             inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
             inactiveDescriptions (assoc :inactive-descriptions? (boolean (#{"true" "1"} inactiveDescriptions))))))
 
