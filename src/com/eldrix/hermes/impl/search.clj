@@ -170,7 +170,7 @@
                                                {:priority-list language-priority-list :store-filename store-filename})))
         (store/stream-all-concepts store ch)                ;; start streaming all concepts
         (async/<!! (async/pipeline
-                     nthreads                                          ;; Parallelism factor
+                     nthreads                               ;; Parallelism factor
                      (doto (async/chan) (async/close!))
                      (comp (map #(concept->documents store langs' %))
                            (map #(.addDocuments writer %)))
