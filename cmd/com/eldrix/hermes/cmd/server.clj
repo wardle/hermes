@@ -184,21 +184,22 @@
               (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
               (assoc context :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
-(defn parse-search-params [params]
-  (let [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions]} params]
-    (cond-> {}
-            s (assoc :s s)
-            constraint (assoc :constraint constraint)
-            ecl (assoc :constraint ecl)
-            maxHits (assoc :max-hits (Integer/parseInt maxHits))
-            (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
-            (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
-            (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
-            (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset)))
-            fuzzy (assoc :fuzzy (if (#{"true" "1"} fuzzy) 2 0))
-            fallbackFuzzy (assoc :fallback-fuzzy (if (#{"true" "1"} fallbackFuzzy) 2 0))
-            inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
-            inactiveDescriptions (assoc :inactive-descriptions? (boolean (#{"true" "1"} inactiveDescriptions))))))
+(defn parse-search-params
+  [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
+  (cond-> {}
+          s (assoc :s s)
+          constraint (assoc :constraint constraint)
+          ecl (assoc :constraint ecl)
+          maxHits (assoc :max-hits (Integer/parseInt maxHits))
+          (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
+          (vector? isA) (assoc :properties {snomed/IsA (into [] (map #(Long/parseLong %) isA))})
+          (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
+          (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset)))
+          fuzzy (assoc :fuzzy (if (#{"true" "1"} fuzzy) 2 0))
+          fallbackFuzzy (assoc :fallback-fuzzy (if (#{"true" "1"} fallbackFuzzy) 2 0))
+          inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
+          inactiveDescriptions (assoc :inactive-descriptions? (boolean (#{"true" "1"} inactiveDescriptions)))
+          removeDuplicates (assoc :remove-duplicates? (boolean (#{"true" "1"} removeDuplicates)))))
 
 (def get-search
   {:name  ::get-search
