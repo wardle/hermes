@@ -1,13 +1,13 @@
 (ns com.eldrix.hermes.graph
   "Provides a graph API around SNOMED CT structures."
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
-            [clojure.spec.alpha :as s])
+            [com.wsscode.pathom3.interface.eql :as p.eql])
   (:import (java.util Locale)
            (com.eldrix.hermes.core Service)))
 
