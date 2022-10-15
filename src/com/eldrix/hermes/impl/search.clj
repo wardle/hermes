@@ -16,10 +16,13 @@
   "Search creates a Lucene search index for descriptions."
   (:require [clojure.core.async :as async]
             [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed])
+
   (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
@@ -39,10 +42,8 @@
 (s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
 (s/def ::writer #(instance? IndexWriter %))
-(s/def ::search-params (s/keys :req-un [::s]
-                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
-                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
-                                        ::properties ::concept-refsets]))
+
+;; Specification for search parameters
 (s/def ::s string?)
 (s/def ::max-hits pos-int?)
 (s/def ::fuzzy (s/int-in 0 2))
@@ -53,6 +54,20 @@
 (s/def ::inactive-descriptions? boolean?)
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
+(s/def ::search-params (s/keys :req-un [::s]
+                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                                        ::properties ::concept-refsets]))
+;; Specification for search results
+(s/def ::id :info.snomed.Description/id)
+(s/def ::conceptId :info.snomed.Concept/id)
+(s/def ::term string?)
+(s/def ::preferredTerm string?)
+(s/def ::result (s/keys :req-un [::id ::conceptId ::term ::preferredTerm]))
+(defn gen-result
+  ([] (gen/fmap snomed/map->Result (s/gen ::result)))
+  ([result] (gen/fmap #(merge % result) (gen-result))))
+
 
 ;; A Lucene results collector that collects *all* results into the mutable
 ;; java collection 'coll'.
