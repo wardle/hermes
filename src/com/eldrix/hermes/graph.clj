@@ -220,7 +220,7 @@
 
 (s/fdef perform-search :args (s/cat :hermes/svc ::hermes/svc :params ::hermes/search-params))
 (defn perform-search [svc params]
-  (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits]))
+  (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits :remove-duplicates?]))
        (mapv (fn [{:keys [id conceptId term preferredTerm]}]
                {:info.snomed.Description/id               id
                 :info.snomed.Concept/id                   conceptId
@@ -243,7 +243,9 @@
     |- :fuzzy              : whether to perform fuzzy matching or not
     |- :fallback-fuzzy     : fuzzy matching to use if no results without fuzz
     |- :max-hits           : maximum hits (if omitted returns unlimited but
-                             *unsorted* results)."
+    |                        *unsorted* results).
+    |- :remove-duplicates? : remove consecutive duplicates by concept id and
+                             term."
   [{::keys [svc]} params]
   {::pco/op-name 'info.snomed.Search/search
    ::pco/params  [:s :constraint :max-hits]
