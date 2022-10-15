@@ -384,21 +384,20 @@
 (defn parse-expression [^Service _svc s]
   (scg/parse s))
 
-(s/fdef search
-  :args (s/cat :svc ::svc :params ::search-params)
-  :ret (s/coll-of ::result))
-(defn search [^Service svc params]
-  (if-let [constraint (:constraint params)]
-    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse {:store           (.-store svc)
-                                                                        :searcher        (.-searcher svc)
-                                                                        :member-searcher (.-memberSearcher svc)} constraint)))
-    (search/do-search (.-searcher svc) params)))
 
 (defn- make-svc-map
   [^Service svc]
   {:store           (.-store svc)
    :searcher        (.-searcher svc)
    :member-searcher (.-memberSearcher svc)})
+
+(s/fdef search
+  :args (s/cat :svc ::svc :params ::search-params)
+  :ret (s/coll-of ::result))
+(defn search [^Service svc params]
+  (if-let [constraint (:constraint params)]
+    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse (make-svc-map svc) constraint)))
+    (search/do-search (.-searcher svc) params)))
 
 (s/fdef expand-ecl
   :args (s/cat :svc ::svc :ecl ::non-blank-string)
