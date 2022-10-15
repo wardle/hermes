@@ -46,8 +46,8 @@
 ;; Specification for search parameters
 (s/def ::s string?)
 (s/def ::max-hits pos-int?)
-(s/def ::fuzzy (s/int-in 0 2))
-(s/def ::fallback-fuzzy (s/int-in 0 2))
+(s/def ::fuzzy (s/int-in 0 3))
+(s/def ::fallback-fuzzy (s/int-in 0 3))
 (s/def ::query #(instance? Query %))
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
