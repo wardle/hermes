@@ -363,7 +363,7 @@
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
   ```
   A FSN is a fully-specified name and should generally be left out of search."
-  [^IndexSearcher searcher {:keys [max-hits] :as params}]
+  [^IndexSearcher searcher {:keys [max-hits fuzzy fallback-fuzzy] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
         q3 (boost-length-query q2)
@@ -372,9 +372,9 @@
                   (do-query-for-results searcher q3))]
     (if (seq results)
       results
-      (let [fuzzy (or (:fuzzy params) 0)
-            fallback (or (:fallback-fuzzy params) 0)]
-        (when (and (= fuzzy 0) (> fallback 0))
+      (let [fuzzy (or fuzzy 0)
+            fallback (or fallback-fuzzy 0)]
+        (when (and (= fuzzy 0) (> fallback 0))    ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
 (defn topdocs->concept-ids
