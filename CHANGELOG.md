@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.0.730] - 2022-10-15
+## [1.0.734] - 2022-10-15
 
 * Add support to automatically remove duplicates during search, when term and conceptId match.
 * Add ability to explicitly include or exclude inactive concepts and descriptions from HTTP API 
