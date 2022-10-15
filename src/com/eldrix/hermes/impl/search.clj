@@ -67,7 +67,7 @@
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
 
 (defn search-all
-  "Search a lucene index and return *all* results.
+  "Search a lucene index and return *all* results matching query specified.
   Results are returned as a sequence of Lucene document ids."
   [^IndexSearcher searcher ^Query q]
   (let [coll (ArrayList.)]
