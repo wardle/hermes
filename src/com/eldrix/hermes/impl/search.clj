@@ -339,6 +339,7 @@
   Parameters:
   - searcher : the IndexSearcher to use
   - params   : a map of search parameters, which are:
+
     | keyword                 | description |
     |---------------------    |----------------------------------------------------|
     | :s                      | search string to use                               |
@@ -358,8 +359,9 @@
   identifier or vector of identifiers to limit search.
 
   Example: to search for neurologist as an occupation ('IS-A' '14679004')
+  ```
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
-
+  ```
   A FSN is a fully-specified name and should generally be left out of search."
   [^IndexSearcher searcher {:keys [max-hits] :as params}]
   (let [q1 (make-search-query params)
