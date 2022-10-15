@@ -185,7 +185,7 @@
               (assoc context :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params [params]
-  (let [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy]} params]
+  (let [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions]} params]
     (cond-> {}
             s (assoc :s s)
             constraint (assoc :constraint constraint)
@@ -196,7 +196,9 @@
             (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
             (vector? refset) (assoc :concept-refsets (into [] (map #(Long/parseLong %) refset)))
             (#{"true" "1"} fuzzy) (assoc :fuzzy 2)
-            (#{"true" "1"} fallbackFuzzy) (assoc :fallback-fuzzy 2))))
+            (#{"true" "1"} fallbackFuzzy) (assoc :fallback-fuzzy 2)
+            inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
+            inactiveDescriptions (assoc :inactive-descriptions? (boolean (#{"true" "1"} inactiveDescriptions))))))
 
 (def get-search
   {:name  ::get-search
