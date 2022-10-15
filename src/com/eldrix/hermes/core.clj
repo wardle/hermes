@@ -54,10 +54,7 @@
 (s/def ::svc any?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 (s/def ::component-id (s/and pos-int? verhoeff/valid?))
-(s/def ::search-params (s/keys :req-un [(or ::s ::constraint)]
-                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
-                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
-                                        ::properties ::concept-refsets]))
+
 (s/def ::s string?)
 (s/def ::constraint string?)
 (s/def ::max-hits pos-int?)
@@ -67,8 +64,13 @@
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
+(s/def ::remove-duplicates? boolean?)
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
+(s/def ::search-params (s/keys :req-un [(or ::s ::constraint)]
+                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                                        ::remove-duplicates? ::properties ::concept-refsets]))
 
 (deftype Service [^Closeable store
                   ^IndexReader indexReader
