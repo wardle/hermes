@@ -52,6 +52,7 @@
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
+(s/def ::remove-duplicates? boolean?)
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 (s/def ::search-params (s/keys :req-un [::s]
@@ -68,6 +69,30 @@
   ([] (gen/fmap snomed/map->Result (s/gen ::result)))
   ([result] (gen/fmap #(merge % result) (gen-result))))
 
+(defn remove-duplicates
+  "Returns a lazy sequence removing consecutive duplicates in coll with
+  duplicates determined by equality function `equality-fn`.
+  Returns a transducer when no collection is provided.
+  Also see [[clojure.core/dedupe]]."
+  ([equality-fn]
+   (fn [rf]
+     (let [pv (volatile! ::none)]
+       (fn
+         ([] (rf))
+         ([result] (rf result))
+         ([result input]
+          (let [prior @pv]
+            (vreset! pv input)
+            (if (and (equality-fn prior input))
+              result
+              (rf result input))))))))
+  ([equality-fn coll] (sequence (remove-duplicates equality-fn) coll)))
+
+(defn duplicate-result?
+  "Are the given results, in effect, duplicates?
+  This matches a result if they have the same conceptId and same term."
+  [{a-concept-id :conceptId a-term :term} {b-concept-id :conceptId b-term :term}]
+  (and (= a-concept-id b-concept-id) (= a-term b-term)))
 
 ;; A Lucene results collector that collects *all* results into the mutable
 ;; java collection 'coll'.
@@ -366,6 +391,7 @@
   | :show-fsn?              | show FSNs in results? (default, false)            |
   | :inactive-concepts?     | search descriptions of inactive concepts? (false) |
   | :inactive-descriptions? | search inactive descriptions? (default, true)     |
+  | :remove-duplicates?     | remove duplicate results (default, false)         |
   | :properties             | a map of properties and their possible values.    |
   | :concept-refsets        | a collection of refset ids to limit search        |
 
@@ -377,7 +403,7 @@
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
   ```
   A FSN is a fully-specified name and should generally be left out of search."
-  [^IndexSearcher searcher {:keys [max-hits fuzzy fallback-fuzzy] :as params}]
+  [^IndexSearcher searcher {:keys [max-hits fuzzy fallback-fuzzy remove-duplicates?] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
         q3 (boost-length-query q2)
@@ -385,10 +411,12 @@
                   (do-query-for-results searcher q3 (int max-hits))
                   (do-query-for-results searcher q3))]
     (if (seq results)
-      results
+      (if remove-duplicates?
+        (remove-duplicates duplicate-result? results)
+        results)
       (let [fuzzy (or fuzzy 0)
             fallback (or fallback-fuzzy 0)]
-        (when (and (= fuzzy 0) (> fallback 0))    ; only fallback to fuzzy search if no fuzziness requested first time
+        (when (and (= fuzzy 0) (> fallback 0))              ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
 (defn topdocs->concept-ids
