@@ -1,6 +1,7 @@
 (ns build
   (:require [clojure.tools.build.api :as b]
-            [deps-deploy.deps-deploy :as dd]))
+            [deps-deploy.deps-deploy :as dd]
+            [borkdude.gh-release-artifact :as gh]))
 
 (def lib 'com.eldrix/hermes)
 (def version (format "1.0.%s" (b/git-count-revs nil)))
@@ -10,6 +11,11 @@
                                  :aliases [:run]}))
 (def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
 (def uber-file (format "target/%s-%s.jar" (name lib) version))
+(def github {:org    "wardle"
+             :repo   "hermes"
+             :tag    (str "v" version)
+             :file   uber-file
+             :sha256 true})
 
 (defn clean [_]
   (b/delete {:path "target"}))
@@ -65,11 +71,15 @@
                 :target (str class-dir "/logback.xml")})
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src" "cmd"]
-                  :compile-opts {:elide-meta [:doc :added]
+                  :compile-opts {:elide-meta     [:doc :added]
                                  :direct-linking true}
-                  :java-opts ["-Dlogback.configurationFile=logback-build.xml"]
+                  :java-opts    ["-Dlogback.configurationFile=logback-build.xml"]
                   :class-dir    class-dir})
   (b/uber {:class-dir class-dir
            :uber-file out
            :basis     uber-basis
            :main      'com.eldrix.hermes.cmd.core}))
+
+(defn gh-release [_]
+  (println "Deploying release to github using GITHUB_TOKEN from env")
+  (gh/release-artifact github))

@@ -23,8 +23,9 @@
            org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"}}
 
  :aliases {:build
-           {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.3" :git/sha "0d20256"}
-                         slipset/deps-deploy           {:mvn/version "RELEASE"}}
+           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.8.3" :git/sha "0d20256"}
+                         slipset/deps-deploy                    {:mvn/version "RELEASE"}
+                         io.github.borkdude/gh-release-artifact {:git/sha "05f8d8659e6805d513c59447ff41dc8497878462"}}
             :ns-default build}
 
            :run
