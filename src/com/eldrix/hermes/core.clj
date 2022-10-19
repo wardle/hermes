@@ -488,7 +488,10 @@
                               :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
-  dimensionality of the dataset.
+  dimensionality of the dataset. Returns a set of identifiers that are in the
+  'target'. The target can be a collection of identifiers, an ECL expression
+  or, for convenience, an identifier representing a reference set. The latter
+  two will be expanded into a set of identifiers.
 
   Parameters:
   - svc                : hermes service
@@ -502,8 +505,9 @@
   then a collection will be returned such that no member of the subset is
   subsumed by another member.
 
-  It would be usual to map any source concept identifiers into their modern
-  active replacements, if they are now inactive.
+  Callers will usually need to map any source concept identifiers into their
+  modern active replacements, if they are now inactive, as inactive source
+  concepts do not have relationships that can be used to perform map-into.
 
   The use of 'map-into' is in reducing the granularity of user-entered
   data to aid analytics. For example, rather than limiting data entry to the UK
