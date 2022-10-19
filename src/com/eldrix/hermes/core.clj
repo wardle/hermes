@@ -535,11 +535,13 @@
   both 'neurological disease' (118940003) AND 'infectious disease' (40733004)."
   [^Service svc source-concept-ids target]
   (let [target-concept-ids
-        (cond (string? target)
-              (into #{} (map :conceptId (expand-ecl svc target)))
-              (coll? target)
-              (set target)
-              (number? target) (get-refset-members svc target))]
+        (cond
+          ;; a string should be an ECL expression -> expand to a set of identifiers
+          (string? target) (into #{} (map :conceptId (expand-ecl svc target)))
+          ;; a collection should be a collection of identifiers -> make a set
+          (coll? target) (set target)
+          ;; a single number will be a refset identifier -> get its members
+          (number? target) (get-refset-members svc target))]
     (->> source-concept-ids
          (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
          (map #(store/get-leaves (.-store svc) %)))))
