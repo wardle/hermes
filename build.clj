@@ -80,6 +80,9 @@
            :basis     uber-basis
            :main      'com.eldrix.hermes.cmd.core}))
 
-(defn gh-release [_]
-  (println "Deploying release to github using GITHUB_TOKEN from env")
+(defn release
+  "Deploy release to github. Requires valid token in GITHUB_TOKEN environmental
+   variable."
+  [_]
+  (println "Deploying release to github.")
   (gh/release-artifact github))
