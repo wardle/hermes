@@ -909,6 +909,31 @@ As a concept identifier is actually a valid SNOMED ECL expression, you can do th
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true'
 ```
 
+```json
+
+[
+    {
+        "conceptId": 586591000000100,
+        "id": 1301271000000113,
+        "preferredTerm": "Multiple sclerosis NOS",
+        "term": "Multiple sclerosis NOS"
+    },
+    {
+        "conceptId": 192930001,
+        "id": 297181019,
+        "preferredTerm": "Multiple sclerosis NOS",
+        "term": "Multiple sclerosis NOS"
+    },
+    {
+        "conceptId": 24700007,
+        "id": 41398015,
+        "preferredTerm": "Multiple sclerosis",
+        "term": "Multiple sclerosis"
+    }
+    ...
+]
+```
+
 ##### Crossmap to and from SNOMED CT
 
 There are endpoints for crossmapping to and from SNOMED.
