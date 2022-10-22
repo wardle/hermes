@@ -215,7 +215,8 @@
   {:name  ::get-expand
    :enter (fn [context]
             (let [ecl (get-in context [:request :params :ecl])
-                  include-historic? (#{"true" "1"} (get-in context [:request :params :include-historic]))
+                  include-historic? (or (#{"true" "1"} (get-in context [:request :params :includeHistoric]))
+                                        (#{"true" "1"} (get-in context [:request :params :include-historic])))   ; avoid breaking change - support legacy parameter
                   svc (get-in context [:request ::service])
                   max-hits (or (get-in context [:request :params :max-hits]) 500)]
               (if (< 0 max-hits 10000)
