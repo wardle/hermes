@@ -418,8 +418,8 @@
       (when attr-ids? (zipmap attr-ids fields))
       (dissoc item :fields))))
 
-(defn- refset-counts
-  "A private function to returns a map of reference set counts keyed by type.
+(defn refset-counts
+  "Returns a map of reference set counts keyed by type.
   This simply iterates over all stored items
   Example results from the UK distribution:
   ```
