@@ -830,7 +830,7 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
 Example usage of search endpoint.
 
 ```shell
-curl "http://localhost:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5" -H "Accept: application/json"  | jq
+http '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5'
 ````
 
 ```shell.
@@ -877,13 +877,13 @@ Here we use the expression constraint language to search for a term "mnd"
 ensuring we only receive results that are a type of 'Disease' ("<64572001")
 
 ```shell
-http -j 'localhost:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
+http -j '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
 ```
 
 Results:
 
 ```
-http -j 'localhost:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
+http -j '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
 [
     {
         "conceptId": 37340000,
@@ -900,19 +900,19 @@ More complex expressions are supported, and no search term is actually needed.
 Let's get all drugs with exactly three active ingredients:
 
 ```shell
-http -j 'localhost:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|'
+http '127.0.0.1:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|'
 ```
 
 Or, what about all disorders of the lung that are associated with oedema?
 
 ```shell
-http -j 'localhost:8080/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|'
+http -j '127.0.0.1:8080/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|'
 ```
 
 The ECL can be written in a more concise fashion:
 
 ```shell
-http -j 'localhost:8080/v1/snomed/search?constraint= <19829001 AND <301867009'
+http -j '127.0.0.1:8080/v1/snomed/search?constraint= <19829001 AND <301867009'
 ```
 
 ##### Crossmap to and from SNOMED CT
@@ -925,7 +925,7 @@ Let's map one of our diagnostic terms into ICD-10:
 - `999002271000000101` is the ICD-10 UK complex map reference set.
 
 ```shell
-http -j localhost:8080/v1/snomed/concepts/24700007/map/999002271000000101
+http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/999002271000000101
 ```
 
 Result:
@@ -953,7 +953,7 @@ Result:
 And of course, we can crossmap back to SNOMED as well:
 
 ```shell
-http -j localhost:8080/v1/snomed/crossmap/999002271000000101/G35X
+http -j 127.0.0.1:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
 If you map a concept into a reference set that doesn't contain that concept, you'll
@@ -968,7 +968,7 @@ Here we have multiple sclerosis (`24700007`), and we're mapping into the UK emer
 reference set (`991411000000109`):
 
 ```shell
-http -j localhost:8080/v1/snomed/concepts/24700007/map/991411000000109
+http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/991411000000109
 ```
 
 The UK emergency unit reference set gives a subset of concepts used for central reporting problems and diagnoses in UK emergency units. 
@@ -994,7 +994,7 @@ Here is 'limbic encephalitis with LGI1 antibodies' (`763794005`). It isn't in
 that UK emergency unit reference set:
 
 ```shell
-http -j localhost:8080/v1/snomed/concepts/763794005/map/991411000000109
+http -j 127.0.0.1:8080/v1/snomed/concepts/763794005/map/991411000000109
 ```
 
 Result:
