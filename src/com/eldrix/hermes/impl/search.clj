@@ -83,7 +83,7 @@
          ([result input]
           (let [prior @pv]
             (vreset! pv input)
-            (if (and (equality-fn prior input))
+            (if (equality-fn prior input)
               result
               (rf result input))))))))
   ([equality-fn coll] (sequence (remove-duplicates equality-fn) coll)))
