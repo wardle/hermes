@@ -801,14 +801,13 @@
   (search svc {:s "mult scl" :constraint "<< 24700007"})
 
   (search svc {:s "ICD-10 complex map"})
-  (->> (reverse-map-prefix svc 447562003 "I30")
-       (map :referencedComponentId)
+  (->> (member-field-prefix svc 447562003 "mapTarget" "I30")
        (map #(:term (get-preferred-synonym svc % "en"))))
 
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
 
-  (reverse-map-prefix svc 447562003 "I")
+  (member-field-prefix svc 447562003 "mapTarget" "I")
   (get-component-refset-items svc 24700007 447562003)
   (map :mapTarget (get-component-refset-items svc 24700007 447562003))
 
