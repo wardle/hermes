@@ -1022,3 +1022,13 @@ Or you can install hermes into your local maven repository:
 ```shell
 clojure -T:build install
 ```
+
+To deploy the library jar to clojars, if you have the right credentials
+```shell
+clojure -T:build deploy
+```
+
+To release the uberjar to github, if you have the right credentials:
+```shell
+clojure -T:build release
+```
