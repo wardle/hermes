@@ -871,30 +871,6 @@ results:
 http '127.0.0.1:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500'
 ```
 
-##### Search using ECL
-
-Here we use the expression constraint language to search for a term "mnd"
-ensuring we only receive results that are a type of 'Disease' ("<64572001")
-
-```shell
-http -j '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
-```
-
-Results:
-
-```
-http -j '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001'
-[
-    {
-        "conceptId": 37340000,
-        "id": 486696014,
-        "preferredTerm": "Motor neuron disease",
-        "term": "MND - Motor neurone disease"
-    }
-]
-
-```
-
 More complex expressions are supported, and no search term is actually needed.
 
 Let's get all drugs with exactly three active ingredients:
@@ -913,6 +889,24 @@ The ECL can be written in a more concise fashion:
 
 ```shell
 http -j '127.0.0.1:8080/v1/snomed/search?constraint= <19829001 AND <301867009'
+```
+
+##### Expanding ECL without search
+
+If you are simply expanding an ECL expression without search terms, you can use
+the `expand` endpoint.
+
+```shell
+http -j '127.0.0.1:8080/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true'
+```
+
+This has an optional parameter `includeHistoric` which can expand the expansion
+to include historical associations. This is very useful in analytics.
+
+As a concept identifier is actually a valid SNOMED ECL expression, you can do this:
+
+```shell
+http -j '127.0.0.1:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true'
 ```
 
 ##### Crossmap to and from SNOMED CT
