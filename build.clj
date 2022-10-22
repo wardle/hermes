@@ -84,5 +84,6 @@
   "Deploy release to github. Requires valid token in GITHUB_TOKEN environmental
    variable."
   [_]
+  (uber nil)
   (println "Deploying release to github.")
   (gh/release-artifact github))
