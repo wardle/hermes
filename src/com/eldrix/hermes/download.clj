@@ -109,9 +109,7 @@
 
   (def params ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
   (def params2 ["api-key" "api-key.txt" "cache-dir=../trud/cache"])
-  (apply hash-map params)
-
-  (mapcat #(str/split %)))
+  (apply hash-map params))
 
 
 
