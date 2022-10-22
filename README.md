@@ -1009,6 +1009,11 @@ Build the uberjar:
 clojure -T:build uber
 ```
 
+To release the uberjar to github, if you have the right credentials:
+```shell
+clojure -T:build release
+```
+
 #### Building library jar
 
 A library jar contains only hermes-code, and none of the bundled dependencies.  
@@ -1026,9 +1031,4 @@ clojure -T:build install
 To deploy the library jar to clojars, if you have the right credentials
 ```shell
 clojure -T:build deploy
-```
-
-To release the uberjar to github, if you have the right credentials:
-```shell
-clojure -T:build release
 ```
