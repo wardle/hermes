@@ -338,7 +338,7 @@
                  [:info.snomed.Concept/id
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])
 
-  (hermes/reverse-map svc 900000000000497000 "F20..")
+  (hermes/member-field svc 900000000000497000 "mapTarget" "F20..")
 
   (p.eql/process registry
                  [{'(info.snomed.Search/search
