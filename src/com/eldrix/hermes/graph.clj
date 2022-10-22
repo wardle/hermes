@@ -314,7 +314,6 @@
 
   (sort (map #(vector (:id %) (:term %))
              (map #(hermes/get-preferred-synonym svc % "en-GB") (hermes/get-installed-reference-sets svc))))
-  (hermes/reverse-map svc 900000000000497000 "A130.")
 
   (first (hermes/get-component-refset-items svc 24700007 900000000000497000))
   (p.eql/process registry
