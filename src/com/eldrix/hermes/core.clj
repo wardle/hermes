@@ -28,7 +28,7 @@
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.importer :as importer]
-            [com.eldrix.hermes.rf2 :as rf2]
+            [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.eldrix.hermes.snomed Result)

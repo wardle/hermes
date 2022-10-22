@@ -26,7 +26,7 @@
             [com.eldrix.hermes.impl.members :as members]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.rf2 :as-alias rf2]
+            [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher)
