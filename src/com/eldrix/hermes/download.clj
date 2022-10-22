@@ -32,7 +32,7 @@
   (let [trud-key (str/trim-newline (slurp api-key))]
     (if release-date
       (let [release-date' (try (LocalDate/parse release-date) (catch DateTimeParseException _))
-            release (when release-date' (first (filter #(.isEqual release-date' (:releaseDate %)) (trud/get-releases trud-key item-identifier))))]
+            release (when release-date' (first (filter #(.isEqual ^LocalDate release-date' (:releaseDate %)) (trud/get-releases trud-key item-identifier))))]
         (if-not release
           (do (when-not (= "list" release-date) (log/info "Release not found for date:" release-date' "Available releases:"))
               (dorun (map #(log/info "Release: " (:releaseDate %)) (trud/get-releases trud-key item-identifier))))
