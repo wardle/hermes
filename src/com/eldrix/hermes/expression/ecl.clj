@@ -191,7 +191,7 @@
 
 (defn- parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
-  [{:keys [store] :as ctx} loc]
+  [{:keys [store]} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
         ecl-concept-reference (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
         ecl-concept-references (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId)]
@@ -221,7 +221,7 @@
   "type ws booleanComparisonOperator ws (typeToken / typeTokenSet)
   typeToken = synonym / fullySpecifiedName / definition
   typeTokenSet = \"(\" ws typeToken *(mws typeToken) ws \")\""
-  [{:keys [store] :as ctx} loc]
+  [{:keys [store]} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
         type-token (keyword (zx/xml1-> loc :typeToken zx/text))
         type-tokens (map keyword (zx/xml-> loc :typeTokenSet :typeToken zx/text))
@@ -411,7 +411,7 @@
 
 (defn- parse-concept-filter
   "conceptFilter = definitionStatusFilter / moduleFilter / effectiveTimeFilter / activeFilter"
-  [ctx loc]
+  [_ctx loc]
   (or (zx/xml1-> loc :activeFilter #(parse-concept-active-filter %))
       (throw (ex-info "Unsupported concept filter" {:text (zx/text loc)}))))
 
@@ -580,7 +580,7 @@
 (defn- parse-member-filter--match-search-term-set
   "matchSearchTermSet = QM ws matchSearchTerm *(mws matchSearchTerm) ws QM
   Note, as an optimisation, we bring through the reference set identifier "
-  [ctx refset-id refset-field-name comparison-op loc]
+  [_ctx refset-id refset-field-name comparison-op loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)
         query (members/q-or (map #(members/q-prefix refset-field-name %) terms))]
     (case comparison-op
@@ -590,7 +590,7 @@
 (defn- parse-member-filter--wild-search-term-set
   "wildSearchTermSet = QM wildSearchTerm QM
   wildSearchTerm = 1*(anyNonEscapedChar / escapedWildChar)"
-  [ctx refset-id refset-field-name comparison-op loc]
+  [_ctx refset-id refset-field-name comparison-op loc]
   (let [terms (zx/xml-> loc :wildSearchTerm zx/text)
         query (members/q-or (map #(members/q-wildcard refset-field-name %) terms))]
     (case comparison-op
@@ -621,7 +621,7 @@
    "!=" members/q-field!=})
 
 (defn- parse-member-filter--numeric
-  [ctx refset-id refset-field-name comparison-op loc]
+  [_ctx refset-id refset-field-name comparison-op loc]
   (let [v (zx/xml1-> loc zx/text parse-long)
         f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:text (zx/text loc) :op comparison-op})))]
     (members/q-and [(members/q-refset-id refset-id) (f refset-field-name v)])))
@@ -641,7 +641,7 @@
       (throw (ex-info "Invalid operation for subexpression constraint" {:op comparison-op :text (zx/text loc)})))))
 
 (defn- parse-member-field--boolean
-  [ctx refset-id refset-field-name comparison-op loc]
+  [_ctx refset-id refset-field-name comparison-op loc]
   (let [v (parse-boolean (zx/text loc))]
     (case comparison-op
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-boolean refset-field-name v)])
@@ -686,7 +686,7 @@
 (defn- parse-member-effective-time-filter
   "effectiveTimeFilter = effectiveTimeKeyword ws timeComparisonOperator ws ( timeValue / timeValueSet )
    timeValueSet = \"(\" ws timeValue *(mws timeValue) ws \")"
-  [ctx refset-id loc]
+  [_ctx refset-id loc]
   (let [op (zx/xml1-> loc :timeComparisonOperator zx/text)
         f (get time-comparison-ops op)
         values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))
@@ -698,7 +698,7 @@
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
    booleanComparisonOperator = \"=\" / \"!=\"
    activeValue = activeTrueValue / activeFalseValue"
-  [ctx refset-id loc]
+  [_ctx refset-id loc]
   (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
         op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
     (members/q-and [(members/q-refset-id refset-id)
@@ -957,7 +957,7 @@
 (defn parse
   "Parse SNOMED-CT ECL, as defined by the expression constraint language
   See http://snomed.org/ecl"
-  [{:keys [store searcher member-searcher] :as ctx} s]
+  [ctx s]
   (let [p (ecl-parser s)]
     (if (insta/failure? p)
       (let [fail (insta/get-failure p)]

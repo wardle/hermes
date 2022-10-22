@@ -219,7 +219,7 @@
   [fields]
   (when fields
     (->> (s/conform :info.snomed.RefsetItem/fields fields)
-         (map (fn [[k v]] (field->pattern k)))
+         (map (fn [[k _v]] (field->pattern k)))
          (apply str))))
 
 (s/fdef pattern-for-refset-item
