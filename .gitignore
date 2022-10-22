@@ -5,5 +5,7 @@ classes/
 target/
 snomed*.db
 hermes.iml
-.clj-kondo/.cache
+.clj-kondo/
 .eastwood
+.DS_Store
+.lsp/
