@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.0.740] - 2022-10-22
+## [1.0.754] - 2022-10-22
 
 * Upgrade dependencies (including netty-buffer,logback-classic and tools.cli)
 * Add automated release to github for uberjar, to supplement automation to clojars for library jar
