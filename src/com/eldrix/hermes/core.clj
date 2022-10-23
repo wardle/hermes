@@ -430,9 +430,6 @@
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
 
-
-(s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
-
 (s/fdef all-transitive-synonyms
   :args (s/cat :svc ::svc
                :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of :info.snomed.Concept/id))))
