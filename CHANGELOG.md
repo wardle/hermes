@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.0.764] - 2022-10-23
+
+* Add recognised installed locales into status report
+* Harmonise parameter style for HTTP REST server endpoints
+
 ## [1.0.754] - 2022-10-22
 
 * Upgrade dependencies (including netty-buffer,logback-classic and tools.cli)
