@@ -760,6 +760,7 @@
       (log/info "Status information for database at '" root "'...")
       (merge
         {:installed-releases (map :term (store/get-release-information st))}
+        {:installed-locales (->> (lang/installed-language-reference-sets st) keys (map #(.toLanguageTag ^Locale %)))}
         (when installed-refsets? {:installed-refsets (->> (store/get-installed-reference-sets st)
                                                           (map #(store/get-fully-specified-name st %))
                                                           (sort-by :term)
