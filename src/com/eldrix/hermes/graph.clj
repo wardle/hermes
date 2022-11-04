@@ -65,6 +65,13 @@
    ::pco/output [{:info.snomed.Concept/descriptions description-properties}]}
   {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc id))})
 
+(pco/defresolver concept-synonyms
+  "Returns descriptions of type 'synonym' for a given concept"
+  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  {::pco/input  [:info.snomed.Concept/id]
+   ::pco/output [{:info.snomed.Concept/synonyms description-properties}]}
+  {:info.snomed.Concept/synonyms (map (partial record->map "info.snomed.Description") (hermes/get-synonyms svc id))})
+
 (pco/defresolver concept-module
   "Return the module for a given concept."
   [{:info.snomed.Concept/keys [moduleId]}]
@@ -267,6 +274,7 @@
    concept-defined?
    concept-primitive?
    concept-descriptions
+   concept-synonyms
    concept-module
    concept-refset-ids
    concept-refset-items
