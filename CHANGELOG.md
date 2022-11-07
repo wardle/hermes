@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.0.770] - 2022-11-07
+
+* Fix [#42](https://github.com/wardle/hermes/issues/42) in which relationship indices could be incorrect if
+more than one relationship in a distribution relates to the same source-target-type tuple.
+* Add 'intersect-ecl' to core library to intersect a set of concept identifiers with an ECL expression.
+
 ## [1.0.764] - 2022-10-23
 
 * Add recognised installed locales into status report
