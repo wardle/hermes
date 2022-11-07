@@ -737,16 +737,8 @@
   [root]
   (let [manifest (open-manifest root false)]
     (log/info "Compacting database at " root "...")
-    (let [root-path (Paths/get root (into-array String []))
-          file-size (Files/size (.resolve root-path ^String (:store manifest)))
-          heap-size (.maxMemory (Runtime/getRuntime))]
-      (when (> file-size heap-size)
-        (log/warn "warning: compaction will likely need additional heap; consider using flag -Xmx - e.g. -Xmx8g"
-                  {:file-size (str (int (/ file-size (* 1024 1024))) "Mb")
-                   :heap-size (str (int (/ heap-size (* 1024 1024))) "Mb")}))
-      (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
-        (store/compact st))
-      (log/info "Compacting database... complete."))))
+    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
+      (store/compact st))
 
 (defn build-search-indices
   ([root] (build-search-indices root (.toLanguageTag (Locale/getDefault))))
