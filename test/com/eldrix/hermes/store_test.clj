@@ -60,6 +60,7 @@
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/Description :data descriptions} st)
       (store/write-batch {:type :info.snomed/Relationship :data relationships} st)
+      (store/build-indices st)
       (testing "Concept read/write"
         (is (every? true? (map #(= % (store/get-concept st (:id %))) concepts))))
       (testing "Concept descriptions"
@@ -69,6 +70,29 @@
         (is (every? true? (map #(= % (store/get-relationship st (:id %))) relationships)))
         (is (every? true? (map #(store/is-a? st % (:id root-concept)) concepts)))
         (is (= (set (map :id concepts)) (store/get-all-children st (:id root-concept))))))))
+
+(comment
+  (def st (store/open-store))
+  (def rel-1 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
+  (def rel-2 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
+  (store/write-batch {:type :info.snomed/Relationship :data [rel-2 rel-1]} st)
+  (store/get-parent-relationships st 24700007))
+
+(deftest write-relationships
+  ;; 3229461000000123	20210512	1	999000011000000103	1089261000000101	213345000	0	116680003	900000000000011006	900000000000451002
+  ;; 5687171000000128	20210512	0	999000011000000103	1089261000000101	213345000	0	116680003	900000000000011006	900000000000451002
+  (let [r1 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2021 5 12)}))
+        r2 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2021 5 12)}))]
+    (with-open [st (store/open-store)]
+      (store/write-batch {:type :info.snomed/Relationship :data [r1 r2]} st)
+      (store/build-indices st)
+      (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))))
+    (with-open [st (store/open-store)]
+      (store/write-batch {:type :info.snomed/Relationship :data [r2 r1]} st)
+      (store/build-indices st)
+      (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))
+          "Different relationships with same source, target and type identifiers should result in indices deterministically, not on basis of import order"))))
+
 
 (deftest write-simple-refsets-test
   (with-open [st (store/open-store)]

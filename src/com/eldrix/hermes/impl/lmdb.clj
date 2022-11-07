@@ -45,11 +45,11 @@
    ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
    ^Dbi conceptChildRelationships                           ;; destinationId - typeId - group - sourceId
    ^Dbi componentRefsets                                    ;; referencedComponentId - refsetId - msb - lsb
-   ^Dbi associations                                       ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
+   ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
    ;;;; refset env
    ^Env refsetsEnv
    ^Dbi refsetItems                                         ;; refset-item-id = refset-item
-   ^Dbi refsetFieldNames]                                    ;; refset-id = field-names]
+   ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
   Closeable
   (close [_]
     (.close ^Env coreEnv)
@@ -187,29 +187,49 @@
   [^LmdbStore store relationships]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [db ^Dbi (.-relationships store)
-          parent-idx ^Dbi (.-conceptParentRelationships store)
-          child-idx ^Dbi (.-conceptChildRelationships store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8) ;; relationship id
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64) ;; relationship entity
-          parent-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; sourceId -- typeId -- group -- destinationId
-          child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
+          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64)] ;; relationship entity
       (try (doseq [^Relationship relationship relationships]
              (doto kb .clear (.writeLong (.-id relationship)))
-             (doto parent-idx-key .clear (.writeLong (.-sourceId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-destinationId relationship)))
-             (doto child-idx-key .clear (.writeLong (.-destinationId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-sourceId relationship)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime relationship)) ;; skip a 8 byte key (relationship-id)
                (.clear vb)
                (ser/write-relationship vb relationship)
-               (.put db txn kb vb put-flags)
-               (if (.-active relationship)
-                 (do (.put parent-idx txn parent-idx-key idx-val put-flags)
-                     (.put child-idx txn child-idx-key idx-val put-flags))
-                 (do (.delete parent-idx txn parent-idx-key) ;; if its inactive, we're careful to delete any existing indices
-                     (.delete child-idx txn child-idx-key))))) ;; so that update-in-place does work
-
+               (.put db txn kb vb put-flags)))
            (.commit txn)
-           (finally (.release kb) (.release vb) (.release parent-idx-key) (.release child-idx-key) (.release idx-val))))))
+           (finally (.release kb) (.release vb))))))
+
+(defn drop-relationships-index [^LmdbStore store]
+  (with-open [txn ^Txn (.txnWrite ^Env (.-coreEnv store))]
+    (let [parent-idx ^Dbi (.-conceptParentRelationships store)
+          child-idx ^Dbi (.-conceptChildRelationships store)]
+      (.drop parent-idx txn)
+      (.drop child-idx txn))
+    (.commit txn)))
+
+(defn index-relationships
+  "Iterates all active relationships and rebuilds parent and child indices."
+  [^LmdbStore store]
+  (with-open [write-txn ^Txn (.txnWrite ^Env (.-coreEnv store))
+              read-txn ^Txn (.txnRead ^Env (.-coreEnv store))
+              cursor (.openCursor ^Dbi (.-relationships store) read-txn)]
+    (let [parent-idx ^Dbi (.-conceptParentRelationships store)
+          child-idx ^Dbi (.-conceptChildRelationships store)
+          parent-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; sourceId -- typeId -- group -- destinationId
+          child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
+          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)] ;; empty value
+      (try
+        (loop [continue? (.first cursor)]
+          (when continue?
+            (let [relationship ^Relationship (ser/read-relationship (.val cursor))]
+              (when (.-active relationship)
+                (doto parent-idx-key .clear (.writeLong (.-sourceId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-destinationId relationship)))
+                (doto child-idx-key .clear (.writeLong (.-destinationId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-sourceId relationship)))
+                (.put parent-idx write-txn parent-idx-key idx-val put-flags)
+                (.put child-idx write-txn child-idx-key idx-val put-flags)))
+            (.resetReaderIndex ^ByteBuf (.val cursor))      ;; reset position in value otherwise .next will throw an exception on second item
+            (recur (.next cursor))))
+        (.commit write-txn)
+        (finally (.release parent-idx-key) (.release child-idx-key) (.release idx-val))))))
 
 (defn- write-refset-headings
   [^LmdbStore store ^Txn txn refset-id headings]

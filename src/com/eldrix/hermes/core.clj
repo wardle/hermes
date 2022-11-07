@@ -723,7 +723,7 @@
   "Import SNOMED distribution files from the directories `dirs` specified into
   the database directory `root` specified. Import is performed in two phases
   for each directory - firstly core components and essential metadata, and
-  secondly non-core and extension files."
+  secondly non-core and extension files. Finally, store indices are re-built"
   [root dirs]
   (let [manifest (open-manifest root true)
         store-filename (get-absolute-filename root (:store manifest))]
@@ -731,7 +731,11 @@
       (log-metadata dir)
       (let [files (importer/importable-files dir)]
         (do-import-snomed store-filename (->> files (filter #(core-components (:component %)))))
-        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))))))
+        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))
+        (with-open [st (store/open-store store-filename {:read-only? false})]
+          (log/info "Rebuilding store indices...")
+          (store/build-indices st)
+          (log/info "Rebuilding store indices... completed"))))))
 
 (defn compact
   [root]
@@ -739,6 +743,7 @@
     (log/info "Compacting database at " root "...")
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
       (store/compact st))
+    (log/info "Compacting database... complete.")))
 
 (defn build-search-indices
   ([root] (build-search-indices root (.toLanguageTag (Locale/getDefault))))
@@ -797,7 +802,7 @@
   (s/valid? :info.snomed/Concept (get-concept svc 24700007))
 
   (tap> (get-concept svc 24700007))
-  (tap> (get-extended-concept svc 24700007))
+  (tap> (get-extended-concept svc 205631000000104))
   (get-extended-concept svc 24700007)
   (search svc {:s "mult scl"})
   (tap> (search svc {:s "mult scl"}))

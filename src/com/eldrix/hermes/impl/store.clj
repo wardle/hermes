@@ -472,6 +472,11 @@
     (catch Exception _
       (write-batch-one-by-one batch store))))
 
+
+(defn build-indices [store]
+  (kv/drop-relationships-index store)
+  (kv/index-relationships store))
+
 (defmulti is-a? (fn [_store concept _parent-id] (class concept)))
 
 (defmethod is-a? Long [store concept-id parent-id]
