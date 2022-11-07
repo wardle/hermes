@@ -411,6 +411,27 @@
         q2 (search/q-not q1 (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) q2)))
 
+(s/fdef intersect-ecl
+  :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
+(defn intersect-ecl
+  "Returns a set of concept identifiers that satisfy the SNOMED ECL expression."
+  [^Service svc concept-ids ^String ecl]
+  (let [q1 (search/q-concept-ids concept-ids)
+        q2 (ecl/parse (make-svc-map svc) ecl)]
+    (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2]))))
+
+(s/fdef ecl-contains?
+  :args (s/cat :svc ::svc
+               :concept-ids (s/coll-of :info.snomed.Concept/id)
+               :ecl ::non-blank-string))
+(defn ^:deprecated ecl-contains?
+  "DEPRECATED: use `intersect-ecl` instead.
+
+  Do any of the concept-ids satisfy the constraint expression specified?
+  This is an alternative to expanding the valueset and then checking membership."
+  [^Service svc concept-ids ^String ecl]
+  (seq (intersect-ecl svc concept-ids ecl)))
+
 (s/fdef expand-ecl-historic
   :args (s/cat :svc ::svc :ecl ::non-blank-string)
   :ret (s/coll-of ::result))
@@ -456,18 +477,6 @@
                           :by-ecl (map #(.-conceptId ^Result %) (expand-ecl svc v))
                           :by-concept-ids v)]
         (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
-
-(s/fdef ecl-contains?
-  :args (s/cat :svc ::svc
-               :concept-ids (s/coll-of :info.snomed.Concept/id)
-               :ecl ::non-blank-string))
-(defn ecl-contains?
-  "Do any of the concept-ids satisfy the constraint expression specified?
-  This is an alternative to expanding the valueset and then checking membership."
-  [^Service svc concept-ids ^String ecl]
-  (let [q1 (ecl/parse {:store (.-store svc) :searcher (.-searcher svc) :member-searcher (.-memberSearcher svc)} ecl)
-        q2 (search/q-concept-ids concept-ids)]
-    (seq (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2])))))
 
 (s/fdef get-refset-members
   :args (s/cat :svc ::svc :refset-ids (s/+ :info.snomed.Concept/id)))
