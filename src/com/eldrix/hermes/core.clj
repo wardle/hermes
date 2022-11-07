@@ -786,6 +786,7 @@
 
 (comment
   (require '[portal.api :as p])
+  (def p (p/open {:launcher :intellij}))
   (def p (p/open))
   (add-tap #'p/submit)                                      ; Add portal as a tap> target
   (def svc (open "snomed.db"))
