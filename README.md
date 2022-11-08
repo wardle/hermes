@@ -101,14 +101,14 @@ My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT an
 dictionary
 of medicines and devices.
 
-4. Compact and index
+4. Index and compact
 
 ```shell
-clj -M:run --db snomed.db compact
 clj -M:run --db snomed.db index
+clj -M:run --db snomed.db compact
 ```
 
-My machine takes 20 seconds to compact the database and 6 minutes to build the search indices.
+My machine takes 6 minutes to build the search indices and 20 seconds to compact the database.
 
 5. Run a server!
 
@@ -414,7 +414,26 @@ clj -M:run --db snomed.db import ~/Downloads/snomed-2020/
 The import of both International and UK distribution files takes
 a total of less than 3 minutes on my machine.
 
-#### 2. Compact database (optional).
+#### 2. Index
+
+For correct operation, indices are needed for components, search and reference
+set membership.
+
+Run
+
+```shell
+java -jar hermes.jar --db snomed.db index
+```
+
+or
+
+```shell
+clj -M:run --db snomed.db index
+```
+
+This will build the indices; it takes about 6 minutes on my machine.
+
+#### 3. Compact database (optional).
 
 This reduces the file size and takes 20 seconds.
 This is an optional step, but recommended.
@@ -431,21 +450,6 @@ clj -M:run --db snomed.db compact
 
 Unlike prior versions, you do not need to give java more heap.
 
-#### 3. Build search index
-
-Run
-
-```shell
-java -jar hermes.jar --db snomed.db index
-```
-
-or
-
-```shell
-clj -M:run --db snomed.db index
-```
-
-This will build the search indices; it takes about 6 minutes on my machine.
 
 #### 4. Run a REPL (optional)
 

@@ -180,10 +180,7 @@
 
 (defn write-relationships
   "Each relationship is stored as an entity in the 'relationships' db, keyed
-  by a relationship-id.
-
-  Each *active* relationship is referenced in the 'conceptParentRelationships'
-   and 'conceptChildRelationships' indices,"
+  by a relationship-id."
   [^LmdbStore store relationships]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [db ^Dbi (.-relationships store)
@@ -198,7 +195,9 @@
            (.commit txn)
            (finally (.release kb) (.release vb))))))
 
-(defn drop-relationships-index [^LmdbStore store]
+(defn drop-relationships-index
+  "Deletes all indices relating to relationships."
+  [^LmdbStore store]
   (with-open [txn ^Txn (.txnWrite ^Env (.-coreEnv store))]
     (let [parent-idx ^Dbi (.-conceptParentRelationships store)
           child-idx ^Dbi (.-conceptChildRelationships store)]
@@ -207,7 +206,9 @@
     (.commit txn)))
 
 (defn index-relationships
-  "Iterates all active relationships and rebuilds parent and child indices."
+  "Iterates all active relationships and rebuilds parent and child indices.
+  Each *active* relationship is referenced in the 'conceptParentRelationships'
+  and 'conceptChildRelationships' indices."
   [^LmdbStore store]
   (with-open [write-txn ^Txn (.txnWrite ^Env (.-coreEnv store))
               read-txn ^Txn (.txnRead ^Env (.-coreEnv store))
@@ -247,49 +248,75 @@
   "Each reference set item is stored as an entity in the 'refsetItems' db, keyed
   by the UUID, a tuple of msb and lsb.
 
-  Each *active* item is indexed:
-  - refsetFieldNames  : refset-id -- field-names (an array of strings)
-  - componentRefsets  : referencedComponentId -- refsetId -- msb -- lsb
-  - associations      : targetComponentId -- refsetId -- referencedComponentId - msb - lsb"
+  During import, an index of refset field names is created:
+  - refsetFieldNames  : refset-id -- field-names (an array of strings)"
   [^LmdbStore store headings items]
   (with-open [core-txn (.txnWrite ^Env (.-coreEnv store))
               refsets-txn (.txnWrite ^Env (.-refsetsEnv store))]
     (let [items-db ^Dbi (.-refsetItems store)
-          components-db ^Dbi (.-componentRefsets store)
-          assocs-db ^Dbi (.-associations store)
           item-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; a UUID - 16 bytes
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)
-          component-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; referencedComponentId -- refsetId -- msb -- lsb
-          assoc-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
+          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try
         (loop [items' items refset-ids #{}]
           (when-let [item (first items')]
             (when-not (contains? refset-ids (:refsetId item))
               (write-refset-headings store refsets-txn (:refsetId item) headings))
             (let [msb (.getMostSignificantBits ^UUID (:id item))
-                  lsb (.getLeastSignificantBits ^UUID (:id item))
-                  target-id (:targetComponentId item)]
+                  lsb (.getLeastSignificantBits ^UUID (:id item))]
               (doto item-kb .clear (.writeLong msb) (.writeLong lsb))
-              (doto component-kb .clear (.writeLong (:referencedComponentId item)) (.writeLong (:refsetId item)) (.writeLong msb) (.writeLong lsb))
               (when (should-write-object? items-db refsets-txn item-kb 17 (:effectiveTime item)) ;; skip a 17 byte key (type-msb-lsb; type = 1 byte, msb = 8 bytes, lsb = 8 bytes)
                 (.clear vb)
                 (ser/write-refset-item vb item)
-                (.put items-db refsets-txn item-kb vb put-flags)
-                (when target-id
-                  (doto assoc-kb .clear (.writeLong target-id) (.writeLong (:refsetId item)) (.writeLong (:referencedComponentId item)) (.writeLong msb) (.writeLong lsb)))
-                (if (:active item)
-                  (do (.put components-db core-txn component-kb idx-val put-flags)
-                      (when target-id (.put assocs-db core-txn assoc-kb idx-val put-flags)))
-                  (do (.delete components-db core-txn component-kb)
-                      (when target-id (.delete assocs-db core-txn assoc-kb))))))
+                (.put items-db refsets-txn item-kb vb put-flags)))
             (recur (next items') (conj refset-ids (:refsetId item)))))
         (.commit core-txn)
         (.commit refsets-txn)
-        (finally (.release item-kb) (.release vb) (.release component-kb) (.release assoc-kb) (.release idx-val))))))
+        (finally (.release item-kb) (.release vb))))))
+
+(defn drop-refset-indices
+  "Delete all indices relating to reference set items."
+  [^LmdbStore store]
+  (with-open [txn ^Txn (.txnWrite ^Env (.-coreEnv store))]
+    (let [components-db ^Dbi (.-componentRefsets store)
+          assocs-db ^Dbi (.-associations store)]
+      (.drop components-db txn)
+      (.drop assocs-db txn))
+    (.commit txn)))
+
+(defn index-refsets
+  "Iterates all active reference set items and rebuilds indices.
+  Each *active* item is indexed:
+  - componentRefsets  : referencedComponentId -- refsetId -- msb -- lsb
+  - associations      : targetComponentId -- refsetId -- referencedComponentId - msb - lsb"
+  [^LmdbStore store]
+  (with-open [write-txn ^Txn (.txnWrite ^Env (.-coreEnv store))
+              read-txn ^Txn (.txnRead ^Env (.-refsetsEnv store))
+              cursor (.openCursor ^Dbi (.-refsetItems store) read-txn)]
+    (let [components-db ^Dbi (.-componentRefsets store)
+          assocs-db ^Dbi (.-associations store)
+          component-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; referencedComponentId -- refsetId -- msb -- lsb
+          assoc-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
+          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
+      (try
+        (loop [continue? (.first cursor)]
+          (when continue?
+            (let [item (ser/read-refset-item (.val cursor))
+                  msb (.getMostSignificantBits ^UUID (:id item))
+                  lsb (.getLeastSignificantBits ^UUID (:id item))
+                  target-id (:targetComponentId item)]
+              (when (:active item)
+                (doto component-kb .clear (.writeLong (:referencedComponentId item)) (.writeLong (:refsetId item)) (.writeLong msb) (.writeLong lsb))
+                (.put components-db write-txn component-kb idx-val put-flags)
+                (when target-id
+                  (doto assoc-kb .clear (.writeLong target-id) (.writeLong (:refsetId item)) (.writeLong (:referencedComponentId item)) (.writeLong msb) (.writeLong lsb))
+                  (.put assocs-db write-txn assoc-kb idx-val put-flags))))
+            (.resetReaderIndex ^ByteBuf (.val cursor))
+            (recur (.next cursor))))
+        (.commit write-txn)
+        (finally (.release component-kb) (.release assoc-kb) (.release idx-val))))))
 
 (defn stream-all
-  "Stream all values to the channel specified. "
+  "Stream all values from the specified dbi to the channel specified. "
   ([^Env env ^Dbi dbi ch read-fn]
    (stream-all env dbi ch read-fn true))
   ([^Env env ^Dbi dbi ch read-fn close?]
@@ -302,7 +329,6 @@
                (.resetReaderIndex ^ByteBuf (.val cursor))   ;; reset position in value otherwise .next will throw an exception on second item
                (recur (.next cursor)))
            (when close? (clojure.core.async/close! ch))))))))
-
 
 (defn get-object [^Env env ^Dbi dbi ^long id read-fn]
   (with-open [txn (.txnRead env)]
@@ -399,7 +425,6 @@
          (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
            (ser/read-refset-item vb))
          (finally (.release kb)))))))
-
 
 (defn get-raw-parent-relationships
   "Return the parent relationships of the given concept.

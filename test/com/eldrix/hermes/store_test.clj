@@ -60,7 +60,7 @@
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/Description :data descriptions} st)
       (store/write-batch {:type :info.snomed/Relationship :data relationships} st)
-      (store/build-indices st)
+      (store/index st)
       (testing "Concept read/write"
         (is (every? true? (map #(= % (store/get-concept st (:id %))) concepts))))
       (testing "Concept descriptions"
@@ -85,11 +85,11 @@
         r2 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2021 5 12)}))]
     (with-open [st (store/open-store)]
       (store/write-batch {:type :info.snomed/Relationship :data [r1 r2]} st)
-      (store/build-indices st)
+      (store/index st)
       (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))))
     (with-open [st (store/open-store)]
       (store/write-batch {:type :info.snomed/Relationship :data [r2 r1]} st)
-      (store/build-indices st)
+      (store/index st)
       (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))
           "Different relationships with same source, target and type identifiers should result in indices deterministically, not on basis of import order"))))
 
@@ -105,6 +105,7 @@
       (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
+      (store/index st)
       (is (= #{refset-id} (store/get-installed-reference-sets st)))
       (dorun (map #(is (= % (store/get-refset-item st (:id %)))) refset-items))
       (is (every? true? (map #(= #{refset-id} (store/get-component-refset-ids st (:id %))) members)))
@@ -136,6 +137,7 @@
     (with-open [store (store/open-store)]
       (store/write-batch {:type :info.snomed/Concept :data [refset-concept]} store)
       (store/write-batch {:type :info.snomed/RefsetDescriptorRefset :data [rd1 rd2]} store)
+      (store/index store)
       (is (= rd1 (store/get-refset-item store (:id rd1))))
       (is (= rd2 (store/get-refset-item store (:id rd2))))
       (is (= (list rd1 rd2) (store/get-refset-descriptors store 1322291000000109)))

@@ -721,9 +721,15 @@
 
 (defn import-snomed
   "Import SNOMED distribution files from the directories `dirs` specified into
-  the database directory `root` specified. Import is performed in two phases
-  for each directory - firstly core components and essential metadata, and
-  secondly non-core and extension files. Finally, store indices are re-built"
+  the database directory `root` specified.
+
+  Import is performed in three phases for each directory:
+    1. import of core components and essential metadata, and
+    2. interim indexing
+    3. import of non-core and extension files.
+
+  Interim indexing is necessary in order to ensure correct reification in
+  subsequent import(s)."
   [root dirs]
   (let [manifest (open-manifest root true)
         store-filename (get-absolute-filename root (:store manifest))]
@@ -731,11 +737,9 @@
       (log-metadata dir)
       (let [files (importer/importable-files dir)]
         (do-import-snomed store-filename (->> files (filter #(core-components (:component %)))))
-        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))
         (with-open [st (store/open-store store-filename {:read-only? false})]
-          (log/info "Rebuilding store indices...")
-          (store/build-indices st)
-          (log/info "Rebuilding store indices... completed"))))))
+          (store/index st))
+        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))))))
 
 (defn compact
   [root]
@@ -743,25 +747,32 @@
     (log/info "Compacting database at " root "...")
     (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
       (store/compact st))
-    (log/info "Compacting database... complete.")))
+    (log/info "Compacting database... complete")))
 
-(defn build-search-indices
-  ([root] (build-search-indices root (.toLanguageTag (Locale/getDefault))))
+(defn index
+  ([root] (index root (.toLanguageTag (Locale/getDefault))))
   ([root language-priority-list]
-   (let [manifest (open-manifest root false)]
-     (log/info "Building indices" {:root root :languages language-priority-list})
-     (log/info "Building search index")
-     (search/build-search-index (get-absolute-filename root (:store manifest))
-                                (get-absolute-filename root (:search manifest))
-                                language-priority-list)
+   (let [manifest (open-manifest root false)
+         store-filename (get-absolute-filename root (:store manifest))
+         search-filename (get-absolute-filename root (:search manifest))
+         members-filename (get-absolute-filename root (:members manifest))]
+     (log/info "Indexing..." {:root root})
+     (log/info "Building component index")
+     (with-open [st (store/open-store store-filename {:read-only? false})]
+       (store/index st))
+     (log/info "Building search index" {:languages language-priority-list})
+     (search/build-search-index store-filename search-filename language-priority-list)
      (log/info "Building members index")
-     (members/build-members-index (get-absolute-filename root (:store manifest))
-                                  (get-absolute-filename root (:members manifest)))
-     (log/info "Building indices... complete."))))
+     (members/build-members-index store-filename members-filename)
+     (log/info "Indexing... complete"))))
+
+(def ^:deprecated build-search-indices
+  "DEPRECATED: Use [[build-indices]] instead"
+  index)
 
 (def ^:deprecated build-search-index
   "DEPRECATED: Use [[build-search-indices]] instead"
-  build-search-indices)
+  index)
 
 (defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
   (let [manifest (open-manifest root)]

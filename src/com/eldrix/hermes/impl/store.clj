@@ -473,9 +473,11 @@
       (write-batch-one-by-one batch store))))
 
 
-(defn build-indices [store]
+(defn index [store]
   (kv/drop-relationships-index store)
-  (kv/index-relationships store))
+  (kv/drop-refset-indices store)
+  (kv/index-relationships store)
+  (kv/index-refsets store))
 
 (defmulti is-a? (fn [_store concept _parent-id] (class concept)))
 
