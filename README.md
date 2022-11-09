@@ -145,8 +145,8 @@ Most people who use a terminology run a server and make calls over the network.
 Previously, I implemented SNOMED CT within an EPR.
 Later I realised how important it was to build it as a separate module;
 I created terminology servers in java, and then later in golang;
-`hermes` is written in clojure.
-While I support the provision
+`hermes` is written in clojure. In the UK,  the different health services in England
+and Wales have procured a national terminology server. While I support the provision
 of a national terminology server for convenience, I think it's important to
 recognise that it is the *data* that matters most. We need to cooperate and collaborate
 on semantic interoperability, but the software services that make use of those
@@ -155,14 +155,16 @@ making server round-trips for every check of subsumption! That would be
 silly; I've been using SNOMED for analytics for longer than most; you need
 flexibility in provisioning terminology services. I want tooling that can both
 provide services at scale, while is capable of running on my personal computers
-as well.
+as well. 
 
 Unlike other available terminology servers, `hermes` is lightweight and has no other dependencies
-except a filesystem, which can be read-only when in operation.
+except a filesystem, which can be read-only when in operation. This makes it ideal
+for use in situations such as a data pipeline, perhaps built upon Apache Kafka - 
+with `hermes`, SNOMED analytics capability can be embedded anywhere. 
 
 I don't believe in the idea of uploading codesystems and value sets in place.
-My approach to versioning is to run different services; I simply switch
-API endpoints.
+My approach to versioning is to run different services; I simply deploy new
+services and switch at the API gateway level.
 
 ### Localisation
 
@@ -237,7 +239,7 @@ using SNOMED in analytics.
 
 ### What is this graph stuff you're doing?
 
-I think health and care data are and always will be heterogenous, incomplete and difficult to process.
+I think health and care data are and always will be heterogeneous, incomplete and difficult to process.
 I do not think trying to build entities or classes representing our domain works at scale; it is
 fine for toy applications and trivial data modelling such as e-observations, but classes and
 object-orientation cannot scale across such a complete and disparate environment. Instead, I
@@ -344,8 +346,8 @@ on which distribution you are using.
 For example, the UK releases use the NHS Digital TRUD API, and so you need to
 pass in the following parameters:
 
-- api-key   : path to a file containing your NHS Digital TRUD api key
-- cache-dir : directory to use for downloading and caching releases
+- `api-key`   : path to a file containing your NHS Digital TRUD api key
+- `cache-dir` : directory to use for downloading and caching releases
 
 For example, these commands will download, cache and install the International
 release, the UK clinical edition and the UK drug extension:
@@ -541,9 +543,23 @@ Commands:
 * --locale sets the default locale. This is used in building your search index and as a default if clients do not
   specify their preference
 
-In these examples, I use the [httpie](https://httpie.io/) command-line tool.
+##### Endpoints:
 
-##### Get a single concept (and related information)
+There are a range of endpoints. Here are some examples:
+
+* `/v1/snomed/concepts/24700007` - return basic data about a single concept
+* `/v1/snomed/concepts/24700007/descriptions` - returns all descriptions for concept
+* `/v1/snomed/concepts/24700007/preferred` : returns preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
+* `/v1/snomed/concepts/24700007/extended` : returns an extended concept 
+* `/v1/snomed/concepts/24700007/historical` - returns historical associations for this concept
+* `/v1/snomed/concepts/24700007/refsets` - returns refsets to which this concept is a member
+* `/v1/snomed/concepts/24700007/map/999002271000000101` - crossmap to alternate codesystem (ICD-10 in this example)
+* `/v1/snomed/concepts/24700007/map/991411000000109` - map into a SNOMED subset (the UK emergency unit refset in this example)
+* `/v1/snomed/crossmap/999002271000000101/G35X` - cross from an alternate codesystem (ICD-10 in this example)
+* `/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5` - search for a term, constrained by SNOMED ECL expression
+* `/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true` - expand SNOMED ECL expression
+
+##### Get a single concept 
 
 ```shell
 http '127.0.0.1:8080/v1/snomed/concepts/24700007'
@@ -558,15 +574,11 @@ http '127.0.0.1:8080/v1/snomed/concepts/24700007'
   "moduleId": 900000000000207008
 }
 ```
-You'll want to use the other endpoints much more frequently. For example:
 
-* `/v1/snomed/concepts/24700007/descriptions` - returns all descriptions for concept
-* `/v1/snomed/concepts/24700007/preferred` : returns preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
-* `/v1/snomed/concepts/24700007/extended` : returns an extended concept (see below)
-* `/v1/snomed/concepts/24700007/historical` - returns historical associations for this concept
-* `/v1/snomed/concepts/24700007/refsets` - returns refsets to which this concept is a member
+You'll want to use the other endpoints much more frequently.
 
 ##### Get extended information about a single concept
+
 
 ```shell
 http 127.0.0.1:8080/v1/snomed/concepts/24700007/extended
