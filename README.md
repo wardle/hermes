@@ -481,23 +481,27 @@ Result:
 
 ```shell
 {:installed-releases
- ("SNOMED Clinical Terms version: 20200731 [R] (July 2020 Release)"
-  "31.3.0_20210120000001 UK clinical extension"),
- :concepts 574414,
- :descriptions 1720404,
- :relationships 3263996,
- :refsets 9424174,
+ ("SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)"
+  "35.0.0_20220928000001 UK clinical extension"
+  "35.1.0_20221026000001 UK drug extension"),
+ :installed-locales ("en-GB" "en-US"),
+ :concepts 1064775,
+ :descriptions 3034620,
+ :relationships 7871444,
+ :refsets 530,
+ :refset-items 13138061,
  :indices
- {:descriptions-concept 1720404,
-  :concept-parent-relationships 1210561,
-  :concept-child-relationships 1210561,
-  :installed-refsets 293,
-  :component-refsets 6094742,
-  :map-target-component 1125516}}
+ {:descriptions-concept 3034620,
+  :concept-parent-relationships 4715863,
+  :concept-child-relationships 4715863,
+  :component-refsets 10429215,
+  :associations 1246636}}
 ```
-
-The result will be different after I also import the UK dm+d
-(dictionary of medicines and devices) distribution.
+In this example, you can see I have the July 22 International release, with the 
+UK clinical and drug extensions from September and October 22 respectively.
+Given that these releases have been imported, hermes recognises it can support
+the locales en-GB and en-US. For completeness, detailed statistics on 
+components and indices are also provided.
 
 #### 6. Run a terminology web service
 
