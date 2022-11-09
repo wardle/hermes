@@ -2,6 +2,14 @@
 
 This log documents significant changes for each release.
 
+## [1.0.772] - 2022-11-08
+
+* Tweak indexing so that reference set items are indexed in a separate pass as
+an interim step during import, for refset reification, and then re-indexed in 
+the formal 'index' step.
+* Update documentation to recommend compaction should be run *after* indexing, now
+that the core datastore is updated during indexing.
+
 ## [1.0.770] - 2022-11-07
 
 * Fix [#42](https://github.com/wardle/hermes/issues/42) in which relationship indices could be incorrect if
