@@ -248,11 +248,10 @@
   "Each reference set item is stored as an entity in the 'refsetItems' db, keyed
   by the UUID, a tuple of msb and lsb.
 
-  During import, an index of refset field names is created:
+  During import, a record of refset field names is created:
   - refsetFieldNames  : refset-id -- field-names (an array of strings)"
   [^LmdbStore store headings items]
-  (with-open [core-txn (.txnWrite ^Env (.-coreEnv store))
-              refsets-txn (.txnWrite ^Env (.-refsetsEnv store))]
+  (with-open [refsets-txn (.txnWrite ^Env (.-refsetsEnv store))]
     (let [items-db ^Dbi (.-refsetItems store)
           item-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; a UUID - 16 bytes
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
@@ -269,7 +268,6 @@
                 (ser/write-refset-item vb item)
                 (.put items-db refsets-txn item-kb vb put-flags)))
             (recur (next items') (conj refset-ids (:refsetId item)))))
-        (.commit core-txn)
         (.commit refsets-txn)
         (finally (.release item-kb) (.release vb))))))
 
