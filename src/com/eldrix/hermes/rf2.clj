@@ -30,7 +30,7 @@
   "A generator of identifiers of the specified type.
   Parameters:
   - t : one of :info.snomed/Concept :info.snomed.Description or
-        :info.snomed/Relatioship."
+        :info.snomed/Relationship."
   [t]
   (gen/fmap (fn [[id partition]]
               (Long/parseLong (verhoeff/append (str id partition))))
