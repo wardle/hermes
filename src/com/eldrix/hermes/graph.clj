@@ -25,13 +25,26 @@
 
 (def description-properties
   [:info.snomed.Description/id
-   :info.snomed.Description/active
-   :info.snomed.Description/term
-   :info.snomed.Description/caseSignificanceId
    :info.snomed.Description/effectiveTime
-   :info.snomed.Description/typeId
+   :info.snomed.Description/active
+   :info.snomed.Description/moduleId
+   :info.snomed.Description/conceptId
    :info.snomed.Description/languageCode
-   :info.snomed.Description/moduleId])
+   :info.snomed.Description/typeId
+   :info.snomed.Description/term
+   :info.snomed.Description/caseSignificanceId])
+
+(def relationship-properties
+  [:info.snomed.Relationship/id
+   :info.snomed.Relationship/effectiveTime
+   :info.snomed.Relationship/active
+   :info.snomed.Relationship/moduleId
+   :info.snomed.Relationship/sourceId
+   :info.snomed.Relationship/destinationId
+   :info.snomed.Relationship/relationshipGroup
+   :info.snomed.Relationship/typeId
+   :info.snomed.Relationship/characteristicTypeId
+   :info.snomed.Relationship/modifierId])
 
 (def refset-item-properties
   [:info.snomed.RefsetItem/id
@@ -47,6 +60,41 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output concept-properties}
   (record->map "info.snomed.Concept" (hermes/get-concept svc id)))
+
+(pco/defresolver description-by-id
+  "Returns a description by identifier; results namespaced to
+  `:info.snomed.Description/"
+  [{::keys [svc]} {:info.snomed.Description/keys [id]}]
+  {::pco/output description-properties}
+  (record->map "info.snomed.Description" (hermes/get-description svc id)))
+
+(pco/defresolver relationship-by-id
+  [{::keys [svc]} {:info.snomed.Relationship/keys [id]}]
+  {::pco/output relationship-properties}
+  (record->map "info.snomed.Relationship" (hermes/get-relationship svc id)))
+
+(pco/defresolver refset-item-by-id
+  [{::keys [svc]} {:info.snomed.RefsetItem/keys [id]}]
+  {::pco/output refset-item-properties}
+  (record->map "info.snomed.RefsetItem" (hermes/get-refset-item svc id)))
+
+(pco/defresolver component-by-id
+  "Resolve an arbitrary SNOMED URI as per https://confluence.ihtsdotools.org/display/DOCURI/2.2+URIs+for+Components+and+Reference+Set+Members"
+  [{::keys [svc]} {:info.snomed/keys [id]}]
+  {::pco/output [{:info.snomed/component {:info.snomed.Concept/id [:info.snomed.Concept/id]
+                                          :info.snomed.Description/id [:info.snomed.Description/id]
+                                          :info.snomed.Relationship/id [:info.snomed.Relationship/id]
+                                          :info.snomed.RefsetItem/id [:info.snomed.RefsetItem/id]}}]}
+  {:info.snomed/component
+   (cond
+     (number? id) (case (snomed/identifier->type id)
+                    :info.snomed/Concept {:info.snomed.Concept/id id}
+                    :info.snomed/Description {:info.snomed.Description/id id}
+                    :info.snomed/Relationship {:info.snomed.Relationship/id id}
+                    nil)
+     (uuid? id) {:info.snomed.RefsetItem/id id}
+     (string? id) {:info.snomed.RefsetItem/id (parse-uuid id)})})
+
 
 (pco/defresolver concept-defined?
   "Is a concept fully defined?"
@@ -137,6 +185,13 @@
                                            (hermes/get-component-refset-items svc concept-id refset-id)
                                            (hermes/get-component-refset-items svc concept-id)))})
 
+(pco/defresolver description-concepts
+  [{:info.snomed.Description/keys [moduleId conceptId typeId caseSignificanceId]}]
+  {:info.snomed.Description/module {:info.snomed.Concept/id moduleId}
+   :info.snomed.Description/concept {:info.snomed.Concept/id conceptId}
+   :info.snomed.Description/type {:info.snomed.Concept/id typeId}
+   :info.snomed.Description/caseSignificance {:info.snomed.Concept/id caseSignificanceId}})
+
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
   [{:info.snomed.RefsetItem/keys [targetComponentId]}]
@@ -149,6 +204,13 @@
     {:info.snomed.RefsetItem/targetComponent {:info.snomed.Description/id targetComponentId}}
     :info.snomed/Relationship
     {:info.snomed.RefsetItem/targetComponent {:info.snomed.Relationship/id targetComponentId}}))
+
+(pco/defresolver refset-item-concepts
+  [{:info.snomed.RefsetItem/keys [moduleId refsetId referencedComponentId acceptabilityId]}]
+  {:info.snomed.RefsetItem/module {:info.snomed.Concept/id moduleId}
+   :info.snomed.RefsetItem/refset {:info.snomed.Concept/id refsetId}
+   :info.snomed.RefsetItem/referencedComponentId {:info.snomed.Concept/id referencedComponentId}
+   :info.snomed.RefsetItem/acceptabilityId {:info.snomed.Concept/id acceptabilityId}})
 
 (pco/defresolver concept-historical-associations
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
@@ -192,6 +254,14 @@
    (seq (->> (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
              (filter :active)
              (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
+
+(pco/defresolver relationship-concepts
+  [{:info.snomed.Relationship/keys [sourceId moduleId destinationId characteristicTypeId modifierId]}]
+  {:info.snomed.Relationship/source {:info.snomed.Concept/id sourceId}
+   :info.snomed.Relationship/module {:info.snomed.Concept/id moduleId}
+   :info.snomed.Relationship/destination {:info.snomed.Concept/id destinationId}
+   :info.snomed.Relationship/characteristicType {:info.snomed.Concept/id characteristicTypeId}
+   :info.snomed.Relationship/modifierId {:info.snomed.Concept/id modifierId}})
 
 (pco/defresolver concept-relationships
   "Returns the concept's relationships. Accepts a parameter :type, specifying the
@@ -271,6 +341,10 @@
   "SNOMED resolvers; each expects an environment that contains
   a key :com.eldrix.hermes.graph/svc representing a SNOMED svc."
   [concept-by-id
+   description-by-id
+   relationship-by-id
+   refset-item-by-id
+   component-by-id
    concept-defined?
    concept-primitive?
    concept-descriptions
@@ -278,12 +352,15 @@
    concept-module
    concept-refset-ids
    concept-refset-items
+   description-concepts
    refset-item-target-component
+   refset-item-concepts
    concept-historical-associations
    concept-replaced-by
    concept-moved-to-namespace
    concept-same-as
    concept-possibly-equivalent
+   relationship-concepts
    readctv3-concept
    concept-readctv3
    refsetitem-concept

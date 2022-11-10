@@ -114,6 +114,30 @@
            (map #(update-keys % (comp keyword name)) refset-items)))
     (is (= (:info.snomed.Concept/refsetIds refset-ids)))))
 
+(deftest ^:live test-polymorphic-get
+  (let [request [{:info.snomed/component    ; we can use this same request against any component
+                  {:info.snomed.Concept/id     [:info.snomed.Concept/id {:info.snomed.Concept/descriptions [:info.snomed.Description/id]}]
+                   :info.snomed.Description/id [:info.snomed.Description/id
+                                                :info.snomed.Description/conceptId
+                                                {:info.snomed.Description/concept [:info.snomed.Concept/id]}
+                                                {:info.snomed.Description/type [:info.snomed.Concept/id]}]
+                   :info.snomed.Relationship/id [:info.snomed.Relationship/id :info.snomed.Relationship/sourceId {:info.snomed.Relationship/source [:info.snomed.Concept/id]}]
+                   :info.snomed.RefsetItem/id [:info.snomed.RefsetItem/id :info.snomed.RefsetItem/referencedComponentId]}}]
+        concept (p.eql/process *registry* {:info.snomed/id 74400008} request)
+        description (p.eql/process *registry* {:info.snomed/id 123558018} request)
+        relationship (p.eql/process *registry* {:info.snomed/id 859910029} request)
+        refset-item (p.eql/process *registry* {:info.snomed/id "7c0d7d61-c571-5bf9-9329-fdbfee8747d0"} request)]
+    (is (= 74400008 (get-in concept [:info.snomed/component :info.snomed.Concept/id])))
+    (is (contains? (set (map :info.snomed.Description/id (get-in concept [:info.snomed/component :info.snomed.Concept/descriptions]))) 123558018))
+    (is (= 123558018 (get-in description [:info.snomed/component :info.snomed.Description/id])))
+    (is (= 74400008 (get-in description [:info.snomed/component :info.snomed.Description/conceptId])))
+    (is (= 74400008 (get-in description [:info.snomed/component :info.snomed.Description/concept :info.snomed.Concept/id])))
+    (is (= 859910029 (get-in relationship [:info.snomed/component :info.snomed.Relationship/id])))
+    (is (= 74400008 (get-in relationship [:info.snomed/component :info.snomed.Relationship/sourceId])))
+    (is (= 74400008 (get-in relationship [:info.snomed/component :info.snomed.Relationship/source :info.snomed.Concept/id])))
+    (is (= #uuid "7c0d7d61-c571-5bf9-9329-fdbfee8747d0" (get-in refset-item [:info.snomed/component :info.snomed.RefsetItem/id])))
+    (is (= 123558018 (get-in refset-item [:info.snomed/component :info.snomed.RefsetItem/referencedComponentId])))))
+
 (comment
   (def ^:dynamic *registry* (-> (pci/register graph/all-resolvers)
                                 (assoc ::graph/svc (hermes/open "snomed.db"))))
