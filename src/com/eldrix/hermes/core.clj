@@ -91,6 +91,20 @@
   [^Service svc concept-id]
   (store/get-concept (.-store svc) concept-id))
 
+(s/fdef get-description
+  :args (s/cat :svc ::svc :description-id :info.snomed.Description/id))
+(defn get-description
+  "Return the description with the specified identifier."
+  [^Service svc description-id]
+  (store/get-description (.-store svc) description-id))
+
+(s/fdef get-relationship
+  :args (s/cat :svc ::svc :relationship-id :info.snomed.Relationship/id))
+(defn get-relationship
+  "Return the relationship with the specified identifier."
+  [^Service svc relationship-id]
+  (store/get-relationship (.-store svc) relationship-id))
+
 (s/fdef get-extended-concept
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn get-extended-concept
