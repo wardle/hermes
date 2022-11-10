@@ -646,7 +646,8 @@
    https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
    Each filename should match the following pattern:
    [FileType] _ [ContentType] _ [ContentSubType] _ [CountryNamespace] _ [VersionDate] . [FileExtension] .
-   Returns a map containing all the information from the filename."
+   Returns a map containing all the information from the filename, or nil
+   if the filename does not match the specification."
   [^String filename]
   (let [nm (.getName (File. filename))
         m (re-matcher snomed-file-pattern nm)]
@@ -823,7 +824,7 @@
 (def UsingEnergy 424244007)
 (def UsingSubstance 42436100)
 
-;; Other common concepts)
+;; Other common concepts
 (def Side 182353008)
 (def LateralisableReferenceSet 723264001)
 
@@ -873,10 +874,10 @@
     (when (> (count (:term d)) 0)
       (str (str/lower-case (first (:term d)))
            (subs (:term d) 1)))
-    ;; entire term case insensitive - just make it all lower-case
+    ;; entire term case-insensitive - just make it all lower-case
     900000000000448009
     (str/lower-case (:term d))
-    ;; entire term is case sensitive - can't do anything
+    ;; entire term is case-sensitive - can't do anything
     900000000000017005
     (:term d)
     ;; fallback option - don't do anything
