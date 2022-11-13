@@ -251,7 +251,7 @@
   - bind-address    : (optional) bind address
   - allowed-origins : (optional) a sequence of strings of hostnames or function
   - join?           : whether to join server thread or return"
-  ([^Service svc {:keys [port bind-address allowed-origins join?] :as opts :or {join? true}}]
+  ([^Service svc {:keys [port bind-address allowed-origins join?] :or {join? true}}]
    (Thread/setDefaultUncaughtExceptionHandler
      (reify Thread$UncaughtExceptionHandler
        (uncaughtException [_ thread ex]
