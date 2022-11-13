@@ -4,9 +4,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [com.eldrix.hermes.rf2 :as rf2]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.verhoeff :as verhoeff])
-  (:import (com.eldrix.hermes.snomed Concept)))
+            [com.eldrix.hermes.snomed :as snomed]))
 
 (defn make-simple-hierarchy []
   (let [concepts (gen/sample (rf2/gen-concept) 500)

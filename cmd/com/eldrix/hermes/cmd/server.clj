@@ -26,8 +26,7 @@
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
            (java.util Locale)
-           (com.eldrix.hermes.core Service)
-           (java.io PrintWriter)))
+           (com.eldrix.hermes.core Service)))
 
 (set! *warn-on-reflection* true)
 

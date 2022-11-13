@@ -10,7 +10,7 @@
     [com.eldrix.hermes.rf2 :as rf2]
     [clojure.java.io :as io])
   (:import [java.time LocalDate]
-           (com.eldrix.hermes.snomed OWLExpressionRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem AssociationRefsetItem)))
+           (com.eldrix.hermes.snomed AssociationRefsetItem)))
 
 (stest/instrument)
 
