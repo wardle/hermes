@@ -53,7 +53,22 @@
    :info.snomed.RefsetItem/moduleId
    :info.snomed.RefsetItem/refsetId
    :info.snomed.RefsetItem/referencedComponentId
-   :info.snomed.RefsetItem/targetComponentId])
+
+   ;; optional properties; depends on type of reference set item
+   :info.snomed.RefsetItem/targetComponentId
+   :info.snomed.RefsetItem/attributeDescriptionId
+   :info.snomed.RefsetItem/attributeTypeId
+   :info.snomed.RefsetItem/attributeOrder
+   :info.snomed.RefsetItem/acceptabilityId
+   :info.snomed.RefsetItem/mapTarget
+   :info.snomed.RefsetItem/mapGroup
+   :info.snomed.RefsetItem/mapPriority
+   :info.snomed.RefsetItem/mapRule
+   :info.snomed.RefsetItem/mapAdvice
+   :info.snomed.RefsetItem/correlationId
+   :info.snomed.RefsetItem/mapCategoryId
+   :info.snomed.RefsetItem/valueId
+   :info.snomed.RefsetItem/owlExpression])
 
 (pco/defresolver concept-by-id
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
@@ -184,10 +199,45 @@
 
 (pco/defresolver description-concepts
   [{:info.snomed.Description/keys [moduleId conceptId typeId caseSignificanceId]}]
+  {::pco/output [{:info.snomed.Description/module [:info.snomed.Concept/id]}
+                 {:info.snomed.Description/concept [:info.snomed.Concept/id]}
+                 {:info.snomed.Description/type [:info.snomed.Concept/id]}
+                 {:info.snomed.Description/caseSignificance [:info.snomed.Concept/id]}]}
   {:info.snomed.Description/module           {:info.snomed.Concept/id moduleId}
    :info.snomed.Description/concept          {:info.snomed.Concept/id conceptId}
    :info.snomed.Description/type             {:info.snomed.Concept/id typeId}
    :info.snomed.Description/caseSignificance {:info.snomed.Concept/id caseSignificanceId}})
+
+(pco/defresolver refset-item-referenced-component
+  [{:info.snomed.RefsetItem/keys [referencedComponentId]}]
+  {::pco/output [{:info.snomed.RefsetItem/referencedComponent [{:info.snomed.Concept/id [:info.snomed.Concept/id]}
+                                                               {:info.snomed.Description/id [:info.snomed.Description/id]}]}]}
+  (case (snomed/identifier->type referencedComponentId)     ;; we can easily derive the type of component from the identifier
+    :info.snomed/Concept
+    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Concept/id referencedComponentId}}
+    :info.snomed/Description
+    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Description/id referencedComponentId}}
+    :info.snomed/Relationship
+    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Relationship/id referencedComponentId}}))
+
+(pco/defresolver refset-item-concepts
+  [{:info.snomed.RefsetItem/keys [moduleId refsetId]}]
+  {::pco/output [{:info.snomed.RefsetItem/module [:info.snomed.Concept/id]}
+                 {:info.snomed.RefsetItem/refset [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/module {:info.snomed.Concept/id moduleId}
+   :info.snomed.RefsetItem/refset {:info.snomed.Concept/id refsetId}})
+
+(pco/defresolver refset-item-descriptor-concepts
+  [{:info.snomed.RefsetItem/keys [attributeDescriptionId attributeTypeId]}]
+  {::pco/output [{:info.snomed.RefsetItem/attributeDescription [:info.snomed.Concept/id]}
+                 {:info.snomed.RefsetItem/attributeType [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/attributeDescription {:info.snomed.Concept/id attributeDescriptionId}
+   :info.snomed.RefsetItem/attributeType        {:info.snomed.Concept/id attributeTypeId}})
+
+(pco/defresolver refset-item-acceptability-concept
+  [{:info.snomed.RefsetItem/keys [acceptabilityId]}]
+  {::pco/output [{:info.snomed.RefsetItem/acceptability [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/acceptability {:info.snomed.Concept/id acceptabilityId}})
 
 (pco/defresolver refset-item-target-component
   "Resolve the target component."
@@ -203,23 +253,20 @@
     :info.snomed/Relationship
     {:info.snomed.RefsetItem/targetComponent {:info.snomed.Relationship/id targetComponentId}}))
 
-(pco/defresolver refset-item-referenced-component
-  [{:info.snomed.RefsetItem/keys [referencedComponentId]}]
-  {::pco/output [{:info.snomed.RefsetItem/referencedComponent [{:info.snomed.Concept/id [:info.snomed.Concept/id]}
-                                                               {:info.snomed.Description/id [:info.snomed.Description/id]}]}]}
-  (case (snomed/identifier->type referencedComponentId)         ;; we can easily derive the type of component from the identifier
-    :info.snomed/Concept
-    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Concept/id referencedComponentId}}
-    :info.snomed/Description
-    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Description/id referencedComponentId}}
-    :info.snomed/Relationship
-    {:info.snomed.RefsetItem/referencedComponent {:info.snomed.Relationship/id referencedComponentId}}))
+(pco/defresolver refset-item-correlation-concept
+  [{:info.snomed.RefsetItem/keys [correlationId]}]
+  {::pco/output [{:info.snomed.RefsetItem/correlation [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/correlation {:info.snomed.Concept/id correlationId}})
 
-(pco/defresolver refset-item-concepts
-  [{:info.snomed.RefsetItem/keys [moduleId refsetId referencedComponentId acceptabilityId]}]
-  {:info.snomed.RefsetItem/module              {:info.snomed.Concept/id moduleId}
-   :info.snomed.RefsetItem/refset              {:info.snomed.Concept/id refsetId}
-   :info.snomed.RefsetItem/acceptability       {:info.snomed.Concept/id acceptabilityId}})
+(pco/defresolver refset-item-map-category-concept
+  [{:info.snomed.RefsetItem/keys [mapCategoryId]}]
+  {::pco/output [{:info.snomed.RefsetItem/mapCategory [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/mapCategory {:info.snomed.Concept/id mapCategoryId}})
+
+(pco/defresolver refset-item-value-concept
+  [{:info.snomed.RefsetItem/keys [valueId]}]
+  {::pco/output [{:info.snomed.RefsetItem/value [:info.snomed.Concept/id]}]}
+  {:info.snomed.RefsetItem/value {:info.snomed.Concept/id valueId}})
 
 (pco/defresolver concept-historical-associations
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
@@ -356,9 +403,14 @@
    concept-refset-ids
    concept-refset-items
    description-concepts
-   refset-item-target-component
    refset-item-referenced-component
    refset-item-concepts
+   refset-item-descriptor-concepts
+   refset-item-acceptability-concept
+   refset-item-target-component
+   refset-item-correlation-concept
+   refset-item-map-category-concept
+   refset-item-value-concept
    concept-historical-associations
    concept-replaced-by
    concept-moved-to-namespace
