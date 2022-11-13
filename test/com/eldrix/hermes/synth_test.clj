@@ -129,7 +129,7 @@
     (hermes/compact (str db-path))
     (with-open [store (store/open-store (str store-path))]
       (log/info "installed reference sets:" (store/get-installed-reference-sets store)))
-    (hermes/build-search-indices (str db-path))
+    (hermes/index (str db-path))
     (with-open [svc (hermes/open (str db-path))]
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
             en-US-description-ids (set (map :referencedComponentId en-US))]
