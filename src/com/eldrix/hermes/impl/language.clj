@@ -150,14 +150,14 @@
   Parameters:
   - installed : a map of installed reference sets. See `installed-language-reference-sets`
   - language-priority-list : an 'Accept-Language' header (e.g. 'en-GB')"
-  [installed-language-reference-sets language-priority-list]
+  [installed language-priority-list]
   (if-let [specific-refset-id (parse-accept-language-refset-id language-priority-list)]
-    (let [installed-refsets (into #{} (flatten (vals installed-language-reference-sets)))]
+    (let [installed-refsets (into #{} (flatten (vals installed)))]
       (filter installed-refsets [specific-refset-id]))
-    (let [installed-locales (keys installed-language-reference-sets) ;; list of java.util.Locales
+    (let [installed-locales (keys installed) ;; list of java.util.Locales
           priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
           filtered (Locale/filter priority-list (or installed-locales '()))]
-      (mapcat #(get installed-language-reference-sets %) filtered))))
+      (mapcat #(get installed %) filtered))))
 
 (defn match-fn
   " Generate a locale matching function to return the best refsets to use given a

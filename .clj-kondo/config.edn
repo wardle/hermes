@@ -2,9 +2,10 @@
 
  :linters {:unsorted-required-namespaces {:level :warning}
            :invalid-arity                {:level :error}
-           :missing-else-branch          {:level :off}
-
+           :missing-else-branch          {:level :warning}
+           :shadowed-var                 {:level :warning}
            :unused-namespace             {:level   :warning
                                           :exclude []}
+           :unused-value                 {:level :warning}
            :unused-referred-var          {:level   :warning
                                           :exclude {}}}}

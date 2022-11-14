@@ -32,8 +32,8 @@
   - t : one of :info.snomed/Concept :info.snomed.Description or
         :info.snomed/Relationship."
   [t]
-  (gen/fmap (fn [[id partition]]
-              (Long/parseLong (verhoeff/append (str id partition))))
+  (gen/fmap (fn [[id partition-id]]
+              (Long/parseLong (verhoeff/append (str id partition-id))))
             (gen/tuple (gen-unique-identifier) (gen-partition t))))
 
 (defn gen-concept-id []

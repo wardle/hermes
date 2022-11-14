@@ -499,19 +499,19 @@
 (defn q-ancestorOf
   "A query for concepts that are ancestors of the specified concept."
   [store concept-id]
-  (let [^Collection parents (disj (store/get-all-parents store concept-id) concept-id)]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (disj (store/get-all-parents store concept-id) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOfAny
   [store ^Collection concept-ids]
-  (let [^Collection parents (into #{} (mapcat #(disj (store/get-all-parents store %) %) concept-ids))]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (into #{} (mapcat #(disj (store/get-all-parents store %) %) concept-ids))]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOf
   "A query for concepts that are ancestors of the specified concept plus the concept itself."
   [store concept-id]
-  (let [^Collection parents (store/get-all-parents store concept-id)]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (store/get-all-parents store concept-id)]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOfAny
   [store ^Collection concept-ids]
@@ -520,8 +520,8 @@
 
 (defn q-parentOf
   [store concept-id]
-  (let [^Collection parents (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA))]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA))]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOfAny
   [store ^Collection concept-ids]
@@ -530,13 +530,13 @@
 
 (defn q-parentOrSelfOf
   [store concept-id]
-  (let [^Collection parents (conj (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA)) concept-id)]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (conj (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA)) concept-id)]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOrSelfOfAny
   [store ^Collection concept-ids]
-  (let [^Collection parents (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %) concept-ids))]
-    (LongPoint/newSetQuery "concept-id" parents)))
+  (let [^Collection parent-ids (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %) concept-ids))]
+    (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-memberOf
   "A query for concepts that are referenced by the given reference set."
@@ -619,9 +619,8 @@
 (defn q-wildcard [s]
   (WildcardQuery. (Term. "term" ^String s)))
 
-(defn q-type
-  [type]
-  (LongPoint/newExactQuery "type-id" type))
+(defn q-type [type-id]
+  (LongPoint/newExactQuery "type-id" type-id))
 
 (defn q-typeAny
   [^Collection types]

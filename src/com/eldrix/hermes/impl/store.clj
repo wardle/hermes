@@ -67,8 +67,8 @@
        (persistent! result)
        (let [id (first work)
              done-already? (contains? result id)
-             parents (if done-already? () (map last (kv/get-raw-parent-relationships store id type-id)))]
-         (recur (apply conj (rest work) parents)
+             parent-ids (if done-already? () (map last (kv/get-raw-parent-relationships store id type-id)))]
+         (recur (apply conj (rest work) parent-ids)
                 (conj! result id)))))))
 
 (defn get-parent-relationships
@@ -130,12 +130,12 @@
     (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))
   ```"
   [store concept-id]
-  (loop [parents (map last (kv/get-raw-parent-relationships store concept-id snomed/IsA))
+  (loop [parent-ids (map last (kv/get-raw-parent-relationships store concept-id snomed/IsA))
          results []]
-    (let [parent (first parents)]
+    (let [parent (first parent-ids)]
       (if-not parent
         (if (seq results) (map #(conj % concept-id) results) (list (list concept-id)))
-        (recur (rest parents)
+        (recur (rest parent-ids)
                (concat results (paths-to-root store parent)))))))
 
 (defn get-all-children
@@ -372,12 +372,12 @@
   ([st concept-ids]
    (with-historical st concept-ids
                     (disj (get-all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
-  ([st concept-ids assoc-refset-ids]
-   (let [historical-refsets (set assoc-refset-ids)
-         future (map :targetComponentId (filter #(historical-refsets (:refsetId %)) (mapcat #(kv/get-component-refset-items st %) concept-ids)))
-         modern (set/union (set concept-ids) (set future))
-         historic (set (mapcat #(source-historical st % assoc-refset-ids) modern))]
-     (set/union modern historic))))
+  ([st concept-ids historical-refset-ids]
+   (let [refset-ids (set historical-refset-ids)
+         future-ids (map :targetComponentId (filter #(refset-ids (:refsetId %)) (mapcat #(kv/get-component-refset-items st %) concept-ids)))
+         modern-ids (set/union (set concept-ids) (set future-ids))
+         historic-ids (set (mapcat #(source-historical st % refset-ids) modern-ids))]
+     (set/union modern-ids historic-ids))))
 
 
 (defn get-refset-descriptors

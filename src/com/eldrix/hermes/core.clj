@@ -392,9 +392,9 @@
   Checks the is-a relationships of the concepts in question against the set of
   parent identifiers."
   [^Service svc concept-ids parent-ids]
-  (let [parents (set parent-ids)]
+  (let [parent-concepts (set parent-ids)]
     (->> (set concept-ids)
-         (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parents))
+         (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parent-concepts))
          (some identity))))
 
 (defn parse-expression [^Service _svc s]

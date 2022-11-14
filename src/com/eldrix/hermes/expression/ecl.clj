@@ -181,9 +181,9 @@
 
       ;; TODO: support "!=" as a boolean comparison operator
       :else
-      (throw (ex-info "unsupported term filter" {:s (zx/text loc)
-                                                 :op op
-                                                 :term typed-search-term
+      (throw (ex-info "unsupported term filter" {:s         (zx/text loc)
+                                                 :op        op
+                                                 :term      typed-search-term
                                                  :term-sets typed-search-term-set})))))
 
 (defn- parse-language-filter [loc]
@@ -280,8 +280,8 @@
         (cond (= c 0) nil
               (even? c) results
               :else (conj results default-acceptability)))
-      (let [alias (zx/xml1-> tag :dialectAlias zx/text)
-            mapped (lang/dialect->refset-id alias)          ;; doesn't matter if alias is nil
+      (let [d-alias (zx/xml1-> tag :dialectAlias zx/text)
+            mapped (lang/dialect->refset-id d-alias)        ;; doesn't matter if alias is nil
             concept-id (zx/xml1-> tag :eclConceptReference :conceptId parse-conceptId)
             acceptability (zx/xml1-> tag :acceptabilitySet parse-acceptability-set->kws)]
         (recur
@@ -290,11 +290,11 @@
                 is-even? (even? c)
                 is-odd? (not is-even?)]
             (cond
-              (and (nil? alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
+              (and (nil? d-alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
               results
 
-              (and alias (nil? mapped))
-              (throw (ex-info (str "unknown dialect: '" alias "'") {:s (zx/text loc)}))
+              (and d-alias (nil? mapped))
+              (throw (ex-info (str "unknown dialect: '" d-alias "'") {:s (zx/text loc)}))
 
               (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
               (conj results mapped)
@@ -309,7 +309,7 @@
               (apply conj results [default-acceptability concept-id])
 
               (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
-              (throw (ex-info "parse error: acceptability before dialect alias" {:s (zx/text loc) :alias alias :acceptability acceptability :results results :count count}))
+              (throw (ex-info "parse error: acceptability before dialect alias" {:s (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
 
               (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
               (conj results acceptability))))))))
