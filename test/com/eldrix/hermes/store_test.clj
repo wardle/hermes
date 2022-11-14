@@ -8,8 +8,7 @@
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed])
-  (:import (java.time LocalDate)
-           (java.io FileNotFoundException)))
+  (:import (java.time LocalDate)))
 
 (stest/instrument)
 

@@ -1,6 +1,5 @@
 (ns com.eldrix.hermes.expression.scg-test
   (:require [clojure.test :refer :all]
-            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.expression.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))

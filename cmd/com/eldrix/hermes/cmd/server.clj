@@ -14,7 +14,6 @@
 ;;;;
 (ns com.eldrix.hermes.cmd.server
   (:require [clojure.data.json :as json]
-            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.snomed :as snomed]
