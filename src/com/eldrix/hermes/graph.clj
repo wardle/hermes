@@ -172,10 +172,10 @@
      900000000000020002
      (when (> (count term) 0)
        (str (str/lower-case (first term)) (subs term 1)))
-     ;; entire term case insensitive - just make it all lower-case
+     ;; entire term case-insensitive - just make it all lower-case
      900000000000448009
      (str/lower-case term)
-     ;; entire term is case sensitive - can't do anything
+     ;; entire term is case-sensitive - can't do anything
      900000000000017005
      term
      ;; fallback option - don't do anything

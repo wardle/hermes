@@ -472,8 +472,8 @@
   :args (s/cat :svc ::svc
                :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of :info.snomed.Concept/id))))
 (defn all-transitive-synonyms
-  "Returns all of the synonyms of the specified concepts, including those
-  of its descendants.
+  "Returns all synonyms of the specified concepts, including those of its
+  descendants.
 
   Parameters:
   - svc    : hermes service
