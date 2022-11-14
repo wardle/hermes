@@ -67,7 +67,7 @@
 (deftest ^:live test-search
   (is (contains? (set (map :conceptId (hermes/search *svc* {:s "MND"}))) 37340000) "Search for MND should find motor neurone disease")
   (is (= 5 (count (map :conceptId (hermes/search *svc* {:s "multiple sclerosis" :max-hits 5})))))
-  (is (thrown? java.lang.Exception (hermes/search *svc* {:s "huntington" :max-hits "abc"}))))
+  (is (thrown? Exception (hermes/search *svc* {:s "huntington" :max-hits "abc"}))))
 
 (deftest ^:live test-with-historical
   (is (:active (hermes/get-concept *svc* 24700007)))

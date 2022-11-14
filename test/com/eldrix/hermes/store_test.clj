@@ -80,8 +80,8 @@
 (deftest write-relationships
   ;; 3229461000000123	20210512	1	999000011000000103	1089261000000101	213345000	0	116680003	900000000000011006	900000000000451002
   ;; 5687171000000128	20210512	0	999000011000000103	1089261000000101	213345000	0	116680003	900000000000011006	900000000000451002
-  (let [r1 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2021 5 12)}))
-        r2 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2021 5 12)}))]
+  (let [r1 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active false :effectiveTime (LocalDate/of 2021 5 12)}))
+        r2 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active true :effectiveTime (LocalDate/of 2021 5 12)}))]
     (with-open [st (store/open-store)]
       (store/write-batch {:type :info.snomed/Relationship :data [r1 r2]} st)
       (store/index st)
