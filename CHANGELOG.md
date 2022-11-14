@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## [1.0.792] - 2022-11-14
+
+* Add get description and relationship to code API
+* Add polymorphic get component via graph API
+* Add additional reference set item resolution via graph API
+* Address miscellaneous code linting (removal unused imports and requires, avoid shadowing vars, improved comments / docstrings) 
+
 ## [1.0.772] - 2022-11-08
 
 * Tweak indexing so that reference set items are indexed in a separate pass as
