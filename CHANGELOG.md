@@ -24,7 +24,7 @@ more than one relationship in a distribution relates to the same source-target-t
 ## [1.0.754] - 2022-10-22
 
 * Upgrade dependencies (including netty-buffer,logback-classic and tools.cli)
-* Add automated release to github for uberjar, to supplement automation to clojars for library jar
+* Add automated release to GitHub for uberjar, to supplement automation to clojars for library jar
 
 ## [1.0.734] - 2022-10-15
 
@@ -190,7 +190,7 @@ This means this version will refuse to read databases created in prior versions.
 * New graph API using declarative approach permitting clients to ask for exactly what they need
 * Expose fuzzy search in REST API.
 * Restructuring - separate library code from cli commands / server
-* Add rudimentary github actions tests, but not yet using live db
+* Add rudimentary GitHub Actions tests, but not yet using live db
 * Add historical associations reference set support
 * Update database version to v0.6 given new indexes.
 * Better query re-writing for when single must-not clauses used alone. 
