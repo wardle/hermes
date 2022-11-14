@@ -335,7 +335,7 @@ The distribution, as defined by `distribution-identifier`, will be downloaded
 and imported to the file-based database `snomed.db`.
 
 | Distribution-identifier | Description                                        |
-|-------------------------|--------------------------------------------------- |
+|-------------------------|----------------------------------------------------|
 | uk.nhs/sct-clinical     | UK SNOMED CT clinical - incl international release |
 | uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
 
