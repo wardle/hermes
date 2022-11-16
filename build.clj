@@ -81,7 +81,7 @@
            :main      'com.eldrix.hermes.cmd.core}))
 
 (defn release
-  "Deploy release to github. Requires valid token in GITHUB_TOKEN environmental
+  "Deploy release to GitHub. Requires valid token in GITHUB_TOKEN environmental
    variable."
   [_]
   (uber nil)
