@@ -72,12 +72,13 @@
                 (conj! result id)))))))
 
 (defn get-parent-relationships
-  "Returns the parent relationships of the specified concept.
-  Returns a map
+  "Returns a map of the parent relationships, with each value a set of
+  identifiers representing the targets of each relationship.
+  Returns a map:
   key: concept-id of the relationship type (e.g. identifier representing finding site)
   value: a set of concept identifiers for that property.
 
-  See get-parent-relationships-expanded to get each target expanded via
+  See `get-parent-relationships-expanded` to get each target expanded via
   transitive closure tables."
   [store concept-id]
   (->> (kv/get-raw-parent-relationships store concept-id)
@@ -85,8 +86,8 @@
        (apply merge-with into)))
 
 (defn get-parent-relationships-of-type
-  "Returns a collection of identifiers representing the parent relationships of
-  the specified type of the specified concept."
+  "Returns a set of identifiers representing the parent relationships of the
+  specified type of the specified concept."
   [store concept-id type-concept-id]
   (set (map last (kv/get-raw-parent-relationships store concept-id type-concept-id))))
 
@@ -95,10 +96,10 @@
   (set (mapcat (partial get-parent-relationships-of-type store concept-id) type-concept-ids)))
 
 (defn get-parent-relationships-expanded
-  "Returns all of the parent relationships, expanded to
-  include each target's transitive closure table.
-  This makes it trivial to build queries that find all concepts
-  with, for example, a common finding site at any level of granularity."
+  "Returns a map of the parent relationships, with each value a set of
+  identifiers representing the targets and their transitive closure tables. This
+  makes it trivial to build queries that find all concepts with, for example, a
+  common finding site at any level of granularity."
   ([store concept-id]
    (->> (kv/get-raw-parent-relationships store concept-id)
         (map (fn [[_source-id type-id _group target-id]] (hash-map type-id (get-all-parents store target-id))))
@@ -109,8 +110,8 @@
         (apply merge-with into))))
 
 (defn get-child-relationships-of-type
-  "Returns a collection of identifiers representing the parent relationships of
-  the specified type of the specified concept."
+  "Returns a set of identifiers representing the parent relationships of the
+  specified type of the specified concept."
   [store concept-id type-concept-id]
   (set (map last (kv/get-raw-child-relationships store concept-id type-concept-id))))
 

@@ -153,16 +153,16 @@
 (s/fdef get-parent-relationships-of-type
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
 (defn get-parent-relationships-of-type
-  "Returns a collection of identifiers representing the parent relationships of
-  the specified type of the specified concept."
+  "Returns a set of identifiers representing the parent relationships of the
+  specified type of the specified concept."
   [^Service svc concept-id type-concept-id]
   (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
 (s/fdef get-child-relationships-of-type
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
 (defn get-child-relationships-of-type
-  "Returns a collection of identifiers representing the child relationships of
-  the specified type of the specified concept."
+  "Returns a set of identifiers representing the child relationships of the
+  specified type of the specified concept."
   [^Service svc concept-id type-concept-id]
   (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
