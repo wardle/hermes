@@ -1,9 +1,9 @@
 (ns com.eldrix.hermes.core-test
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer :all]
-            [com.eldrix.hermes.core :as hermes]
-            [clojure.set :as set]))
+            [com.eldrix.hermes.core :as hermes]))
 
 (stest/instrument)
 

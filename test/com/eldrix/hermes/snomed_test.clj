@@ -1,14 +1,13 @@
 (ns com.eldrix.hermes.snomed-test
-  (:require
-    [clojure.spec.alpha :as s]
-    [clojure.spec.gen.alpha :as gen]
-    [clojure.spec.test.alpha :as stest]
-    [clojure.test :refer :all]
-    [com.eldrix.hermes.importer :as importer]
-    [com.eldrix.hermes.verhoeff :as verhoeff]
-    [com.eldrix.hermes.snomed :as snomed]
-    [com.eldrix.hermes.rf2 :as rf2]
-    [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer :all]
+            [com.eldrix.hermes.importer :as importer]
+            [com.eldrix.hermes.verhoeff :as verhoeff]
+            [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.rf2 :as rf2])
   (:import [java.time LocalDate]
            (com.eldrix.hermes.snomed AssociationRefsetItem)))
 

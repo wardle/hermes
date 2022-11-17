@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.search-test
-  (:require [clojure.test :refer :all]
-            [clojure.spec.gen.alpha :as gen]
+  (:require [clojure.spec.gen.alpha :as gen]
+            [clojure.test :refer :all]
             [com.eldrix.hermes.impl.search :as search]))
 
 (def example-results-1

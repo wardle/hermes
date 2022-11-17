@@ -1,11 +1,11 @@
 (ns com.eldrix.hermes.graph-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer :all]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph :as graph]
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.indexes :as pci]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
-            [clojure.spec.test.alpha :as stest]))
+            [com.wsscode.pathom3.interface.eql :as p.eql]))
 
 (stest/instrument)
 (def ^:dynamic *registry* nil)

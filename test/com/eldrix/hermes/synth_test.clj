@@ -7,13 +7,12 @@
             [clojure.string :as str]
             [clojure.test :refer :all]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2 :as rf2]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.core :as hermes])
-
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.nio.file Files FileVisitOption Path)
            (java.nio.file.attribute FileAttribute)
            (com.eldrix.hermes.snomed SimpleRefsetItem AssociationRefsetItem)))
