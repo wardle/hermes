@@ -83,26 +83,26 @@
    {:spec     :info.snomed/AssociationRefset
     :make-fn  snomed/map->AssociationRefsetItem
     :parse-fn snomed/parse-association-refset-item}
-   {:spec :info.snomed/LanguageRefset
-    :make-fn snomed/map->LanguageRefsetItem
+   {:spec     :info.snomed/LanguageRefset
+    :make-fn  snomed/map->LanguageRefsetItem
     :parse-fn snomed/parse-language-refset-item}
-   {:spec :info.snomed/RefsetDescriptorRefset
-    :make-fn snomed/map->RefsetDescriptorRefsetItem
+   {:spec     :info.snomed/RefsetDescriptorRefset
+    :make-fn  snomed/map->RefsetDescriptorRefsetItem
     :parse-fn snomed/parse-refset-descriptor-item}
-   {:spec :info.snomed/SimpleMapRefset
-    :make-fn snomed/map->SimpleMapRefsetItem
+   {:spec     :info.snomed/SimpleMapRefset
+    :make-fn  snomed/map->SimpleMapRefsetItem
     :parse-fn snomed/parse-simple-map-refset-item}
-   {:spec :info.snomed/ComplexMapRefset
-    :make-fn snomed/map->ComplexMapRefsetItem
+   {:spec     :info.snomed/ComplexMapRefset
+    :make-fn  snomed/map->ComplexMapRefsetItem
     :parse-fn snomed/parse-complex-map-refset-item}
-   {:spec :info.snomed/ExtendedMapRefset
-    :make-fn snomed/map->ExtendedMapRefsetItem
+   {:spec     :info.snomed/ExtendedMapRefset
+    :make-fn  snomed/map->ExtendedMapRefsetItem
     :parse-fn snomed/parse-extended-map-refset-item}
-   {:spec :info.snomed/AttributeValueRefset
-    :make-fn snomed/map->AttributeValueRefsetItem
+   {:spec     :info.snomed/AttributeValueRefset
+    :make-fn  snomed/map->AttributeValueRefsetItem
     :parse-fn snomed/parse-attribute-value-refset-item}
-   {:spec :info.snomed/OWLExpressionRefset
-    :make-fn snomed/map->OWLExpressionRefsetItem
+   {:spec     :info.snomed/OWLExpressionRefset
+    :make-fn  snomed/map->OWLExpressionRefsetItem
     :parse-fn snomed/parse-owl-expression-refset-item}])
 
 (deftest test-parse-unparse
@@ -236,7 +236,7 @@
 
 (deftest test-refset-reification
   (testing "Association refset reification"
-    (let [item (gen/generate (rf2/gen-simple-refset { :active true :refsetId 1322291000000109 :fields [163071000000106]}))
+    (let [item (gen/generate (rf2/gen-simple-refset {:active true :refsetId 1322291000000109 :fields [163071000000106]}))
           reifier (snomed/refset-reifier [449608002 900000000000533001])
           item' (reifier item)]
       (is (instance? AssociationRefsetItem item'))
