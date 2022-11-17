@@ -112,8 +112,7 @@
   its relationships and its refset memberships. See
   [[com.eldrix.hermes.snomed/ExtendedConcept]]"
   [^Service svc concept-id]
-  (when-let [concept (store/get-concept (.-store svc) concept-id)]
-    (store/make-extended-concept (.-store svc) concept)))
+  (store/get-extended-concept (.-store svc) concept-id))
 
 (s/fdef get-descriptions
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
