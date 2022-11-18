@@ -149,8 +149,25 @@
   ([^Service svc concept-id type-id]
    (store/get-all-children (.-store svc) concept-id type-id)))
 
+(s/fdef get-parent-relationships
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+(defn get-parent-relationships
+  "Returns a map of the parent relationships keyed by type."
+  [^Service svc concept-id]
+  (store/get-parent-relationships (.-store svc) concept-id))
+
+(defn get-parent-relationships-expanded
+  "Returns a map of the parent relationships, with each value a set of
+  identifiers representing the targets and their transitive closure tables. This
+  makes it trivial to build queries that find all concepts with, for example, a
+  common finding site at any level of granularity."
+  ([^Service svc concept-id]
+   (store/get-parent-relationships-expanded (.-store svc) concept-id))
+  ([^Service svc concept-id type-id]
+   (store/get-parent-relationships-expanded (.-store svc) concept-id type-id)))
+
 (s/fdef get-parent-relationships-of-type
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concept-id :info.snomed.Concept/id))
 (defn get-parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
