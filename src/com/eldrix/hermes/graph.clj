@@ -3,7 +3,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -328,10 +327,10 @@
                  :info.snomed.Concept/directParentRelationshipIds]}
   (let [rel-type (:type (pco/params env))]
     (if rel-type
-      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id rel-type)
-       :info.snomed.Concept/directParentRelationshipIds {rel-type (store/get-parent-relationships-of-type (.store svc) concept-id rel-type)}}
-      {:info.snomed.Concept/parentRelationshipIds       (store/get-parent-relationships-expanded (.-store svc) concept-id)
-       :info.snomed.Concept/directParentRelationshipIds (store/get-parent-relationships (.-store svc) concept-id)})))
+      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded (.-store svc) concept-id rel-type)
+       :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type (.store svc) concept-id rel-type)}}
+      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded (.-store svc) concept-id)
+       :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships (.-store svc) concept-id)})))
 
 (pco/defresolver readctv3-concept
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
