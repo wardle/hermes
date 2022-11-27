@@ -54,7 +54,6 @@
   Environment variables CLOJARS_USERNAME and CLOJARS_PASSWORD must be set."
   [_]
   (println "Deploying" jar-file)
-  (clean nil)
   (jar nil)
   (dd/deploy {:installer :remote
               :artifact  jar-file
