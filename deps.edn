@@ -1,7 +1,7 @@
 {:paths   ["src" "resources"]
 
  :deps    {org.clojure/clojure                      {:mvn/version "1.11.1"}
-           org.clojure/core.async                   {:mvn/version "1.5.648"}
+           org.clojure/core.async                   {:mvn/version "1.6.673"}
            org.clojure/core.match                   {:mvn/version "1.0.0"}
            org.clojure/data.xml                     {:mvn/version "0.2.0-alpha8"}
            org.clojure/data.zip                     {:mvn/version "1.0.0"}
@@ -10,11 +10,11 @@
            com.eldrix/hermes-api                    {:mvn/version "1.0.0"}
            com.eldrix/trud                          {:mvn/version "1.0.80"}
 
-           com.wsscode/pathom3                      {:mvn/version "2022.10.18-alpha"}
+           com.wsscode/pathom3                      {:mvn/version "2022.10.19-alpha"}
            expound/expound                          {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
 
-           io.netty/netty-buffer                    {:mvn/version "4.1.84.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.85.Final"}
 
            org.apache.lucene/lucene-core            {:mvn/version "9.4.2"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.4.2"}
@@ -23,16 +23,16 @@
            org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"}}
 
  :aliases {:build
-           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.8.3" :git/sha "0d20256"}
+           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.8.5" :git/sha "9c738da"}
                          slipset/deps-deploy                    {:mvn/version "RELEASE"}
-                         io.github.borkdude/gh-release-artifact {:git/sha "05f8d8659e6805d513c59447ff41dc8497878462"}}
+                         io.github.borkdude/gh-release-artifact {:git/sha "db5e79559fdbfa009ed4a0921079e20e1e76b269"}}
             :ns-default build}
 
            :run
            {:extra-paths ["cmd"]
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.214"}
                           org.clojure/data.json          {:mvn/version "2.4.0"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.4"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.5"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
@@ -46,21 +46,21 @@
             :extra-deps  {org.clojure/test.check           {:mvn/version "1.1.1"}
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.33.0"}}}
+                          djblue/portal                    {:mvn/version "0.34.2"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
             :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
                           com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                          :sha     "a522ab2851a2aa5bf9c22a942b45287a3a019310"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.4"}}
+                                                          :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.5"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test}
 
            :test/cloverage
            {:extra-paths ["test"]
             :extra-deps  {cloverage/cloverage            {:mvn/version "RELEASE"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.4"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.5"}
                           org.clojure/test.check         {:mvn/version "1.1.1"}}
             :main-opts   ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]
             :exec-fn     cloverage.coverage/run-project
