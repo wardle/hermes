@@ -196,6 +196,7 @@
     (snomed/->AssociationRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId targetComponentId fields)))
 
+
 (defn write-language-refset-item [^ByteBuf out ^LanguageRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
@@ -309,6 +310,7 @@
       id effectiveTime active moduleId refsetId referencedComponentId
       mapGroup mapPriority mapRule mapAdvice mapTarget correlationId mapCategoryId fields)))
 
+
 (defn write-attribute-value-refset-item [^ByteBuf out ^AttributeValueRefsetItem o]
   (write-uuid out (.id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
@@ -330,6 +332,7 @@
         fields (read-fields in)]
     (snomed/->AttributeValueRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId valueId fields)))
+
 
 (defn write-owl-expression-refset-item [^ByteBuf out ^OWLExpressionRefsetItem o]
   (write-uuid out (.id o))
