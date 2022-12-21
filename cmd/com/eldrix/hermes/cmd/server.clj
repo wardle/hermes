@@ -24,8 +24,7 @@
             [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
            (java.time LocalDate)
-           (java.util Locale)
-           (com.eldrix.hermes.core Service)))
+           (java.util Locale)))
 
 (set! *warn-on-reflection* true)
 
@@ -246,11 +245,12 @@
 (defn start-server
   "Start a HTTP SNOMED CT server.
   Parameters:
+  - svc             : Hermes service
   - port            : (optional) port to use, default 8080
   - bind-address    : (optional) bind address
   - allowed-origins : (optional) a sequence of strings of hostnames or function
   - join?           : whether to join server thread or return"
-  ([^Service svc {:keys [port bind-address allowed-origins join?] :or {join? true}}]
+  ([svc {:keys [port bind-address allowed-origins join?] :or {join? true}}]
    (Thread/setDefaultUncaughtExceptionHandler
      (reify Thread$UncaughtExceptionHandler
        (uncaughtException [_ thread ex]
