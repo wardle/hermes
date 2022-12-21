@@ -5,9 +5,9 @@
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [com.eldrix.hermes.cmd.server :as server]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.download :as download]
-            [com.eldrix.hermes.importer :as importer]
-            [com.eldrix.hermes.core :as hermes]))
+            [com.eldrix.hermes.importer :as importer]))
 
 (defn import-from [{:keys [db]} args]
   (if db
