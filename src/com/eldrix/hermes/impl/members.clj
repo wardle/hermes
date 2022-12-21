@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.impl.members
   "Members creates a Lucene search index for reference set members."
   (:require [clojure.core.async :as async]
-            [com.eldrix.hermes.impl.search :as search]
+            [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store])
   (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
            (org.apache.lucene.document Document Field$Store StringField LongPoint StoredField)
@@ -106,17 +106,16 @@
   (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
     (DirectoryReader/open directory)))
 
-
 (defn q-or [queries]
-  (search/q-or queries))
+  (lucene/q-or queries))
 
 (defn q-and [queries]
-  (search/q-and queries))
+  (lucene/q-and queries))
 
 (defn q-not
   "Returns the logical query of q1 NOT q2"
   [^Query q1 ^Query q2]
-  (search/q-not q1 q2))
+  (lucene/q-not q1 q2))
 
 (defn q-all
   "Returns a query to match all documents."
@@ -241,7 +240,7 @@
 (defn search
   "Performs the search, returning a set of referenced component identifiers."
   [^IndexSearcher searcher query]
-  (->> (search/search-all searcher query)
+  (->> (lucene/search-all searcher query)
        (map #(.doc searcher %))
        (map #(.get ^Document % "referencedComponentId"))
        (map #(Long/parseLong %))

@@ -19,25 +19,25 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
+            [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed])
 
-  (:import (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
-           (org.apache.lucene.store FSDirectory)
+  (:import (org.apache.lucene.analysis.standard StandardAnalyzer)
+           (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
+           (org.apache.lucene.analysis Analyzer)
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
+           (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
                                      BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery
-                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)
+                                     MatchAllDocsQuery BooleanQuery BooleanClause)
+           (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.queries.function FunctionScoreQuery)
-           (org.apache.lucene.analysis.standard StandardAnalyzer)
-           (java.util Collection List ArrayList)
-           (java.nio.file Paths)
-           (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
-           (org.apache.lucene.analysis Analyzer)))
+           (java.util Collection)
+           (java.nio.file Paths)))
 
 (set! *warn-on-reflection* true)
-
 
 (s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
@@ -93,26 +93,6 @@
   This matches a result if they have the same conceptId and same term."
   [{a-concept-id :conceptId a-term :term} {b-concept-id :conceptId b-term :term}]
   (and (= a-concept-id b-concept-id) (= a-term b-term)))
-
-;; A Lucene results collector that collects *all* results into the mutable
-;; java collection 'coll'.
-(deftype IntoArrayCollector [^List coll]
-  Collector
-  (getLeafCollector [_ ctx]
-    (let [base-id (.-docBase ctx)]
-      (reify LeafCollector
-        (setScorer [_ _scorer])                             ;; NOP
-        (collect [_ doc-id]
-          (.add coll (+ base-id doc-id))))))
-  (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
-
-(defn search-all
-  "Search a lucene index and return *all* results matching query specified.
-  Results are returned as a sequence of Lucene document ids."
-  [^IndexSearcher searcher ^Query q]
-  (let [coll (ArrayList.)]
-    (.search searcher q (IntoArrayCollector. coll))
-    (seq coll)))
 
 (defn make-extended-descriptions
   [store language-refset-ids concept]
@@ -239,62 +219,16 @@
              (.build builder))
            (first qs)))))))
 
+(defn q-or [queries]
+  (lucene/q-or queries))
 
-(defn- single-must-not-clause?
-  "Checks that a boolean query isn't simply a single 'must-not' clause.
-  Such a query will fail to return any results if used alone."
-  [^Query q]
-  (and (instance? BooleanQuery q)
-       (= (count (.clauses ^BooleanQuery q)) 1)
-       (= BooleanClause$Occur/MUST_NOT (.getOccur ^BooleanClause (first (.clauses ^BooleanQuery q))))))
-
-(defn- rewrite-single-must-not
-  "Rewrite a single 'must-not' query."
-  [^BooleanQuery q]
-  (-> (BooleanQuery$Builder.)
-      (.add (MatchAllDocsQuery.) BooleanClause$Occur/SHOULD)
-      (.add (.getQuery ^BooleanClause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
-      (.build)))
-
-(defn q-or
-  "Generate a logical disjunction of the queries.
-  If there is more than one query, and one of those queries contains a single
-  'must-not' clause, it is flattened (re-written) into the new query.
-  As this is an 'or' operation, that means it will be combined with a
-  'match-all-documents'."
-  [queries]
-  (case (count queries)
-    0 nil
-    1 (first queries)                                       ;; deliberately *do not* rewrite a MUST_NOT query here
-    (let [builder (BooleanQuery$Builder.)]
-      (doseq [^Query query queries]
-        (if (single-must-not-clause? query)
-          (.add builder (rewrite-single-must-not query) BooleanClause$Occur/SHOULD)
-          (.add builder query BooleanClause$Occur/SHOULD)))
-      (.build builder))))
-
-(defn q-and
-  "Generate a logical conjunction of the queries.
-  If there is more than one query, and one of those queries contains a single
-  'must-not' clause, it is flattened (re-written) into the new query."
-  [queries]
-  (case (count queries)
-    0 nil
-    1 (first queries)                                       ;; deliberately *do not* rewrite a MUST_NOT query here
-    (let [builder (BooleanQuery$Builder.)]
-      (doseq [query queries]
-        (if (single-must-not-clause? query)
-          (.add builder ^Query (.getQuery ^BooleanClause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
-          (.add builder ^Query query BooleanClause$Occur/MUST)))
-      (.build builder))))
+(defn q-and [queries]
+  (lucene/q-and queries))
 
 (defn q-not
   "Returns the logical query of q1 NOT q2"
   [^Query q1 ^Query q2]
-  (-> (BooleanQuery$Builder.)
-      (.add q1 BooleanClause$Occur/MUST)
-      (.add q2 BooleanClause$Occur/MUST_NOT)
-      (.build)))
+  (lucene/q-not q1 q2))
 
 (defn q-fsn
   []
@@ -365,7 +299,7 @@
 
 (defn do-query-for-results
   ([^IndexSearcher searcher ^Query q]
-   (->> (search-all searcher q)
+   (->> (lucene/search-all searcher q)
         (map #(.doc searcher %))
         (map doc->result)))
   ([^IndexSearcher searcher ^Query q max-hits]
@@ -428,7 +362,7 @@
 (defn do-query-for-concepts
   "Perform the query, returning results as a set of concept identifiers"
   ([^IndexSearcher searcher ^Query query]
-   (let [doc-ids (search-all searcher query)]
+   (let [doc-ids (lucene/search-all searcher query)]
      (into #{} (map (partial doc-id->concept-id searcher) doc-ids))))
   ([^IndexSearcher searcher ^Query query max-hits]
    (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
