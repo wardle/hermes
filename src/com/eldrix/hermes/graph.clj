@@ -7,8 +7,7 @@
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql])
-  (:import (java.util Locale)
-           (com.eldrix.hermes.core Service)))
+  (:import (java.util Locale)))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -322,15 +321,15 @@
   "Returns the concept's relationships. Accepts a parameter :type, specifying the
   type of relationship. If :type is omitted, all types of relationship will be
   returned."
-  [{::keys [^Service svc] :as env} {concept-id :info.snomed.Concept/id}]
+  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
   (let [rel-type (:type (pco/params env))]
     (if rel-type
-      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded (.-store svc) concept-id rel-type)
-       :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type (.store svc) concept-id rel-type)}}
-      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded (.-store svc) concept-id)
-       :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships (.-store svc) concept-id)})))
+      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id rel-type)
+       :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type svc concept-id rel-type)}}
+      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id)
+       :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships svc concept-id)})))
 
 (pco/defresolver readctv3-concept
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
