@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.expression.scg
+(ns com.eldrix.hermes.impl.scg
   "Support for SNOMED CT compositional grammar.
   See http://snomed.org/scg"
   (:require [clojure.data.zip.xml :as zx]

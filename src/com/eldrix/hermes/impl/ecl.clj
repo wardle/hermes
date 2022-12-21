@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.expression.ecl
+(ns com.eldrix.hermes.impl.ecl
   "Implementation of the SNOMED CT expression constraint language.
   See http://snomed.org/ecl"
   (:require [clojure.data.zip.xml :as zx]
@@ -955,7 +955,8 @@
 (s/fdef parse
   :args (s/cat :ctx ::ctx :s string?))
 (defn parse
-  "Parse SNOMED-CT ECL, as defined by the expression constraint language
+  "Parse SNOMED-CT ECL, as defined by the expression constraint language.
+  Returns a Lucene query.
   See http://snomed.org/ecl"
   [ctx s]
   (let [p (ecl-parser s)]

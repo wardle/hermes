@@ -1,6 +1,6 @@
-(ns com.eldrix.hermes.expression.scg-test
+(ns com.eldrix.hermes.scg-test
   (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.expression.scg :as scg]
+            [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))
 

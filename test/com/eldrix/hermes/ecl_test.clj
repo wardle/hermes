@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.expression.ecl-test
+(ns com.eldrix.hermes.ecl-test
   (:require [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
