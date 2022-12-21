@@ -46,7 +46,7 @@
             :extra-deps  {org.clojure/test.check           {:mvn/version "1.1.1"}
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.34.2"}}}
+                          djblue/portal                    {:mvn/version "0.35.0"}}}
 
            :test
            {:extra-paths ["test" "test/resources"]
@@ -81,6 +81,10 @@
                           :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
             :main-opts  ["-m" "clj-check.check"]}
 
+           :hiera
+           {:deps      {io.github.greglook/clj-hiera {:git/tag "2.0.0", :git/sha "b14e514"}}
+            :exec-fn   hiera.main/graph
+            :exec-args {:cluster-depth 3}}
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
