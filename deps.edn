@@ -14,7 +14,7 @@
            expound/expound                          {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
 
-           io.netty/netty-buffer                    {:mvn/version "4.1.85.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.86.Final"}
 
            org.apache.lucene/lucene-core            {:mvn/version "9.4.2"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.4.2"}
