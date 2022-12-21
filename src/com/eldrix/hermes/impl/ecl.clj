@@ -35,8 +35,8 @@
 (s/def ::query #(instance? Query %))
 (s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
-(s/def ::member-searcher #(instance? IndexSearcher %))
-(s/def ::ctx (s/keys :req-un [::store ::searcher ::member-searcher]))
+(s/def ::memberSearcher #(instance? IndexSearcher %))
+(s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher]))
 (s/def ::loc any?)
 
 (def ^:private ecl-parser
@@ -738,7 +738,7 @@
   filter accordingly. 'refsets' should be a Lucene query, or :wildcard,
   representing all reference sets.
   memberFilterConstraint = {{ ws (m / M) ws memberFilter *(ws , ws memberFilter) ws }}"
-  [{:keys [store member-searcher] :as ctx} refsets loc]
+  [{:keys [store memberSearcher] :as ctx} refsets loc]
   (let [refset-ids (cond (= :wildcard refsets)
                          (store/get-installed-reference-sets store)
                          (:conceptId refsets)
@@ -748,7 +748,7 @@
     (when (seq refset-ids)
       (let [queries (mapcat (fn [refset-id] (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))) refset-ids)
             q (members/q-or queries)
-            referenced-component-ids (members/search member-searcher q)]
+            referenced-component-ids (members/search memberSearcher q)]
         (search/q-concept-ids referenced-component-ids)))))
 
 (defn- parse-history-supplement
@@ -975,7 +975,7 @@
     (def searcher (org.apache.lucene.search.IndexSearcher. index-reader))
     (def member-index-reader (members/open-index-reader "snomed.db/members.db"))
     (def member-searcher (IndexSearcher. member-index-reader))
-    (def ctx {:store store :searcher searcher :member-searcher member-searcher})
+    (def ctx {:store store :searcher searcher :memberSearcher member-searcher})
     (require '[clojure.pprint :as pp])
     (def testq (comp pp/print-table (partial search/test-query store searcher)))
     (def pe (partial parse ctx)))

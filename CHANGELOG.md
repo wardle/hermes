@@ -2,10 +2,22 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Upgrade to netty-buffer 4.1.86
+* Improve namespace stratification by factoring out common Lucene functions shared by the two indices (descriptions and refset members).
+* Move ECL and CG implementations into `com.eldrix.hermes.impl` as they contain no public-facing API.
+* Explicitly use an opaque handle for core API to represent encapsulated runtime state. The prior public but undocumented `Service` is now deprecated in favour of a private `Svc` with `hermes/open` returning `Closeable`.   
+
+## [1.0.804] - 2022-11-27
+
+* Upgrade to Lucene 9.4.2 (and Lucene 8.11.2 when java 8 compatibility required)
+* Improve namespace layering structure by ensuring graph API only uses top-level APIs
+
 ## [1.0.792] - 2022-11-14
 
-* Add get description and relationship to code API
-* Add polymorphic get component via graph API
+* Add `get-description` and `get-relationship` to top-level API
+* Add polymorphic `get-component` via graph API
 * Add additional reference set item resolution via graph API
 * Address miscellaneous code linting (removal unused imports and requires, avoid shadowing vars, improved comments / docstrings) 
 
@@ -21,7 +33,7 @@ that the core datastore is updated during indexing.
 
 * Fix [#42](https://github.com/wardle/hermes/issues/42) in which relationship indices could be incorrect if
 more than one relationship in a distribution relates to the same source-target-type tuple.
-* Add 'intersect-ecl' to core library to intersect a set of concept identifiers with an ECL expression.
+* Add `intersect-ecl` to core library to intersect a set of concept identifiers with an ECL expression.
 
 ## [1.0.764] - 2022-10-23
 
@@ -127,8 +139,8 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.9.362] - 2022-02-15
 
 * Support for mapping concepts into a defined subset of concepts.
-* Add get-synonyms convenience function
-* Expose get-all-children at top-level API
+* Add `get-synonyms` convenience function
+* Expose `get-all-children` at top-level API
 
 ## [0.8.341] - 2022-01-22
 
@@ -149,7 +161,7 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.8.2] - 2021-10-31
 
 * Status command now prints installed reference sets, and optionally counts of SNOMED data
-* Add -v --verbose flag to increase verbosity for commands, although they're pretty verbose already
+* Add `-v` `--verbose` flag to increase verbosity for commands, although they're pretty verbose already
 * Better error reporting during import 
 
 
@@ -161,7 +173,7 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.8.0] - 2021-10-24
 
 * Add fuzzy and fallback-fuzzy search to graph API.
-* Add get-all-parents, and parent-relationships to core API
+* Add `get-all-parents`, and `get-parent-relationships` to core API
 * Permit configuration of with-historical to allow choice of association refset types
 * Add ECL membership check
 * Add reverse cross-map prefix search (useful for ICD-10 and Read)
@@ -216,7 +228,7 @@ This means this version will refuse to read databases created in prior versions.
 * Support for unlimited results when used as a library, and when processing expressions
 * Harmonise web service key names to use camel case and not mix in kebab-case.
 * Expose library API call to get installed reference sets
-* Expose support for 'Accept-Language' using BCP 47 language tags in REST server, with additional support for specific language reference set extension of form en-gb-x-XXXX where XXXX is preferred language refset.  
+* Expose support for `Accept-Language` using BCP 47 language tags in REST server, with additional support for specific language reference set extension of form `en-gb-x-XXXX` where XXXX is preferred language refset identifier.  
 * Release information included in log files
 
 ## [0.5.0] - 2021-03-09
