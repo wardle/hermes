@@ -692,7 +692,7 @@
         st (store/open-store (get-absolute-filename root (:store manifest)))
         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
         searcher (IndexSearcher. index-reader)
-        member-reader (com.eldrix.hermes.impl.members/open-index-reader (get-absolute-filename root (:members manifest)))
+        member-reader (members/open-index-reader (get-absolute-filename root (:members manifest)))
         member-searcher (IndexSearcher. member-reader)
         locale-match-fn (lang/match-fn st)]
     (log/info "hermes terminology service opened " root (assoc manifest :releases (map :term (store/get-release-information st))))
