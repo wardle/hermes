@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.0.815] - 2022-12-22
 
 * Upgrade to netty-buffer 4.1.86
 * Improve namespace stratification by factoring out common Lucene functions shared by the two indices (descriptions and refset members).
