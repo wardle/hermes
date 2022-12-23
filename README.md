@@ -65,6 +65,26 @@ cd hermes
 
 3. Download and install one or more distributions
 
+You will need to download distributions from a National Release Centre.
+
+How to do this will principally depend on your location. 
+
+For more information, see [https://www.snomed.org/snomed-ct/get-snomed](https://www.snomed.org/snomed-ct/get-snomed).
+SNOMED provide a [Member Licensing and Distribution Centre](https://mlds.ihtsdotools.org/#/landing).
+
+In the United States, the National Library of Medicine (NLM) has [more information](https://www.nlm.nih.gov/healthit/snomedct/snomed_licensing.html). For example, the SNOMED USA edition is available from [https://www.nlm.nih.gov/healthit/snomedct/us_edition.html](https://www.nlm.nih.gov/healthit/snomedct/us_edition.html).
+
+In the United Kingdom, you can download a distribution from NHS Digital using the [TRUD service](https://isd.digital.nhs.uk).
+
+`Hermes` also provides automated downloads. Currently this is only for the UK, because I don't have access to any other national release centre. `Hermes` is designed with an extensible system to provide automated downloads, so could quite easily be adapted to support other release centres.
+
+If you've downloaded a distribution manually, import like this:
+
+```shell
+clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
+```
+
+
 If you're a UK user and want to use automatic downloads, you can do this
 
 ```shell
@@ -91,11 +111,6 @@ You can get a list of available UK versions by simply looking at the TRUD websit
 clj -M:run download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud release-date list
 ```
 
-If you've downloaded a distribution manually, import like this:
-
-```shell
-clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
-```
 
 My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT and a further minute to import the UK
 dictionary
@@ -385,7 +400,7 @@ So we know we need to pass in `api-key` and `cache-dir` as above.
 Depending on where you live in the World, download the most appropriate
 distribution(s) for your needs.
 
-In the UK, we can obtain these from [TRUD](ttps://isd.digital.nhs.uk).
+In the UK, we can obtain these from [TRUD](https://isd.digital.nhs.uk).
 
 For example, you can download the UK "Clinical Edition", containing the International and UK clinical distributions
 as part of TRUD pack 26/subpack 101.
