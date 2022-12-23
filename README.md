@@ -1089,89 +1089,10 @@ In your pom.xml:
 <dependency>
   <groupId>com.eldrix</groupId>
   <artifactId>hermes</artifactId>
-  <version>0.8.340</version>
+  <version>1.0.815</version>
 </dependency>
 ```
 
-Or, build a library jar (see below)
+# Development
 
-### B. How to use a running service in your own applications
-
-The terminology server can be embedded into your own applications or, more
-commonly, you would use as a standalone web service. Further documentation
-will follow.
-
-### C. How to build from source code
-
-#### Run compilation checks (optional)
-
-```
-clj -M:check
-```
-
-#### Run unit tests and linters (optional)
-
-By default, testing includes tests against a real local SNOMED CT datafile
-named 'snomed.db' in the local directory. This is ideal for development.
-
-However, for automation purposes, you can exclude those tests and rely on
-tests using synthetic data instead.
-
-```
-clj -M:test                # Run all tests
-clj -M:test -e :live       # Run tests but exclude those needing a real local SNOMED distribution
-```
-
-Additional test coverage reports and linting are also available:
-
-```
-clj -M:test/cloverage
-clj -M:lint/kondo
-clj -M:lint/eastwood
-```
-
-#### View outdated dependencies
-
-```
-clj -M:outdated
-```
-
-You can view a complete list of dependencies; try:
-
-```
-clj -X:deps tree
-```
-
-#### Building uberjar
-
-Build the uberjar:
-
-```shell
-clojure -T:build uber
-```
-
-To release the uberjar to github, if you have the right credentials:
-
-```shell
-clojure -T:build release
-```
-
-#### Building library jar
-
-A library jar contains only hermes-code, and none of the bundled dependencies.
-
-```shell
-clojure -T:build jar
-```
-
-Or you can install hermes into your local maven repository:
-
-```shell
-clojure -T:build install
-```
-
-To deploy the library jar to clojars, if you have the right credentials
-
-```shell
-clojure -T:build deploy
-```
+See [/doc/development](/doc/development.md) on how to develop, test, lint, deploy and release `hermes`. 
