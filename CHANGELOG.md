@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.0.822] - 2022-12-24
+
+* Add native support for Apple Silicon, rather than using an x86-64 JDK. Native aarm64 support currently dependent on manually building lmdb binary - see README.
+* Log detailed system information on server startup, including architecture.
+
 ## [1.0.815] - 2022-12-22
 
 * Upgrade to netty-buffer 4.1.86
