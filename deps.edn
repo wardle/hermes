@@ -20,7 +20,9 @@
            org.apache.lucene/lucene-queries         {:mvn/version "9.4.2"}
            org.apache.lucene/lucene-backward-codecs {:mvn/version "9.4.2"}
 
-           org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"}}
+           org.lmdbjava/lmdbjava                    {:mvn/version "0.8.2"
+                                                     :exclusions [com.github.jnr/jnr-ffi]}
+           com.github.jnr/jnr-ffi                   {:mvn/version "2.2.12"}}  ;; pending release of lmdb 0.8.3, this permits using aarch64 lmdb binary
 
  :aliases {:build
            {:deps       {io.github.clojure/tools.build          {:git/tag "v0.8.5" :git/sha "9c738da"}
