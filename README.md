@@ -351,10 +351,9 @@ And then download lmdb and build:
 git clone --depth 1 https://git.openldap.org/openldap/openldap.git
 cd openldap/libraries/liblmdb
 make -e SOEXT=.dylib
-cp  liblmdb.dylib ~/Library/Java/Extensions
+mkdir -p ~/Library/Java/Extensions
+cp liblmdb.dylib ~/Library/Java/Extensions
 ```
-
-I had to ensure ~/Library/Java/Extensions existed before this step.
 
 Once this native library is copied, you can use `hermes` natively using an arm64 based JDK.
 
