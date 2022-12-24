@@ -316,6 +316,58 @@ memory mapped by multiple running instances and provide high scalability.
 
 There are some examples of [different configurations available](https://github.com/wardle/hermes-docker).
 
+### Can I use `hermes` on Apple Silicon? 
+
+Yes. There are two options: 
+
+1. Install an x86 java SDK and run using that (Rosetta). This is fast enough.
+
+For example, you can get a list of installed JDKs:
+```shell
+$ /usr/libexec/java_home -V
+
+    11.0.17 (arm64) "Amazon.com Inc." - "Amazon Corretto 11" /Users/mark/Library/Java/JavaVirtualMachines/corretto-11.0.17/Contents/Home
+    11.0.14.1 (x86_64) "Azul Systems, Inc." - "Zulu 11.54.25" /Users/mark/Library/Java/JavaVirtualMachines/azul-11.0.14.1-1--x86/Contents/Home
+```
+
+Choose an SDK and check what we are using
+```shell
+$ export JAVA_HOME=$(/usr/libexec/java_home -v 11.0.14.1)
+$ clj -M -e '(System/getProperty "os.arch")'
+
+"x86_64"
+
+```
+
+2. Build the lmdb library for your architecture (ie arm64). This is fastest.
+
+Install the xcode command line tools, if they are not already installed
+```shell
+xcode-select --install
+```
+
+And then download lmdb and build:
+```shell
+git clone --depth 1 https://git.openldap.org/openldap/openldap.git
+cd openldap/libraries/liblmdb
+make -e SOEXT=.dylib
+cp  liblmdb.dylib ~/Library/Java/Extensions
+```
+
+I had to ensure ~/Library/Java/Extensions existed before this step.
+
+Once this native library is copied, you can use `hermes` natively using an arm64 based JDK.
+
+```shell
+$ export JAVA_HOME=$(/usr/libexec/java_home -v 11.0.17)
+$ clj -M -e '(System/getProperty "os.arch")'
+
+"aarch64"
+```
+
+It is likely that lmdbjava will include a pre-built lmdb binary for ARM on Mac OS X, so
+these steps will become unnecessary.
+
 # Documentation
 
 ### A. How to download and build a terminology service
