@@ -60,6 +60,9 @@
                         (seq allowed-origins') (assoc params :allowed-origins allowed-origins')
                         :else params)]
       (log/info "starting terminology server " params')
+      (log/info "env" (-> (System/getProperties)
+                          (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
+                          (update-keys keyword)))
       (server/start-server svc params'))
     (log/error "no database directory specified")))
 
