@@ -111,9 +111,9 @@
    "serve"    {:fn serve}
    "status"   {:fn status}})
 
-(defn exit [status msg]
+(defn exit [status-code msg]
   (println msg)
-  (System/exit status))
+  (System/exit status-code))
 
 (defn invoke-command [cmd opts args]
   (if-let [f (:fn cmd)]

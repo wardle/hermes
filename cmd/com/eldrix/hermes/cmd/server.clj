@@ -59,8 +59,8 @@
     "application/json" (.getBytes (json/write-str body) "UTF-8")))
 
 (defn coerce-to
-  [response content-type]
-  (-> response
+  [resp content-type]
+  (-> resp
       (update :body transform-content content-type)
       (assoc-in [:headers "Content-Type"] content-type)))
 
