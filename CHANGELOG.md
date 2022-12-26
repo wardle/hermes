@@ -4,7 +4,7 @@ This log documents significant changes for each release.
 
 ## [1.0.822] - 2022-12-24
 
-* Enable native support for Apple Silicon, rather than needing to use an x86-64 JDK. (To add native aarm64 support, you will need to manually building lmdb binary - see README).
+* Enable native support for Apple Silicon, rather than needing to use an x86-64 JDK. (To add native aarm64 support, you will need to manually build lmdb binary - see README).
 * Log detailed system information on server startup, including architecture.
 
 ## [1.0.815] - 2022-12-22
