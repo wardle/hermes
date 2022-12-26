@@ -353,12 +353,16 @@
 
 (s/fdef reverse-map
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
-(defn ^:deprecated reverse-map
-  "DEPRECATED: Use [[member-field]] instead.
-
-  Returns a sequence of reference set items representing the reverse mapping
+(defn reverse-map
+  "Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget specified. It's almost always better to
-  use [[member-field]] or [[member-field-prefix]] directly."
+  use [[member-field]] or [[member-field-prefix]] directly.
+
+  A code in a target codesystem may map to multiple concepts. Each concept may
+  map to multiple codes in that target codesystem. [[reverse-map-prefix]] returns
+  only results that would meet the original criteria. This mimics the original
+  behaviour of an older implementation and should be regarded as semi-deprecated.
+  For more control, use [[member-field]]."
   [^Svc svc refset-id code]
   (->> (member-field svc refset-id "mapTarget" code)
        (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
@@ -366,12 +370,16 @@
 
 (s/fdef reverse-map-prefix
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :prefix ::non-blank-string))
-(defn ^:deprecated reverse-map-prefix
-  "DEPRECATED: Use [[member-field-prefix]] instead.
-
-  Returns a sequence of reference set items representing the reverse mapping
+(defn reverse-map-prefix
+  "Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget. It is almost always better to use
-  [[member-field]] or [[member-field-prefix]] directly."
+  [[member-field]] or [[member-field-prefix]] directly.
+
+  A code in a target codesystem may map to multiple concepts. Each concept may
+  map to multiple codes in that target codesystem. `reverse-map-prefix` returns
+  only results that would meet the original criteria. This mimics the original
+  behaviour of an older implementation and should be regarded as semi-deprecated.
+  For more control, use [[member-field-prefix]]."
   [^Svc svc refset-id prefix]
   (->> (member-field-prefix svc refset-id "mapTarget" prefix)
        (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
