@@ -477,11 +477,9 @@
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
-        historic-concept-ids (apply set/union (->> base-concept-ids
-                                                   (map #(source-historical-associations svc %))
-                                                   (filter some?)
-                                                   (map vals)
-                                                   flatten))
+        historic-concept-ids (->> base-concept-ids
+                                  (mapcat #(vals (source-historical-associations svc %)))
+                                  (apply set/union))
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
