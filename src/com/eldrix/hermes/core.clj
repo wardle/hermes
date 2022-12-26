@@ -72,7 +72,7 @@
                                         ::remove-duplicates? ::properties ::concept-refsets]))
 
 
-(definterface ^:deprecated Service)                        ;; for backwards compatibility in case a client referenced the old concrete deftype
+(definterface ^:deprecated Service)                         ;; for backwards compatibility in case a client referenced the old concrete deftype
 
 (defrecord ^:private Svc
   [^Closeable store
