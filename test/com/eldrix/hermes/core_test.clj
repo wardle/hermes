@@ -26,7 +26,15 @@
 (deftest ^:live test-reverse-map-prefix
   (let [synonyms (->> (hermes/member-field-prefix *svc* 447562003 "mapTarget" "I30")
                       (map #(:term (hermes/get-preferred-synonym *svc* % "en"))))]
-    (is (some #{"Viral pericarditis"} synonyms))))
+    (is (some #{"Viral pericarditis"} synonyms)))
+  (is (->> (hermes/reverse-map *svc* 447562003 "G35")
+           (map :mapTarget)
+           (every? #(.startsWith % "G35")))
+      "Reverse map prefix returns items with a map target not fulfulling original request ")
+  (is (->> (hermes/reverse-map-prefix *svc* 447562003 "I30")
+           (map :mapTarget)
+           (every? #(.startsWith % "I30")))
+      "Reverse map prefix returns items with a map target not fulfulling original request "))
 
 (deftest ^:live test-cross-map
   (is (contains? (set (map :mapTarget (hermes/get-component-refset-items *svc* 24700007 447562003))) "G35") "Multiple sclerosis should map to ICD code G35"))
