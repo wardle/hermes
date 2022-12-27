@@ -589,7 +589,7 @@
           ;; a single number will be a refset identifier -> get its members
           (number? target) (get-refset-members svc target))]
     (->> source-concept-ids
-         (map #(set/intersection (conj (get-all-parents svc %) %) target-concept-ids))
+         (map #(set/intersection (get-all-parents svc %) target-concept-ids))
          (map #(store/get-leaves (.-store svc) %)))))
 
 (defn ^:deprecated map-features
