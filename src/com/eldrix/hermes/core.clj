@@ -136,8 +136,8 @@
 (s/fdef get-all-parents
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-parents
-  "Returns a set of concept-ids of the parents of the specified concept. By
-  design, this includes the concept itself."
+  "Returns all parents of the specified concept. By design, this includes the
+  concept itself."
   ([^Svc svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
   ([^Svc svc concept-id type-id]
@@ -146,8 +146,8 @@
 (s/fdef get-all-children
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-children
-  "Returns a set of concept-ids of the children of the specified concept.
-  By design, this includes the concept itself."
+  "Return all children of the specified concept. By design, this includes the
+  concept itself."
   ([^Svc svc concept-id]
    (store/get-all-children (.-store svc) concept-id))
   ([^Svc svc concept-id type-id]
