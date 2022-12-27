@@ -71,6 +71,12 @@
          (recur (apply conj (rest work) parent-ids)
                 (conj! result id)))))))
 
+(defn get-all-parents2
+  "Returns all parent concepts for the concept, including self.
+   (loop [work (conj PersistentQueue/EMPTY concept-id)
+          result (transient #{})]
+     (if-let [id (peek work)]
+       (recur (if (contains? result id)
 (defn get-parent-relationships
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets of each relationship.
