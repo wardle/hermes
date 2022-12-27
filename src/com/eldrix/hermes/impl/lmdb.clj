@@ -426,7 +426,7 @@
 
 (defn get-raw-parent-relationships
   "Return the parent relationships of the given concept.
-  Returns a list of tuples (from--type--group--to)."
+  Returns a vector of tuples [from--type--group--to]."
   ([^LmdbStore store concept-id]
    (map-keys-in-range (.-coreEnv store) (.-conceptParentRelationships store)
                       [concept-id 0 0 0]
@@ -440,7 +440,7 @@
 
 (defn get-raw-child-relationships
   "Return the child relationships of the given concept.
-  Returns a list of tuples (from--type--group--to)."
+  Returns a vector of tuples [from--type--group--to]."
   ([^LmdbStore store concept-id]
    (map-keys-in-range (.-coreEnv store) (.-conceptChildRelationships store)
                       [concept-id 0 0 0]
