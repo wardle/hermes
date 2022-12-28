@@ -136,7 +136,7 @@
 (s/fdef get-all-parents
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-parents
-  "Returns a set of concept-ids of the parents of the specified concept. By
+  "Returns a set of concept ids of the parents of the specified concept. By
   design, this includes the concept itself."
   ([^Svc svc concept-id]
    (get-all-parents svc concept-id snomed/IsA))
@@ -146,7 +146,7 @@
 (s/fdef get-all-children
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-children
-  "Returns a set of concept-ids of the children of the specified concept. By
+  "Returns a set of concept ids of the children of the specified concept. By
   design, this includes the concept itself."
   ([^Svc svc concept-id]
    (store/get-all-children (.-store svc) concept-id))
@@ -332,16 +332,23 @@
                     [(members/q-refset-id refset-id) (members/q-term field s)])))
 
 (defn member-field-prefix
+  "Return a set of referenced component identifiers that are members of the
+  given reference set with a matching prefix 'value' for the 'field' specified.
+  Example:
+  ```
+      (member-field-prefix svc 447562003 \"mapTarget\" \"G3\")
+  ```"
   [^Svc svc refset-id field prefix]
   (members/search (.-memberSearcher svc)
                   (members/q-and
                     [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
 
 (defn member-field-wildcard
-  "Perform a member field wildcard search.
-  Supported wildcards are *, which matches any character sequence (including
-  the empty one), and ?, which matches any single character. '\\' is the escape
-  character.
+  "Return a set of referenced component identifiers that are members of the
+  given reference set with a matching wildcard 'value' for the 'field'
+  specified. Supported wildcards are *, which matches any character sequence
+  (including the empty one), and ?, which matches any single character. '\\' is
+  the escape character.
   Example:
   ```
       (member-field-wildcard svc 447562003 \"mapTarget\" \"G3?\")
@@ -431,7 +438,9 @@
 (s/fdef search
   :args (s/cat :svc ::svc :params ::search-params)
   :ret (s/coll-of ::result))
-(defn search [^Svc svc params]
+(defn search
+  "Search the descriptions index using the search parameters specified."
+  [^Svc svc params]
   (if-let [constraint (:constraint params)]
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse svc constraint)))
     (search/do-search (.-searcher svc) params)))
