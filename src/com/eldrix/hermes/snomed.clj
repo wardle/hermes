@@ -692,10 +692,8 @@
   pp - partition identifier
   c  - check digit."
   [id]
-  (let [s (str id)
-        l (.length s)]
-    (when (> l 2)
-      (.substring s (- l 3) (- l 1)))))
+  (let [s (str id), l (.length s)]
+    (when (> l 2) (.substring s (- l 3) (- l 1)))))
 
 (def partitions
   "Map of partition identifiers to type of entity.
