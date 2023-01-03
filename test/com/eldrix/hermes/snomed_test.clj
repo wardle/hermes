@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.snomed-test
   (:require [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
@@ -247,6 +248,34 @@
   (let [{:keys [effectiveTime modules]} (importer/read-metadata (io/resource "com/eldrix/hermes/example-release_package_information.json"))]
     (is (= (LocalDate/of 2022 8 3) effectiveTime))
     (is (= #{999000011000000103 999000031000000106}) (set (keys modules)))))
+
+(def valid-identifiers
+  "See https://confluence.ihtsdotools.org/display/DOCRELFMT/6.8+Example+SNOMED+CT+identifiers"
+  [{:id 100005, :type :info.snomed/Concept}
+   {:id 100014, :type :info.snomed/Description}
+   {:id 100022, :type :info.snomed/Relationship}
+   {:id 1290023401004, :type :info.snomed/Concept}
+   {:id 1290023401015, :type :info.snomed/Description}
+   {:id 9940000001029, :type :info.snomed/Relationship}
+   {:id 11000001102, :type :info.snomed/Concept, :ns "1000001"}
+   {:id 10989121108, :type :info.snomed/Concept, :ns "0989121"}
+   {:id 1290989121103, :type :info.snomed/Concept, :ns "0989121"}
+   {:id 1290000001117, :type :info.snomed/Description, :ns "0000001"}
+   {:id 9940000001126, :type :info.snomed/Relationship, :ns "0000001"}
+   {:id 999999990989121104, :type :info.snomed/Concept, :ns "0989121"}])
+
+(defn make-invalid-identifiers
+  "Given a valid identifier, make a sequence of invalid identifiers."
+  [id]
+  (let [s (str id), l (.length s), e (dec l), c (.charAt s e), prefix (subs s 0 e)]
+    (map #(str prefix %) (clojure.set/difference (set (apply str (range 10))) #{c}))))
+
+(deftest test-identifiers
+  (doseq [{:keys [id type ns]} valid-identifiers]
+    (is (verhoeff/valid? id))
+    (is (not-any? verhoeff/valid? (make-invalid-identifiers id)))
+    (is (= type (snomed/identifier->type id)))
+    (is (= ns (snomed/identifier->namespace id)))))
 
 (comment
   (run-tests)
