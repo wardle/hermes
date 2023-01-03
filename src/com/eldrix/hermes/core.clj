@@ -792,6 +792,7 @@
     (log/info "Compacting database... complete")))
 
 (defn index
+  "Build search indices for the database in directory 'root' specified."
   ([root] (index root (.toLanguageTag (Locale/getDefault))))
   ([root language-priority-list]
    (let [manifest (open-manifest root false)
