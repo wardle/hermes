@@ -348,16 +348,16 @@
   Reification of refset items could occur at time of import, or at runtime."
   [attribute-description-concept-ids]
   (match/match [attribute-description-concept-ids]
-               [[449608002 900000000000533001 & _]] reify-association-refset-item
-               [[449608002 900000000000511003 & _]] reify-language-refset-item
-               [[900000000000500006 900000000000505001 & _]] reify-simple-map-refset-item
-               [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
-                 1193546000 609330002 & _]] reify-extended-map-refset-item
-               [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
-                 1193546000 & _]] reify-complex-map-refset-item
-               [[449608002 900000000000491004 & _]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
-               [[449608002 762677007 & _]] reify-owl-expression-refset-item
-               :else identity))
+    [[449608002 900000000000533001 & _]] reify-association-refset-item
+    [[449608002 900000000000511003 & _]] reify-language-refset-item
+    [[900000000000500006 900000000000505001 & _]] reify-simple-map-refset-item
+    [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
+      1193546000 609330002 & _]] reify-extended-map-refset-item
+    [[900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001
+      1193546000 & _]] reify-complex-map-refset-item
+    [[449608002 900000000000491004 & _]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
+    [[449608002 762677007 & _]] reify-owl-expression-refset-item
+    :else identity))
 
 (s/def ::refset-filename-pattern
   (s/with-gen (s/and string? #(every? #{\c \i \s} %))
@@ -556,7 +556,7 @@
    :info.snomed/ComplexMapRefset       parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset      parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item})
-   ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
+;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
