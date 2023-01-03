@@ -715,7 +715,17 @@
   [id]
   (get partitions (partition-identifier id)))
 
-
+(defn identifier->namespace
+  "Return a string representing the namespace of a long-form identifier, or nil.
+  See [[https://confluence.ihtsdotools.org/display/DOCRELFMT/6.6+Namespace-Identifier]]
+  The namespace-identifier is a string representation of an integer value, left
+  padded with 0s as necessary to ensure there are always seven digits in the
+  value."
+  [id]
+  (let [s (str id), l (.length s)]
+    ;; a 'long' identifier will have 7 digit namespace, 2 char partition id and a check digit (ie 10 chars or more)
+    (when (and (> l 9) (= \1 (.charAt s (- l 3))))
+      (.substring s (- l 10) (- l 3)))))
 
 (def Root 138875005)
 
