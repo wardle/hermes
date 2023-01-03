@@ -64,11 +64,12 @@
 (defmethod unparse :info.snomed/Component [v] (mapv unparse (->vec v)))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
-(defrecord Concept [^long id
-                    ^LocalDate effectiveTime
-                    ^boolean active
-                    ^long moduleId
-                    ^long definitionStatusId]
+(defrecord Concept
+  [^long id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long definitionStatusId]
   IConcept
   (id [_] id)
   (effectiveTime [_] effectiveTime)
@@ -76,15 +77,16 @@
   (moduleId [_] moduleId)
   (definitionStatusId [_] moduleId))
 
-(defrecord Description [^long id
-                        ^LocalDate effectiveTime
-                        ^boolean active
-                        ^long moduleId
-                        ^long conceptId
-                        ^String languageCode
-                        ^long typeId
-                        ^String term
-                        ^long caseSignificanceId]
+(defrecord Description
+  [^long id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long conceptId
+   ^String languageCode
+   ^long typeId
+   ^String term
+   ^long caseSignificanceId]
   IDescription
   (id [_] id)
   (effectiveTime [_] effectiveTime)
@@ -95,16 +97,17 @@
   (term [_] term)
   (caseSignificanceId [_] caseSignificanceId))
 
-(defrecord Relationship [^long id
-                         ^LocalDate effectiveTime
-                         ^boolean active
-                         ^long moduleId
-                         ^long sourceId
-                         ^long destinationId
-                         ^long relationshipGroup
-                         ^long typeId
-                         ^long characteristicTypeId
-                         ^long modifierId])
+(defrecord Relationship
+  [^long id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long sourceId
+   ^long destinationId
+   ^long relationshipGroup
+   ^long typeId
+   ^long characteristicTypeId
+   ^long modifierId])
 
 ;; ReferenceSet support customization and enhancement of SNOMED CT content. These include representation of subsets,
 ;; language preferences maps for or from other code systems. There are multiple reference set types which extend
@@ -114,35 +117,38 @@
 ;; RefSetDescriptorRefsetItem is a type of reference set that provides information about a different reference set
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.11+Reference+Set+Descriptor
 ;; It provides the additional structure for a given reference set.
-(defrecord RefsetDescriptorRefsetItem [^UUID id
-                                       ^LocalDate effectiveTime
-                                       ^boolean active
-                                       ^long moduleId
-                                       ^long refsetId
-                                       ^long referencedComponentId
-                                       ^long attributeDescriptionId
-                                       ^long attributeTypeId
-                                       ^int attributeOrder])
+(defrecord RefsetDescriptorRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long attributeDescriptionId
+   ^long attributeTypeId
+   ^int attributeOrder])
 
 ;; SimpleReferenceSet is a simple reference set usable for defining subsets
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.1+Simple+Reference+Set
-(defrecord SimpleRefsetItem [^UUID id
-                             ^LocalDate effectiveTime
-                             ^boolean active
-                             ^long moduleId
-                             ^long refsetId
-                             ^long referencedComponentId
-                             fields])
+(defrecord SimpleRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   fields])
 
 ;; An Association reference set is a reference set used to represent associations between components
-(defrecord AssociationRefsetItem [^UUID id
-                                  ^LocalDate effectiveTime
-                                  ^boolean active
-                                  ^long moduleId
-                                  ^long refsetId
-                                  ^long referencedComponentId
-                                  ^long targetComponentId
-                                  fields])
+(defrecord AssociationRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long targetComponentId
+   fields])
 
 ;; LanguageReferenceSet is a A 900000000000506000 |Language type reference set| supporting the representation of
 ;; language and dialects preferences for the use of particular descriptions.
@@ -165,26 +171,28 @@
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4+Language+Reference+Set
 ;; - acceptabilityId is a subtype of 900000000000511003 |Acceptability| indicating whether the description is acceptable
 ;; or preferred for use in the specified language or dialect .
-(defrecord LanguageRefsetItem [^UUID id
-                               ^LocalDate effectiveTime
-                               ^boolean active
-                               ^long moduleId
-                               ^long refsetId
-                               ^long referencedComponentId
-                               ^long acceptabilityId
-                               fields])
+(defrecord LanguageRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long acceptabilityId
+   fields])
 
 ;; SimpleMapReferenceSet is a straightforward one-to-one map between SNOMED-CT concepts and another
 ;; coding system. This is appropriate for simple maps.
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.9+Simple+Map+Reference+Set
-(defrecord SimpleMapRefsetItem [^UUID id
-                                ^LocalDate effectiveTime
-                                ^boolean active
-                                ^long moduleId
-                                ^long refsetId
-                                ^long referencedComponentId
-                                ^String mapTarget
-                                fields])
+(defrecord SimpleMapRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^String mapTarget
+   fields])
 
 ;; ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
 ;; coding system.
@@ -193,64 +201,69 @@
 ;; The type of reference set supports the general set of mapping data required to enable a
 ;; target code to be selected at run-time from a number of alternate codes. It supports
 ;; target code selection by accommodating the inclusion of machine readable rules and/or human readable advice.
-(defrecord ComplexMapRefsetItem [^UUID id
-                                 ^LocalDate effectiveTime
-                                 ^boolean active
-                                 ^long moduleId
-                                 ^long refsetId
-                                 ^long referencedComponentId
-                                 ^long mapGroup             ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
-                                 ^long mapPriority          ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
-                                 ^String mapRule            ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
-                                 ^String mapAdvice          ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
-                                 ^String mapTarget          ;; The target code in the target terminology, classification or code system.
-                                 ^long correlationId        ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-                                 fields])
+(defrecord ComplexMapRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long mapGroup             ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
+   ^long mapPriority          ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
+   ^String mapRule            ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
+   ^String mapAdvice          ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
+   ^String mapTarget          ;; The target code in the target terminology, classification or code system.
+   ^long correlationId        ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+   fields])
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
 ;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
-(defrecord ExtendedMapRefsetItem [^UUID id
-                                  ^LocalDate effectiveTime
-                                  ^boolean active
-                                  ^long moduleId
-                                  ^long refsetId
-                                  ^long referencedComponentId
-                                  ^long mapGroup            ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
-                                  ^long mapPriority         ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
-                                  ^String mapRule           ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
-                                  ^String mapAdvice         ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
-                                  ^String mapTarget         ;; The target code in the target terminology, classification or code system.
-                                  ^long correlationId       ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-                                  ^long mapCategoryId       ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
-                                  fields])
+(defrecord ExtendedMapRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long mapGroup            ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
+   ^long mapPriority         ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
+   ^String mapRule           ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
+   ^String mapAdvice         ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
+   ^String mapTarget         ;; The target code in the target terminology, classification or code system.
+   ^long correlationId       ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+   ^long mapCategoryId       ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
+   fields])
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
-(defrecord AttributeValueRefsetItem [^UUID id
-                                     ^LocalDate effectiveTime
-                                     ^boolean active
-                                     ^long moduleId
-                                     ^long refsetId
-                                     ^long referencedComponentId
-                                     ^long valueId
-                                     fields])
+(defrecord AttributeValueRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId
+   ^long referencedComponentId
+   ^long valueId
+   fields])
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
-(defrecord OWLExpressionRefsetItem [^UUID id
-                                    ^LocalDate effectiveTime
-                                    ^boolean active
-                                    ^long moduleId
-                                    ^long refsetId          ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
-                                    ^long referencedComponentId
-                                    ^String owlExpression
-                                    fields])
+(defrecord OWLExpressionRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId          ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
+   ^long referencedComponentId
+   ^String owlExpression
+   fields])
 
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
-(defrecord ExtendedConcept [concept
-                            descriptions
-                            parentRelationships
-                            directParentRelationships
-                            refsets])
+(defrecord ExtendedConcept
+  [concept
+   descriptions
+   parentRelationships
+   directParentRelationships
+   refsets])
 
 (defn parse-concept [v]
   (->Concept
