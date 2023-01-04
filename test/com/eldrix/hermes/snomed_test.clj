@@ -37,8 +37,8 @@
   (is (thrown? Exception (snomed/parse-fields "iii" ["1" "2"]))))
 
 (deftest test-partition
-  (is (= :info.snomed/Concept (snomed/identifier->type 247000007)))
-  (is (= :info.snomed/Concept (snomed/identifier->type " 247000007")))
+  (is (= :info.snomed/Concept (snomed/identifier->type 24700007)))
+  (is (= :info.snomed/Concept (snomed/identifier->type " 24700007")))
   (is (= :info.snomed/Description (snomed/identifier->type 110017)))
   (is (= :info.snomed/Relationship (snomed/identifier->type 100022))))
 
