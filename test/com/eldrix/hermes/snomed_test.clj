@@ -4,7 +4,8 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer :all]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is run-tests testing]]
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.verhoeff :as verhoeff]
             [com.eldrix.hermes.snomed :as snomed]
@@ -16,7 +17,7 @@
 
 (deftest test-filenames
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
-        parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (clojure.string/split examples #"\n"))]
+        parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (str/split examples #"\n"))]
     (doseq [f parsed]
       (is (not (nil? (:data f))) (str "couldn't parse filename" f)))))
 
