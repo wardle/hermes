@@ -2,7 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer :all]
+            [clojure.test :refer [deftest is use-fixtures]]
             [com.eldrix.hermes.core :as hermes]))
 
 (stest/instrument)

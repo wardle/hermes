@@ -1,7 +1,6 @@
 (ns com.eldrix.hermes.verhoeff-test
-  (:require [clojure.test :refer :all]
-            [com.eldrix.hermes.verhoeff :refer :all]))
-
+  (:require [clojure.test :refer [deftest is run-tests]]
+            [com.eldrix.hermes.verhoeff :refer [append calculate valid?]]))
 
 (deftest valid-verhoeffs
   (is (= 3 (calculate 236)))

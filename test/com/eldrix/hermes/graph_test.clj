@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.graph-test
   (:require [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer :all]
+            [clojure.test :refer [deftest is run-tests testing use-fixtures]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph :as graph]
             [com.eldrix.hermes.snomed :as snomed]

@@ -2,7 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer :all]
+            [clojure.test :refer [deftest is run-tests testing]]
             [com.eldrix.hermes.gen :as hgen]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
@@ -153,8 +153,8 @@
           (is (:active fsn))
           (is (snomed/is-fully-specified-name? fsn)))
         (let [all-parents (store/get-all-parents store 24700007)]
-          (is (contains? all-parents 6118003))              ;; it's a demyelinating disease
-          (is (contains? all-parents 138875005)))           ;; its a SNOMED CT concept
+          (is (contains? all-parents 6118003))              ;; it is a demyelinating disease
+          (is (contains? all-parents 138875005)))           ;; it is a SNOMED CT concept
         (is (store/is-a? store 24700007 6118003))
         (is (store/is-a? store 24700007 138875005))
         (is (store/is-a? store 24700007 24700007))

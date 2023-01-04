@@ -1,10 +1,11 @@
 (ns com.eldrix.hermes.ecl-test
-  (:require [clojure.test :refer [deftest is use-fixtures run-tests]]
+  (:require [clojure.set :as set]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
-            [com.eldrix.hermes.snomed :as snomed]
-            [clojure.spec.test.alpha :as stest]))
+            [com.eldrix.hermes.snomed :as snomed]))
 
 (stest/instrument)
 
@@ -150,13 +151,12 @@
               (map #(is true? %))))
   (doseq [{:keys [ecl incl]} member-filter-tests]
     (let [results (hermes/expand-ecl *svc* ecl)]
-      (when incl (is (clojure.set/subset? incl (set (map :conceptId results))))))))
+      (when incl (is (set/subset? incl (set (map :conceptId results))))))))
 
 
 
 (comment
-  (def *svc* (hermes/open "snomed.db"))
-  (def ctx (#'hermes/make-svc-map *svc*))
-  (require '[com.eldrix.hermes.expression.ecl :as ecl])
-  (ecl/parse ctx " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}")
+  (def ^:dynamic *svc* (hermes/open "snomed.db"))
+  (require '[com.eldrix.hermes.impl.ecl :as ecl])
+  (ecl/parse *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}")
   (run-tests))

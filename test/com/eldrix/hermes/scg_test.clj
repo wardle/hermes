@@ -1,5 +1,5 @@
 (ns com.eldrix.hermes.scg-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.store-test]))

@@ -7,9 +7,9 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is run-tests testing]]
             [com.eldrix.hermes.importer :as importer]
-            [com.eldrix.hermes.verhoeff :as verhoeff]
+            [com.eldrix.hermes.rf2 :as rf2]
             [com.eldrix.hermes.snomed :as snomed]
-            [com.eldrix.hermes.rf2 :as rf2])
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
            (com.eldrix.hermes.snomed AssociationRefsetItem AttributeValueRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem LanguageRefsetItem OWLExpressionRefsetItem SimpleMapRefsetItem)))
 
@@ -287,14 +287,14 @@
   "Given a valid identifier, make a sequence of invalid identifiers."
   [id]
   (let [s (str id), l (.length s), e (dec l), c (.charAt s e), prefix (subs s 0 e)]
-    (map #(str prefix %) (clojure.set/difference (set (apply str (range 10))) #{c}))))
+    (map #(str prefix %) (set/difference (set (apply str (range 10))) #{c}))))
 
 (deftest test-identifiers
-  (doseq [{:keys [id type ns]} valid-identifiers]
+  (doseq [{id :id component-type :type nspace :ns} valid-identifiers]
     (is (verhoeff/valid? id))
     (is (not-any? verhoeff/valid? (make-invalid-identifiers id)))
-    (is (= type (snomed/identifier->type id)))
-    (is (= ns (snomed/identifier->namespace id)))))
+    (is (= component-type (snomed/identifier->type id)))
+    (is (= nspace (snomed/identifier->namespace id)))))
 
 (def case-sensitivity-examples
   [{:term "Fracture of tibia" :caseSignificanceId snomed/EntireTermCaseInsensitive :expected "fracture of tibia"}
