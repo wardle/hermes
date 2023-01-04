@@ -24,7 +24,7 @@
   (:import (java.io File)))
 
 (defn is-snomed-file? [f]
-  (snomed/parse-snomed-filename (.getName (clojure.java.io/file f))))
+  (snomed/parse-snomed-filename (.getName (io/file f))))
 
 (defn snomed-file-seq
   "A tree sequence for SNOMED CT data files, returning a sequence of maps.
