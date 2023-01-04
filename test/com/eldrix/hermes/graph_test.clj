@@ -114,7 +114,7 @@
                              :info.snomed.Concept/refsetIds])]
       (is (= (map #(update-keys % (comp keyword name)) (:info.snomed.Concept/refsetItems ms))
              (map #(update-keys % (comp keyword name)) refset-items)))
-      (is (= (:info.snomed.Concept/refsetIds refset-ids)))))
+      (is (= (:info.snomed.Concept/refsetIds ms) refset-ids))))
   (testing "Refset item resolution"
     (let [ms (p.eql/process *registry* {:info.snomed.Concept/id 24700007}
                             [{:info.snomed.Concept/refsetItems [{:info.snomed.RefsetItem/referencedComponent [:info.snomed.Concept/id]}]}])]

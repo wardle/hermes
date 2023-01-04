@@ -111,7 +111,7 @@
       (is (= n (:concepts status)))
       (is (= n (:descriptions status)))
       (is (= n (:relationships status)))
-      (is (= (count (set (map :refsetId (concat lang-refsets refset-descriptors))))) (:refsets status)))))
+      (is (= (count (set (map :refsetId (concat lang-refsets refset-descriptors)))) (:refsets status))))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*
