@@ -890,7 +890,7 @@
   if possible, as determined by the case significance flag."
   [^Description d]
   (case (:caseSignificanceId d)
-    ;; initial character is case-sensitive - we can make initial character lowercase
+    ;; initial character is case-insensitive - we can make initial character lowercase
     900000000000020002
     (when (> (count (:term d)) 0)
       (str (str/lower-case (first (:term d)))
