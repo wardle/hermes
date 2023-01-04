@@ -11,7 +11,7 @@
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.rf2 :as rf2])
   (:import [java.time LocalDate]
-           (com.eldrix.hermes.snomed AssociationRefsetItem)))
+           (com.eldrix.hermes.snomed AssociationRefsetItem AttributeValueRefsetItem ComplexMapRefsetItem ExtendedMapRefsetItem LanguageRefsetItem OWLExpressionRefsetItem SimpleMapRefsetItem)))
 
 (stest/instrument)
 
@@ -236,13 +236,31 @@
       (is (:parser snofile)))))
 
 
+(def reification-refset-items
+  [{:attributes [449608002 900000000000533001] :class AssociationRefsetItem
+    :fields     [1] :expected {:targetComponentId 1}}
+   {:attributes [449608002 900000000000511003] :class LanguageRefsetItem
+    :fields     [1] :expected {:acceptabilityId 1}}
+   {:attributes [900000000000500006 900000000000505001] :class SimpleMapRefsetItem
+    :fields     [1] :expected {:mapTarget 1}}
+   {:attributes [900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001 1193546000 609330002]
+    :class      ExtendedMapRefsetItem :fields [1 2 3 4 5 6 7]
+    :expected   {:mapGroup 1, :mapPriority 2, :mapRule 3, :mapAdvice 4, :mapTarget 5, :correlationId 6, :mapCategoryId 7}}
+   {:attributes [900000000000500006 900000000000501005 900000000000502003 900000000000503008 900000000000504002 900000000000505001 1193546000]
+    :class      ComplexMapRefsetItem :fields [1 2 3 4 5 6]
+    :expected   {:mapGroup 1, :mapPriority 2, :mapRule 3, :mapAdvice 4, :mapTarget 5, :correlationId 6}}
+   {:attributes [449608002 900000000000491004] :class AttributeValueRefsetItem
+    :fields     [1] :expected {:valueId 1}}
+   {:attributes [449608002 762677007] :class OWLExpressionRefsetItem
+    :fields     [1] :expected {:owlExpression 1}}])
+
 (deftest test-refset-reification
-  (testing "Association refset reification"
-    (let [item (gen/generate (rf2/gen-simple-refset {:active true :refsetId 1322291000000109 :fields [163071000000106]}))
-          reifier (snomed/refset-reifier [449608002 900000000000533001])
+  (doseq [{:keys [attributes fields expected] clazz :class} reification-refset-items]
+    (let [item (gen/generate (rf2/gen-simple-refset {:fields fields}))
+          reifier (snomed/refset-reifier attributes)
           item' (reifier item)]
-      (is (instance? AssociationRefsetItem item'))
-      (is (= 163071000000106 (:targetComponentId item'))))))
+      (is (instance? clazz item'))
+      (is (= (into {} (merge item expected {:fields []})) (into {} item'))))))
 
 (deftest test-release-metadata
   (testing "Release metadata"
