@@ -244,10 +244,10 @@
       (is (= 163071000000106 (:targetComponentId item'))))))
 
 (deftest test-release-metadata
-  (testing "Release metadata")
-  (let [{:keys [effectiveTime modules]} (importer/read-metadata (io/resource "com/eldrix/hermes/example-release_package_information.json"))]
-    (is (= (LocalDate/of 2022 8 3) effectiveTime))
-    (is (= #{999000011000000103 999000031000000106}) (set (keys modules)))))
+  (testing "Release metadata"
+    (let [{:keys [effectiveTime modules]} (importer/read-metadata (io/resource "com/eldrix/hermes/example-release_package_information.json"))]
+      (is (= (LocalDate/of 2022 8 3) effectiveTime))
+      (is (= #{999000011000000103 999000031000000106} (set (keys modules)))))))
 
 (def valid-identifiers
   "See https://confluence.ihtsdotools.org/display/DOCRELFMT/6.8+Example+SNOMED+CT+identifiers"
