@@ -296,6 +296,16 @@
     (is (= type (snomed/identifier->type id)))
     (is (= ns (snomed/identifier->namespace id)))))
 
+(def case-sensitivity-examples
+  [{:term "Fracture of tibia" :caseSignificanceId snomed/EntireTermCaseInsensitive :expected "fracture of tibia"}
+   {:term "pH measurement" :caseSignificanceId snomed/EntireTermCaseSensitive :expected "pH measurement"}
+   {:term "Born in Australia" :caseSignificanceId snomed/OnlyInitialCharacterCaseInsensitive :expected "born in Australia"}])
+
+(deftest test-lowercase
+  (doseq [{:keys [expected] :as d} case-sensitivity-examples]
+    (let [d' (gen/generate (rf2/gen-description d))]
+      (is (= expected (snomed/term->lowercase d'))))))
+
 (comment
   (run-tests)
   (snomed/parse-snomed-filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt")
