@@ -827,8 +827,7 @@
         (when installed-refsets? {:installed-refsets (->> (store/get-installed-reference-sets st)
                                                           (map #(store/get-fully-specified-name st %))
                                                           (sort-by :term)
-                                                          (map #(vector (:id %) (:term %)))
-                                                          doall)})
+                                                          (map #(vector (:id %) (:term %))))})
         (when counts? (store/status st))))))
 
 (defn create-service
