@@ -105,19 +105,18 @@
    - :data      : a sequence of vectors representing each column."
   [filename out-c & {:keys [batch-size] :or {batch-size 1000}}]
   (with-open [reader (io/reader filename)]
-    (let [snofile (snomed/parse-snomed-filename filename)
-          parser (:parser snofile)]
+    (let [{:keys [identifier parser filename component]} (snomed/parse-snomed-filename filename)]
       (when parser
         (let [csv-data (map #(str/split % #"\t") (line-seq reader))
               headings (first csv-data)
               data (rest csv-data)
               batches (->> data
                            (partition-all batch-size)
-                           (map #(hash-map :type (:identifier snofile)
+                           (map #(hash-map :type identifier
                                            :parser parser
                                            :headings headings
                                            :data %)))]
-          (log/info "Processing: " (:filename snofile) " type: " (:component snofile))
+          (log/info "Processing: " filename " type: " component)
           (log/debug "Processing " (count batches) " batches")
           (doseq [batch batches]
             (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
