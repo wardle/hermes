@@ -231,6 +231,7 @@
    ^String mapAdvice                                        ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
    ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
    ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+   ^long mapCategoryId                                      ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
    fields])
 
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
@@ -241,9 +242,23 @@
    ^boolean active
    ^long moduleId
    ^long refsetId
-   ^long referencedComponentId
+   ^long referencedComponentId                              ;;
    ^long valueId
    fields])
+
+;; The Module dependency reference set is used to represent dependencies between modules, taking account of module versioning.
+;; see https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set
+(defrecord ModuleDependencyRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId                                           ;; always 900000000000534007
+   ^long referencedComponentId                              ;; The value of this attribute is the id of the module on which the source module (referred to by the moduleId attribute) is dependent.
+   ^LocalDate sourceEffectiveTime                           ;; The effective time of the dependent source module (identified by moduleId). This specifies a version of that module, consisting of all components that have the same moduleId as this refset member in their states as at the specified targetEffectiveTime .
+   ^LocalDate targetEffectiveTime                           ;; The effective time of the target module required to satisfy the dependency (identified by referencedComponentId). This specifies a version of that module, consisting of all components with the moduleId specified by referencedComponentId in their states as at the specified targetEffectiveTime.
+   fields])
+
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
 (defrecord OWLExpressionRefsetItem
@@ -351,6 +366,12 @@
   (let [[owlExpression & more] (:fields item)]
     (map->OWLExpressionRefsetItem (assoc item :owlExpression owlExpression :fields (or more [])))))
 
+(defn- reify-module-dependency-refset-item [item]
+  (let [[sourceEffectiveTime targetEffectiveTime & more] (:fields item)]
+    (map->ModuleDependencyRefsetItem (assoc item :sourceEffectiveTime sourceEffectiveTime
+                                                 :targetEffectiveTime targetEffectiveTime
+                                                 :fields (or more [])))))
+
 (defn refset-reifier
   "Given a sequence of attribute description concept identifiers, return a
   function to reify a SimpleRefset into its concrete subtype.
@@ -370,6 +391,7 @@
       1193546000 & _]] reify-complex-map-refset-item
     [[449608002 900000000000491004 & _]] reify-attribute-value-refset-item ;; AttributeValueRefsetItem
     [[449608002 762677007 & _]] reify-owl-expression-refset-item
+    [[900000000000535008 900000000000536009 900000000000537000 & _]] reify-module-dependency-refset-item
     :else identity))
 
 (s/def ::refset-filename-pattern
@@ -555,6 +577,23 @@
          (:owlExpression r)]
         (:fields r)))
 
+(defn parse-module-dependency-refset-item [pattern v]
+  (->ModuleDependencyRefsetItem
+    (unsafe-parse-uuid (v 0))
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id
+    (parse-date (v 6))
+    (parse-date (v 7))
+    (parse-fields (subs pattern 2) (subvec v 8))))          ;; standard pattern is 'ss', so use pattern string after *2* characters
+
+(defmethod ->vec ModuleDependencyRefsetItem [r]
+  (into [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:refsetId r) (:referencedComponentId r)
+         (:sourceEffectiveTime r) (:targetEffectiveTime r)]
+        (:fields r)))
+
 (def parsers
   {:info.snomed/Concept                parse-concept
    :info.snomed/Description            parse-description
@@ -568,8 +607,9 @@
    :info.snomed/SimpleMapRefset        parse-simple-map-refset-item
    :info.snomed/ComplexMapRefset       parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset      parse-extended-map-refset-item
-   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item})
-;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
+   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item
+   ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
+   :info.snomed/ModuleDependencyRefset parse-module-dependency-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -600,6 +640,7 @@
 (derive :info.snomed/ExtendedMapRefset :info.snomed/ComplexMapRefset)
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
 (derive :info.snomed/OWLExpressionRefset :info.snomed/Refset)
+(derive :info.snomed/ModuleDependencyRefset :info.snomed/Refset)
 
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
@@ -613,7 +654,7 @@
 (derive ExtendedMapRefsetItem :info.snomed/ExtendedMapRefset)
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
 (derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
-
+(derive ModuleDependencyRefsetItem :info.snomed/ModuleDependencyRefset)
 
 (defrecord Result
   [^long id
@@ -864,6 +905,9 @@
 
 ;; SNOMED CT 'core' module
 (def CoreModule 900000000000207008)
+;; SNOMED CT 'model' component and reference set
+(def ModelModule 900000000000012004)
+(def ModuleDependencyReferenceSet 900000000000534007)
 
 (defn is-primitive?
   "Is this concept primitive? ie not sufficiently defined by necessary conditions?"

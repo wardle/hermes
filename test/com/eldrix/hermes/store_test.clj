@@ -122,12 +122,15 @@
 (deftest write-refsets
   (with-open [store (store/open-store)]
     (let [simple (gen/sample (rf2/gen-simple-refset))
-          refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset))]
+          refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset))
+          module-dependencies (gen/sample (rf2/gen-module-dependency-refset))]
       (store/write-batch {:type :info.snomed/SimpleRefset
                           :data simple} store)
       (store/write-batch {:type :info.snomed/RefsetDescriptorRefset
                           :data refset-descriptors} store)
-      (dorun (map #(is (= % (store/get-refset-item store (:id %)))) (concat simple refset-descriptors))))))
+      (store/write-batch {:type :info.snomed/ModuleDependencyRefset
+                          :data module-dependencies} store)
+      (dorun (map #(is (= % (store/get-refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies))))))
 
 (deftest test-refset-descriptors
   (let [refset-concept (gen/generate (rf2/gen-concept {:id 1322291000000109 :active true}))

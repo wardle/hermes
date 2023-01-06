@@ -4,11 +4,10 @@
   (:import (com.eldrix.hermes.snomed Concept Description Relationship
                                      SimpleRefsetItem SimpleMapRefsetItem
                                      RefsetDescriptorRefsetItem
-                                     LanguageRefsetItem ComplexMapRefsetItem
-                                     ExtendedMapRefsetItem
-                                     AttributeValueRefsetItem
-                                     OWLExpressionRefsetItem
-                                     AssociationRefsetItem)
+                                     LanguageRefsetItem
+                                     ComplexMapRefsetItem ExtendedMapRefsetItem
+                                     AttributeValueRefsetItem OWLExpressionRefsetItem
+                                     AssociationRefsetItem ModuleDependencyRefsetItem)
            (java.time LocalDate)
            (io.netty.buffer ByteBuf ByteBufUtil)
            (java.util UUID)
@@ -381,6 +380,30 @@
       id effectiveTime active moduleId
       refsetId referencedComponentId attributeDescriptionId attributeTypeId attributeOrder)))
 
+(defn write-module-dependency-refset-item [^ByteBuf out ^ModuleDependencyRefsetItem o]
+  (write-uuid out (.id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-sourceEffectiveTime o)))
+  (.writeLong out (.toEpochDay ^LocalDate (.-targetEffectiveTime o)))
+  (write-fields out (.-fields o)))
+
+(defn read-module-dependency-refset-item [^ByteBuf in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        sourceEffectiveTime (LocalDate/ofEpochDay (.readLong in))
+        targetEffectiveTime (LocalDate/ofEpochDay (.readLong in))
+        fields (read-fields in)]
+    (snomed/->ModuleDependencyRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId sourceEffectiveTime targetEffectiveTime fields)))
+
 ;;
 ;;
 ;;
@@ -415,6 +438,9 @@
 (defmethod write-refset-item :info.snomed/AssociationRefset [^ByteBuf out o]
   (.writeByte out 9)
   (write-association-refset-item out o))
+(defmethod write-refset-item :info.snomed/ModuleDependencyRefset [^ByteBuf out o]
+  (.writeByte out 10)
+  (write-module-dependency-refset-item out o))
 
 (defn read-refset-item [^ByteBuf in]
   (case (.readByte in)
@@ -426,7 +452,8 @@
     6 (read-owl-expression-refset-item in)
     7 (read-attribute-value-refset-item in)
     8 (read-refset-descriptor-refset-item in)
-    9 (read-association-refset-item in)))
+    9 (read-association-refset-item in)
+    10 (read-module-dependency-refset-item in)))
 
 (defn read-effective-time
   "Optimised fetch of only the effectiveTime of a SNOMED component.

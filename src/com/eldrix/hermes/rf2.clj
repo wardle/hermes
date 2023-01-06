@@ -191,6 +191,8 @@
 (s/def :info.snomed.RefsetItem/mapCategoryId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/valueId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/owlExpression string?)       ;;; TODO: could generate arbitrary OWL in future
+(s/def :info.snomed.RefsetItem/sourceEffectiveTime ::effectiveTime)
+(s/def :info.snomed.RefsetItem/targetEffectiveTime ::effectiveTime)
 (s/def :info.snomed.RefsetItem/field (s/or :concept :info.snomed.Concept/id
                                            :description :info.snomed.Description/id
                                            :relationship :info.snomed.Relationship/id
@@ -400,6 +402,28 @@
   "A generator of SNOMED OWLExpressionRefset entities."
   ([] (gen/fmap snomed/map->OWLExpressionRefsetItem (s/gen :info.snomed/OWLExpressionRefset)))
   ([item] (gen/fmap #(merge % item) (gen-owl-expression-refset))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(s/def :info.snomed/ModuleDependencyRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/sourceEffectiveTime
+                   :info.snomed.RefsetItem/targetEffectiveTime
+                   :info.snomed.RefsetItem/fields]))
+
+(defn gen-module-dependency-refset
+  ([] (->> (s/gen :info.snomed/ModuleDependencyRefset)
+           (gen/fmap snomed/map->ModuleDependencyRefsetItem)
+           (gen/fmap #(merge % {:refsetId 900000000000534007}))))
+  ([item] (->> (gen-module-dependency-refset)
+               (gen/fmap #(merge % item)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn gen-refset
   "Generate a random reference set item, in frequencies approximately equal to
