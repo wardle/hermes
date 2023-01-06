@@ -3,7 +3,6 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-
             [clojure.walk :as walk]
             [com.eldrix.trud.core :as trud]
             [com.eldrix.trud.zip :as zip]
