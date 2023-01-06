@@ -528,8 +528,9 @@
   Parameters:
   - refset-id  - SNOMED identifier representing the reference set."
   [^Svc svc refset-id & more]
-  (let [refset-ids (if more (into #{refset-id} more) #{refset-id})]
-    (into #{} (map :conceptId (search svc {:concept-refsets refset-ids})))))
+  (members/search (.-memberSearcher svc)
+                  (if more (members/q-refset-ids (into #{refset-id} more))
+                           (members/q-refset-id refset-id))))
 
 (s/fdef map-into
   :args (s/cat :svc ::svc

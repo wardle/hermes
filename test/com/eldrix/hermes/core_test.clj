@@ -84,6 +84,10 @@
   (is (contains? (hermes/with-historical *svc* [586591000000100]) 586591000000100))
   (is (= (hermes/with-historical *svc* [24700007]) (hermes/with-historical *svc* [586591000000100]))))
 
+(deftest ^:live test-refset-members
+  (is (seq (hermes/get-refset-members *svc* 723264001))
+      "Lateralizable body structure reference set should have at least one member"))
+
 #_(deftest ^:live test-historical-assumptions
     (let [counts (#'hermes/historical-association-counts *svc*)]
       (is (= 1 (get counts snomed/ReplacedByReferenceSet)))))

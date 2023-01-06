@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Fix and speed-up `get-refset-members'
+* More complete unit testing
+
 ## [1.0.822] - 2022-12-24
 
 * Enable native support for Apple Silicon, rather than needing to use an x86-64 JDK. (To add native aarm64 support, you will need to manually build lmdb binary - see README).
