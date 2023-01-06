@@ -208,12 +208,12 @@
    ^long moduleId
    ^long refsetId
    ^long referencedComponentId
-   ^long mapGroup             ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
-   ^long mapPriority          ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
-   ^String mapRule            ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
-   ^String mapAdvice          ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
-   ^String mapTarget          ;; The target code in the target terminology, classification or code system.
-   ^long correlationId        ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
+   ^long mapGroup                                           ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
+   ^long mapPriority                                        ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
+   ^String mapRule                                          ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
+   ^String mapAdvice                                        ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
+   ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
+   ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
    fields])
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
@@ -225,14 +225,14 @@
    ^long moduleId
    ^long refsetId
    ^long referencedComponentId
-   ^long mapGroup            ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
-   ^long mapPriority         ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
-   ^String mapRule           ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
-   ^String mapAdvice         ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
-   ^String mapTarget         ;; The target code in the target terminology, classification or code system.
-   ^long correlationId       ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-   ^long mapCategoryId       ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
+   ^long mapGroup                                           ;; An Integer, grouping a set of complex map records from which one may be selected as a target code.
+   ^long mapPriority                                        ;; Within a mapGroup, the mapPriority specifies the order in which complex map records should be checked
+   ^String mapRule                                          ;; A machine-readable rule, (evaluating to either 'true' or 'false' at run-time) that indicates whether this map record should be selected within its mapGroup.
+   ^String mapAdvice                                        ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
+   ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
+   ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
    fields])
+
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
 (defrecord AttributeValueRefsetItem
@@ -251,7 +251,7 @@
    ^LocalDate effectiveTime
    ^boolean active
    ^long moduleId
-   ^long refsetId          ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
+   ^long refsetId                                           ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
    ^long referencedComponentId
    ^String owlExpression
    fields])
