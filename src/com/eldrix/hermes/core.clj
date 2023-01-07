@@ -80,7 +80,7 @@
    ^IndexSearcher searcher
    ^IndexReader memberReader
    ^IndexSearcher memberSearcher
-   locale-match-fn]
+   localeMatchFn]
   Service
   Closeable
   (close [_]
@@ -407,7 +407,7 @@
   ([^Svc svc concept-id]
    (get-preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
-   (let [locale-match-fn (.-locale_match_fn svc)]
+   (let [locale-match-fn (.-localeMatchFn svc)]
      (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
 (s/fdef get-fully-specified-name
@@ -416,7 +416,7 @@
   ([^Svc svc concept-id]
    (get-fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
-   (let [locale-match-fn (.-locale_match_fn svc)]
+   (let [locale-match-fn (.-localeMatchFn svc)]
      (store/get-fully-specified-name (.-store svc) concept-id (locale-match-fn language-range) false))))
 
 (defn get-release-information [^Svc svc]
@@ -710,12 +710,12 @@
         index-reader (search/open-index-reader (get-absolute-filename root search))
         member-reader (members/open-index-reader (get-absolute-filename root members))]
     (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st))))
-    (map->Svc {:store           st
-               :indexReader     index-reader
-               :searcher        (IndexSearcher. index-reader)
-               :memberReader    member-reader
-               :memberSearcher  (IndexSearcher. member-reader)
-               :locale-match-fn (lang/match-fn st)})))
+    (map->Svc {:store          st
+               :indexReader    index-reader
+               :searcher       (IndexSearcher. index-reader)
+               :memberReader   member-reader
+               :memberSearcher (IndexSearcher. member-reader)
+               :localeMatchFn  (lang/match-fn st)})))
 
 (defn close [^Closeable svc]
   (.close svc))
