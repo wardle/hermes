@@ -94,24 +94,26 @@
 (deftest test-components
   (let [{:keys [release-path db-path]} *paths*
         n 2000
-        concepts (gen/sample (rf2/gen-concept) n)
-        descriptions (gen/sample (rf2/gen-description) n)
+        en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
+        concepts (conj (gen/sample (rf2/gen-concept) (dec n)) en-GB-refset)
+        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) concepts)
+        en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
         relationships (gen/sample (rf2/gen-relationship) n)
-        lang-refsets (gen/sample (rf2/gen-language-refset {:fields []}) n)
         refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset) n)]
     (log/debug "Creating temporary components in " release-path)
-    (write-components release-path "sct2_Concept_Snapshot_GB1000000_20180401.txt" concepts)
+    (write-components release-path "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset))
     (write-components release-path "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components release-path "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
-    (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" lang-refsets)
+    (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" en-GB)
     (write-components release-path "der2_cciRefset_RefsetDescriptorUKEDSnapshot_GB_20220316.txt" refset-descriptors)
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
+    (hermes/index (str db-path) "en-GB")
     (let [status (hermes/get-status (str db-path) :counts? true)]
-      (is (= n (:concepts status)))
-      (is (= n (:descriptions status)))
+      (is (= (count concepts) (:concepts status)))
+      (is (= (count descriptions) (:descriptions status)))
       (is (= n (:relationships status)))
-      (is (= (count (set (map :refsetId (concat lang-refsets refset-descriptors)))) (:refsets status))))))
+      (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (:refsets status))))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*
