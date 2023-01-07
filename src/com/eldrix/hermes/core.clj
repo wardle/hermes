@@ -629,7 +629,7 @@
                                  (update acc moduleId #(if (or (not %) (.isAfter ^LocalDate sourceEffectiveTime %)) sourceEffectiveTime %))) {}))
         installed' (assoc installed snomed/ModelModule (installed snomed/CoreModule))] ;; impute 'Model' module version based on 'Core' module version
     (->> items
-         (map (fn [{:keys [moduleId sourceEffectiveTime referencedComponentId targetEffectiveTime] :as dep}]
+         (map (fn [{:keys [moduleId sourceEffectiveTime referencedComponentId targetEffectiveTime]}]
                 (let [actual (installed' referencedComponentId)]
                   (hash-map :source {:moduleId moduleId :version sourceEffectiveTime}
                             :target {:moduleId referencedComponentId :version targetEffectiveTime}
