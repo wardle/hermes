@@ -821,17 +821,20 @@
   index)
 
 (defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
-  (let [manifest (open-manifest root)]
-    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)))]
-      (log/info "Status information for database at '" root "'...")
-      (merge
-        {:installed-releases (map :term (store/get-release-information st))}
-        {:installed-locales (->> (lang/installed-language-reference-sets st) keys (map #(.toLanguageTag ^Locale %)))}
-        (when installed-refsets? {:installed-refsets (->> (store/get-installed-reference-sets st)
-                                                          (map #(store/get-fully-specified-name st %))
-                                                          (sort-by :term)
-                                                          (map #(vector (:id %) (:term %))))})
-        (when counts? (store/status st))))))
+  (with-open [^Svc svc (open root {:quiet true})]
+    (log/info "Status information for database at '" root "'...")
+    (merge
+      {:installed-releases (map :term (get-release-information svc))}
+      {:installed-locales (->> (lang/installed-language-reference-sets (.-store svc))
+                               keys
+                               (map #(.toLanguageTag ^Locale %)))}
+      (when installed-refsets? {:installed-refsets (->> (get-installed-reference-sets svc)
+                                                        (map #(get-fully-specified-name svc %))
+                                                        (sort-by :term)
+                                                        (map #(vector (:id %) (:term %))))})
+      (when counts? (-> (store/status (.-store svc))
+                        (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
+                        (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))))))
 
 (defn create-service
   "Create a terminology service combining both store and search functionality
