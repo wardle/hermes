@@ -704,18 +704,19 @@
 
 (defn open
   "Open a (read-only) SNOMED service from the path `root`."
-  ^Closeable [^String root]
-  (let [{:keys [store search members] :as manifest} (open-manifest root)
-        st (store/open-store (get-absolute-filename root store))
-        index-reader (search/open-index-reader (get-absolute-filename root search))
-        member-reader (members/open-index-reader (get-absolute-filename root members))]
-    (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st))))
-    (map->Svc {:store          st
-               :indexReader    index-reader
-               :searcher       (IndexSearcher. index-reader)
-               :memberReader   member-reader
-               :memberSearcher (IndexSearcher. member-reader)
-               :localeMatchFn  (lang/match-fn st)})))
+  (^Closeable [^String root] (open root {}))
+  (^Closeable [^String root {:keys [quiet] :or {quiet false}}]
+   (let [{:keys [store search members] :as manifest} (open-manifest root)
+         st (store/open-store (get-absolute-filename root store))
+         index-reader (search/open-index-reader (get-absolute-filename root search))
+         member-reader (members/open-index-reader (get-absolute-filename root members))]
+     (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st)))))
+     (map->Svc {:store          st
+                :indexReader    index-reader
+                :searcher       (IndexSearcher. index-reader)
+                :memberReader   member-reader
+                :memberSearcher (IndexSearcher. member-reader)
+                :localeMatchFn  (lang/match-fn st)}))))
 
 (defn close [^Closeable svc]
   (.close svc))
