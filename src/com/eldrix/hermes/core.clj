@@ -746,10 +746,10 @@
   "Open a (read-only) SNOMED service from the path `root`."
   (^Closeable [^String root] (open root {}))
   (^Closeable [^String root {:keys [quiet] :or {quiet false}}]
-   (let [{:keys [store search members] :as manifest} (open-manifest root)
-         st (store/open-store (get-absolute-filename root store))
-         index-reader (search/open-index-reader (get-absolute-filename root search))
-         member-reader (members/open-index-reader (get-absolute-filename root members))]
+   (let [manifest (open-manifest root)
+         st (store/open-store (get-absolute-filename root (:store manifest)))
+         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
+         member-reader (members/open-index-reader (get-absolute-filename root (:members manifest)))]
      (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st)))))
      (map->Svc {:store          st
                 :indexReader    index-reader
