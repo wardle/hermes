@@ -701,20 +701,17 @@
 (defn open
   "Open a (read-only) SNOMED service from the path `root`."
   ^Closeable [^String root]
-  (let [manifest (open-manifest root)
-        st (store/open-store (get-absolute-filename root (:store manifest)))
-        index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-        searcher (IndexSearcher. index-reader)
-        member-reader (members/open-index-reader (get-absolute-filename root (:members manifest)))
-        member-searcher (IndexSearcher. member-reader)
-        locale-match-fn (lang/match-fn st)]
+  (let [{:keys [store search members] :as manifest} (open-manifest root)
+        st (store/open-store (get-absolute-filename root store))
+        index-reader (search/open-index-reader (get-absolute-filename root search))
+        member-reader (members/open-index-reader (get-absolute-filename root members))]
     (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st))))
     (map->Svc {:store           st
                :indexReader     index-reader
-               :searcher        searcher
+               :searcher        (IndexSearcher. index-reader)
                :memberReader    member-reader
-               :memberSearcher  member-searcher
-               :locale-match-fn locale-match-fn})))
+               :memberSearcher  (IndexSearcher. member-reader)
+               :locale-match-fn (lang/match-fn st)})))
 
 (defn close [^Closeable svc]
   (.close svc))
