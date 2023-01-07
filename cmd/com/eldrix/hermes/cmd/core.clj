@@ -9,6 +9,11 @@
             [com.eldrix.hermes.download :as download]
             [com.eldrix.hermes.importer :as importer]))
 
+(defn- log-module-dependency-problems [svc]
+  (let [problem-deps (seq (hermes/module-dependency-problems svc))]
+    (doseq [dep problem-deps]
+      (log/warn "module dependency mismatch" dep))))
+
 (defn import-from [{:keys [db]} args]
   (if db
     (let [dirs (if (= 0 (count args)) ["."] args)]
@@ -37,9 +42,9 @@
 
 (defn build-index [{:keys [db locale]} _]
   (if db
-    (if (str/blank? locale)
-      (hermes/index db)
-      (hermes/index db locale))
+    (do  (if (str/blank? locale) (hermes/index db) (hermes/index db locale))
+         (with-open [svc (hermes/open db {:quiet true})]
+           (log-module-dependency-problems svc)))
     (log/error "no database directory specified")))
 
 (defn compact [{:keys [db]} _]
@@ -59,10 +64,11 @@
           params' (cond (= ["*"] allowed-origins') (assoc params :allowed-origins (constantly true))
                         (seq allowed-origins') (assoc params :allowed-origins allowed-origins')
                         :else params)]
-      (log/info "starting terminology server " params')
       (log/info "env" (-> (System/getProperties)
                           (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
                           (update-keys keyword)))
+      (log-module-dependency-problems svc)
+      (log/info "starting terminology server " params')
       (server/start-server svc params'))
     (log/error "no database directory specified")))
 
