@@ -2,10 +2,15 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.0.845] - 2023-01-07
 
 * Fix and speed-up `get-refset-members'
 * More complete unit testing
+* Add support for module dependency reference set items
+* Flag any module dependency problems on indexing and serve
+* Report size of search indices in status report
+* Use language preferences for fully specified name
+
 
 ## [1.0.822] - 2022-12-24
 
