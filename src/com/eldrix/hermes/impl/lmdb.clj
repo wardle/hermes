@@ -556,8 +556,8 @@
      :refsets       (.entries (.stat ^Dbi (.-refsetFieldNames store) refsets-txn))
      :refset-items  (.entries (.stat ^Dbi (.-refsetItems store) refsets-txn))
      :indices       {:descriptions-concept         (.entries (.stat ^Dbi (.-descriptionConcept store) core-txn))
-                     :concept-parent-relationships (.entries (.stat ^Dbi (.conceptParentRelationships store) core-txn))
-                     :concept-child-relationships  (.entries (.stat ^Dbi (.conceptChildRelationships store) core-txn))
-                     :component-refsets            (.entries (.stat ^Dbi (.componentRefsets store) core-txn))
-                     :associations                 (.entries (.stat ^Dbi (.associations store) core-txn))}}))
+                     :concept-parent-relationships (.entries (.stat ^Dbi (.-conceptParentRelationships store) core-txn))
+                     :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
+                     :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
+                     :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
 
