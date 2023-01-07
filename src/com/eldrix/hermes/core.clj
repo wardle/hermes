@@ -411,9 +411,13 @@
      (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
 (s/fdef get-fully-specified-name
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-fully-specified-name [^Svc svc concept-id]
-  (store/get-fully-specified-name (.-store svc) concept-id))
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
+(defn get-fully-specified-name
+  ([^Svc svc concept-id]
+   (get-fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
+  ([^Svc svc concept-id language-range]
+   (let [locale-match-fn (.-locale_match_fn svc)]
+     (store/get-fully-specified-name (.-store svc) concept-id (locale-match-fn language-range) false))))
 
 (defn get-release-information [^Svc svc]
   (store/get-release-information (.-store svc)))
