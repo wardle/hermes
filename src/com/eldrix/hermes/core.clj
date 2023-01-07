@@ -611,6 +611,8 @@
   [^Svc svc source-concept-ids target]
   (map-into svc source-concept-ids target))
 
+(s/fdef module-dependencies
+  :args (s/cat :svc ::svc))
 (defn module-dependencies
   "Returns a sequence of module dependencies, containing:
   - :source : source of the dependency (a map of :moduleId, :version)
@@ -635,6 +637,8 @@
                             :valid (and actual (or (.isEqual ^LocalDate actual targetEffectiveTime)
                                                    (.isAfter ^LocalDate actual targetEffectiveTime))))))))))
 
+(s/fdef module-dependency-problems
+  :args (s/cat :svc ::svc))
 (defn module-dependency-problems
   "Returns a human-readable report of invalid dependencies and version mismatches."
   [svc]
