@@ -38,7 +38,7 @@
            (java.nio.file.attribute FileAttribute)
            (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
-           (java.time LocalDateTime)
+           (java.time LocalDate LocalDateTime)
            (java.io Closeable)))
 
 (set! *warn-on-reflection* true)
@@ -610,6 +610,42 @@
   "DEPRECATED: Use [[map-into]] instead."
   [^Svc svc source-concept-ids target]
   (map-into svc source-concept-ids target))
+
+(defn module-dependencies
+  "Returns a sequence of module dependencies, containing:
+  - :source : source of the dependency (a map of :moduleId, :version)
+  - :target : target on which the source depends (a map of :moduleId, :version)
+  - :actual : actual version; may be nil
+  - :valid  : is this dependency satisfied and consistent?
+  Versions are represented as `java.time.LocalDate.
+  Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
+  [^Svc svc]
+  (let [items (->> (get-refset-members svc snomed/ModuleDependencyReferenceSet)
+                   (mapcat #(get-component-refset-items svc % snomed/ModuleDependencyReferenceSet)))
+        installed (->> items                                ;; as there may be multiple module dependency items with different dates, we use the latest one
+                       (reduce (fn [acc {:keys [moduleId sourceEffectiveTime]}]
+                                 (update acc moduleId #(if (or (not %) (.isAfter ^LocalDate sourceEffectiveTime %)) sourceEffectiveTime %))) {}))
+        installed' (assoc installed snomed/ModelModule (installed snomed/CoreModule))] ;; impute 'Model' module version based on 'Core' module version
+    (->> items
+         (map (fn [{:keys [moduleId sourceEffectiveTime referencedComponentId targetEffectiveTime] :as dep}]
+                (let [actual (installed' referencedComponentId)]
+                  (hash-map :source {:moduleId moduleId :version sourceEffectiveTime}
+                            :target {:moduleId referencedComponentId :version targetEffectiveTime}
+                            :actual actual
+                            :valid (and actual (or (.isEqual ^LocalDate actual targetEffectiveTime)
+                                                   (.isAfter ^LocalDate actual targetEffectiveTime))))))))))
+
+(defn module-dependency-problems
+  "Returns a human-readable report of invalid dependencies and version mismatches."
+  [svc]
+  (->> (module-dependencies svc)
+       (remove :valid)
+       (map (fn [{:keys [source target] :as dep}]
+              (-> dep
+                  (dissoc :valid)
+                  (assoc-in [:source :nm] (:term (get-preferred-synonym svc (:moduleId source))))
+                  (assoc-in [:target :nm] (:term (get-preferred-synonym svc (:moduleId target)))))))
+       (sort-by #(get-in % [:source :module]))))
 
 ;;
 (defn- historical-association-counts

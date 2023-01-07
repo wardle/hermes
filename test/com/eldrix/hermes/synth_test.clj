@@ -15,7 +15,8 @@
             [com.eldrix.hermes.snomed :as snomed])
   (:import (java.nio.file Files FileVisitOption Path)
            (java.nio.file.attribute FileAttribute)
-           (com.eldrix.hermes.snomed SimpleRefsetItem AssociationRefsetItem)))
+           (com.eldrix.hermes.snomed SimpleRefsetItem AssociationRefsetItem)
+           (java.time LocalDate)))
 
 (stest/instrument)
 
@@ -137,6 +138,30 @@
         (is (= en-GB-refset (hermes/get-concept svc 999001261000000100)))
         (dorun (map #(is (contains? en-GB-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-GB")))) concepts))
         (dorun (map #(is (contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US")))) concepts))))))
+
+
+(deftest test-module-dependencies
+  (let [{:keys [release-path db-path store-path]} *paths*
+        template {:active true :sourceEffectiveTime (LocalDate/of 2014 1 31) :targetEffectiveTime (LocalDate/of 2014 1 31) :fields []}
+        module-1 (gen/generate (rf2/gen-module-dependency-refset (assoc template :moduleId 900000000000207008 :referencedComponentId 900000000000012004)))
+        module-2 (gen/generate (rf2/gen-module-dependency-refset (assoc template :moduleId 449080006 :referencedComponentId 900000000000012004)))
+        module-3 (gen/generate (rf2/gen-module-dependency-refset (assoc template :moduleId 449080006 :referencedComponentId 900000000000207008)))
+        en-US-refset (gen/generate (rf2/gen-concept {:id 900000000000509007 :active true}))
+        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:moduleId %) :typeId snomed/Synonym :active true})) [module-1 module-2 module-3])
+        en-US (hgen/make-language-refset-items descriptions {:refsetId (:id en-US-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})]
+    (write-components release-path "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
+    (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" en-US)
+    (write-components release-path "der2_ssRefset_ModuleDependencySnapshot_INT_20220731.txt" [module-1 module-2 module-3])
+    (hermes/import-snomed (str db-path) [(str release-path)])
+    (hermes/index (str db-path) "en-US")
+    (with-open [svc (hermes/open (str db-path))]
+      (is (every? :valid (hermes/module-dependencies svc)) "Synthetically generated module dependencies should be valid"))
+    (let [module-4 (gen/generate (rf2/gen-module-dependency-refset (assoc template :moduleId 449080006 :referencedComponentId 999000011000000103)))]
+      (write-components release-path "der2_ssRefset_ModuleDependencySnapshot_INT_20220731.txt" [module-4])
+      (hermes/import-snomed (str db-path) [(str release-path)])
+      (hermes/index (str db-path) "en-US")
+      (with-open [svc (hermes/open (str db-path))]
+        (is (not-every? :valid (hermes/module-dependencies svc))) "Dependencies should be invalid, as module 449080006 depends on a module that does not exist"))))
 
 (comment
   (run-tests)

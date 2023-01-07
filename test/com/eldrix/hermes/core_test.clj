@@ -88,6 +88,9 @@
   (is (seq (hermes/get-refset-members *svc* 723264001))
       "Lateralizable body structure reference set should have at least one member"))
 
+(deftest ^:live test-module-dependencies
+  (is (every? :valid (hermes/module-dependencies *svc*))))
+
 #_(deftest ^:live test-historical-assumptions
     (let [counts (#'hermes/historical-association-counts *svc*)]
       (is (= 1 (get counts snomed/ReplacedByReferenceSet)))))
