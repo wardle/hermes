@@ -3,7 +3,7 @@
   (:require [clojure.pprint :as pp]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]
-            [clojure.tools.logging :as log]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.cmd.server :as server]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.download :as download]
