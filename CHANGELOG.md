@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.0.845] - 2023-01-07
+## [1.0.875] - 2023-01-07
 
 * Fix and speed-up `get-refset-members'
 * More complete unit testing
