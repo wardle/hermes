@@ -1,13 +1,16 @@
 (ns com.eldrix.hermes.cmd.core
   (:gen-class)
-  (:require [clojure.pprint :as pp]
-            [clojure.string :as str]
-            [clojure.tools.cli :as cli]
-            [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.cmd.server :as server]
-            [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.download :as download]
-            [com.eldrix.hermes.importer :as importer]))
+  (:require
+    [clojure.data.json :as json]
+    [clojure.pprint :as pp]
+    [clojure.string :as str]
+    [clojure.tools.logging.readable :as log]
+    [com.eldrix.hermes.cmd.cli :as cli]
+    [com.eldrix.hermes.cmd.server :as server]
+    [com.eldrix.hermes.core :as hermes]
+    [com.eldrix.hermes.download :as download]
+    [com.eldrix.hermes.importer :as importer]
+    [expound.alpha :as expound]))
 
 (defn- log-module-dependency-problems [svc]
   (let [problem-deps (seq (hermes/module-dependency-problems svc))]
@@ -15,10 +18,8 @@
       (log/warn "module dependency mismatch" dep))))
 
 (defn import-from [{:keys [db]} args]
-  (if db
-    (let [dirs (if (= 0 (count args)) ["."] args)]
-      (hermes/import-snomed db dirs))
-    (log/error "no database directory specified")))
+  (let [dirs (if (= 0 (count args)) ["."] args)]
+    (hermes/import-snomed db dirs)))
 
 (defn list-from [_ args]
   (let [dirs (if (= 0 (count args)) ["."] args)
@@ -31,91 +32,83 @@
         (println "\n" banner "\n" heading "\n" banner)
         (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
 
-(defn download [{:keys [db] :as opts} args]
-  (if db
-    (if-let [[provider & params] (seq args)]
-      (when-let [unzipped-path (download/download provider params)]
-        (import-from opts [(.toString unzipped-path)]))
-      (do (println "No provider specified. Available providers:")
-          (download/print-providers)))
-    (log/error "no database directory specified")))
+(defn install [{:keys [dist] :as opts} _]
+  (if-not (seq dist)
+    (do (println "No distribution specified. Specify with --dist.")
+        (download/print-providers))
+    (doseq [distribution dist]
+      (try
+        (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
+          (import-from opts [(.toString unzipped-path)]))
+        (catch Exception e (if-let [exd (ex-data e)]
+                             ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
+                             (log/error (.getMessage e))))))))
+
+(defn available [{:keys [dist] :as opts} _]
+  (if-not (seq dist)
+    (download/print-providers)
+    (install (assoc opts :release-date "list") [])))
 
 (defn build-index [{:keys [db locale]} _]
-  (if db
-    (do  (if (str/blank? locale) (hermes/index db) (hermes/index db locale))
-         (with-open [svc (hermes/open db {:quiet true})]
-           (log-module-dependency-problems svc)))
-    (log/error "no database directory specified")))
+  (if (str/blank? locale) (hermes/index db) (hermes/index db locale))
+  (with-open [svc (hermes/open db {:quiet true})]
+    (log-module-dependency-problems svc)))
+
 
 (defn compact [{:keys [db]} _]
-  (if db
-    (hermes/compact db)
-    (log/error "no database directory specified")))
+  (hermes/compact db))
 
-(defn status [{:keys [db verbose]} _]
-  (if db
-    (pp/pprint (hermes/get-status db :counts? true :installed-refsets? verbose))
-    (log/error "no database directory specified")))
+(defn status [{:keys [db verbose modules refsets] fmt :format} args]
+  (let [st (hermes/get-status db :counts? true :modules? (or verbose modules) :installed-refsets? (or verbose refsets) :log? false)]
+    (case fmt
+      :json (json/pprint st)
+      (clojure.pprint/pprint st))))
 
-(defn serve [{:keys [db _port _bind-address allowed-origins] :as params} _]
-  (if db
-    (let [svc (hermes/open db)
-          allowed-origins' (when allowed-origins (str/split allowed-origins #","))
-          params' (cond (= ["*"] allowed-origins') (assoc params :allowed-origins (constantly true))
-                        (seq allowed-origins') (assoc params :allowed-origins allowed-origins')
-                        :else params)]
-      (log/info "env" (-> (System/getProperties)
-                          (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
-                          (update-keys keyword)))
-      (log-module-dependency-problems svc)
-      (log/info "starting terminology server " params')
-      (server/start-server svc params'))
-    (log/error "no database directory specified")))
 
-(def cli-options
-  [["-p" "--port PORT" "Port number"
-    :default 8080
-    :parse-fn #(Integer/parseInt %)
-    :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
+(defn serve [{:keys [db _port _bind-address allowed-origin] :as params} _]
+  (let [svc (hermes/open db)
+        params' (cond (= ["*"] allowed-origin) (assoc params :allowed-origins (constantly true))
+                      (seq allowed-origin) (assoc params :allowed-origins allowed-origin)
+                      :else params)]
+    (log/info "env" (-> (System/getProperties)
+                        (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
+                        (update-keys keyword)))
+    (log-module-dependency-problems svc)
+    (log/info "starting terminology server " (dissoc params' :allowed-origin))
+    (server/start-server svc params')))
 
-   ["-a" "--bind-address BIND_ADDRESS" "Address to bind"]
-
-   [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
-
-   ["-d" "--db PATH" "Path to database directory"
-    :validate [string? "Missing database path"]]
-
-   [nil "--locale LOCALE" "Locale to use, if different from system"]
-
-   ["-v" "--verbose"]
-
-   ["-h" "--help"]])
-
-(defn usage [options-summary]
-  (->>
-    ["Usage: hermes [options] command [parameters]"
-     ""
-     "Options:"
-     options-summary
-     ""
-     "Commands:"
-     " import [paths]             Import SNOMED distribution files"
-     " list [paths]               List importable files"
-     " download [provider] [opts] Download & install distribution from provider"
-     " index                      Build search index."
-     " compact                    Compact database"
-     " serve                      Start a terminology server"
-     " status                     Display status information"]
-    (str/join \newline)))
+(defn usage
+  ([options-summary]
+   (->> [(str "Usage: hermes [options] 'command' [parameters]")
+         ""
+         "For more help on a command, use hermes --help 'command'"
+         ""
+         "Options:"
+         options-summary
+         ""
+         "Commands:"
+         (cli/format-commands)]
+        (str/join \newline)))
+  ([options-summary cmd]
+   (when-let [{:keys [usage desc]} (cli/commands cmd)]
+     (->> [(str "Usage: hermes [options] " (or usage cmd))
+           ""
+           desc
+           ""
+           "Options:"
+           options-summary]
+          (str/join \newline)))))
 
 (def commands
-  {"import"   {:fn import-from}
-   "list"     {:fn list-from}
-   "download" {:fn download}
-   "index"    {:fn build-index}
-   "compact"  {:fn compact}
-   "serve"    {:fn serve}
-   "status"   {:fn status}})
+  {"import"    {:fn import-from}
+   "list"      {:fn list-from}
+   "download"  {:fn install}
+   "install"   {:fn install}
+   "available" {:fn available}
+   "index"     {:fn build-index}
+   "compact"   {:fn compact}
+   "serve"     {:fn serve}
+   "status"    {:fn status}})
 
 (defn exit [status-code msg]
   (println msg)
@@ -124,23 +117,26 @@
 (defn invoke-command [cmd opts args]
   (if-let [f (:fn cmd)]
     (f opts args)
-    (exit 1 "error: not implemented")))
+    (exit 1 "ERROR: not implemented ")))
 
 (defn -main [& args]
-  (let [{:keys [options arguments summary errors]} (cli/parse-opts args cli-options)
-        command (get commands ((fnil str/lower-case "") (first arguments)))]
+  (let [{:keys [cmd options arguments summary errors warnings]} (cli/parse-cli args)]
+    (doseq [warning warnings] (log/warn warning))
     (cond
-      ;; asking for help?
+      ;; asking for help with a specific command?
+      (and cmd (:help options))
+      (println (usage summary cmd))
+      ;; asking for help with no command?
       (:help options)
       (println (usage summary))
       ;; if we have any errors, exit with error message(s)
       errors
-      (exit 1 (str/join \newline errors))
+      (exit 1 (str (str/join \newline (map #(str "ERROR: " %) errors)) "\n\n" (usage summary cmd)))
       ;; if we have no command, exit with error message
-      (not command)
-      (exit 1 (str "invalid command\n" (usage summary)))
+      (not cmd)
+      (exit 1 (usage summary))
       ;; invoke command
-      :else (invoke-command command options (rest arguments)))))
+      :else (invoke-command (commands cmd) options arguments))))
 
 (comment)
 

@@ -3,13 +3,11 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [clojure.walk :as walk]
             [com.eldrix.trud.core :as trud]
-            [com.eldrix.trud.zip :as zip]
-            [expound.alpha :as expound])
+            [com.eldrix.trud.zip :as zip])
   (:import (java.nio.file Path)
            (java.time LocalDate)
-           (java.time.format DateTimeParseException)))
+           (java.time.format DateTimeFormatter DateTimeParseException)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
@@ -34,7 +32,7 @@
             release (when release-date' (first (filter #(.isEqual ^LocalDate release-date' (:releaseDate %)) (trud/get-releases trud-key item-identifier))))]
         (if-not release
           (do (when-not (= "list" release-date) (log/info "Release not found for date:" release-date' "Available releases:"))
-              (dorun (map #(log/info "Release: " (:releaseDate %)) (trud/get-releases trud-key item-identifier))))
+              (clojure.pprint/print-table [:releaseDate :archiveFileName] (trud/get-releases trud-key item-identifier)))
           (assoc release :archiveFilePath (trud/download-release cache-dir release))))
       (trud/get-latest {:api-key   trud-key
                         :cache-dir cache-dir}
@@ -43,58 +41,44 @@
 (def registry
   "A registry of download providers. "
   {"uk.nhs/sct-clinical" {:f    (fn [params] (:archiveFilePath (download-from-trud 101 params)))
+                          :opts [:api-key :cache-dir :release-date]
+                          :desc "UK clinical edition"
                           :spec ::uk-trud}
    "uk.nhs/sct-drug-ext" {:f    (fn [params] (:archiveFilePath (download-from-trud 105 params)))
-                          :spec ::uk-trud}})
-
-(s/def ::provider-parameters (s/or :items (s/coll-of #(re-matches #".*\=.*" %))
-                                   :pairs (s/* (s/cat ::key string? ::value string?))))
-
-(defn parse-provider-parameters
-  "Parse a sequence of string arguments returning a map of keys to values.
-  Arguments can be provided as alternating key value pairs, or as strings of
-  the format key = value.
-
-  The following are equivalent:
-  ```
-  (parse-provider-parameters [\"api-key\" \"../trud/api-key.txt\"])
-  (parse-provider-parameters [\"api-key=../trud/api-key.txt\"])
-   => {:api-key \"../trud/api-key.txt\"}
-  ```"
-  [args]
-  (let [[mode params] (s/conform ::provider-parameters args)]
-    (->> (case mode :pairs (reduce (fn [acc {k ::key v ::value}] (assoc acc k v)) {} params)
-                    :items (apply hash-map (mapcat #(str/split % #"=") params)))
-         (walk/keywordize-keys))))
+                          :opts [:api-key :cache-dir :release-date]
+                          :spec ::uk-trud
+                          :desc "UK drug extension"}})
 
 (defn print-providers
   "Placeholder for a more sophisticated future method of printing available
   providers."
   []
-  (clojure.pprint/print-table (map #(hash-map :identifier %) (keys registry))))
+  (println "Available distributions for automated 'install':\n")
+  (println (->> (keys registry)
+                (map #(let [dist (registry %)] (str "  " (format "%-20s" %) " - " (:desc dist))))
+                (str/join \newline))))
 
 (defn download
   "Download the named distribution.
   Parameters:
   - nm         : name of the provider   e.g. \"uk.nhs/sct-clinical\"
-  - parameters : a sequence of strings representing alternating key value pairs,
-                 or strings of the format key=value
+  - parameters : a map of parameters
 
   The parameters will depend on the exact nature of the provider.
   Returns the java.nio.file.Path of the directory containing unzipped files."
-  ^Path [nm parameters]
-  (if-not (s/valid? ::provider-parameters parameters)
-    (println "Parameters must be given as key value pairs. e.g. \"api-key key.txt\" or \"api-key=key.txt\"" (expound/expound-str ::provider-parameters parameters))
-    (let [{:keys [f spec]} (get registry nm)]
-      (when-not f
-        (throw (IllegalArgumentException. (str "Unknown provider: " nm))))
-      (let [params (parse-provider-parameters parameters)]
-        (println "Installing using provider" nm "with params" params)
-        (if-not (and spec (s/valid? spec params))
-          (println "Invalid parameters for provider '" nm "':\n" (expound/expound-str spec params {:print-specs? false :theme :figwheel-theme}))
-          (if-let [zipfile (f params)]
-            (zip/unzip zipfile)
-            (log/warn "No files returned" {:provider nm})))))))
+  ^Path [nm params]
+  (let [{:keys [f spec]} (get registry nm)
+        list-releases? (= "list" (:release-date params))]
+    (when-not f
+      (throw (IllegalArgumentException. (str "Unknown provider: " nm))))
+    (if-not list-releases?
+      (log/info "Installing distribution" {:distribution nm :params params})
+      (println "\nAvailable releases for distribution" nm ":"))
+    (if-not (and spec (s/valid? spec params))
+      (throw (ex-info (str "Invalid parameters for provider '" nm "'") (s/explain-data spec params)))
+      (if-let [zipfile (f params)]
+        (zip/unzip zipfile)
+        (when-not list-releases? (log/warn "No files returned" {:provider nm}))))))
 
 (comment
 
