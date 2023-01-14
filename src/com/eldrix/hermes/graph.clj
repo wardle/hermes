@@ -1,5 +1,10 @@
 (ns com.eldrix.hermes.graph
-  "Provides a graph API around SNOMED CT structures."
+  "Provides a graph API around SNOMED CT structures.
+  To use this namespace, you will need to ensure you 'require' the pathom3
+  library. Add the following to your deps.edn file:
+   ````
+   {com.wsscode/pathom3              {:mvn/version \"2022.10.19-alpha\"}
+   ```"
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
