@@ -860,21 +860,34 @@
   "DEPRECATED: Use [[build-search-indices]] instead"
   index)
 
-(defn get-status [root & {:keys [counts? installed-refsets?] :or {counts? false installed-refsets? true}}]
+(defn ^:private safe-lower-case [s]
+  (when s (str/lower-case s)))
+
+(defn get-status
+  [root & {:keys [counts? installed-refsets? modules? log?]
+           :or   {counts? false installed-refsets? true modules? false log? true}}]
   (with-open [^Svc svc (open root {:quiet true})]
-    (log/info "Status information for database at '" root "'...")
+    (when log? (log/info "Status information for database at '" root "'..."))
     (merge
-      {:installed-releases (map :term (get-release-information svc))}
-      {:installed-locales (->> (lang/installed-language-reference-sets (.-store svc))
-                               keys
-                               (map #(.toLanguageTag ^Locale %)))}
-      (when installed-refsets? {:installed-refsets (->> (get-installed-reference-sets svc)
-                                                        (map #(get-fully-specified-name svc %))
-                                                        (sort-by :term)
-                                                        (map #(vector (:id %) (:term %))))})
-      (when counts? (-> (store/status (.-store svc))
-                        (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
-                        (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))))))
+      {:releases
+       (map :term (get-release-information svc))}
+      {:locales
+       (->> (keys (lang/installed-language-reference-sets (.-store svc)))
+            (map #(.toLanguageTag ^Locale %)))}
+      (when counts?
+        {:components (-> (store/status (.-store svc))
+                         (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
+                         (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
+      (when modules?
+        {:modules (let [results (reduce (fn [acc {source :source}]
+                                          (assoc acc (:moduleId source) (str (:term (get-fully-specified-name svc (:moduleId source))) ": " (:version source))))
+                                        {} (module-dependencies svc))]
+                    (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
+
+      (when installed-refsets?
+        {:installed-refsets (let [results (->> (get-installed-reference-sets svc)
+                                               (reduce (fn [acc id] (assoc acc id (:term (get-fully-specified-name svc id)))) {}))]
+                              (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))}))))
 
 (defn create-service
   "Create a terminology service combining both store and search functionality

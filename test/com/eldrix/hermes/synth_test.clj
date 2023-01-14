@@ -111,10 +111,10 @@
     (hermes/compact (str db-path))
     (hermes/index (str db-path) "en-GB")
     (let [status (hermes/get-status (str db-path) :counts? true)]
-      (is (= (count concepts) (:concepts status)))
-      (is (= (count descriptions) (:descriptions status)))
-      (is (= n (:relationships status)))
-      (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (:refsets status))))))
+      (is (= (count concepts) (get-in status [:components :concepts])))
+      (is (= (count descriptions) (get-in status [:components :descriptions])))
+      (is (= n (get-in status [:components :relationships])))
+      (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (get-in status [:components :refsets]))))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*
