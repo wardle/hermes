@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.0.890] - 2023-01-14
+
+* Significant update to command-line operation, while maintaining backwards-compatibility
+* Status reports now record count data in a nested map with a choice of formatting in the CLI. 
+
 ## [1.0.875] - 2023-01-07
 
 * Fix and speed-up `get-refset-members'
