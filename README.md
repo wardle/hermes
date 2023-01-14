@@ -380,7 +380,7 @@ There are some examples of [different configurations available](https://github.c
 
 Yes. There are two options: 
 
-1. Install an x86 java SDK and run using that (Rosetta). This is fast enough.
+##### Option 1. Install an x86 java SDK and run using that (Rosetta). This is fast enough.
 
 For example, you can get a list of installed JDKs:
 ```shell
@@ -399,7 +399,7 @@ $ clj -M -e '(System/getProperty "os.arch")'
 
 ```
 
-2. Build the lmdb library for your architecture (ie arm64). This is fastest.
+##### Option 2. Build the lmdb library for your architecture (ie arm64). This is fastest.
 
 Install the xcode command line tools, if they are not already installed
 ```shell
