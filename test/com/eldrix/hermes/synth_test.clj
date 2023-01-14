@@ -110,7 +110,7 @@
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (hermes/index (str db-path) "en-GB")
-    (let [status (hermes/get-status (str db-path) :counts? true)]
+    (let [status (hermes/status (str db-path) {:counts? true})]
       (is (= (count concepts) (get-in status [:components :concepts])))
       (is (= (count descriptions) (get-in status [:components :descriptions])))
       (is (= n (get-in status [:components :relationships])))
