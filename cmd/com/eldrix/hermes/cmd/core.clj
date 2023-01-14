@@ -59,11 +59,10 @@
   (hermes/compact db))
 
 (defn status [{:keys [db verbose modules refsets] fmt :format} args]
-  (let [st (hermes/get-status db :counts? true :modules? (or verbose modules) :installed-refsets? (or verbose refsets) :log? false)]
+  (let [st (hermes/status db {:counts? true :modules? (or verbose modules) :installed-refsets? (or verbose refsets) :log? false})]
     (case fmt
       :json (json/pprint st)
       (clojure.pprint/pprint st))))
-
 
 (defn serve [{:keys [db _port _bind-address allowed-origin] :as params} _]
   (let [svc (hermes/open db)

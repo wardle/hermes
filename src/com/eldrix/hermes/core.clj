@@ -863,31 +863,43 @@
 (defn ^:private safe-lower-case [s]
   (when s (str/lower-case s)))
 
-(defn get-status
+(defn status
+  "Return status information for the database at 'root'."
+  ([root] (status root nil))
+  ([root {:keys [counts? installed-refsets? modules? log?]
+          :or   {counts? true installed-refsets? false modules? false log? false}}]
+   (with-open [^Svc svc (open root {:quiet true})]
+     (when log? (log/info "Status information for database at '" root "'..."))
+     (merge
+       {:releases
+        (map :term (get-release-information svc))}
+       {:locales
+        (->> (keys (lang/installed-language-reference-sets (.-store svc)))
+             (map #(.toLanguageTag ^Locale %)))}
+       (when counts?
+         {:components (-> (store/status (.-store svc))
+                          (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
+                          (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
+       (when modules?
+         {:modules (let [results (reduce (fn [acc {source :source}]
+                                           (assoc acc (:moduleId source) (str (:term (get-fully-specified-name svc (:moduleId source))) ": " (:version source))))
+                                         {} (module-dependencies svc))]
+                     (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
+
+       (when installed-refsets?
+         {:installed-refsets (let [results (->> (get-installed-reference-sets svc)
+                                                (reduce (fn [acc id] (assoc acc id (:term (get-fully-specified-name svc id)))) {}))]
+                               (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))))
+
+(defn ^:deprecated get-status
+  "Backwards-compatible status report. Use `status` instead. This flattens the
+  component counts at the top-level to mimic legacy deprecated behaviour."
   [root & {:keys [counts? installed-refsets? modules? log?]
            :or   {counts? false installed-refsets? true modules? false log? true}}]
-  (with-open [^Svc svc (open root {:quiet true})]
-    (when log? (log/info "Status information for database at '" root "'..."))
-    (merge
-      {:releases
-       (map :term (get-release-information svc))}
-      {:locales
-       (->> (keys (lang/installed-language-reference-sets (.-store svc)))
-            (map #(.toLanguageTag ^Locale %)))}
-      (when counts?
-        {:components (-> (store/status (.-store svc))
-                         (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
-                         (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
-      (when modules?
-        {:modules (let [results (reduce (fn [acc {source :source}]
-                                          (assoc acc (:moduleId source) (str (:term (get-fully-specified-name svc (:moduleId source))) ": " (:version source))))
-                                        {} (module-dependencies svc))]
-                    (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
-
-      (when installed-refsets?
-        {:installed-refsets (let [results (->> (get-installed-reference-sets svc)
-                                               (reduce (fn [acc id] (assoc acc id (:term (get-fully-specified-name svc id)))) {}))]
-                              (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))}))))
+  (let [st (status root {:counts? counts? :installed-refsets? installed-refsets? :modules? modules? :log? log?})]
+    (-> st
+        (dissoc :components)
+        (merge (:components st)))))
 
 (defn create-service
   "Create a terminology service combining both store and search functionality
