@@ -43,7 +43,7 @@ jobs:
           key: v1-dependencies-{{ checksum "deps.edn" }}
 
       # run compilation checks
-      - run: clojure -M:check
+      - run: clojure -M:dev:check
 
       #  run tests
       - run: clojure -M:test -e :live
