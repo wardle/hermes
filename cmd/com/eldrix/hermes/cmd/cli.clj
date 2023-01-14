@@ -105,10 +105,11 @@
    well-known distributions, then for backwards compatibility, add to the
    selected distributions."
   [{:keys [arguments] :as parsed}]
-  (let [dists (filter distributions arguments)]
+  (if-let [dists (seq (filter distributions arguments))]
     (-> parsed
         (assoc :arguments (remove (set dists) arguments))
-        (update-in [:options :dist] into dists))))
+        (update-in [:options :dist] into dists))
+    parsed))
 
 (def commands*
   [{:cmd  "import" :usage "import [paths]"
