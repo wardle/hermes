@@ -1,6 +1,5 @@
 (ns com.eldrix.hermes.cmd.cli
   (:require [clojure.set :as set]
-            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]))
 
