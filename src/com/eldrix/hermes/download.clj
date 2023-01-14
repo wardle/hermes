@@ -7,7 +7,7 @@
             [com.eldrix.trud.zip :as zip])
   (:import (java.nio.file Path)
            (java.time LocalDate)
-           (java.time.format DateTimeFormatter DateTimeParseException)))
+           (java.time.format DateTimeParseException)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
