@@ -48,22 +48,50 @@ supports search and autocompletion using the $expand operation.
 You can have a terminology server running in minutes.
 Full documentation is below, but here is a quickstart.
 
-1. Install clojure
+Before you begin, you will need to have Java installed.
 
-e.g on Mac OS X
+### 1. Download hermes
+
+You can choose to run a jar file by downloading a release and running using Java, 
+or run from source code using Clojure:
+
+##### Download a release and run using Java
+
+Download the latest release from https://github.com/wardle/hermes/releases
+For simplicity, I've renamed the download jar file to 'hermes.jar' for these
+examples
+
+Run the jar file using:
+
+```shell
+java -jar hermes.jar
+```
+
+When run without parameters, you will be given help text.
+
+In all examples below, `java -jar hermes.jar` is equivalent `clj -M:run` and vice versa.
+
+##### Run from source code using Clojure
+
+Install clojure. e.g on Mac OS X:
 
 ```shell
 brew install clojure
 ```
 
-2. Clone the repository and change directory
+Then clone the repository, change directory and run:
 
 ```shell
 git clone https://github.com/wardle/hermes
 cd hermes
-```   
+clj -M:run
+```
 
-3. Download and install one or more distributions
+When run without parameters, you will be given help text.
+
+In all examples below, `java -jar hermes.jar` is equivalent `clj -M:run` and vice versa.
+
+### 2. Download and install one or more distributions
 
 You will need to download distributions from a National Release Centre.
 
@@ -76,39 +104,53 @@ In the United States, the National Library of Medicine (NLM) has [more informati
 
 In the United Kingdom, you can download a distribution from NHS Digital using the [TRUD service](https://isd.digital.nhs.uk).
 
-`Hermes` also provides automated downloads. Currently this is only for the UK, because I don't have access to any other national release centre. `Hermes` is designed with an extensible system to provide automated downloads, so could quite easily be adapted to support other release centres.
+`hermes` also provides automated downloads. Currently this is only for the UK, because I don't have access to any other national release centre. `hermes` is designed with an extensible system to provide automated downloads, so could quite easily be adapted to support other release centres. 
 
-If you've downloaded a distribution manually, import like this:
+If you've downloaded a distribution manually, import using one of these commands:
 
+```shell
+java -jar hermes.jar --db snomed.db import ~/Downloads/snomed-2021/
+```
+or
 ```shell
 clj -M:run --db snomed.db import ~/Downloads/snomed-2021/
 ```
 
-
 If you're a UK user and want to use automatic downloads, you can do this
 
 ```shell
-clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key=trud-api-key.txt cache-dir=/tmp/trud
-clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key=trud-api-key.txt cache-dir=/tmp/trud
+java -jar hermes.jar --db snomed.db install --dist uk.nhs/sct-clinical --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud
+```
+```shell
+clj -M:run --db snomed.db install --dist uk.nhs/sct-clinical --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud
 ```
 
 Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/group/0/home).
 
-This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend
-installing both.
+This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend installing both.
 
 You can download a specific edition using an ISO 6801 formatted date:
 
+
 ```shell
-clj -M:run download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud release-date 2021-03-24
-clj -M:run download uk.nhs/sct-drug-ext api-key trud-api-key.txt cache-dir /tmp/trud release-date 2021-03-24
+java -jar hermes.jar --db snomed.db install --dist uk.nhs/sct-clinical --api-key trud-api-key.txt --cache-dir /tmp/trud --release-date 2021-03-24
+java -jar hermes.jar --db snomed.db install --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud --release-date 2021-03-24
+```
+or
+```shell
+clj -M:run --db snomed.db install --dist uk.nhs/sct-clinical --api-key trud-api-key.txt --cache-dir /tmp/trud --release-date 2021-03-24
+clj -M:run --db snomed.db install --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud --release-date 2021-03-24
 ```
 
 These are most useful for building reproducible container images.
 You can get a list of available UK versions by simply looking at the TRUD website, or using:
 
 ```shell
-clj -M:run download uk.nhs/sct-clinical api-key trud-api-key.txt cache-dir /tmp/trud release-date list
+java -jar hermes.jar available --dist uk.nhs/sct-clinical --api-key trud-api-key.txt --cache-dir /tmp/trud
+```
+or
+```shell
+clj -M:run available --dist uk.nhs/sct-clinical --api-key trud-api-key.txt --cache-dir /tmp/trud
 ```
 
 
@@ -116,8 +158,13 @@ My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT an
 dictionary
 of medicines and devices.
 
-4. Index and compact
+### 3. Index and compact
 
+```shell
+java -jar hermes.jar --db snomed.db index
+java -jar hermes.jar --db snomed.db compact
+```
+or
 ```shell
 clj -M:run --db snomed.db index
 clj -M:run --db snomed.db compact
@@ -125,14 +172,22 @@ clj -M:run --db snomed.db compact
 
 My machine takes 6 minutes to build the search indices and 20 seconds to compact the database.
 
-5. Run a server!
+### 4. Run a server!
 
+```shell
+java -jar hermes.jar --db snomed.db --port 8080 serve
+```
+or
 ```shell
 clj -M:run --db snomed.db --port 8080 serve
 ```
 
 You can use [hades](https://github.com/wardle/hades) with the 'snomed.db' index
 to give you a FHIR terminology server.
+
+More detailed documentation is included below.
+
+
 
 # Common questions
 
@@ -161,21 +216,22 @@ Previously, I implemented SNOMED CT within an EPR.
 Later I realised how important it was to build it as a separate module;
 I created terminology servers in java, and then later in golang;
 `hermes` is written in clojure. In the UK,  the different health services in England
-and Wales have procured a national terminology server. While I support the provision
-of a national terminology server for convenience, I think it's important to
-recognise that it is the *data* that matters most. We need to cooperate and collaborate
-on semantic interoperability, but the software services that make use of those
-data can be centralised or distributed; when I do analytics, I can't see me
-making server round-trips for every check of subsumption! That would be
-silly; I've been using SNOMED for analytics for longer than most; you need
-flexibility in provisioning terminology services. I want tooling that can both
-provide services at scale, while is capable of running on my personal computers
-as well. 
+and Wales have procured a centralised national terminology server. 
+While I support the provision of a national terminology server for convenience, 
+I think it's important to recognise that it is the *data* that matters most. We 
+need to cooperate and collaborate on semantic interoperability, but the software 
+services that make use of those data can be centralised or distributed; when I 
+do analytics, I can't see me making server round-trips for every check of 
+subsumption! That would be silly; I've been using SNOMED for analytics for 
+longer than most; you need flexibility in provisioning terminology services. I 
+want tooling that can both provide services at scale, while is capable of 
+running on my personal computers as well. 
 
-Unlike other available terminology servers, `hermes` is lightweight and has no other dependencies
-except a filesystem, which can be read-only when in operation. This makes it ideal
-for use in situations such as a data pipeline, perhaps built upon Apache Kafka - 
-with `hermes`, SNOMED analytics capability can be embedded anywhere. 
+Unlike other available terminology servers, `hermes` is lightweight and has no 
+other dependencies except a filesystem, which can be read-only when in 
+operation. This makes it ideal for use in situations such as a data pipeline, 
+perhaps built upon Apache Kafka - with `hermes`, SNOMED analytics capability can 
+be embedded anywhere. 
 
 I don't believe in the idea of uploading codesystems and value sets in place.
 My approach to versioning is to run different services; I simply deploy new
@@ -200,6 +256,10 @@ locale that will match the distribution you are importing.
 
 For example, when you are building your search index, you can use:
 
+```shell
+java -jar hermes.jar --db snomed.db --locale en-GB index  
+```
+or 
 ```shell
 clj -M:run --db snomed.db --locale en-GB index  
 ```
@@ -385,16 +445,26 @@ Otherwise, you will need to download your local distribution(s) manually.
 There is currently only support for automatic download and import for the UK,
 but other distribution sources can be added if those services provide an API.
 
+You can see distributions that are available for automatic installation:
+
+```shell
+java -jar hermes.jar available
+```
+
+```shell
+clj -M:run available
+```
+
 The basic command is:
 
 ```shell
-clj -M:run --db snomed.db download <distribution-identifier> [properties] 
+clj -M:run --db snomed.db install --dist <distribution-identifier> [properties] 
 ```
 
 or if you are using a precompiled jar:
 
 ```shell
-java -jar hermes.jar --db snomed.db download <distribution-identifier> [properties]
+java -jar hermes.jar --db snomed.db install --dist <distribution-identifier> [properties]
 ```
 
 The distribution, as defined by `distribution-identifier`, will be downloaded
@@ -405,46 +475,31 @@ and imported to the file-based database `snomed.db`.
 | uk.nhs/sct-clinical     | UK SNOMED CT clinical - incl international release |
 | uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
 
-Each distribution might require custom configuration options. These
-can be given as key value pairs after the command, and their use will depend
-on which distribution you are using.
+Each distribution might require custom configuration options. 
 
 For example, the UK releases use the NHS Digital TRUD API, and so you need to
 pass in the following parameters:
 
-- `api-key`   : path to a file containing your NHS Digital TRUD api key
-- `cache-dir` : directory to use for downloading and caching releases
+- `--api-key`   : path to a file containing your NHS Digital TRUD api key
+- `--cache-dir` : directory to use for downloading and caching releases
 
 For example, these commands will download, cache and install the International
 release, the UK clinical edition and the UK drug extension:
 
 ```shell
-clj -M:run --db snomed.db download uk.nhs/sct-clinical api-key=trud-api-key.txt cache-dir=/tmp/trud
-clj -M:run --db snomed.db download uk.nhs/sct-drug-ext api-key=trud-api-key.txt cache-dir=/tmp/trud
+clj -M:run --db snomed.db install uk.nhs/sct-clinical --api-key=trud-api-key.txt --cache-dir=/tmp/trud
+clj -M:run --db snomed.db install uk.nhs/sct-drug-ext --api-key=trud-api-key.txt --cache-dir=/tmp/trud
 ```
 
 `hermes` will tell you what configuration parameters are required:
 
 ```shell
-clj -M:run download uk.nhs/sct-drug-ext
+java -jar hermes.jar install --dist uk.nhs/sct-clinical --help
 ```
-
-Will result in:
-
+or
+```shell
+clj -M:run install --dist uk.nhs/sct-clinical --help
 ```
-Invalid parameters for provider ' uk.nhs/sct-drug-ext ':
-
-should contain keys: :api-key, :cache-dir
-
-| key        | spec    |
-|============+=========|
-| :api-key   | string? |
-|------------+---------|
-| :cache-dir | string? |
-
-```
-
-So we know we need to pass in `api-key` and `cache-dir` as above.
 
 ##### ii) Download and install SNOMED CT distribution file(s) manually
 
@@ -516,9 +571,6 @@ or
 clj -M:run --db snomed.db compact
 ```
 
-Unlike prior versions, you do not need to give java more heap.
-
-
 #### 4. Run a REPL (optional)
 
 When I first built terminology tools, either in java or in golang, I needed to
@@ -540,34 +592,45 @@ clj -A:dev
 You can obtain status information about any index by using:
 
 ```shell
-clj -M:run --db snomed.db status
+clj -M:run --db snomed.db status --format json
 ```
 
 Result:
 
-```shell
-{:installed-releases
- ("SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)"
-  "35.0.0_20220928000001 UK clinical extension"
-  "35.1.0_20221026000001 UK drug extension"),
- :installed-locales ("en-GB" "en-US"),
- :concepts 1064775,
- :descriptions 3034620,
- :relationships 7871444,
- :refsets 530,
- :refset-items 13138061,
- :indices
- {:descriptions-concept 3034620,
-  :concept-parent-relationships 4715863,
-  :concept-child-relationships 4715863,
-  :component-refsets 10429215,
-  :associations 1246636}}
+```json
+{"releases":
+ ["SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)",
+  "35.2.0_20221123000001 UK clinical extension",
+  "35.3.0_20221221000001 UK drug extension"],
+ "locales":["en-GB", "en-US"],
+ "components":
+ {"concepts":1066649,
+  "descriptions":3039223,
+  "relationships":7914216,
+  "refsets":535,
+  "refset-items":13156533,
+  "indices":
+  {"descriptions-concept":3039223,
+   "concept-parent-relationships":4719818,
+   "concept-child-relationships":4719818,
+   "component-refsets":10444805,
+   "associations":1248897,
+   "descriptions-search":3039223,
+   "members-search":13156533}}}
 ```
 In this example, you can see I have the July 22 International release, with the 
-UK clinical and drug extensions from September and October 22 respectively.
+UK clinical and drug extensions from November and December 22 respectively.
 Given that these releases have been imported, hermes recognises it can support
 the locales en-GB and en-US. For completeness, detailed statistics on 
-components and indices are also provided.
+components and indices are also provided. Additional options are available:
+
+```shell
+java -jar hermes.jar --db snomed.db status --help
+```
+or
+```shell
+clj -M:run --db snomed.db status --help
+```
 
 #### 6. Run a terminology web service
 
@@ -584,34 +647,36 @@ or
 clj -M:run --db snomed.db --port 8080 serve
 ```
 
-If you omit the serve command, or specify --help, `hermes` will show help text:
+There are a number of configuration options for `serve`:
 
 ```shell
-Usage: hermes [options] command [parameters]
+java -jar hermes.jar serve --help
+```
+or
+```shell
+clj -M:run serve --help
+```
+
+```shell
+Usage: hermes [options] serve
+
+Start a terminology server
 
 Options:
+  -d, --db PATH                               Path to database directory
   -p, --port PORT                       8080  Port number
   -a, --bind-address BIND_ADDRESS             Address to bind
       --allowed-origins "*" or ORIGINS        Set CORS policy, with "*" or comma-delimited hostnames
-  -d, --db PATH                               Path to database directory
+      --allowed-origin "*" or ORIGIN    []    Set CORS policy, with "*" or hostname. ]
       --locale LOCALE                         Locale to use, if different from system
-  -v, --verbose
   -h, --help
-
-Commands:
- import [paths]             Import SNOMED distribution files
- list [paths]               List importable files
- download [provider] [opts] Download & install distribution from provider
- index                      Build search index.
- compact                    Compact database
- serve                      Start a terminology server
- status                     Displays status information
 ```
 
-* --bind-address is optional. You may want to use --bind-address 0.0.0.0
-* --allowed-origins is optional. You could use --allowed-origins "*" or --allowed-origins example.com,example.net
-* --locale sets the default locale. This is used in building your search index and as a default if clients do not
-  specify their preference
+* `--bind-address` is optional. You may want to use `--bind-address 0.0.0.0`
+* `--allowed-origins` is optional. You could use `--allowed-origins "*"` or `--allowed-origins example.com,example.net`
+* `--allowed-origin example.com --allowed-origin example.net` is equivalent to `--allowed-origins example.com,example.net`.
+* `--allowed-origin "*"` is equivalent to `--allowed-origins "*"`
+* `--locale` sets the default locale. This is used in building your search index and as a default if clients do not specify their preference. e.g. `--locale=en-GB`
 
 ##### Endpoints:
 
