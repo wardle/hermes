@@ -41,7 +41,7 @@
                      :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
    :bind-address    ["-a" "--bind-address BIND_ADDRESS" "Address to bind"]
    :allowed-origins [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
-   :allowed-origin  [nil "--allowed-origin \"*\" or ORIGIN" "Set CORS policy, with \"*\" or hostname. ]"
+   :allowed-origin  [nil "--allowed-origin \"*\" or ORIGIN" "Set CORS policy, with \"*\" or hostname"
                      :multi true :default [] :update-fn conj]
    :locale          [nil "--locale LOCALE" "Locale to use, if different from system"]
    :format          [nil "--format FMT" "Format for status output ('json' or 'edn')"
