@@ -171,7 +171,7 @@
   (if (str/blank? (:allowed-origins options))
     parsed
     (-> parsed
-        (update :options disj :allowed-origins)
+        (update :options dissoc :allowed-origins)
         (update-in [:options :allowed-origin] #(apply conj % (str/split (:allowed-origins options) #","))))))
 
 (defn parse-cli

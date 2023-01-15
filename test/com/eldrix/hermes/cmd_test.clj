@@ -57,30 +57,39 @@
             (is (= cmd "index"))
             (is (= (:db options) "snomed.db"))
             (is (= (:locale options) "en-GB,en-US")))}
-   {:s "Test status with missing database"
+   {:s    "Test status with missing database"
     :args ["status"]
     :test (fn [{:keys [errors]}]
             (is (seq errors)))}
-   {:s "Test status "
+   {:s    "Test status "
     :args ["status" "--db" "snomed.db"]
     :test (fn [{:keys [cmd options errors]}]
             (is (nil? errors))
             (is (= cmd "status"))
             (is (= (:db options) "snomed.db")))}
-   {:s "Run a server"
+   {:s    "Run a server"
     :args (str/split "--db snomed.db --port 8090 serve" #" ")
     :test (fn [{:keys [cmd options errors]}]
             (is (nil? errors))
             (is (= "serve" cmd))
             (is (= (:db options) "snomed.db"))
-            (is (= (:port options) 8090)))}])
+            (is (= (:port options) 8090)))}
+   {:s    "Avoid extraneous options being included"
+    :args ["serve"]
+    :test (fn [{:keys [options]}]
+            (is (not (contains? options :dist)) "parse-cli mistakenly included :dist options key when not provided"))}])
 
 (deftest test-parse-cli-options
   (doseq [{:keys [s args test]} cli-tests]
     (testing s
       (test (cli/parse-cli args)))))
 
-
+(deftest test-allowed-origins
+  (is (= (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origins" "example.com,example.net"])
+         (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origin" "example.com" "--allowed-origin" "example.net"])
+         (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origins=example.com,example.net"])
+         (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origin=example.com" "--allowed-origin=example.net"]))
+      "--allowed-origin and --allowed-origins are not parsed to be be equivalent"))
 
 (comment
   (cli/parse-cli ["download" "uk.nhs/sct-clinical" "api-key" "api-key.txt" "cache-dir" "/var/tmp"]))
