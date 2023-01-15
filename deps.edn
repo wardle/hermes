@@ -9,7 +9,7 @@
            com.eldrix/hermes-api                    {:mvn/version "1.0.0"}
            com.eldrix/trud                          {:mvn/version "1.0.80"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
-           io.netty/netty-buffer                    {:mvn/version "4.1.86.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.87.Final"}
            org.apache.lucene/lucene-core            {:mvn/version "9.4.2"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.4.2"}
            org.apache.lucene/lucene-backward-codecs {:mvn/version "9.4.2"}
@@ -17,7 +17,7 @@
            com.github.jnr/jnr-ffi                   {:mvn/version "2.2.13"}} ;; pending release of lmdb 0.8.3, this permits using aarch64 lmdb binary
 
  :aliases {:build
-           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.0" :git/sha "8c93e0c"}
+           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.1" :git/sha "27ff8a4"}
                          slipset/deps-deploy                    {:mvn/version "RELEASE"}
                          io.github.borkdude/gh-release-artifact {:git/sha "db5e79559fdbfa009ed4a0921079e20e1e76b269"}}
             :ns-default build}
