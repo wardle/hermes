@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.0.890] - 2023-01-14
+## [1.0.895] - 2023-01-15
 
 * Significant update to command-line operation, while maintaining backwards-compatibility
 * Status reports now record count data in a nested map with a choice of formatting in the CLI. 
