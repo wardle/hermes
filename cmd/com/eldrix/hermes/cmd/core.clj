@@ -36,13 +36,13 @@
   (if-not (seq dist)
     (do (println "No distribution specified. Specify with --dist.")
         (download/print-providers))
-    (doseq [distribution dist]
-      (try
+    (try
+      (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
-          (import-from opts [(.toString unzipped-path)]))
-        (catch Exception e (if-let [exd (ex-data e)]
-                             ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
-                             (log/error (.getMessage e))))))))
+          (import-from opts [(.toString unzipped-path)])))
+      (catch Exception e (if-let [exd (ex-data e)]
+                           ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
+                           (log/error (.getMessage e)))))))
 
 (defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
