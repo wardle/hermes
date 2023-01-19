@@ -17,6 +17,7 @@
   search implementations as a single unified service."
   (:require [clojure.core.async :as async]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
@@ -34,8 +35,6 @@
   (:import (com.eldrix.hermes.snomed Result)
            (org.apache.lucene.index IndexReader)
            (org.apache.lucene.search IndexSearcher Query)
-           (java.nio.file Paths Files LinkOption)
-           (java.nio.file.attribute FileAttribute)
            (java.util Locale UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDate LocalDateTime)
@@ -718,12 +717,10 @@
   "Open or, if it doesn't exist, optionally create a manifest at the location specified."
   ([root] (open-manifest root false))
   ([root create?]
-   (let [root-path (Paths/get (str root) (into-array String []))
-         manifest-path (.resolve root-path "manifest.edn")
-         exists? (Files/exists manifest-path (into-array LinkOption []))]
+   (let [manifest-file (io/file root "manifest.edn")]
      (cond
-       exists?
-       (if-let [manifest (edn/read-string (slurp (.toFile manifest-path)))]
+       (.exists manifest-file)
+       (if-let [manifest (edn/read-string (slurp manifest-file))]
          (if (= (:version manifest) (:version expected-manifest))
            manifest
            (throw (Exception. (str "error: incompatible database version. expected:'" (:version expected-manifest) "' got:'" (:version manifest) "'"))))
@@ -731,25 +728,21 @@
        create?
        (let [manifest (assoc expected-manifest
                         :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
-         (Files/createDirectory root-path (into-array FileAttribute []))
-         (spit (.toFile manifest-path) (pr-str manifest))
+         (io/make-parents manifest-file)
+         (spit manifest-file (pr-str manifest))
          manifest)
        :else
        (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
 
-(defn- get-absolute-filename
-  [^String root ^String filename]
-  (let [root-path (Paths/get root (into-array String []))]
-    (.toString (.normalize (.toAbsolutePath (.resolve root-path filename))))))
-
 (defn open
-  "Open a (read-only) SNOMED service from the path `root`."
-  (^Closeable [^String root] (open root {}))
-  (^Closeable [^String root {:keys [quiet] :or {quiet false}}]
+  "Open a (read-only) SNOMED service from `root`, which should be anything
+  coercible to a `java.io.File`"
+  (^Closeable [root] (open root {}))
+  (^Closeable [root {:keys [quiet] :or {quiet false}}]
    (let [manifest (open-manifest root)
-         st (store/open-store (get-absolute-filename root (:store manifest)))
-         index-reader (search/open-index-reader (get-absolute-filename root (:search manifest)))
-         member-reader (members/open-index-reader (get-absolute-filename root (:members manifest)))]
+         st (store/open-store (io/file root (:store manifest)))
+         index-reader (search/open-index-reader (io/file root (:search manifest)))
+         member-reader (members/open-index-reader (io/file root (:members manifest)))]
      (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st)))))
      (map->Svc {:store          st
                 :indexReader    index-reader
@@ -762,15 +755,15 @@
   (.close svc))
 
 (s/fdef do-import-snomed
-  :args (s/cat :store-filename string?
+  :args (s/cat :store-file any?
                :files (s/coll-of :info.snomed/ReleaseFile)))
 (defn- do-import-snomed
   "Import a SNOMED distribution from the specified files into a local
-   file-based database `store-filename`.
+   file-based database `store-file`.
    Blocking; will return when done. Throws an exception on the calling thread if
    there are any import problems."
-  [store-filename files]
-  (with-open [store (store/open-store store-filename {:read-only? false})]
+  [store-file files]
+  (with-open [store (store/open-store store-file {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
           result-c (async/chan)
           data-c (importer/load-snomed-files files :nthreads nthreads)]
@@ -817,20 +810,20 @@
   subsequent import(s)."
   [root dirs]
   (let [manifest (open-manifest root true)
-        store-filename (get-absolute-filename root (:store manifest))]
+        store-file (io/file root (:store manifest))]
     (doseq [dir dirs]
       (log-metadata dir)
       (let [files (importer/importable-files dir)]
-        (do-import-snomed store-filename (->> files (filter #(core-components (:component %)))))
-        (with-open [st (store/open-store store-filename {:read-only? false})]
+        (do-import-snomed store-file (->> files (filter #(core-components (:component %)))))
+        (with-open [st (store/open-store store-file {:read-only? false})]
           (store/index st))
-        (do-import-snomed store-filename (->> files (remove #(core-components (:component %)))))))))
+        (do-import-snomed store-file (->> files (remove #(core-components (:component %)))))))))
 
 (defn compact
   [root]
   (let [manifest (open-manifest root false)]
     (log/info "Compacting database at " root "...")
-    (with-open [st (store/open-store (get-absolute-filename root (:store manifest)) {:read-only? false})]
+    (with-open [st (store/open-store (io/file root (:store manifest)) {:read-only? false})]
       (store/compact st))
     (log/info "Compacting database... complete")))
 
@@ -839,9 +832,9 @@
   ([root] (index root (.toLanguageTag (Locale/getDefault))))
   ([root language-priority-list]
    (let [manifest (open-manifest root false)
-         store-filename (get-absolute-filename root (:store manifest))
-         search-filename (get-absolute-filename root (:search manifest))
-         members-filename (get-absolute-filename root (:members manifest))]
+         store-filename (io/file root (:store manifest))
+         search-filename (io/file root (:search manifest))
+         members-filename (io/file root (:members manifest))]
      (log/info "Indexing..." {:root root})
      (log/info "Building component index")
      (with-open [st (store/open-store store-filename {:read-only? false})]

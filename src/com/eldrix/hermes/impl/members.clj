@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.impl.members
   "Members creates a Lucene search index for reference set members."
   (:require [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store])
   (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
@@ -9,8 +10,7 @@
            (java.time ZoneId LocalDate)
            (org.apache.lucene.store ByteBuffersDirectory FSDirectory)
            (org.apache.lucene.index IndexWriterConfig IndexWriter IndexReader DirectoryReader Term IndexWriterConfig$OpenMode)
-           (org.apache.lucene.analysis.standard StandardAnalyzer)
-           (java.nio.file Paths)))
+           (org.apache.lucene.analysis.standard StandardAnalyzer)))
 
 (set! *warn-on-reflection* true)
 
@@ -76,19 +76,20 @@
     doc))
 
 (defn open-index-writer
-  "Creates a Lucene index at 'filename'."
-  (^IndexWriter [filename]
+  "Creates a Lucene index at 'f' where 'f' is anything coercible by
+  [[clojure.java.io/as-file]]."
+  (^IndexWriter [f]
    (let [analyzer (StandardAnalyzer.)
-         directory (FSDirectory/open (Paths/get (str filename) (into-array String [])))
+         directory (FSDirectory/open (.toPath (io/file f)))
          writer-config (doto (IndexWriterConfig. analyzer)
                          (.setOpenMode IndexWriterConfig$OpenMode/CREATE))]
      (IndexWriter. directory writer-config))))
 
 (defn build-members-index
-  "Build a refset members index using the SNOMED CT store at `store-filename`."
-  [store-filename refset-index-filename]
+  "Build a refset members index using the SNOMED CT store at `store-file`."
+  [store-file refset-index-filename]
   (let [ch (async/chan 50)]
-    (with-open [store (store/open-store store-filename)
+    (with-open [store (store/open-store store-file)
                 writer (open-index-writer refset-index-filename)]
       (store/stream-all-refset-items store ch)
       (async/<!!                                            ;; block until pipeline complete
@@ -102,8 +103,8 @@
       (.forceMerge writer 1))))
 
 (defn open-index-reader
-  ^IndexReader [filename]
-  (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
+  ^IndexReader [f]
+  (let [directory (FSDirectory/open (.toPath (io/file f)))]
     (DirectoryReader/open directory)))
 
 (defn q-or [queries]

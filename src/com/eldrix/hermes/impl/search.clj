@@ -15,6 +15,7 @@
 (ns com.eldrix.hermes.impl.search
   "Search creates a Lucene search index for descriptions."
   (:require [clojure.core.async :as async]
+            [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
@@ -34,8 +35,7 @@
                                      MatchAllDocsQuery BooleanQuery BooleanClause)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.queries.function FunctionScoreQuery)
-           (java.util Collection)
-           (java.nio.file Paths)))
+           (java.util Collection)))
 
 (set! *warn-on-reflection* true)
 
@@ -146,16 +146,16 @@
        (map extended-description->document)))
 
 (defn open-index-writer
-  ^IndexWriter [filename]
+  ^IndexWriter [f]
   (let [analyzer (StandardAnalyzer.)
-        directory (FSDirectory/open (Paths/get filename (into-array String [])))
+        directory (FSDirectory/open (.toPath (io/file f)))
         writer-config (doto (IndexWriterConfig. analyzer)
                         (.setOpenMode IndexWriterConfig$OpenMode/CREATE))]
     (IndexWriter. directory writer-config)))
 
 (defn open-index-reader
-  ^IndexReader [filename]
-  (let [directory (FSDirectory/open (Paths/get filename (into-array String [])))]
+  ^IndexReader [f]
+  (let [directory (FSDirectory/open (.toPath (io/file f)))]
     (DirectoryReader/open directory)))
 
 (defn build-search-index
