@@ -82,18 +82,19 @@
   transitive closure tables."
   [store concept-id]
   (->> (kv/get-raw-parent-relationships store concept-id)
-       (map #(hash-map (second %) #{(last %)}))             ;; tuple [concept-id type-id group destination-id] so return indices 1+3
-       (apply merge-with into)))
+       (reduce (fn [acc v]
+                 (update acc (v 1) (fnil conj #{}) (v 3))) {}))) ;; tuple [concept-id type-id group destination-id] so return indices 1+3
 
 (defn get-parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
   [store concept-id type-concept-id]
-  (set (map last (kv/get-raw-parent-relationships store concept-id type-concept-id))))
+  (->> (kv/get-raw-parent-relationships store concept-id type-concept-id)
+       (reduce (fn [acc v] (conj acc (v 3))) #{})))
 
 (defn get-parent-relationships-of-types
   [store concept-id type-concept-ids]
-  (set (mapcat (partial get-parent-relationships-of-type store concept-id) type-concept-ids)))
+  (set (mapcat #(get-parent-relationships-of-type store concept-id %) type-concept-ids)))
 
 (defn get-parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
@@ -113,7 +114,8 @@
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
   [store concept-id type-concept-id]
-  (set (map last (kv/get-raw-child-relationships store concept-id type-concept-id))))
+  (->> (kv/get-raw-child-relationships store concept-id type-concept-id)
+       (reduce (fn [acc v] (conj acc (v 3))) #{})))
 
 (defn paths-to-root
   "Return a sequence of paths from the concept to root node.
