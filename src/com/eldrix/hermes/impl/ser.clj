@@ -153,7 +153,7 @@
 
 
 (defn write-simple-refset-item [^ByteBuf out ^SimpleRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -174,7 +174,7 @@
 
 
 (defn write-association-refset-item [^ByteBuf out ^AssociationRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -197,7 +197,7 @@
 
 
 (defn write-language-refset-item [^ByteBuf out ^LanguageRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -220,7 +220,7 @@
 
 
 (defn write-simple-map-refset-item [^ByteBuf out ^SimpleMapRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -243,7 +243,7 @@
 
 
 (defn write-complex-map-refset-item [^ByteBuf out ^ComplexMapRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -276,7 +276,7 @@
 
 
 (defn write-extended-map-refset-item [^ByteBuf out ^ExtendedMapRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -311,7 +311,7 @@
 
 
 (defn write-attribute-value-refset-item [^ByteBuf out ^AttributeValueRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -334,7 +334,7 @@
 
 
 (defn write-owl-expression-refset-item [^ByteBuf out ^OWLExpressionRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -356,7 +356,7 @@
 
 
 (defn write-refset-descriptor-refset-item [^ByteBuf out ^RefsetDescriptorRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
@@ -381,7 +381,7 @@
       refsetId referencedComponentId attributeDescriptionId attributeTypeId attributeOrder)))
 
 (defn write-module-dependency-refset-item [^ByteBuf out ^ModuleDependencyRefsetItem o]
-  (write-uuid out (.id o))
+  (write-uuid out (.-id o))
   (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
   (.writeBoolean out (.-active o))
   (.writeLong out (.-moduleId o))
