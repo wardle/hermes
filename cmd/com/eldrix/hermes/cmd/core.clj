@@ -58,7 +58,7 @@
 (defn compact [{:keys [db]} _]
   (hermes/compact db))
 
-(defn status [{:keys [db verbose modules refsets] fmt :format} args]
+(defn status [{:keys [db verbose modules refsets] fmt :format} _]
   (let [st (hermes/status db {:counts? true :modules? (or verbose modules) :installed-refsets? (or verbose refsets) :log? false})]
     (case fmt
       :json (json/pprint st)
