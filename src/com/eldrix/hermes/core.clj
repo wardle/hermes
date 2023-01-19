@@ -732,7 +732,7 @@
          (spit manifest-file (pr-str manifest))
          manifest)
        :else
-       (throw (ex-info "no database found at path and operating read-only" {:path root}))))))
+       (throw (ex-info (str root ": no database found and operating read-only") {:path root}))))))
 
 (defn open
   "Open a (read-only) SNOMED service from `root`, which should be anything
