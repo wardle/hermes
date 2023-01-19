@@ -187,8 +187,8 @@
   (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
 
 (defn transitive-synonyms
-  "Returns all of the synonyms of the specified concept, including those
-   of its descendants."
+  "Returns all synonyms of the specified concept, including those of its
+  descendants."
   ([store concept-id] (transitive-synonyms store concept-id {}))
   ([store concept-id {:keys [include-inactive?]}]
    (let [concepts (conj (get-all-children store concept-id) concept-id)
