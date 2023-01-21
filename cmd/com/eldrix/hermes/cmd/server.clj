@@ -76,7 +76,7 @@
   "A simple interceptor to inject terminology service 'svc' into the context."
   [svc]
   {:name  ::inject-svc
-   :enter (fn [context] (update context :request assoc ::service svc))})
+   :enter (fn [context] (assoc context ::svc svc))})
 
 (def entity-render
   "Interceptor to render an entity '(:result context)' into the response."
@@ -104,57 +104,51 @@
 
 (def get-concept
   {:name  ::get-concept
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (hermes/get-concept (get-in context [:request ::service]) concept-id)]
+              (when-let [concept (hermes/get-concept svc concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
   {:name  ::get-extended-concept
-   :enter (fn [context]
-            (let [svc (get-in context [:request ::service])]
-              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (when-let [concept (hermes/get-extended-concept svc concept-id)]
-                  (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
-                        preferred (hermes/get-preferred-synonym svc concept-id langs)]
-                    (assoc context :result (assoc concept :preferredDescription preferred)))))))})
+   :enter (fn [{::keys [svc] :as context}]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (when-let [concept (hermes/get-extended-concept svc concept-id)]
+                (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
+                      preferred (hermes/get-preferred-synonym svc concept-id langs)]
+                  (assoc context :result (assoc concept :preferredDescription preferred))))))})
 
 (def get-historical
   {:name  ::get-historical
-   :enter (fn [context]
-            (let [svc (get-in context [:request ::service])]
-              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (assoc context :result (hermes/historical-associations svc concept-id)))))})
+   :enter (fn [{::keys [svc] :as context}]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (assoc context :result (hermes/historical-associations svc concept-id))))})
 
 (def get-concept-reference-sets
   {:name  ::get-concept-reference-sets
-   :enter (fn [context]
-            (let [svc (get-in context [:request ::service])]
-              (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-                (assoc context :result (hermes/get-component-refset-items-extended svc concept-id)))))})
+   :enter (fn [{::keys [svc] :as context}]
+            (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
+              (assoc context :result (hermes/get-component-refset-items-extended svc concept-id))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (hermes/get-descriptions (get-in context [:request ::service]) concept-id)]
+              (when-let [ds (hermes/get-descriptions svc concept-id)]
                 (assoc context :result ds))))})
 
 (def get-concept-preferred-description
   {:name  ::get-concept-preferred-description
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
               (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))]
-                (when-let [ds (hermes/get-preferred-synonym (get-in context [:request ::service])
-                                                            concept-id
-                                                            langs)]
+                (when-let [ds (hermes/get-preferred-synonym svc concept-id langs)]
                   (assoc context :result ds)))))})
 
 (def get-map-to
   {:name  ::get-map-to
-   :enter (fn [context]
-            (let [svc (get-in context [:request ::service])
-                  concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
+   :enter (fn [{::keys [svc] :as context}]
+            (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
                 (if-let [rfs (seq (hermes/get-component-refset-items svc concept-id refset-id))]
@@ -165,19 +159,18 @@
 
 (def get-map-from
   {:name  ::get-map-from
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (let [refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))
                   code (get-in context [:request :path-params :code])]
               (when (and refset-id code)
-                (when-let [rfs (hermes/reverse-map (get-in context [:request ::service]) refset-id code)]
+                (when-let [rfs (hermes/reverse-map svc refset-id code)]
                   (assoc context :result rfs)))))})
 
 (def subsumed-by?
   {:name  ::subsumed-by
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
-                  subsumer-id (Long/parseLong (get-in context [:request :path-params :subsumer-id]))
-                  svc (get-in context [:request ::service])]
+                  subsumer-id (Long/parseLong (get-in context [:request :path-params :subsumer-id]))]
               (log/info "subsumed by request: is " concept-id "subsumed by" subsumer-id ", using svc:" svc "?")
               (assoc context :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
@@ -200,9 +193,8 @@
 
 (def get-search
   {:name  ::get-search
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (let [params (parse-search-params (get-in context [:request :params]))
-                  svc (get-in context [:request ::service])
                   max-hits (or (:max-hits params) 200)]
               (if (< 0 max-hits 10000)
                 (assoc context :result (hermes/search svc (assoc params :max-hits max-hits)))
@@ -210,11 +202,10 @@
 
 (def get-expand
   {:name  ::get-expand
-   :enter (fn [context]
+   :enter (fn [{::keys [svc] :as context}]
             (let [ecl (get-in context [:request :params :ecl])
                   include-historic? (or (#{"true" "1"} (get-in context [:request :params :includeHistoric]))
-                                        (#{"true" "1"} (get-in context [:request :params :include-historic])))   ; avoid breaking change - support legacy parameter
-                  svc (get-in context [:request ::service])
+                                        (#{"true" "1"} (get-in context [:request :params :include-historic]))) ; avoid breaking change - support legacy parameter
                   max-hits (or (get-in context [:request :params :max-hits]) 500)]
               (if (< 0 max-hits 10000)
                 (assoc context :result (if include-historic?
