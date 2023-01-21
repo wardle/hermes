@@ -17,7 +17,7 @@
            com.github.jnr/jnr-ffi                   {:mvn/version "2.2.13"}} ;; pending release of lmdb 0.8.3, this permits using aarch64 lmdb binary
 
  :aliases {:build
-           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.1" :git/sha "27ff8a4"}
+           {:deps       {io.github.clojure/tools.build          {:git/tag "v0.9.2" :git/sha "fe6b140"}
                          slipset/deps-deploy                    {:mvn/version "RELEASE"}
                          io.github.borkdude/gh-release-artifact {:git/sha "db5e79559fdbfa009ed4a0921079e20e1e76b269"}}
             :ns-default build}
