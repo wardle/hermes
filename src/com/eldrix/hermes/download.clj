@@ -41,11 +41,9 @@
 (def registry
   "A registry of download providers. "
   {"uk.nhs/sct-clinical" {:f    (fn [params] (:archiveFilePath (download-from-trud 101 params)))
-                          :opts [:api-key :cache-dir :release-date]
                           :desc "UK clinical edition"
                           :spec ::uk-trud}
    "uk.nhs/sct-drug-ext" {:f    (fn [params] (:archiveFilePath (download-from-trud 105 params)))
-                          :opts [:api-key :cache-dir :release-date]
                           :spec ::uk-trud
                           :desc "UK drug extension"}})
 
