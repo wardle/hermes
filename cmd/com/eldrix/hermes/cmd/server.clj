@@ -271,7 +271,6 @@
   (http/stop @server))
 
 (comment
-  (require '[com.eldrix.hermes.core])
-  (def svc (com.eldrix.hermes.core/open "snomed.db"))
+  (def svc (hermes/open "snomed.db"))
   (start-dev svc 8080)
   (stop-dev))
