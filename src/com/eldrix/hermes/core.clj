@@ -765,20 +765,13 @@
   [store-file files]
   (with-open [store (store/open-store store-file {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
-          result-c (async/chan)
           data-c (importer/load-snomed-files files :nthreads nthreads)]
-      (async/pipeline-blocking
-        nthreads
-        result-c
-        (map #(if (instance? Throwable %)                   ;; if channel contains an exception, throw it on
-                (throw %)
-                (do (store/write-batch-with-fallback % store)
-                    ;; important to return true
-                    true)))
-        data-c true (fn ex-handler [err] err))              ;; and the exception handler then passes the exception through to results channel
-      (loop []
-        (when-let [v (async/<!! result-c)]
-          (if (instance? Throwable v) (throw v) (recur)))))))
+      (loop [batch (async/<!! data-c)]
+        (when batch
+          (if (instance? Throwable batch)
+            (throw batch)
+            (do (store/write-batch-with-fallback batch store)
+                (recur (async/<!! data-c)))))))))
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)
