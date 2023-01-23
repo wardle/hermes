@@ -40,9 +40,11 @@
       (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
           (import-from opts [(.toString unzipped-path)])))
-      (catch Exception e (if-let [exd (ex-data e)]
-                           ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
-                           (log/error (.getMessage e)))))))
+      (catch Exception e
+        (let [exd (ex-data e)]
+          (if (contains? exd :clojure.spec.alpha/problems)
+            ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
+            (log/error (.getMessage e))))))))
 
 (defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
