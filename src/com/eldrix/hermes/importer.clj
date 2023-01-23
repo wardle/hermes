@@ -144,7 +144,7 @@
           (log/debug "Error during raw SNOMED file import: " e)
           (async/>!! processed-c e)))
       (async/close! raw-c))
-    (async/pipeline-blocking
+    (async/pipeline
       nthreads
       processed-c
       (map snomed/parse-batch)
