@@ -130,12 +130,12 @@
       ;; asking for help with no command?
       (:help options)
       (println (usage summary))
-      ;; if we have any errors, exit with error message(s)
-      errors
-      (exit 1 (str (str/join \newline (map #(str "ERROR: " %) errors)) "\n\n" (usage summary cmd)))
       ;; if we have no command, exit with error message
       (not cmd)
       (exit 1 (usage summary))
+      ;; if we have any errors, exit with error message(s)
+      errors
+      (exit 1 (str (str/join \newline (map #(str "ERROR: " %) errors)) "\n\n" (usage summary cmd)))
       ;; invoke command
       :else (invoke-command (commands cmd) options arguments))))
 
