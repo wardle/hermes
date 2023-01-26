@@ -309,7 +309,7 @@
                           (kv/get-concept-descriptions store concept-id))
         parent-relationships (get-parent-relationships-expanded store concept-id)
         direct-parent-relationships (get-parent-relationships store concept-id)
-        refsets (into #{} (kv/get-component-refset-ids store concept-id))]
+        refsets (kv/get-component-refset-ids store concept-id)]
     (snomed/->ExtendedConcept
       concept
       descriptions
