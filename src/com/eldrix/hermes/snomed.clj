@@ -46,7 +46,7 @@
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
            (java.util UUID)
-           (com.eldrix.hermes.sct IConcept IDescription IResult)))
+           (com.eldrix.hermes.sct IAssociationRefsetItem IAtttributeValueRefsetItem IComplexMapRefsetItem IConcept IDescription IExtendedConcept IExtendedMapRefsetItem ILanguageRefsetItem IModuleDependencyRefsetItem IOWLExpressionRefsetItem IRefsetDescriptorRefsetItem IResult ISimpleMapRefsetItem ISimpleRefsetItem)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
@@ -126,7 +126,19 @@
    ^long referencedComponentId
    ^long attributeDescriptionId
    ^long attributeTypeId
-   ^int attributeOrder])
+   ^int attributeOrder]
+  IRefsetDescriptorRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (attributeDescriptionId [_] attributeDescriptionId)
+  (attributeTypeId [_] attributeTypeId)
+  (attributeOrder [_] attributeOrder)
+  (fields [_] []))
+
 
 ;; SimpleReferenceSet is a simple reference set usable for defining subsets
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.1+Simple+Reference+Set
@@ -137,7 +149,15 @@
    ^long moduleId
    ^long refsetId
    ^long referencedComponentId
-   fields])
+   fields]
+  ISimpleRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields))
 
 ;; An Association reference set is a reference set used to represent associations between components
 (defrecord AssociationRefsetItem
@@ -148,7 +168,16 @@
    ^long refsetId
    ^long referencedComponentId
    ^long targetComponentId
-   fields])
+   fields]
+  IAssociationRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (targetComponentId [_] targetComponentId)
+  (fields [_] fields))
 
 ;; LanguageReferenceSet is a A 900000000000506000 |Language type reference set| supporting the representation of
 ;; language and dialects preferences for the use of particular descriptions.
@@ -179,7 +208,17 @@
    ^long refsetId
    ^long referencedComponentId
    ^long acceptabilityId
-   fields])
+   fields]
+  ILanguageRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (acceptabilityId [_] acceptabilityId)
+  (fields [_] fields))
+
 
 ;; SimpleMapReferenceSet is a straightforward one-to-one map between SNOMED-CT concepts and another
 ;; coding system. This is appropriate for simple maps.
@@ -192,7 +231,17 @@
    ^long refsetId
    ^long referencedComponentId
    ^String mapTarget
-   fields])
+   fields]
+  ISimpleMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (mapTarget [_] mapTarget)
+  (fields [_] fields))
+
 
 ;; ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
 ;; coding system.
@@ -214,7 +263,22 @@
    ^String mapAdvice                                        ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
    ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
    ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-   fields])
+   fields]
+  IComplexMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (mapGroup [_] mapGroup)
+  (mapPriority [_] mapPriority)
+  (mapRule [_] mapRule)
+  (mapAdvice [_] mapAdvice)
+  (mapTarget [_] mapTarget)
+  (correlationId [_] correlationId)
+  (fields [_] fields))
+
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
 ;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
@@ -232,7 +296,22 @@
    ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
    ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
    ^long mapCategoryId                                      ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
-   fields])
+   fields]
+  IExtendedMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (mapGroup [_] mapGroup)
+  (mapPriority [_] mapPriority)
+  (mapRule [_] mapRule)
+  (mapAdvice [_] mapAdvice)
+  (mapTarget [_] mapTarget)
+  (correlationId [_] correlationId)
+  (mapCategoryId [_] mapCategoryId)
+  (fields [_] fields))
 
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
@@ -244,7 +323,16 @@
    ^long refsetId
    ^long referencedComponentId                              ;;
    ^long valueId
-   fields])
+   fields]
+  IAtttributeValueRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (valueId [_] valueId)
+  (fields [_] fields))
 
 ;; The Module dependency reference set is used to represent dependencies between modules, taking account of module versioning.
 ;; see https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set
@@ -257,7 +345,17 @@
    ^long referencedComponentId                              ;; The value of this attribute is the id of the module on which the source module (referred to by the moduleId attribute) is dependent.
    ^LocalDate sourceEffectiveTime                           ;; The effective time of the dependent source module (identified by moduleId). This specifies a version of that module, consisting of all components that have the same moduleId as this refset member in their states as at the specified targetEffectiveTime .
    ^LocalDate targetEffectiveTime                           ;; The effective time of the target module required to satisfy the dependency (identified by referencedComponentId). This specifies a version of that module, consisting of all components with the moduleId specified by referencedComponentId in their states as at the specified targetEffectiveTime.
-   fields])
+   fields]
+  IModuleDependencyRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (sourceEffectiveTime [_] sourceEffectiveTime)
+  (targetEffectiveTime [_] targetEffectiveTime)
+  (fields [_] fields))
 
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
@@ -269,16 +367,34 @@
    ^long refsetId                                           ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
    ^long referencedComponentId
    ^String owlExpression
-   fields])
+   fields]
+  IOWLExpressionRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (owlExpression [_] owlExpression))
 
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
 (defrecord ExtendedConcept
-  [concept
+  [^Concept concept
    descriptions
    parentRelationships
    directParentRelationships
-   refsets])
+   refsets]
+  IExtendedConcept
+  (id [_] (.-id concept))
+  (effectiveTime [_] (.-effectiveTime concept))
+  (active [_] (.-active concept))
+  (moduleId [_] (.-moduleId concept))
+  (definitionStatusId [_] (.-definitionStatusId concept))
+  (descriptions [_] descriptions)
+  (parentRelationships [_] parentRelationships)
+  (directParentRelationships [_] directParentRelationships)
+  (refsets [_] refsets))
 
 (defn parse-concept [v]
   (->Concept
