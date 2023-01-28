@@ -567,7 +567,7 @@
   "Return internal statistics regarding a DBI. Total size is calculated from the
    total number of pages and page size, with a mean size per entry."
   [^Dbi dbi ^Txn txn]
-  (let [stat (.stat dbi txn)
+  (let [stat (.stat dbi txn)                                ;; stat is an immutable object
         size (* (.pageSize stat) (+ (.branchPages stat) (.leafPages stat) (.overflowPages stat)))]
     {:db            (String. (.getName dbi) StandardCharsets/UTF_8)
      :entries       (.entries stat)
@@ -577,7 +577,7 @@
      :leafPages     (.leafPages stat)
      :overflowPages (.-overflowPages stat)
      :size          size
-     :mean          (int (/ size (.entries stat)))}))
+     :mean          (when (pos? (.entries stat)) (int (/ size (.entries stat))))}))
 
 (defn statistics
   "Internal statistics for the store. Returns a sequence with an item per
