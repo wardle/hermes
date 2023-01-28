@@ -62,13 +62,13 @@
   ^"[Lorg.lmdbjava.DbiFlags;" [read-only? & flags]
   (into-array DbiFlags (if read-only? flags (conj flags DbiFlags/MDB_CREATE))))
 
-(def ^:private default-map-size (* 4 1024 1024 1024))
+(def ^:private default-map-size (* 5 1024 1024 1024))
 
 (defn- open*
   "Open a store at the path specified.
   f          : path of directory, anything coercible by clojure.io/as-file
   read-only? : whether to open read-only; default true
-  map-size   : size in bytes, default 10gb"
+  map-size   : size in bytes, default 5gb"
   [f & {:keys [read-only? map-size] :or {read-only? true map-size default-map-size}}]
   (let [f' ^File (io/file f)]
     (when (not (.exists f'))
