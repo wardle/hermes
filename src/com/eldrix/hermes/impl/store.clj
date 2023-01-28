@@ -53,15 +53,16 @@
 (def close kv/close)
 
 (defn get-all-parents
-  "Returns all parent concepts for the concept, including self.
+  "Returns all parent concepts for the concept(s), including that concept or
+  those concepts, by design.
    Parameters:
    - `store`
-   - `concept-id`
+   - `concept-id-or-ids` a concept identifier, or collection of identifiers
    - `type-id`, defaults to 'IS-A' (116680003)."
-  ([store concept-id]
-   (get-all-parents store concept-id snomed/IsA))
-  ([store concept-id type-id]
-   (loop [work #{concept-id}
+  ([store concept-id-or-ids]
+   (get-all-parents store concept-id-or-ids snomed/IsA))
+  ([store concept-id-or-ids type-id]
+   (loop [work (if (number? concept-id-or-ids) #{concept-id-or-ids} (set concept-id-or-ids))
           result (transient #{})]
      (if-not (seq work)
        (persistent! result)
@@ -103,12 +104,16 @@
   common finding site at any level of granularity."
   ([store concept-id]
    (->> (kv/get-raw-parent-relationships store concept-id)
-        (map (fn [[_source-id type-id _group target-id]] (hash-map type-id (get-all-parents store target-id))))
-        (apply merge-with into)))
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)) {})
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (get-all-parents store v))) {})))
   ([store concept-id type-id]
    (->> (kv/get-raw-parent-relationships store concept-id type-id)
-        (map (fn [[_source-id type-id _group target-id]] (hash-map type-id (get-all-parents store target-id))))
-        (apply merge-with into))))
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)))
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (get-all-parents store v))) {}))))
 
 (defn get-child-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
