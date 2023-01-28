@@ -22,6 +22,7 @@
   (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
            (java.nio.file.attribute FileAttribute)
            (io.netty.buffer PooledByteBufAllocator ByteBuf)
+           (java.nio.charset StandardCharsets)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Description Relationship Concept)
            (java.util UUID)
@@ -560,4 +561,44 @@
                      :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
                      :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
                      :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
+
+
+(defn- dbi-stat
+  "Return internal statistics regarding a DBI. Total size is calculated from the
+   total number of pages and page size, with a mean size per entry."
+  [^Dbi dbi ^Txn txn]
+  (let [stat (.stat dbi txn)
+        size (* (.pageSize stat) (+ (.branchPages stat) (.leafPages stat) (.overflowPages stat)))]
+    {:db            (String. (.getName dbi) StandardCharsets/UTF_8)
+     :entries       (.entries stat)
+     :depth         (.depth stat)
+     :pageSize      (.pageSize stat)
+     :branchPages   (.branchPages stat)
+     :leafPages     (.leafPages stat)
+     :overflowPages (.-overflowPages stat)
+     :size          size
+     :mean          (int (/ size (.entries stat)))}))
+
+(defn statistics
+  "Internal statistics for the store. Returns a sequence with an item per
+  environment"
+  [^LmdbStore store]
+  (with-open [^Txn core-txn (.txnRead ^Env (.-coreEnv store))
+              ^Txn refsets-txn (.txnRead ^Env (.-refsetsEnv store))]
+    (->> [{:env      :core
+           :map-size (.mapSize (.info ^Env (.coreEnv store)))
+           :dbs      [(dbi-stat (.-concepts store) core-txn)
+                      (dbi-stat (.-conceptDescriptions store) core-txn)
+                      (dbi-stat (.-relationships store) core-txn)
+                      (dbi-stat (.-descriptionConcept store) core-txn)
+                      (dbi-stat (.-conceptParentRelationships store) core-txn)
+                      (dbi-stat (.-conceptChildRelationships store) core-txn)
+                      (dbi-stat (.-componentRefsets store) core-txn)
+                      (dbi-stat (.-associations store) core-txn)]}
+          {:env      :refsets
+           :map-size (.mapSize (.info ^Env (.-refsetsEnv store)))
+           :dbs      [(dbi-stat (.-refsetFieldNames store) refsets-txn)
+                      (dbi-stat (.-refsetItems store) refsets-txn)]}]
+         (mapv #(assoc % :total-size (->> % :dbs (map :size) (reduce +))))
+         (mapv #(assoc % :map-used (float (/ (:total-size %) (:map-size %))))))))
 
