@@ -62,13 +62,14 @@
   ^"[Lorg.lmdbjava.DbiFlags;" [read-only? & flags]
   (into-array DbiFlags (if read-only? flags (conj flags DbiFlags/MDB_CREATE))))
 
+(def ^:private default-map-size (* 5 1024 1024 1024))
+
 (defn- open*
   "Open a store at the path specified.
-  f                : path of directory, anything coercible by clojure.io/as-file
-  read-only?       : whether to open read-only; default true
-  core-map-size    : core environment map size in bytes, default 4gb
-  refsets-map-size : refsets environment map size in bytes, default 3gb"
-  [f & {:keys [read-only? core-map-size refsets-map-size] :or {read-only? true}}]
+  f          : path of directory, anything coercible by clojure.io/as-file
+  read-only? : whether to open read-only; default true
+  map-size   : size in bytes, default 5gb"
+  [f & {:keys [read-only? map-size] :or {read-only? true map-size default-map-size}}]
   (let [f' ^File (io/file f)]
     (when (not (.exists f'))
       (if read-only?
@@ -77,12 +78,12 @@
     (let [root-path (.toPath f')
           core-f (.toFile (.resolve root-path "core.db"))
           refsets-f (.toFile (.resolve root-path "refsets.db"))
-          core-env (let [b (-> (Env/create ByteBufProxy/PROXY_NETTY) (.setMaxDbs 8))
-                         b' (if read-only? b (.setMapSize b (or core-map-size (* 4 1024 1024 1024))))]
-                     (.open b' core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
-          refsets-env (let [b (-> (Env/create ByteBufProxy/PROXY_NETTY) (.setMaxDbs 2))
-                            b' (if read-only? b (.setMapSize b (or refsets-map-size (* 3 1024 1024 1024))))]
-                        (.open b' refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
+          core-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
+                       (.setMapSize map-size) (.setMaxDbs 8)
+                       (.open core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
+          refsets-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
+                          (.setMapSize map-size) (.setMaxDbs 2)
+                          (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
           base-flags (make-dbi-flags read-only?)
           ;; core env
           concepts (.openDbi ^Env core-env "c" base-flags)
