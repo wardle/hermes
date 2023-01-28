@@ -155,9 +155,16 @@
           (is (= "Multiple sclerosis (disorder)" (:term fsn)))
           (is (:active fsn))
           (is (snomed/is-fully-specified-name? fsn)))
-        (let [all-parents (store/get-all-parents store 24700007)]
-          (is (contains? all-parents 6118003))              ;; it is a demyelinating disease
-          (is (contains? all-parents 138875005)))           ;; it is a SNOMED CT concept
+        (let [all-parents1 (store/get-all-parents store 24700007)
+              all-parents2 (store/get-all-parents store 6118003)
+              all-parents3 (store/get-all-parents store 80146002)
+              all-parents4 (store/get-all-parents store [24700007 80146002])
+              all-parents5 (store/get-all-parents store [24700007 6118003])]
+          (is (contains? all-parents1 6118003))              ;; it is a demyelinating disease
+          (is (contains? all-parents1 138875005))           ;; it is a SNOMED CT concept
+          (is (set/subset? all-parents2 all-parents1))
+          (is (= (set/union all-parents1 all-parents3) all-parents4))
+          (is (= all-parents1 all-parents5)))
         (is (store/is-a? store 24700007 6118003))
         (is (store/is-a? store 24700007 138875005))
         (is (store/is-a? store 24700007 24700007))
