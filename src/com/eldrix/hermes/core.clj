@@ -610,6 +610,33 @@
   [^Svc svc source-concept-ids target]
   (map-into svc source-concept-ids target))
 
+
+(s/fdef module-dependencies*
+  :args (s/cat :items (s/coll-of :info.snomed/ModuleDependencyRefset)))
+(defn module-dependencies*
+  "Given a collection of module dependency reference set items, return
+  transformed as :source, :target, :actual and :valid representing module
+  dependencies. Returns a sequence of:
+  - :source : source of the dependency (a map of :moduleId, :version)
+  - :target : target on which the source depends (a map of :moduleId, :version)
+  - :actual : actual version; may be nil
+  - :valid  : is this dependency satisfied and consistent?
+  Versions are represented as `java.time.LocalDate.
+  Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
+  [items]
+  (let [installed (reduce (fn [acc {:keys [moduleId sourceEffectiveTime]}] ;; as there may be multiple module dependency items with different dates, we use the latest one
+                            (update acc moduleId #(if (or (not %) (.isAfter ^LocalDate sourceEffectiveTime %)) sourceEffectiveTime %))) {} items)
+        installed' (assoc installed snomed/ModelModule (installed snomed/CoreModule))] ;; impute 'Model' module version based on 'Core' module version
+    (->> items
+         (map (fn [{:keys [moduleId sourceEffectiveTime referencedComponentId targetEffectiveTime]}]
+                (let [actual (installed' referencedComponentId)]
+                  (hash-map :source {:moduleId moduleId :version sourceEffectiveTime}
+                            :target {:moduleId referencedComponentId :version targetEffectiveTime}
+                            :actual actual
+                            :valid (and actual (or (.isEqual ^LocalDate actual targetEffectiveTime)
+                                                   (.isAfter ^LocalDate actual targetEffectiveTime))))))))))
+
+
 (s/fdef module-dependencies
   :args (s/cat :svc ::svc))
 (defn module-dependencies
@@ -622,19 +649,8 @@
   Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
   [^Svc svc]
   (let [items (->> (get-refset-members svc snomed/ModuleDependencyReferenceSet)
-                   (mapcat #(get-component-refset-items svc % snomed/ModuleDependencyReferenceSet)))
-        installed (->> items                                ;; as there may be multiple module dependency items with different dates, we use the latest one
-                       (reduce (fn [acc {:keys [moduleId sourceEffectiveTime]}]
-                                 (update acc moduleId #(if (or (not %) (.isAfter ^LocalDate sourceEffectiveTime %)) sourceEffectiveTime %))) {}))
-        installed' (assoc installed snomed/ModelModule (installed snomed/CoreModule))] ;; impute 'Model' module version based on 'Core' module version
-    (->> items
-         (map (fn [{:keys [moduleId sourceEffectiveTime referencedComponentId targetEffectiveTime]}]
-                (let [actual (installed' referencedComponentId)]
-                  (hash-map :source {:moduleId moduleId :version sourceEffectiveTime}
-                            :target {:moduleId referencedComponentId :version targetEffectiveTime}
-                            :actual actual
-                            :valid (and actual (or (.isEqual ^LocalDate actual targetEffectiveTime)
-                                                   (.isAfter ^LocalDate actual targetEffectiveTime))))))))))
+                   (mapcat #(get-component-refset-items svc % snomed/ModuleDependencyReferenceSet)))]
+    (module-dependencies* items)))
 
 (s/fdef module-dependency-problems
   :args (s/cat :svc ::svc))
