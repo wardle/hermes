@@ -161,14 +161,14 @@ of medicines and devices.
 
 ### 3. Index and compact
 
+You must index. Compaction is not mandatory, but advisable.
+
 ```shell
-java -jar hermes.jar --db snomed.db index
-java -jar hermes.jar --db snomed.db compact
+java -jar hermes.jar --db snomed.db index compact
 ```
 or
 ```shell
-clj -M:run --db snomed.db index
-clj -M:run --db snomed.db compact
+clj -M:run --db snomed.db index compact
 ```
 
 My machine takes 6 minutes to build the search indices and 20 seconds to compact the database.
@@ -188,6 +188,13 @@ to give you a FHIR terminology server.
 
 More detailed documentation is included below.
 
+You can use multiple commands at the same time.
+
+For example:
+```shell
+java -jar hermes.jar --api-key trud-api-key.txt --db snomed.db install uk.nhs/sct-clinical index compact serve 
+```
+Will download, extract, import, index and compact a database, and then run a server.
 
 
 # Common questions
