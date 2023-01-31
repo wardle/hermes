@@ -145,7 +145,7 @@
 
 (def all-commands (set (map :cmd commands*)))
 
-(defn- format-command [{:keys [cmd usage desc]}]
+(defn format-command [{:keys [cmd usage desc]}]
   (str " " (format "%-14s" (or usage cmd)) " - " desc))
 
 (defn format-commands
