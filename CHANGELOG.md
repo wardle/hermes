@@ -2,11 +2,12 @@
 
 This log documents significant changes for each release.
 
-## [Not yet released]
+## [1.0.938] - 2023-01-31
 
 * Add support to give multiple commands in one invocation via command-line interface 
 * Improve speed of import through tweaking memory map synchronisation 
 * Improve speed of indexing through more efficient calculation of transitive closure tables for relationships
+
 
 ## [1.0.914] - 2023-01-23
 
