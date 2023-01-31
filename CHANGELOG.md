@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [Not yet released]
+
+* Add support to give multiple commands in one invocation via command-line interface 
+* Improve speed of import through tweaking memory map synchronisation 
+* Improve speed of indexing through more efficient calculation of transitive closure tables for relationships
+
 ## [1.0.914] - 2023-01-23
 
 * Improvements to speed and efficiency of import. Use a single thread for LMDB writes.
