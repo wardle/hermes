@@ -34,31 +34,31 @@
             (is (= (get-in parsed [:options :db]) "snomed.db"))
             (is (= (get-in parsed [:options :api-key])) "api-key.txt")
             (is (nil? (:errors parsed))))}
-   {:s "Test install with release date"
+   {:s    "Test install with release date"
     :args ["--db snomed.db" "install" "uk.nhs/sct-clinical" "--api-key=api-key.txt" "--release-date" "2023-01-01"]
     :test (fn [parsed]
             (is (= (get-in parsed [:options :release-date]) "2023-01-01")))}
    {:s    "Testing import"
     :args (str/split "--db snomed.db import /Downloads/snomed-2021/" #" ")
-    :test (fn [{:keys [cmd options arguments]}]
-            (is (= cmd "import"))
+    :test (fn [{:keys [cmds options arguments]}]
+            (is (= cmds ["import"]))
             (is (= (:db options) "snomed.db"))
             (is (= arguments ["/Downloads/snomed-2021/"])))}
    {:s    "Testing compact"
     :args (str/split "--db snomed.db compact" #" ")
-    :test (fn [{:keys [cmd options]}]
-            (is (= cmd "compact"))
+    :test (fn [{:keys [cmds options]}]
+            (is (= cmds ["compact"]))
             (is (= (:db options) "snomed.db")))}
    {:s    "Testing indexing"
     :args ["--db" "snomed.db" "index"]
-    :test (fn [{:keys [cmd options]}]
-            (is (= cmd "index"))
+    :test (fn [{:keys [cmds options]}]
+            (is (= cmds ["index"]))
             (is (= (:db options) "snomed.db"))
             (is (not (:locale options))))}
    {:s    "Testing indexing with locale"
     :args ["index" "--db=snomed.db" "--locale" "en-GB,en-US"]
-    :test (fn [{:keys [cmd options]}]
-            (is (= cmd "index"))
+    :test (fn [{:keys [cmds options]}]
+            (is (= cmds ["index"]))
             (is (= (:db options) "snomed.db"))
             (is (= (:locale options) "en-GB,en-US")))}
    {:s    "Test status with missing database"
@@ -67,21 +67,27 @@
             (is (seq errors)))}
    {:s    "Test status "
     :args ["status" "--db" "snomed.db"]
-    :test (fn [{:keys [cmd options errors]}]
+    :test (fn [{:keys [cmds options errors]}]
             (is (nil? errors))
-            (is (= cmd "status"))
+            (is (= cmds ["status"]))
             (is (= (:db options) "snomed.db")))}
    {:s    "Run a server"
     :args (str/split "--db snomed.db --port 8090 serve" #" ")
-    :test (fn [{:keys [cmd options errors]}]
+    :test (fn [{:keys [cmds options errors]}]
             (is (nil? errors))
-            (is (= "serve" cmd))
+            (is (= cmds ["serve"]))
             (is (= (:db options) "snomed.db"))
             (is (= (:port options) 8090)))}
    {:s    "Avoid extraneous options being included"
     :args ["serve"]
     :test (fn [{:keys [options]}]
-            (is (not (contains? options :dist)) "parse-cli mistakenly included :dist options key when not provided"))}])
+            (is (not (contains? options :dist)) "parse-cli mistakenly included :dist options key when not provided"))}
+   {:s "Test multiple commands"
+    :args ["install" "--db=snomed.db" "uk.nhs/sct-clinical" "index" "compact" "serve" "--api-key=api-key.txt" "--port" "8090"]
+    :test (fn [{:keys [options errors cmds]}]
+            (is (= cmds ["install" "index" "compact" "serve"]))
+            (is (nil? errors))
+            (is (= 8090 (:port options))))}])
 
 (deftest test-parse-cli-options
   (doseq [{:keys [s args test]} cli-tests]

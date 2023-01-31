@@ -80,7 +80,7 @@
 
 (defn usage
   ([options-summary]
-   (->> [(str "Usage: hermes [options] 'command' [parameters]")
+   (->> [(str "Usage: hermes [options] 'commands' ")
          ""
          "For more help on a command, use hermes --help 'command'"
          ""
@@ -90,11 +90,12 @@
          "Commands:"
          (cli/format-commands)]
         (str/join \newline)))
-  ([options-summary cmd]
-   (when-let [{:keys [usage desc]} (cli/commands cmd)]
-     (->> [(str "Usage: hermes [options] " (or usage cmd))
+  ([options-summary cmds]
+   (let [n (count cmds), cmds' (map cli/commands cmds)      ;; get information about each command requested
+         {:keys [usage cmd desc]} (first cmds')]   ;; handle case of one command specially
+     (->> [(str "Usage: hermes [options] " (if (= 1 n) (or usage cmd) (str/join " " cmds)))
            ""
-           desc
+           (if (= 1 n) desc (str/join \newline (map cli/format-command cmds')))
            ""
            "Options:"
            options-summary]
@@ -121,23 +122,24 @@
     (exit 1 "ERROR: not implemented ")))
 
 (defn -main [& args]
-  (let [{:keys [cmd options arguments summary errors warnings]} (cli/parse-cli args)]
+  (let [{:keys [cmds options arguments summary errors warnings]} (cli/parse-cli args)]
     (doseq [warning warnings] (log/warn warning))
     (cond
       ;; asking for help with a specific command?
-      (and cmd (:help options))
-      (println (usage summary cmd))
+      (and (seq cmds) (:help options))
+      (println (usage summary cmds))
       ;; asking for help with no command?
       (:help options)
       (println (usage summary))
       ;; if we have no command, exit with error message
-      (not cmd)
+      (empty? cmds)
       (exit 1 (usage summary))
       ;; if we have any errors, exit with error message(s)
       errors
-      (exit 1 (str (str/join \newline (map #(str "ERROR: " %) errors)) "\n\n" (usage summary cmd)))
-      ;; invoke command
-      :else (invoke-command (commands cmd) options arguments))))
+      (exit 1 (str (str/join \newline (map #(str "ERROR: " %) errors)) "\n\n" (usage summary cmds)))
+      ;; invoke commands one by one
+      :else (doseq [cmd cmds]
+              (invoke-command (commands cmd) options arguments)))))
 
 (comment)
 

@@ -157,12 +157,15 @@
        (str/join \newline)))
 
 (defn- warn-if-deprecated
-  "If a command is deprecated, add a warning."
-  [{:keys [cmd] :as parsed}]
-  (let [{:keys [deprecated warning]} (commands cmd)]
-    (if-not (and deprecated warning)
-      parsed
-      (update parsed :warnings (fnil conj []) (str/join " " [(str "Command '" cmd "' is deprecated.") warning])))))
+  "Add a warning for each deprecated command."
+  [{:keys [cmds] :as parsed}]
+  (let [warnings (->> cmds
+                      (map commands)
+                      (filter :deprecated)
+                      (map #(str "Command '" (:cmd %) "' is deprecated. " (:warning %))))]
+    (if (seq warnings)
+      (update parsed :warnings (fnil conj []) warnings)
+      parsed)))
 
 (defn- parse-allowed-origins
   "Incorporate single comma-delimited allowed origins into the main
@@ -174,21 +177,34 @@
         (update :options dissoc :allowed-origins)
         (update-in [:options :allowed-origin] #(apply conj % (str/split (:allowed-origins options) #","))))))
 
+
+(defn opts-for-commands
+  "Given a collection of command-line arguments, return sorted options."
+  [args]
+  (->> (filter all-commands args)
+       (map commands)
+       (map :opts)
+       (mapcat #(if (fn? %) (% args) %))
+       distinct
+       (sort-by second)))
+
 (defn parse-cli
   "Parse command-line arguments and return a map containing:
-  - :cmd       - the command requested
-  - :options   - parsed parameters for the command
+  - :cmds      - a vector of the commands requested, in order given, may be [].
+  - :options   - parsed parameters for the commands
   - :arguments - any remaining command line arguments
   - :warnings  - a sequence of warnings, if any
-  - :errors    - a sequence of errors, if any"
+  - :errors    - a sequence of errors, if any
+
+  Commands are returned in order given on the command-line."
   [args]
-  (let [cmd (some all-commands args)
-        {:keys [opts]} (or (commands cmd) {:opts [(option :help)]})]
+  (let [cmds (filterv all-commands args)                    ;; return commands in order given on command-line
+        opts (or (seq (opts-for-commands args)) [(option :help)])] ;; determine options for command(s)
     (-> args
         expand-legacy-parameters
-        (cli/parse-opts (if (fn? opts) (opts args) opts))
-        (update :arguments #(remove (fn [x] (= cmd x)) %))
-        (assoc :cmd cmd)
+        (cli/parse-opts opts)
+        (update :arguments #(remove (set cmds) %))
+        (assoc :cmds cmds)
         parse-allowed-origins
         parse-legacy-distributions
         warn-if-deprecated)))
