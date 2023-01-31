@@ -111,32 +111,32 @@
     parsed))
 
 (def commands*
-  [{:cmd  "import" :usage "import [paths]"
-    :desc "Import SNOMED distribution files from the path(s) specified"
-    :opts [(option :db db-mandatory) (option :help)]}
-   {:cmd  "list" :usage "list [paths]"
+  [{:cmd  "list" :usage "list [paths]"
     :desc "List importable files from the path(s) specified."
     :opts [(option :help)]}
+   {:cmd  "import" :usage "import [paths]"
+    :desc "Import SNOMED distribution files from the path(s) specified"
+    :opts [(option :db db-mandatory) (option :help)]}
+   {:cmd  "available" :desc "List available distributions, or releases for 'install'"
+    :opts #(make-distribution-options {} %)}
    {:cmd  "download" :usage "download [dists]" :deprecated true :warning "Use 'install' instead"
     :desc "Download and install specified distributions"
     :opts #(make-distribution-options {:db? true} %)}
-   {:cmd  "available" :desc "List available distributions, or releases for 'install'"
-    :opts #(make-distribution-options {} %)}
    {:cmd  "install" :desc "Download and install specified distribution(s)"
     :opts #(make-distribution-options {:db? true} %)}
    {:cmd  "index" :desc "Build search indices"
     :opts [(option :db db-mandatory) (option :locale) (option :help)]}
    {:cmd  "compact" :desc "Compact database"
     :opts [(option :db db-mandatory) (option :help)]}
-   {:cmd  "serve" :desc "Start a terminology server"
-    :opts [(option :db db-mandatory) (option :port) (option :bind-address)
-           (option :allowed-origins) (option :allowed-origin) (option :locale)
-           (option :help)]}
    {:cmd  "status" :desc "Display status information"
     :opts [(option :db db-mandatory)
            (option :format)
            [nil "--modules" "Show installed modules"]
            [nil "--refsets" "Show installed refsets"]
+           (option :help)]}
+   {:cmd  "serve" :desc "Start a terminology server"
+    :opts [(option :db db-mandatory) (option :port) (option :bind-address)
+           (option :allowed-origins) (option :allowed-origin) (option :locale)
            (option :help)]}])
 
 (def commands
