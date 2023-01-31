@@ -45,7 +45,7 @@
    :locale          [nil "--locale LOCALE" "Locale to use, if different from system"]
    :format          [nil "--format FMT" "Format for status output ('json' or 'edn')"
                      :parse-fn keyword :validate [#{:json :edn} "Format must be 'json' or 'edn'"]]
-   :dist            [nil "--dist DST" "Distribution(s) to download e.g. uk.nhs/sct-clinical"
+   :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
                      :validate [(set (keys distribution-opts)) "Unknown distribution"]
                      :multi true :default [] :update-fn conj :default-desc ""]
    :verbose         ["-v" "--verbose"]
