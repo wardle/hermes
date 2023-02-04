@@ -72,6 +72,26 @@
          (recur (apply conj (rest work) parent-ids)
                 (conj! result id)))))))
 
+(defn get-all-parents2
+  "Returns all parent concepts for the concept(s), including that concept or
+  those concepts, by design.
+   Parameters:
+   - `store`
+   - `concept-id-or-ids` a concept identifier, or collection of identifiers
+   - `type-id`, defaults to 'IS-A' (116680003)."
+  ([store concept-id-or-ids]
+   (get-all-parents store concept-id-or-ids snomed/IsA))
+  ([store concept-id-or-ids type-id]
+   (loop [work (if (number? concept-id-or-ids) #{concept-id-or-ids} (set concept-id-or-ids))
+          result (transient #{})]
+     (if-not (seq work)
+       (persistent! result)
+       (let [id (first work)
+             done-already? (contains? result id)
+             parent-ids (if done-already? () (map last (kv/get-raw-parent-relationships2 store id type-id)))]
+         (recur (apply conj (rest work) parent-ids)
+                (conj! result id)))))))
+
 (defn get-parent-relationships
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets of each relationship.
@@ -85,6 +105,20 @@
   (->> (kv/get-raw-parent-relationships store concept-id)
        (reduce (fn [acc v]
                  (update acc (v 1) (fnil conj #{}) (v 3))) {}))) ;; tuple [concept-id type-id group destination-id] so return indices 1+3
+
+(defn get-parent-relationships2
+  "Returns a map of the parent relationships, with each value a set of
+  identifiers representing the targets of each relationship.
+  Returns a map:
+  key: concept-id of the relationship type (e.g. identifier representing finding site)
+  value: a set of concept identifiers for that property.
+
+  See `get-parent-relationships-expanded` to get each target expanded via
+  transitive closure tables."
+  [store concept-id]
+  (->> (kv/get-raw-parent-relationships2 store concept-id)
+       (reduce (fn [acc v]
+                 (update acc (v 1) (fnil conj #{}) (v 3))) {})))
 
 (defn get-parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
@@ -114,6 +148,24 @@
                   (update acc type-id conj target-id)))
         (reduce-kv (fn [acc k v]
                      (assoc acc k (get-all-parents store v))) {}))))
+
+(defn get-parent-relationships-expanded2
+  "Returns a map of the parent relationships, with each value a set of
+  identifiers representing the targets and their transitive closure tables. This
+  makes it trivial to build queries that find all concepts with, for example, a
+  common finding site at any level of granularity."
+  ([store concept-id]
+   (->> (kv/get-raw-parent-relationships2 store concept-id)
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)) {})
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (get-all-parents2 store v))) {})))
+  ([store concept-id type-id]
+   (->> (kv/get-raw-parent-relationships2 store concept-id type-id)
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)))
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (get-all-parents2 store v))) {}))))
 
 (defn get-child-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
@@ -226,6 +278,28 @@
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
+(defn get-description-refsets2
+  "Get the refsets and language applicability for a description.
+
+   Returns a map containing:
+  - refsets       : a set of refsets to which this description is a member
+  - preferredIn  : refsets for which this description is preferred
+  - acceptableIn : refsets for which this description is acceptable.
+
+  Example:
+  ```
+  (map #(merge % (get-description-refsets store (:id %)))
+       (get-concept-descriptions store 24700007))
+  ```"
+  [store description-id]
+  (let [refset-items (kv/get-component-refset-items2 store description-id)
+        refsets (into #{} (map :refsetId refset-items))
+        preferred-in (into #{} (map :refsetId (filter #(= snomed/Preferred (:acceptabilityId %)) refset-items)))
+        acceptable-in (into #{} (map :refsetId (filter #(= snomed/Acceptable (:acceptabilityId %)) refset-items)))]
+    {:refsets      refsets
+     :preferredIn  preferred-in
+     :acceptableIn acceptable-in}))
+
 (s/fdef get-preferred-description
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
   :ret (s/nilable :info.snomed/Description))
@@ -315,6 +389,22 @@
         parent-relationships (get-parent-relationships-expanded store concept-id)
         direct-parent-relationships (get-parent-relationships store concept-id)
         refsets (kv/get-component-refset-ids store concept-id)]
+    (snomed/->ExtendedConcept
+      concept
+      descriptions
+      parent-relationships
+      direct-parent-relationships
+      refsets)))
+
+(defn make-extended-concept2 [store concept]
+  (when-not (map? concept)
+    (throw (IllegalArgumentException. "invalid concept")))
+  (let [concept-id (:id concept)
+        descriptions (map #(merge % (get-description-refsets2 store (:id %)))
+                          (kv/get-concept-descriptions2 store concept-id))
+        parent-relationships (get-parent-relationships-expanded2 store concept-id)
+        direct-parent-relationships (get-parent-relationships2 store concept-id)
+        refsets (kv/get-component-refset-ids2 store concept-id)]
     (snomed/->ExtendedConcept
       concept
       descriptions

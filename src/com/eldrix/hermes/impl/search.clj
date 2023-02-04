@@ -96,7 +96,7 @@
 
 (defn make-extended-descriptions
   [store language-refset-ids concept]
-  (let [ec (store/make-extended-concept store concept)
+  (let [ec (store/make-extended-concept2 store concept)
         ec' (dissoc ec :descriptions)
         preferred (store/get-preferred-synonym store (:id concept) language-refset-ids)]
     (when-not preferred

@@ -19,13 +19,14 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [com.eldrix.hermes.impl.ser :as ser])
-  (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
+  (:import (java.util.concurrent ConcurrentLinkedQueue)
+           [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
            (java.nio.file.attribute FileAttribute)
            (io.netty.buffer PooledByteBufAllocator ByteBuf)
            (java.nio.charset StandardCharsets)
            (java.time LocalDate)
            (com.eldrix.hermes.snomed Description Relationship Concept)
-           (java.util UUID)
+           (java.util Iterator UUID)
            (java.io Closeable File)
            (java.nio.file Files Path CopyOption StandardCopyOption)))
 
@@ -33,10 +34,16 @@
 
 (s/def ::store any?)
 
+(definterface ITxnPool
+  (^org.lmdbjava.Txn getTxn [])
+  (returnTxn [^org.lmdbjava.Txn txn])
+  (close []))
+
 (deftype LmdbStore
   [^Path rootPath
    ;;;; core env
    ^Env coreEnv
+   ^ITxnPool coreTxnPool                                    ;; a pool of reusable read-only transactions
    ;; core stores - simple or compound keys and values
    ^Dbi concepts                                            ;; conceptId = concept
    ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
@@ -49,6 +56,7 @@
    ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
    ;;;; refset env
    ^Env refsetsEnv
+   ^ITxnPool refsetsTxnPool                                 ;; a pool of reusable read-only transactions
    ^Dbi refsetItems                                         ;; refset-item-id = refset-item
    ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
   Closeable
@@ -56,8 +64,45 @@
     (when-not (.isReadOnly coreEnv)
       (.sync coreEnv true)                                  ;; as we're not using synchronous or asynchronous flushes, manually flush on close
       (.sync refsetsEnv true))
+    (.close ^ITxnPool coreTxnPool)
+    (.close ^ITxnPool refsetsTxnPool)
     (.close ^Env coreEnv)
     (.close ^Env refsetsEnv)))
+
+(deftype TxnPool [^Env env, ^ConcurrentLinkedQueue pool]
+  ITxnPool
+  (getTxn [_]
+    (if-let [txn ^Txn (.poll pool)]
+      (do (.renew txn) txn)
+      (.txnRead env)))
+  (returnTxn [_ ^Txn txn]
+    (.reset txn)
+    (.add pool txn))
+  (close [_]
+    (loop [^Iterator iter (.iterator pool)]
+      (when (.hasNext iter)
+        (.close ^Txn (.next iter))
+        (.remove iter)
+        (recur iter)))))
+
+(deftype DirectTxnPool [^Env env]
+  ITxnPool
+  (getTxn [_]
+    (.txnRead env))
+  (returnTxn [_ ^Txn txn]
+    (.close txn)))
+
+(defmacro with-ro-txn
+  "Evaluates body in a try expression with a read-only transaction from a shared
+  pool bound to the binding specified, and a 'finally' clause that returns the
+  transaction to that shared pool. "
+  [[binding ^ITxnPool txn-pool] & body]
+  (let [pool (vary-meta txn-pool assoc :tag `ITxnPool)]
+    `(let [~binding (. ~pool getTxn)]
+       (try ~@body (finally (. ^TxnPool ~pool returnTxn ~binding))))))
+
+
+
 
 (def ^:private rw-env-flags [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_WRITEMAP EnvFlags/MDB_NORDAHEAD EnvFlags/MDB_NOSYNC EnvFlags/MDB_NOMETASYNC])
 (def ^:private ro-env-flags [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_NOLOCK EnvFlags/MDB_RDONLY_ENV])
@@ -103,9 +148,13 @@
 
       (->LmdbStore root-path
                    core-env
+                   ;(->ThreadLocalTxnPool core-env (ThreadLocal.))
+                   (->TxnPool core-env (ConcurrentLinkedQueue.))
                    concepts conceptDescriptions relationships descriptionConcept
                    conceptParentRelationships conceptChildRelationships componentRefsets associations
                    refsets-env
+                   ;(->ThreadLocalTxnPool refsets-env (ThreadLocal.))
+                   (->TxnPool refsets-env (ConcurrentLinkedQueue.))
                    refsetItems refsetFieldNames))))
 
 (defn open-store
@@ -341,9 +390,22 @@
           (read-fn rb))
         (finally (.release kb))))))
 
+(defn get-object2 [^ITxnPool txn-pool ^Dbi dbi ^long id read-fn]
+  (with-ro-txn [txn txn-pool]
+    (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)]
+      (try
+        (.writeLong kb id)
+        (when-let [rb (.get dbi txn kb)]
+          (read-fn rb))
+        (finally (.release kb))))))
+
 (defn get-concept
   [^LmdbStore store ^long id]
   (get-object (.-coreEnv store) (.-concepts store) id ser/read-concept))
+
+(defn get-concept2
+  [^LmdbStore store ^long id]
+  (get-object2 (.-coreTxnPool store) (.-concepts store) id ser/read-concept))
 
 (defn get-description
   "Return the description with the given `description-id`.
@@ -364,6 +426,27 @@
               (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
               (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
                 (ser/read-description vb))))))
+      (finally (.release kb)))))
+
+(defn get-description2
+  "Return the description with the given `description-id`.
+  This uses the descriptionId-conceptId index to determine the concept-id,
+  as all descriptions are actually stored by conceptId-descriptionId-concept because
+  that's a more common operation that finding a description by identifier alone."
+  [^LmdbStore store description-id]
+  (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+    (try
+      (doto kb (.writeLong description-id) (.writeLong 0))
+      (with-ro-txn [txn (.-coreTxnPool store)]
+        (with-open [cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
+          (when (.get cursor kb GetOp/MDB_SET_RANGE)        ;; put cursor on first entry with this description identifier
+            (let [kb' ^ByteBuf (.key cursor)
+                  did (.readLong kb')
+                  concept-id (.readLong kb')]
+              (when (= description-id did)
+                (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
+                (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
+                  (ser/read-description vb)))))))
       (finally (.release kb)))))
 
 (defn map-keys-in-range
@@ -390,6 +473,29 @@
                 (persistent! results))))))
       (finally (.release start-kb) (.release end-kb)))))
 
+(defn map-keys-in-range2
+  "Returns a vector consisting of the result of applying f to the keys in the
+  inclusive range between start-key and end-key. 'f' is called with a ByteBuf
+  representing a key within the range.
+  While each key should be a vector of longs, comparison is character-wise. As
+  such,minimum long is 0 and maximum long is -1 (FFFF...) and not Long/MIN_VALUE
+   and Long/MAX_VALUE as might be expected."
+  [^Dbi dbi ^Txn txn start-key end-key f]
+  (let [n (* 8 (count start-key))
+        start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) n)
+        end-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) n)]
+    (try
+      (doseq [k start-key] (.writeLong start-kb k))
+      (doseq [k end-key] (.writeLong end-kb k))
+      (with-open [cursor (.openCursor dbi txn)]
+        (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
+          (loop [results (transient []) continue? true]
+            (let [kb ^ByteBuf (.key cursor)]
+              (if (and continue? (>= (.compareTo kb start-kb) 0) (>= (.compareTo end-kb kb) 0))
+                (recur (conj! results (f kb)) (.next cursor))
+                (persistent! results))))))
+      (finally (.release start-kb) (.release end-kb)))))
+
 (defn get-concept-descriptions
   "Returns a vector of descriptions for the given concept."
   [^LmdbStore store ^long concept-id]
@@ -407,9 +513,30 @@
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
 
+(defn get-concept-descriptions2
+  "Returns a vector of descriptions for the given concept."
+  [^LmdbStore store ^long concept-id]
+  (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+    (try
+      (doto start-kb (.writeLong concept-id) (.writeLong 0))
+      (with-ro-txn [txn (.-coreTxnPool store)]
+        (with-open [cursor (.openCursor ^Dbi (.-conceptDescriptions store) txn)]
+          (when (.get cursor start-kb GetOp/MDB_SET_RANGE)  ;; get cursor to first key greater than or equal to specified key.
+            (loop [results (transient []) continue? true]
+              (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
+                (persistent! results)
+                (let [d (ser/read-description (.val cursor))]
+                  (.resetReaderIndex ^ByteBuf (.val cursor)) ;; reset position in value otherwise .next will throw an exception on second item
+                  (recur (conj! results d) (.next cursor))))))))
+      (finally (.release start-kb)))))
+
 (defn get-relationship
   [^LmdbStore store ^long relationship-id]
   (get-object (.-coreEnv store) (.-relationships store) relationship-id ser/read-relationship))
+
+(defn get-relationship2
+  [^LmdbStore store ^long relationship-id]
+  (get-object2 (.-coreTxnPool store) (.-relationships store) relationship-id ser/read-relationship))
 
 (defn get-refset-item
   "Get the specified refset item.
@@ -421,6 +548,23 @@
    (get-refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
   ([^LmdbStore store ^long msb ^long lsb]
    (with-open [txn (.txnRead ^Env (.-refsetsEnv store))]
+     (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+       (try
+         (doto kb (.writeLong msb) (.writeLong lsb))
+         (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
+           (ser/read-refset-item vb))
+         (finally (.release kb)))))))
+
+(defn get-refset-item2
+  "Get the specified refset item.
+  Parameters:
+  - store
+  - UUID  : the UUID of the refset item to fetch
+  - msb/lsb : the most and least significant 64-bit longs representing the UUID."
+  ([^LmdbStore store ^UUID uuid]
+   (get-refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
+  ([^LmdbStore store ^long msb ^long lsb]
+   (with-ro-txn [txn (.-refsetsTxnPool store)]
      (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
        (try
          (doto kb (.writeLong msb) (.writeLong lsb))
@@ -441,6 +585,24 @@
                       [concept-id type-id 0 0]
                       [concept-id type-id -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
+
+
+(defn get-raw-parent-relationships2
+  "Return the parent relationships of the given concept.
+  Returns a vector of tuples [from--type--group--to]."
+  ([^LmdbStore store concept-id]
+   (with-ro-txn [txn (.-coreTxnPool store)]
+     (map-keys-in-range2 (.-conceptParentRelationships store) txn
+                         [concept-id 0 0 0]
+                         [concept-id -1 -1 -1]
+                         (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
+  ([^LmdbStore store concept-id type-id]
+   (with-ro-txn [txn (.coreTxnPool store)]
+     (map-keys-in-range2 (.-conceptParentRelationships store)
+                         txn
+                         [concept-id type-id 0 0]
+                         [concept-id type-id -1 -1]
+                         (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b)))))))
 
 (defn get-raw-child-relationships
   "Return the child relationships of the given concept.
@@ -473,6 +635,26 @@
                       [component-id refset-id -1 -1]
                       (fn [^ByteBuf b] (get-refset-item store (.getLong b 16) (.getLong b 24))))))
 
+(defn get-component-refset-items2
+  "Get the refset items for the given component, optionally
+   limited to the refset specified.
+   - store
+   - component-id : id of the component (e.g concept-id or description-id)
+   - refset-id    : (optional) - limit to this refset."
+  ([^LmdbStore store component-id]
+   (with-ro-txn [txn (.-coreTxnPool store)]
+     (map-keys-in-range2 (.-componentRefsets store) txn
+                         [component-id 0 0 0]
+                         [component-id -1 -1 -1]
+                         (fn [^ByteBuf b] (get-refset-item store (.getLong b 16) (.getLong b 24))))))
+  ([^LmdbStore store component-id refset-id]
+   (with-ro-txn [txn (.-coreTxnPool store)]
+     (map-keys-in-range2 (.-componentRefsets store) txn
+                         [component-id refset-id 0 0]
+                         [component-id refset-id -1 -1]
+                         (fn [^ByteBuf b] (get-refset-item store (.getLong b 16) (.getLong b 24)))))))
+
+
 (defn get-component-refset-ids
   "Return a set of refset-ids to which this component belongs."
   [^LmdbStore store component-id]
@@ -481,6 +663,14 @@
                           [component-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 8)))))
 
+(defn get-component-refset-ids2
+  "Return a set of refset-ids to which this component belongs."
+  [^LmdbStore store component-id]
+  (with-ro-txn [txn (.-coreTxnPool store)]
+    (set (map-keys-in-range2 (.-componentRefsets store) txn
+                             [component-id 0 0 0]
+                             [component-id -1 -1 -1]
+                             (fn [^ByteBuf b] (.getLong b 8))))))
 (defn stream-all-concepts
   "Asynchronously stream all concepts to the channel specified, and, by default,
   closing the channel when done unless specified.
@@ -505,6 +695,16 @@
   and provide the lookup here."
   [^LmdbStore store refset-id]
   (get-object (.-refsetsEnv store) (.-refsetFieldNames store) refset-id ser/read-field-names))
+
+(defn get-refset-field-names2
+  "Returns the field names for the given reference set.
+
+  The reference set descriptors provide a human-readable description and a type
+  for each column in a reference set, but do not include the camel-cased column
+  identifier in the original source file. On import, we store those column names
+  and provide the lookup here."
+  [^LmdbStore store refset-id]
+  (get-object2 (.-refsetsTxnPool store) (.-refsetFieldNames store) refset-id ser/read-field-names))
 
 (defn get-installed-reference-sets
   "Returns a set of identifiers representing installed reference sets.
