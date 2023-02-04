@@ -11,8 +11,8 @@ This log documents significant changes for each release.
 
 ## [1.0.914] - 2023-01-23
 
-* Improvements to speed and efficiency of import. Use a single thread for LMDB writes.
-* Improved error handling (e.g. for automated install of distributions when a national distribution site is offline) and messages (e.g. when a database is not found on filesystem).
+* Improve speed and efficiency of import. Use a single thread for LMDB writes.
+* Improve error handling (e.g. for automated install of distributions when a national distribution site is offline) and messages (e.g. when a database is not found on filesystem).
 
 ## [1.0.895] - 2023-01-15
 
