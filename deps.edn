@@ -10,9 +10,9 @@
            com.eldrix/trud                          {:mvn/version "1.0.82"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
            io.netty/netty-buffer                    {:mvn/version "4.1.87.Final"}
-           org.apache.lucene/lucene-core            {:mvn/version "9.4.2"}
-           org.apache.lucene/lucene-queries         {:mvn/version "9.4.2"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.4.2"}
+           org.apache.lucene/lucene-core            {:mvn/version "9.5.0"}
+           org.apache.lucene/lucene-queries         {:mvn/version "9.5.0"}
+           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.5.0"}
            org.lmdbjava/lmdbjava                    {:mvn/version "0.8.3"}}
 
  :aliases {:build
