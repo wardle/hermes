@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.0.946] - 2023-02-06
+
+* Add thin wrapper API for use by Java and other JVM languages when used as a library
+* Upgrade internal dependencies (Lucene 9.5, lmdbjava 0.8.3)
+
 ## [1.0.938] - 2023-01-31
 
 * Add support to give multiple commands in one invocation via command-line interface 
