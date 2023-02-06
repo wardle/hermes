@@ -68,11 +68,11 @@
                           :test-ns-path ["test"]}}
 
            :outdated
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.983"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.992"}}
             :main-opts  ["-m" "antq.core"]}
 
            :upgrade
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.983"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.992"}}
             :main-opts  ["-m" "antq.core" "--upgrade"]}
 
            :check
