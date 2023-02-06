@@ -46,7 +46,7 @@
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
            (java.util UUID)
-           (com.eldrix.hermes.sct IConcept IDescription IResult)))
+           (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
@@ -278,7 +278,18 @@
    descriptions
    parentRelationships
    directParentRelationships
-   refsets])
+   refsets]
+  IExtendedConcept
+  (id [_] (.-id concept))
+  (effectiveTime [_] (.-effectiveTime concept))
+  (active [_] (.-active concept))
+  (moduleId [_] (.-moduleId concept))
+  (definitionStatusId [_] (.-definitionStatusId concept))
+  (descriptions [_] descriptions)
+  (parentRelationships [_] parentRelationships)
+  (directParentRelationships [_] directParentRelationships)
+  (refsets [_] refsets))
+
 
 (defn parse-concept [v]
   (->Concept
