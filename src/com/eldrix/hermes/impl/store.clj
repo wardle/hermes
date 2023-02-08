@@ -272,8 +272,10 @@
   999001261000000100 : NHS realm language (clinical part)
   999000691000001104 : NHS Realm language (pharmacy part)  (supercedes the old dm+d realm subset 30001000001134).
   This means that we need to be able to submit *multiple* language reference set identifiers."
-  [store concept-id language-refset-ids]
-  (some identity (map (partial get-preferred-description store concept-id snomed/Synonym) language-refset-ids)))
+  ([store concept-id language-refset-ids]
+   (when-let [refset-id (first language-refset-ids)]
+     (let [d (get-preferred-description store concept-id snomed/Synonym refset-id)]
+       (if d d (recur store concept-id (rest language-refset-ids)))))))
 
 (s/fdef get-preferred-fully-specified-name
   :args (s/cat :store ::store
@@ -281,7 +283,9 @@
                :language-refset-ids (s/coll-of :info.snomed.Concept/id))
   :ret (s/nilable :info.snomed/Description))
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
-  (some identity (map (partial get-preferred-description store concept-id snomed/FullySpecifiedName) language-refset-ids)))
+  (when-let [refset-id (first language-refset-ids)]
+    (let [d (get-preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
+      (if d d (recur store concept-id (rest language-refset-ids))))))
 
 (s/fdef get-fully-specified-name
   :args (s/alt
