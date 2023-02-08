@@ -346,25 +346,36 @@
   (get-object (.-coreEnv store) (.-concepts store) id ser/read-concept))
 
 (defn get-description
-  "Return the description with the given `description-id`.
-  This uses the descriptionId-conceptId index to determine the concept-id,
-  as all descriptions are actually stored by conceptId-descriptionId-concept because
-  that's a more common operation that finding a description by identifier alone."
-  [^LmdbStore store description-id]
-  (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
-    (try
-      (doto kb (.writeLong description-id) (.writeLong 0))
-      (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
-                  cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
-        (when (.get cursor kb GetOp/MDB_SET_RANGE)          ;; put cursor on first entry with this description identifier
-          (let [kb' ^ByteBuf (.key cursor)
-                did (.readLong kb')
-                concept-id (.readLong kb')]
-            (when (= description-id did)
-              (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
-              (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
-                (ser/read-description vb))))))
-      (finally (.release kb)))))
+  "Return the description with the given `concept-id` and `description-id`.
+
+  If no concept-id is given, this uses the descriptionId-conceptId index to
+  first determine the concept-id, as all descriptions are actually stored by
+  conceptId-descriptionId-concept because that's a more common operation than
+  finding a description by identifier alone."
+  ([^LmdbStore store description-id]
+   (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+     (try
+       (doto kb (.writeLong description-id) (.writeLong 0))
+       (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
+                   cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
+         (when (.get cursor kb GetOp/MDB_SET_RANGE)          ;; put cursor on first entry with this description identifier
+           (let [kb' ^ByteBuf (.key cursor)
+                 did (.readLong kb')
+                 concept-id (.readLong kb')]
+             (when (= description-id did)
+               (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
+               (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
+                 (ser/read-description vb))))))
+       (finally (.release kb)))))
+  ([^LmdbStore store concept-id description-id]
+   (with-open [txn (.txnRead ^Env (.-coreEnv store))]
+     (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+       (try
+         (.writeLong kb concept-id)
+         (.writeLong kb description-id)
+         (when-let [rb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
+           (ser/read-description rb))
+         (finally (.release kb)))))))
 
 (defn map-keys-in-range
   "Returns a vector consisting of the result of applying f to the keys in the
