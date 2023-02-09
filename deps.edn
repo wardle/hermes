@@ -50,10 +50,12 @@
            :test
            {:extra-paths ["cmd" "test" "test/resources"]
             :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
+
                           com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
                           com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                           :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.5"}}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.5"}
+                          criterium/criterium            {:mvn/version "0.4.6"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test}
 
@@ -66,6 +68,17 @@
             :exec-fn     cloverage.coverage/run-project
             :exec-args   {:src-ns-path  ["src"]
                           :test-ns-path ["test"]}}
+
+           :bench
+           {:extra-paths ["cmd" "test" "test/resources"]
+            :extra-deps  {org.clojure/test.check    {:mvn/version "1.1.1"}
+                          com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                     :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
+                          criterium/criterium       {:mvn/version "0.4.6"}
+                          com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}}
+            :main-opts   ["-m" "cognitect.test-runner" "-r" ".*bench$"]
+            :exec-fn     cognitect.test-runner.api/test
+            :exec-args   {:patterns [".*-bench$"]}}
 
            :outdated
            {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.992"}}
