@@ -318,19 +318,19 @@
         (finally (.release component-kb) (.release assoc-kb) (.release idx-val))))))
 
 (defn stream-all
-  "Stream all values from the specified dbi to the channel specified. "
+  "Blocking; stream all values from the specified dbi to the channel specified.
+  It would usually be appropriate to run in a background thread."
   ([^Env env ^Dbi dbi ch read-fn]
    (stream-all env dbi ch read-fn true))
   ([^Env env ^Dbi dbi ch read-fn close?]
-   (async/thread
-     (with-open [txn ^Txn (.txnRead ^Env env)
-                 cursor (.openCursor ^Dbi dbi txn)]
-       (loop [continue? (.first cursor)]
-         (if continue?
-           (do (async/>!! ch (read-fn (.val cursor)))
-               (.resetReaderIndex ^ByteBuf (.val cursor))   ;; reset position in value otherwise .next will throw an exception on second item
-               (recur (.next cursor)))
-           (when close? (clojure.core.async/close! ch))))))))
+   (with-open [txn ^Txn (.txnRead ^Env env)
+               cursor (.openCursor ^Dbi dbi txn)]
+     (loop [continue? (.first cursor)]
+       (if continue?
+         (do (async/>!! ch (read-fn (.val cursor)))
+             (.resetReaderIndex ^ByteBuf (.val cursor))     ;; reset position in value otherwise .next will throw an exception on second item
+             (recur (.next cursor)))
+         (when close? (async/close! ch)))))))
 
 (defn get-object [^Env env ^Dbi dbi ^long id read-fn]
   (with-open [txn (.txnRead env)]
@@ -358,7 +358,7 @@
        (doto kb (.writeLong description-id) (.writeLong 0))
        (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
                    cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
-         (when (.get cursor kb GetOp/MDB_SET_RANGE)          ;; put cursor on first entry with this description identifier
+         (when (.get cursor kb GetOp/MDB_SET_RANGE)         ;; put cursor on first entry with this description identifier
            (let [kb' ^ByteBuf (.key cursor)
                  did (.readLong kb')
                  concept-id (.readLong kb')]
@@ -493,9 +493,8 @@
                           (fn [^ByteBuf b] (.getLong b 8)))))
 
 (defn stream-all-concepts
-  "Asynchronously stream all concepts to the channel specified, and, by default,
-  closing the channel when done unless specified.
-  Returns a channel which, by default, will be closed when done."
+  "Streams all concepts to the channel specified, and, by default, closes the
+  channel when done, unless specified."
   ([^LmdbStore store ch]
    (stream-all-concepts store ch true))
   ([^LmdbStore store ch close?]

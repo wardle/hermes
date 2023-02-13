@@ -110,11 +110,16 @@
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (hermes/index (str db-path) "en-GB")
-    (let [status (hermes/status (str db-path) {:counts? true})]
-      (is (= (count concepts) (get-in status [:components :concepts])))
-      (is (= (count descriptions) (get-in status [:components :descriptions])))
-      (is (= n (get-in status [:components :relationships])))
-      (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (get-in status [:components :refsets]))))))
+    (with-open [svc (hermes/open (str db-path))]
+      (let [status (hermes/status* svc {:counts? true})
+            ch (a/chan 1 (partition-all 500))]
+        (a/thread (hermes/stream-all-concepts svc ch))
+        (is (= (count concepts) (get-in status [:components :concepts])))
+        (is (= (count descriptions) (get-in status [:components :descriptions])))
+        (is (= n (get-in status [:components :relationships])))
+        (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (get-in status [:components :refsets])))
+        (is (= (count concepts) (a/<!! (a/reduce (fn [acc v] (+ acc (count v))) 0 ch)))
+            "Number of concepts streamed does not match total number of concepts")))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*

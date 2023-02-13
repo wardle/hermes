@@ -132,6 +132,15 @@
   (->> (get-descriptions svc concept-id)
        (filter #(= snomed/Synonym (:typeId %)))))
 
+(s/fdef stream-all-concepts
+  :args (s/cat :svc ::svc :ch any? :close? (s/? boolean?)))
+(defn stream-all-concepts
+  "Streams all concepts on the channel specified. By default, closing the
+  channel when done. Blocking, so run in a background thread."
+  ([^Svc svc ch] (stream-all-concepts svc ch true))
+  ([^Svc svc ch close?]
+   (store/stream-all-concepts (.-store svc) ch close?)))
+
 (s/fdef get-all-parents
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-parents
@@ -682,7 +691,7 @@
   ```"
   [^Svc svc]
   (let [ch (async/chan 100 (remove :active))]
-    (store/stream-all-concepts (.-store svc) ch)
+    (async/thread (store/stream-all-concepts (.-store svc) ch))
     (loop [result {}]
       (let [c (async/<!! ch)]
         (if-not c
@@ -698,7 +707,7 @@
   "Returns 'n' examples of the type of historical association specified."
   [^Svc svc type-id n]
   (let [ch (async/chan 100 (remove :active))]
-    (store/stream-all-concepts (.-store svc) ch)
+    (async/thread (store/stream-all-concepts (.-store svc) ch))
     (loop [i 0
            result []]
       (let [c (async/<!! ch)]

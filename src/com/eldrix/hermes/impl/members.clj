@@ -91,7 +91,7 @@
   (let [ch (async/chan 50)]
     (with-open [store (store/open-store store-file)
                 writer (open-index-writer refset-index-filename)]
-      (store/stream-all-refset-items store ch)
+      (async/thread (store/stream-all-refset-items store ch))
       (async/<!!                                            ;; block until pipeline complete
         (async/pipeline-blocking                            ;; pipeline for side-effects
           (.availableProcessors (Runtime/getRuntime))       ;; Parallelism factor
@@ -282,7 +282,7 @@
   (def config (IndexWriterConfig. (StandardAnalyzer.)))
   (def writer (IndexWriter. directory config))
   (def ch (async/chan 200))
-  (store/stream-all-refset-items store)
+  (async/thread (store/stream-all-refset-items store))
   (def items (async/<!! 200))
   (def docs (->> items
                  (map #(store/extended-refset-item store % :attr-ids? false))

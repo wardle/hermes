@@ -173,7 +173,7 @@
                          (lang/match store "en-US")))]
         (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
                                                {:priority-list language-priority-list :store-filename store-filename})))
-        (store/stream-all-concepts store ch)                ;; start streaming all concepts
+        (async/thread (store/stream-all-concepts store ch))                ;; start streaming all concepts
         (async/<!! (async/pipeline
                      nthreads                               ;; Parallelism factor
                      (doto (async/chan) (async/close!))
