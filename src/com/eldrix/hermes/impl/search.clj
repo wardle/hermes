@@ -373,8 +373,7 @@
   [concept-id]
   (LongPoint/newExactQuery "concept-id" concept-id))
 
-(defn q-match-all
-  []
+(defn q-match-all []
   (MatchAllDocsQuery.))
 
 (defn q-concept-ids
