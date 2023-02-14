@@ -15,7 +15,7 @@
 (ns com.eldrix.hermes.core
   "Provides a terminology service, wrapping the SNOMED store and
   search implementations as a single unified service."
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
@@ -690,10 +690,10 @@
      900000000000525002 #{1 3 2}}
   ```"
   [^Svc svc]
-  (let [ch (async/chan 100 (remove :active))]
-    (async/thread (store/stream-all-concepts (.-store svc) ch))
+  (let [ch (a/chan 100 (remove :active))]
+    (a/thread (store/stream-all-concepts (.-store svc) ch))
     (loop [result {}]
-      (let [c (async/<!! ch)]
+      (let [c (a/<!! ch)]
         (if-not c
           result
           (recur (reduce-kv (fn [m k v]
@@ -706,11 +706,11 @@
 (defn- get-example-historical-associations
   "Returns 'n' examples of the type of historical association specified."
   [^Svc svc type-id n]
-  (let [ch (async/chan 100 (remove :active))]
-    (async/thread (store/stream-all-concepts (.-store svc) ch))
+  (let [ch (a/chan 100 (remove :active))]
+    (a/thread (store/stream-all-concepts (.-store svc) ch))
     (loop [i 0
            result []]
-      (let [c (async/<!! ch)]
+      (let [c (a/<!! ch)]
         (if-not (and c (< i n))
           result
           (let [assocs (historical-associations svc (:id c))
@@ -791,12 +791,12 @@
   (with-open [store (store/open-store store-file {:read-only? false})]
     (let [nthreads (.availableProcessors (Runtime/getRuntime))
           data-c (importer/load-snomed-files files :nthreads nthreads)]
-      (loop [batch (async/<!! data-c)]
+      (loop [batch (a/<!! data-c)]
         (when batch
           (if (instance? Throwable batch)
             (throw batch)
             (do (store/write-batch-with-fallback batch store)
-                (recur (async/<!! data-c)))))))))
+                (recur (a/<!! data-c)))))))))
 
 (defn log-metadata [dir]
   (let [metadata (importer/all-metadata dir)

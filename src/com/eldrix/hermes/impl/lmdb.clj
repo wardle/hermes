@@ -15,7 +15,7 @@
 
   It would be possible to create a generic key-value protocol, but this instead
   contains domain-optimised code."
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [com.eldrix.hermes.impl.ser :as ser])
@@ -327,10 +327,10 @@
                cursor (.openCursor ^Dbi dbi txn)]
      (loop [continue? (.first cursor)]
        (if continue?
-         (do (async/>!! ch (read-fn (.val cursor)))
+         (do (a/>!! ch (read-fn (.val cursor)))
              (.resetReaderIndex ^ByteBuf (.val cursor))     ;; reset position in value otherwise .next will throw an exception on second item
              (recur (.next cursor)))
-         (when close? (async/close! ch)))))))
+         (when close? (a/close! ch)))))))
 
 (defn get-object [^Env env ^Dbi dbi ^long id read-fn]
   (with-open [txn (.txnRead env)]

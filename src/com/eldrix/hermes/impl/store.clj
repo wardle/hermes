@@ -14,7 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.impl.store
   "Store provides access to a key value store."
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
@@ -443,10 +443,10 @@
    com.eldrix.hermes.snomed.RefsetDescriptorRefsetItem 1131}        ;; 0.01 %
    ```."
   [store]
-  (let [ch (async/chan)]
+  (let [ch (a/chan)]
     (stream-all-refset-items store ch)
     (loop [results {}]
-      (if-let [item (async/<!! ch)]
+      (if-let [item (a/<!! ch)]
         (recur (update results (type item) (fnil inc 0)))
         results))))
 

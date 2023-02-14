@@ -14,7 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.importer
   "Provides import functionality for processing directories of files"
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
@@ -120,7 +120,7 @@
           (log/debug "Processing " (count batches) " batches")
           (doseq [batch batches]
             (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
-            (when-not (async/>!! out-c batch)
+            (when-not (a/>!! out-c batch)
               (log/debug "Processing cancelled (output channel closed)")
               (throw (InterruptedException. "process cancelled")))))))))
 
@@ -133,18 +133,18 @@
   results on the returned channel which will be closed once all files have been
   sent through. Any exceptions will be passed on the channel."
   [files & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
-  (let [raw-c (async/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
-        processed-c (async/chan)]                           ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
-    (async/thread
+  (let [raw-c (a/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
+        processed-c (a/chan)]                           ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
+    (a/thread
       (log/debug "Processing " (count files) " files")
       (try
         (doseq [file files]
           (process-file (:path file) raw-c :batch-size batch-size))
         (catch Throwable e
           (log/debug "Error during raw SNOMED file import: " e)
-          (async/>!! processed-c e)))
-      (async/close! raw-c))
-    (async/pipeline
+          (a/>!! processed-c e)))
+      (a/close! raw-c))
+    (a/pipeline
       nthreads
       processed-c
       (map snomed/parse-batch)

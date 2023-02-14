@@ -14,7 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.impl.search
   "Search creates a Lucene search index for descriptions."
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
@@ -162,7 +162,7 @@
   "Build a search index using the SNOMED CT store at `store-filename`."
   [store-filename search-filename language-priority-list]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
-        ch (async/chan 50)]
+        ch (a/chan 50)]
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
       (let [langs (lang/match store language-priority-list)
@@ -173,13 +173,13 @@
                          (lang/match store "en-US")))]
         (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
                                                {:priority-list language-priority-list :store-filename store-filename})))
-        (async/thread (store/stream-all-concepts store ch))                ;; start streaming all concepts
-        (async/<!! (async/pipeline
-                     nthreads                               ;; Parallelism factor
-                     (doto (async/chan) (async/close!))
-                     (comp (map #(concept->documents store langs' %))
-                           (map #(.addDocuments writer %)))
-                     ch true (fn ex-handler [ex] (log/error ex) (async/close! ch) nil))))
+        (a/thread (store/stream-all-concepts store ch))     ;; start streaming all concepts
+        (a/<!! (a/pipeline
+                 nthreads                                   ;; Parallelism factor
+                 (doto (a/chan) (a/close!))
+                 (comp (map #(concept->documents store langs' %))
+                       (map #(.addDocuments writer %)))
+                 ch true (fn ex-handler [ex] (log/error ex) (a/close! ch) nil))))
       (.forceMerge writer 1))))
 
 (defn- make-token-query

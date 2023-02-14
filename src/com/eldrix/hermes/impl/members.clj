@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.impl.members
   "Members creates a Lucene search index for reference set members."
-  (:require [clojure.core.async :as async]
+  (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store])
@@ -88,14 +88,14 @@
 (defn build-members-index
   "Build a refset members index using the SNOMED CT store at `store-file`."
   [store-file refset-index-filename]
-  (let [ch (async/chan 50)]
+  (let [ch (a/chan 50)]
     (with-open [store (store/open-store store-file)
                 writer (open-index-writer refset-index-filename)]
-      (async/thread (store/stream-all-refset-items store ch))
-      (async/<!!                                            ;; block until pipeline complete
-        (async/pipeline-blocking                            ;; pipeline for side-effects
+      (a/thread (store/stream-all-refset-items store ch))
+      (a/<!!                                                ;; block until pipeline complete
+        (a/pipeline-blocking                                ;; pipeline for side-effects
           (.availableProcessors (Runtime/getRuntime))       ;; Parallelism factor
-          (doto (async/chan) (async/close!))                ;; Output channel - /dev/null
+          (doto (a/chan) (a/close!))                        ;; Output channel - /dev/null
           (comp (map #(store/extended-refset-item store % :attr-ids? false))
                 (map make-document)
                 (map #(.addDocument writer %)))
@@ -281,9 +281,9 @@
   (def directory (ByteBuffersDirectory.))
   (def config (IndexWriterConfig. (StandardAnalyzer.)))
   (def writer (IndexWriter. directory config))
-  (def ch (async/chan 200))
-  (async/thread (store/stream-all-refset-items store))
-  (def items (async/<!! 200))
+  (def ch (a/chan 200))
+  (a/thread (store/stream-all-refset-items store))
+  (def items (a/<!! 200))
   (def docs (->> items
                  (map #(store/extended-refset-item store % :attr-ids? false))
                  (map make-document)))
