@@ -2,6 +2,15 @@
 
 This log documents significant changes for each release.
 
+## [1.0.960] - 2023-02-15
+
+* Drop support for Lucene 8.x series and therefore Java 1.8 (latter out of support from 31 March 2022, and Lucene 9.x requires at least Java 11). 
+* Improve Java API
+* Add ability to stream all concepts to top level API
+* Use new Lucene 9.5 'storedFields' in favour of deprecated document field access
+* Add new benchmark test suite
+* Optimisations
+
 ## [1.0.946] - 2023-02-06
 
 * Add thin wrapper API for use by Java and other JVM languages when used as a library
