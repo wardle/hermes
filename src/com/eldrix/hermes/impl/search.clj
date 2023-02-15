@@ -279,35 +279,64 @@
                    (.get doc "term")
                    (.get doc "preferred-term")))
 
-(defn- scoredoc->result
-  "Convert a Lucene ScoreDoc (`score-doc`) into a Result."
-  [^IndexSearcher searcher ^ScoreDoc score-doc]
-  (when-let [doc (.doc searcher (.-doc score-doc))]
-    (doc->result doc)))
 
-(defn- doc->concept-id [^Document doc]
-  (Long/parseLong (.get doc "concept-id")))
-
-(defn- doc-id->concept-id [^IndexSearcher searcher doc-id]
-  (when-let [doc (.doc searcher doc-id)]
-    (doc->concept-id doc)))
-
-(defn- scoredoc->concept-id
-  "Convert a Lucene ScoreDoc ('score-doc' into a concept-id."
-  [^IndexSearcher searcher ^ScoreDoc score-doc]
-  (doc-id->concept-id searcher (.-doc score-doc)))
+(lucene/when-version = 8
+  (set! *warn-on-reflection* false))
 
 (defn do-query-for-results
+  "Perform a search using query 'q' returning results as a sequence of Result
+items."
+  ([^IndexSearcher searcher ^Query q]
+   (let [stored-fields (.storedFields searcher)]
+     (->> (lucene/search-all searcher q)
+          (map #(doc->result (.document stored-fields %))))))
+  ([^IndexSearcher searcher ^Query q max-hits]
+   (let [stored-fields (.storedFields searcher)]
+     (->> (seq (.-scoreDocs (.search searcher q (int max-hits))))
+          (map #(doc->result (.document stored-fields (.-doc ^ScoreDoc %))))))))
+
+(defn do-query-for-concepts
+  "Perform the query, returning results as a set of concept identifiers"
+  ([^IndexSearcher searcher ^Query query]
+   (let [stored-fields (.storedFields searcher)]
+     (into #{}
+           (map (fn [^long doc-id] (.numericValue (.getField (.document stored-fields doc-id #{"concept-id"}) "concept-id"))))
+           (lucene/search-all searcher query))))
+  ([^IndexSearcher searcher ^Query query max-hits]
+   (let [stored-fields (.storedFields searcher)]
+     (into #{}
+           (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.document stored-fields (.-doc score-doc) #{"concept-id"}) "concept-id"))))
+           (seq (.-scoreDocs (.search searcher query ^int max-hits)))))))
+
+(lucene/when-version = 8
+  (set! *warn-on-reflection* true))
+
+(defn do-query-for-results-v8
+  "A version of [[do-query-for-results]] for Lucene v8 series."
   ([^IndexSearcher searcher ^Query q]
    (->> (lucene/search-all searcher q)
-        (map #(.doc searcher %))
-        (map doc->result)))
+        (map #(doc->result (.doc searcher %)))))
   ([^IndexSearcher searcher ^Query q max-hits]
-   (map (partial scoredoc->result searcher) (seq (.-scoreDocs (.search searcher q (int max-hits)))))))
+   (->> (seq (.-scoreDocs (.search searcher q (int max-hits))))
+        (map #(doc->result (.doc searcher (.-doc ^ScoreDoc %)))))))
+
+(defn do-query-for-concepts-v8
+  "Perform the query, returning results as a set of concept identifiers"
+  ([^IndexSearcher searcher ^Query query]
+   (into #{}
+         (map (fn [^long doc-id] (.numericValue (.getField (.doc searcher doc-id) "concept-id"))))
+         (lucene/search-all searcher query)))
+  ([^IndexSearcher searcher ^Query query max-hits]
+   (into #{}
+         (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.doc searcher (.-doc score-doc)) "concept-id"))))
+         (seq (.-scoreDocs (.search searcher query ^int max-hits))))))
+
+(lucene/when-version = 8  ;; redefine to use older Lucene API if we are using v8 series
+  (def do-query-for-results do-query-for-results-v8)
+  (def do-query-for-concepts do-query-for-concepts-v8))
 
 (s/fdef do-search
   :args (s/cat :searcher ::searcher :params ::search-params))
-
 (defn do-search
   "Perform a search against the index.
   Parameters:
@@ -352,21 +381,6 @@
             fallback (or fallback-fuzzy 0)]
         (when (and (= fuzzy 0) (> fallback 0))              ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
-
-(defn topdocs->concept-ids
-  [searcher ^TopDocs top-docs]
-  (->> (seq (.-scoreDocs top-docs))
-       (map (partial scoredoc->concept-id searcher))
-       (set)))
-
-(defn do-query-for-concepts
-  "Perform the query, returning results as a set of concept identifiers"
-  ([^IndexSearcher searcher ^Query query]
-   (let [doc-ids (lucene/search-all searcher query)]
-     (into #{} (map (partial doc-id->concept-id searcher) doc-ids))))
-  ([^IndexSearcher searcher ^Query query max-hits]
-   (let [topdocs ^TopDocs (.search searcher query ^int max-hits)]
-     (topdocs->concept-ids searcher topdocs))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."
@@ -601,8 +615,7 @@
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q
-    (->> (.search searcher q max-hits)
-         (topdocs->concept-ids searcher)
+    (->> (do-query-for-concepts searcher q max-hits)
          (map (partial store/get-fully-specified-name store))
          (map #(select-keys % [:conceptId :term])))))
 

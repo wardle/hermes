@@ -238,14 +238,32 @@
   ^Query [component-id]
   (LongPoint/newExactQuery "referencedComponentId" component-id))
 
-(defn search
-  "Performs the search, returning a set of referenced component identifiers."
+(lucene/when-version = 8
+  (set! *warn-on-reflection* false))
+
+(lucene/when-version >= 9
+  (defn search
+    "Performs the search, returning a set of referenced component identifiers."
+    [^IndexSearcher searcher query]
+    (let [sfields (.storedFields searcher)]
+      (into #{}
+            (map (fn [^long doc-id] (Long/parseLong (.get (.document sfields doc-id #{"referencedComponentId"}) "referencedComponentId"))))
+            (lucene/search-all searcher query)))))
+
+(lucene/when-version = 8
+  (set! *warn-on-reflection* true))
+
+(defn search-v8
+  "A version of [[search]] designed for use with Lucene 8 and prior versions."
   [^IndexSearcher searcher query]
   (->> (lucene/search-all searcher query)
        (map #(.doc searcher %))
        (map #(.get ^Document % "referencedComponentId"))
        (map #(Long/parseLong %))
        set))
+
+(lucene/when-version <= 8
+  (def search search-v8))
 
 (defn search*
   "Performs a search and returns whether result not empty.

@@ -1,7 +1,8 @@
 (ns com.eldrix.hermes.impl.lucene
   (:import (java.util List ArrayList)
            (org.apache.lucene.search IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
-                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)))
+                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)
+           (org.apache.lucene.util Version)))
 
 (set! *warn-on-reflection* true)
 
@@ -81,3 +82,20 @@
       (.add q2 BooleanClause$Occur/MUST_NOT)
       (.build)))
 
+(defmacro when-version
+  "Evaluate body depending on Lucene major version.
+  Supported operators: = <= < > >=
+  For example
+  ```
+  (lucene/when-version > 8 ...)
+  ```"
+  [op version & body]
+  (let [latest (.major Version/LATEST)]
+    (list 'when (list 'cond
+                      (list = '= op) `(= ~version ~latest)
+                      (list = '>= op) `(>= ~latest ~version)
+                      (list = '> op) `(> ~latest ~version)
+                      (list = '< op) `(< ~latest ~version)
+                      (list = '<= op) `(<= ~latest ~version)
+                      :else `(throw (ex-info "Invalid operand" {:op ~op})))
+          (cons 'do body))))

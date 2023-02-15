@@ -1,6 +1,8 @@
 (ns com.eldrix.hermes.search-test
   (:require [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is]]
+            [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.search :as search]))
 
 (def example-results-1
@@ -31,3 +33,11 @@
         "Non-duplicate results removed"))
   (is (= 2 (count (search/remove-duplicates search/duplicate-result? example-results-1)))
       "Duplicate results not removed"))
+
+(deftest ^:live search
+  (with-open [svc (hermes/open "snomed.db")]
+    (let [q (search/q-descendantOrSelfOf 24700007)]
+      (is (= (search/do-query-for-concepts (:searcher svc) q)
+             (search/do-query-for-concepts-v8 (:searcher svc) q)
+             (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q))
+             (into #{} (map :conceptId) (search/do-query-for-results-v8 (:searcher svc) q)))))))
