@@ -32,10 +32,6 @@
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
-           :lucene8
-           {:override-deps {org.apache.lucene/lucene-core            ^:antq/exclude {:mvn/version "8.11.2"}
-                            org.apache.lucene/lucene-queries         ^:antq/exclude {:mvn/version "8.11.2"}
-                            org.apache.lucene/lucene-backward-codecs ^:antq/exclude {:mvn/version "8.11.2"}}}
            :dev
            {:extra-paths ["cmd" "test"]
             :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.0.214"}

@@ -31,7 +31,7 @@
            (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
            (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
-                                     BooleanQuery$Builder DoubleValuesSource Query ScoreDoc TopDocs WildcardQuery
+                                     BooleanQuery$Builder DoubleValuesSource Query ScoreDoc WildcardQuery
                                      MatchAllDocsQuery BooleanQuery BooleanClause)
            (org.apache.lucene.store FSDirectory)
            (org.apache.lucene.queries.function FunctionScoreQuery)
@@ -279,10 +279,6 @@
                    (.get doc "term")
                    (.get doc "preferred-term")))
 
-
-(lucene/when-version = 8
-  (set! *warn-on-reflection* false))
-
 (defn do-query-for-results
   "Perform a search using query 'q' returning results as a sequence of Result
 items."
@@ -307,33 +303,6 @@ items."
      (into #{}
            (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.document stored-fields (.-doc score-doc) #{"concept-id"}) "concept-id"))))
            (seq (.-scoreDocs (.search searcher query ^int max-hits)))))))
-
-(lucene/when-version = 8
-  (set! *warn-on-reflection* true))
-
-(defn do-query-for-results-v8
-  "A version of [[do-query-for-results]] for Lucene v8 series."
-  ([^IndexSearcher searcher ^Query q]
-   (->> (lucene/search-all searcher q)
-        (map #(doc->result (.doc searcher %)))))
-  ([^IndexSearcher searcher ^Query q max-hits]
-   (->> (seq (.-scoreDocs (.search searcher q (int max-hits))))
-        (map #(doc->result (.doc searcher (.-doc ^ScoreDoc %)))))))
-
-(defn do-query-for-concepts-v8
-  "Perform the query, returning results as a set of concept identifiers"
-  ([^IndexSearcher searcher ^Query query]
-   (into #{}
-         (map (fn [^long doc-id] (.numericValue (.getField (.doc searcher doc-id) "concept-id"))))
-         (lucene/search-all searcher query)))
-  ([^IndexSearcher searcher ^Query query max-hits]
-   (into #{}
-         (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.doc searcher (.-doc score-doc)) "concept-id"))))
-         (seq (.-scoreDocs (.search searcher query ^int max-hits))))))
-
-(lucene/when-version = 8  ;; redefine to use older Lucene API if we are using v8 series
-  (def do-query-for-results do-query-for-results-v8)
-  (def do-query-for-concepts do-query-for-concepts-v8))
 
 (s/fdef do-search
   :args (s/cat :searcher ::searcher :params ::search-params))
