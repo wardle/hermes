@@ -249,7 +249,7 @@
   ```"
   [store concept-id description-type-id language-refset-id]
   (let [descriptions (->> (kv/get-concept-descriptions store concept-id)
-                          (filter #(and :active (= description-type-id (:typeId %)))))
+                          (filter #(and (:active %) (= description-type-id (:typeId %)))))
         refset-item (->> (mapcat #(kv/get-component-refset-items store (:id %) language-refset-id) descriptions)
                          (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
                          (first))
