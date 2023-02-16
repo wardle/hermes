@@ -142,14 +142,14 @@
    (store/stream-all-concepts (.-store svc) ch close?)))
 
 (s/fdef get-all-parents
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-id-or-ids (s/or :concept :info.snomed.Concept/id :concepts (s/coll-of :info.snomed.Concept/id)) :type-id (s/? :info.snomed.Concept/id)))
 (defn get-all-parents
-  "Returns a set of concept ids of the parents of the specified concept. By
-  design, this includes the concept itself."
-  ([^Svc svc concept-id]
-   (get-all-parents svc concept-id snomed/IsA))
-  ([^Svc svc concept-id type-id]
-   (store/get-all-parents (.-store svc) concept-id type-id)))
+  "Returns a set of concept ids of the parents of the specified concept(s). By
+  design, this includes the concept(s)."
+  ([^Svc svc concept-id-or-ids]
+   (get-all-parents svc concept-id-or-ids snomed/IsA))
+  ([^Svc svc concept-id-or-ids type-id]
+   (store/get-all-parents (.-store svc) concept-id-or-ids type-id)))
 
 (s/fdef get-all-children
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
