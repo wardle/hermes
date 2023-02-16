@@ -433,16 +433,15 @@
 (defn subsumed-by? [^Svc svc concept-id subsumer-concept-id]
   (store/is-a? (.-store svc) concept-id subsumer-concept-id))
 
+(s/fdef are-any?
+  :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :parent-ids (s/coll-of :info.snomed.Concept/id)))
 (defn are-any?
   "Are any of the concept-ids subsumed by any of the parent-ids?
 
   Checks the is-a relationships of the concepts in question against the set of
   parent identifiers."
   [^Svc svc concept-ids parent-ids]
-  (let [parent-concepts (set parent-ids)]
-    (->> (set concept-ids)
-         (mapcat #(set/intersection (set (conj (get-in (get-extended-concept svc %) [:parentRelationships 116680003]) %)) parent-concepts))
-         (some identity))))
+  (some (set parent-ids) (get-all-parents svc concept-ids)))
 
 (defn parse-expression [^Svc _svc s]
   (scg/parse s))
