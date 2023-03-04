@@ -41,7 +41,7 @@
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.35.1"}}}
+                          djblue/portal                    {:mvn/version "0.36.0"}}}
 
            :test
            {:extra-paths ["cmd" "test" "test/resources"]
@@ -77,11 +77,11 @@
             :exec-args   {:patterns [".*-bench$"]}}
 
            :outdated
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.992"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.999"}}
             :main-opts  ["-m" "antq.core"]}
 
            :upgrade
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.992"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.999"}}
             :main-opts  ["-m" "antq.core" "--upgrade"]}
 
            :check
