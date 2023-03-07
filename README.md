@@ -24,7 +24,7 @@ It is fast, both for import and for use. It imports and indexes the Internationa
 and UK editions of SNOMED CT in less than 5 minutes; you can have a server
 running seconds after that.
 
-It replaces previous similar tools I wrote in java and golang and is designed to fit into a wider architecture with
+It replaces previous similar tools I wrote in Java and Go and is designed to fit into a wider architecture with
 identifier resolution, mapping and semantics as first-class abstractions.
 
 Rather than a single monolithic terminology server, it is entirely reasonable to build
