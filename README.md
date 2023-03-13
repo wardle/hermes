@@ -1209,12 +1209,24 @@ In your `deps.edn` file (make sure you change the commit-id):
 
 In your pom.xml:
 
-```
+```xml
 <dependency>
   <groupId>com.eldrix</groupId>
   <artifactId>hermes</artifactId>
-  <version>1.0.815</version>
+  <version>1.0.960</version>
 </dependency>
+```
+Remember to use the latest version.
+
+You may need to add Clojars as a repository in your build tool. Here for maven:
+
+```xml
+<repositories>
+    <repository>
+        <id>clojars.org</id>
+        <url>https://clojars.org/repo</url>
+    </repository>
+</repositories>
 ```
 
 # Development
