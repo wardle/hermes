@@ -457,14 +457,18 @@
     (search/do-search (.-searcher svc) params)))
 
 (s/fdef expand-ecl
-  :args (s/cat :svc ::svc :ecl ::non-blank-string)
+  :args (s/cat :svc ::svc :ecl ::non-blank-string :max-hits (s/? int?))
   :ret (s/coll-of ::result))
 (defn expand-ecl
   "Expand an ECL expression."
-  [^Svc svc ecl]
-  (let [q1 (ecl/parse svc ecl)
-        q2 (search/q-not q1 (search/q-fsn))]
-    (search/do-query-for-results (.-searcher svc) q2)))
+  ([^Svc svc ecl]
+   (let [q1 (ecl/parse svc ecl)
+         q2 (search/q-not q1 (search/q-fsn))]
+     (search/do-query-for-results (.-searcher svc) q2)))
+  ([^Svc svc ecl max-hits]
+   (let [q1 (ecl/parse svc ecl)
+         q2 (search/q-not q1 (search/q-fsn))]
+     (search/do-query-for-results (.-searcher svc) q2 max-hits))))
 
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
