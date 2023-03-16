@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.impl.lucene
+  (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
-           (org.apache.lucene.search IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
+           (org.apache.lucene.search CollectionTerminatedException IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
                                      MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)))
 
 (set! *warn-on-reflection* true)
@@ -17,6 +18,17 @@
           (.add coll (+ base-id doc-id))))))
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
 
+(deftype IntoChannelCollector [ch]
+  Collector
+  (getLeafCollector [_ ctx]
+    (let [base-id (.-docBase ctx)]
+      (reify LeafCollector
+        (setScorer [_ _scorer])                             ;; NOP
+        (collect [_ doc-id]
+          (when-not (a/>!! ch (+ base-id doc-id))           ;; put the document on the channel, but if channel closed...
+            (throw (CollectionTerminatedException.)))))))   ;; ... then prematurely terminate collection of the current leaf
+  (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
+
 (defn search-all
   "Search a lucene index and return *all* results matching query specified.
   Results are returned as a sequence of Lucene document ids."
@@ -24,6 +36,15 @@
   (let [coll (ArrayList.)]
     (.search searcher q (IntoArrayCollector. coll))
     (seq coll)))
+
+(defn stream-all
+  "Search a lucene index and return *all* results on the channel specified.
+  Results are returned as Lucene document ids."
+  ([^IndexSearcher searcher ^Query q ch]
+   (stream-all searcher q ch true))
+  ([^IndexSearcher searcher ^Query q ch close?]
+   (.search searcher q (IntoChannelCollector. ch))
+   (when close? (a/close! ch))))
 
 (defn- single-must-not-clause?
   "Checks that a boolean query isn't simply a single 'must-not' clause.
