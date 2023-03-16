@@ -279,6 +279,24 @@
                    (.get doc "term")
                    (.get doc "preferred-term")))
 
+(defn xf-doc-id->-result
+  "Returns a transducer that maps a Lucene document id into a search result."
+  [^IndexSearcher searcher]
+  (let [stored-fields (.storedFields searcher)]
+    (map (fn [^long doc-id] (doc->result (.document stored-fields doc-id))))))
+
+(defn xf-doc-id->concept-id
+  "Returns a transducer that maps a Lucene document id into a concept identifier."
+  [^IndexSearcher searcher]
+  (let [stored-fields (.storedFields searcher)]
+    (map (fn [^long doc-id] (.numericValue (.getField (.document stored-fields doc-id #{"concept-id"}) "concept-id"))))))
+
+(defn xf-scoredoc->concept-id
+  "Returns a transducer that maps a Lucene ScoreDoc to a concept identifier"
+  [^IndexSearcher searcher]
+  (let [stored-fields (.storedFields searcher)]
+    (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.document stored-fields (.-doc score-doc) #{"concept-id"}) "concept-id"))))))
+
 (defn do-query-for-results
   "Perform a search using query 'q' returning results as a sequence of Result
 items."
@@ -294,15 +312,13 @@ items."
 (defn do-query-for-concept-ids
   "Perform the query, returning results as a set of concept identifiers"
   ([^IndexSearcher searcher ^Query query]
-   (let [stored-fields (.storedFields searcher)]
-     (into #{}
-           (map (fn [^long doc-id] (.numericValue (.getField (.document stored-fields doc-id #{"concept-id"}) "concept-id"))))
-           (lucene/search-all searcher query))))
+   (into #{}
+         (xf-doc-id->concept-id searcher)
+         (lucene/search-all searcher query)))
   ([^IndexSearcher searcher ^Query query max-hits]
-   (let [stored-fields (.storedFields searcher)]
-     (into #{}
-           (map (fn [^ScoreDoc score-doc] (.numericValue (.getField (.document stored-fields (.-doc score-doc) #{"concept-id"}) "concept-id"))))
-           (seq (.-scoreDocs (.search searcher query ^int max-hits)))))))
+   (into #{}
+         (xf-scoredoc->concept-id searcher)
+         (seq (.-scoreDocs (.search searcher query ^int max-hits))))))
 
 (s/fdef do-search
   :args (s/cat :searcher ::searcher :params ::search-params))
