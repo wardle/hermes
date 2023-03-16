@@ -477,7 +477,7 @@
   [^Svc svc concept-ids ^String ecl]
   (let [q1 (search/q-concept-ids concept-ids)
         q2 (ecl/parse svc ecl)]
-    (search/do-query-for-concepts (.-searcher svc) (search/q-and [q1 q2]))))
+    (search/do-query-for-concept-ids (.-searcher svc) (search/q-and [q1 q2]))))
 
 (s/fdef ecl-contains?
   :args (s/cat :svc ::svc
@@ -500,7 +500,7 @@
   [^Svc svc ^String ecl]
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-not q1 (search/q-fsn))
-        base-concept-ids (search/do-query-for-concepts (.-searcher svc) q2)
+        base-concept-ids (search/do-query-for-concept-ids (.-searcher svc) q2)
         historic-concept-ids (->> base-concept-ids
                                   (mapcat #(vals (source-historical-associations svc %)))
                                   (apply set/union))
@@ -976,8 +976,8 @@
   (def q2 (search/q-and [ecl-q (#'search/make-search-query {:inactive-concepts? false})]))
   q1
   q2
-  (count (#'search/do-query-for-concepts (.-searcher svc) q1))
-  (count (#'search/do-query-for-concepts (.-searcher svc) q2))
+  (count (#'search/do-query-for-concept-ids (.-searcher svc) q1))
+  (count (#'search/do-query-for-concepts-ids (.-searcher svc) q2))
   q2
 
   (search svc {:constraint "<  404684003 |Clinical finding| :\n   [0..0] { [2..*]  363698007 |Finding site|  = <  91723000 |Anatomical structure| }"})

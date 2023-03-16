@@ -291,7 +291,7 @@ items."
      (->> (seq (.-scoreDocs (.search searcher q (int max-hits))))
           (map #(doc->result (.document stored-fields (.-doc ^ScoreDoc %))))))))
 
-(defn do-query-for-concepts
+(defn do-query-for-concept-ids
   "Perform the query, returning results as a set of concept identifiers"
   ([^IndexSearcher searcher ^Query query]
    (let [stored-fields (.storedFields searcher)]
@@ -584,7 +584,7 @@ items."
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q
-    (->> (do-query-for-concepts searcher q max-hits)
+    (->> (do-query-for-concept-ids searcher q max-hits)
          (map (partial store/get-fully-specified-name store))
          (map #(select-keys % [:conceptId :term])))))
 
@@ -597,7 +597,7 @@ items."
   (count (do-search searcher {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
   (do-query-for-results searcher (make-search-query {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
   (q-or [(make-search-query {:inactive-concepts? true})])
-  (do-query-for-concepts searcher (q-or [(make-search-query {:inactive-concepts? true})]))
+  (do-query-for-concept-ids searcher (q-or [(make-search-query {:inactive-concepts? true})]))
   (.clauses (make-search-query {:inactive-concepts? true}))
   (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
   (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0)))

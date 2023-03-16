@@ -79,7 +79,7 @@
 (defn- realise-concept-ids
   "Realise a query as a set of concept identifiers."
   [{:keys [searcher]} ^Query q]
-  (search/do-query-for-concepts searcher q))
+  (search/do-query-for-concept-ids searcher q))
 
 (defn- parse-conjunction-expression-constraint
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
