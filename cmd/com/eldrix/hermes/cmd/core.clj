@@ -28,7 +28,7 @@
     (doseq [dir dirs]
       (let [files (importer/importable-files dir)
             heading (str "| Distribution files in " dir ":" (count files) " |")
-            banner (apply str (repeat (count heading) "="))]
+            banner (str/join (repeat (count heading) "="))]
         (println "\n" banner "\n" heading "\n" banner)
         (pp/print-table (map #(select-keys % [:filename :component :version-date :format :content-subtype :content-type]) files))))))
 

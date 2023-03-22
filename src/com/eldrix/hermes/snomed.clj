@@ -407,7 +407,7 @@
 
 (s/def ::refset-filename-pattern
   (s/with-gen (s/and string? #(every? #{\c \i \s} %))
-              #(gen/fmap (fn [n] (apply str (repeatedly n (fn [] (rand-nth [\c \i \s])))))
+              #(gen/fmap (fn [n] (str/join (repeatedly n (fn [] (rand-nth [\c \i \s])))))
                          (s/gen (s/int-in 1 10)))))
 (s/fdef parse-fields
   :args (s/cat :pattern ::refset-filename-pattern
