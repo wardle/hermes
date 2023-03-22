@@ -36,7 +36,7 @@
   {:db              ["-d" "--db PATH" "Path to database directory"]
    :port            ["-p" "--port PORT" "Port number"
                      :default 8080
-                     :parse-fn #(Integer/parseInt %)
+                     :parse-fn parse-long
                      :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
    :bind-address    ["-a" "--bind-address BIND_ADDRESS" "Address to bind"]
    :allowed-origins [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
