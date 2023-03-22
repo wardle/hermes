@@ -18,7 +18,7 @@
  :aliases {:build
            {:deps       {io.github.clojure/tools.build          {:mvn/version "0.9.4"}
                          slipset/deps-deploy                    {:mvn/version "0.2.0"}
-                         io.github.borkdude/gh-release-artifact {:git/sha "b946558225a7839f6a0f644834e838e190dc2262"}}
+                         io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
             :ns-default build}
 
            :run
@@ -41,7 +41,7 @@
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.37.0"}}}
+                          djblue/portal                    {:mvn/version "0.37.1"}}}
 
            :test
            {:extra-paths ["cmd" "test" "test/resources"]
@@ -77,11 +77,11 @@
             :exec-args   {:patterns [".*-bench$"]}}
 
            :outdated
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1011"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1017"}}
             :main-opts  ["-m" "antq.core"]}
 
            :upgrade
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1011"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1017"}}
             :main-opts  ["-m" "antq.core" "--upgrade"]}
 
            :check
@@ -96,7 +96,7 @@
             :exec-args {:cluster-depth 3}}
 
            :lint/kondo
-           {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.02.17"}}
+           {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.03.17"}}
             :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
            :lint/eastwood
