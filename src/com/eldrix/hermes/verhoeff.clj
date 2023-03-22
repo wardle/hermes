@@ -41,10 +41,7 @@
 (defn calculate
   "Calculate a Verhoeff check digit"
   [s]
-  (loop [ss (str s)
-         ll (count ss)
-         i 0
-         checksum 0]
+  (loop [ss (str s), ll (count ss), i 0, checksum 0]
     (if (= i ll)
       (inverse checksum)
       (let [n (- ll i 1)                                    ;; get index rightmost digit
@@ -61,10 +58,7 @@
 (defn valid?
   "Checks whether Verhoeff check digit is correct."
   [s]
-  (loop [ss (str s)
-         ll (count ss)
-         i 0
-         checksum 0]
+  (loop [ss (str s), ll (count ss), i 0, checksum 0]
     (if (= i ll)
       (zero? (inverse checksum))                              ;; number is valid if checksum==0
       (let [n (- ll i 1)
