@@ -173,7 +173,7 @@
    (case caseSignificanceId
      ;; initial character is case-sensitive - we can make initial character lowercase
      900000000000020002
-     (when (> (count term) 0)
+     (when (pos? (count term))
        (str (str/lower-case (first term)) (subs term 1)))
      ;; entire term case-insensitive - just make it all lower-case
      900000000000448009

@@ -947,7 +947,7 @@
   (case (:caseSignificanceId d)
     ;; initial character is case-insensitive - we can make initial character lowercase
     900000000000020002
-    (when (> (count (:term d)) 0)
+    (when (pos? (count (:term d)))
       (str (str/lower-case (first (:term d)))
            (subs (:term d) 1)))
     ;; entire term case-insensitive - just make it all lower-case
@@ -964,7 +964,7 @@
 (defmethod valid? :info.snomed/Concept [m]
   (and
     (verhoeff/valid? (:id m))
-    (not (nil? (:effectiveDate m)))))
+    (some? (:effectiveDate m))))
 (defmethod valid? :default [_] false)
 
 (comment

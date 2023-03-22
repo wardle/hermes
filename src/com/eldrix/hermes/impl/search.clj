@@ -188,7 +188,7 @@
         tq (TermQuery. term)
         builder (BooleanQuery$Builder.)]
     (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
-    (if (and fuzzy (> fuzzy 0)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
+    (if (and fuzzy (pos? fuzzy)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
                                 (.add builder tq BooleanClause$Occur/SHOULD))
     (.setMinimumNumberShouldMatch builder 1)
     (.build builder)))
@@ -364,7 +364,7 @@ items."
         results)
       (let [fuzzy (or fuzzy 0)
             fallback (or fallback-fuzzy 0)]
-        (when (and (= fuzzy 0) (> fallback 0))              ; only fallback to fuzzy search if no fuzziness requested first time
+        (when (and (zero? fuzzy) (pos? fallback))              ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
 (defn q-self
@@ -534,16 +534,16 @@ items."
       (< maximum minimum)
       (throw (ex-info "Invalid range." {:property property :minimum minimum :maximum maximum}))
 
-      (and (> minimum 0) (= minimum maximum))
+      (and (pos? minimum) (= minimum maximum))
       (IntPoint/newExactQuery field (int minimum))
 
-      (> minimum 0)
+      (pos? minimum)
       (IntPoint/newRangeQuery field (int minimum) (int maximum))
 
-      (and (= minimum 0) (= maximum 0))
+      (and (zero? minimum) (zero? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
 
-      (and (= minimum 0) (> maximum 0))
+      (and (zero? minimum) (pos? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 (int maximum))))))
 
 (defn q-term [s] (make-tokens-query s))

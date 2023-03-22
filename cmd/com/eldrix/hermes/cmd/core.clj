@@ -18,11 +18,11 @@
       (log/warn "module dependency mismatch" dep))))
 
 (defn import-from [{:keys [db]} args]
-  (let [dirs (if (= 0 (count args)) ["."] args)]
+  (let [dirs (if (zero? (count args)) ["."] args)]
     (hermes/import-snomed db dirs)))
 
 (defn list-from [_ args]
-  (let [dirs (if (= 0 (count args)) ["."] args)
+  (let [dirs (if (zero? (count args)) ["."] args)
         metadata (map #(select-keys % [:name :effectiveTime :deltaFromDate :deltaToDate]) (mapcat importer/all-metadata dirs))]
     (pp/print-table metadata)
     (doseq [dir dirs]

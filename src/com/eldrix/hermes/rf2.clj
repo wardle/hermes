@@ -89,7 +89,7 @@
 (s/def :info.snomed.Description/conceptId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.Description/term (s/and string? #(pos? (count %))))
 (s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/def :info.snomed/Description (s/keys :req-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime :info.snomed.Description/active
                                                  :info.snomed.Description/moduleId :info.snomed.Description/conceptId
@@ -182,11 +182,11 @@
 (s/def :info.snomed.RefsetItem/attributeDescriptionId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/attributeTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/attributeOrder (s/with-gen int? #(gen/fmap int (s/gen (s/int-in 0 10)))))
-(s/def :info.snomed.RefsetItem/mapTarget (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.RefsetItem/mapTarget (s/and string? #(pos? (count %))))
 (s/def :info.snomed.RefsetItem/mapGroup (s/with-gen int? #(s/gen (s/int-in 0 2))))
 (s/def :info.snomed.RefsetItem/mapPriority (s/with-gen int? #(s/gen (s/int-in 0 2))))
-(s/def :info.snomed.RefsetItem/mapRule (s/and string? #(> (.length ^String %) 0)))
-(s/def :info.snomed.RefsetItem/mapAdvice (s/and string? #(> (.length ^String %) 0)))
+(s/def :info.snomed.RefsetItem/mapRule (s/and string? #(pos? (count %))))
+(s/def :info.snomed.RefsetItem/mapAdvice (s/and string? #(pos? (count %))))
 (s/def :info.snomed.RefsetItem/correlationId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/mapCategoryId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/valueId :info.snomed.Concept/id)

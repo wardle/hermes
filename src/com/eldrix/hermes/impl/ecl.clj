@@ -136,7 +136,7 @@
   [ctx loc]
   (let [subexpression-constraint (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         dotted-expression-attributes (zx/xml-> loc :dottedExpressionAttribute :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
-    (if (> (count dotted-expression-attributes) 0)
+    (if (pos? (count dotted-expression-attributes))
       (let [values (realise-concept-ids ctx subexpression-constraint)] ;;  get concepts of '< 19829001'
         (process-dotted ctx values dotted-expression-attributes))
       subexpression-constraint)))
@@ -277,7 +277,7 @@
          results []]
     (if (zip/end? tag)
       (let [c (count results)]
-        (cond (= c 0) nil
+        (cond (zero? c) nil
               (even? c) results
               :else (conj results default-acceptability)))
       (let [d-alias (zx/xml1-> tag :dialectAlias zx/text)

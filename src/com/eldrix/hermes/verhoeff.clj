@@ -66,7 +66,7 @@
          i 0
          checksum 0]
     (if (= i ll)
-      (= 0 (inverse checksum))                              ;; number is valid if checksum==0
+      (zero? (inverse checksum))                              ;; number is valid if checksum==0
       (let [n (- ll i 1)
             v (mod (- (int (nth ss n)) (int \0)) 10)        ;; modulus of 10, so wrap in case of non-numeric characters
             perm (get-in permutation-table [(mod i 8) v])
