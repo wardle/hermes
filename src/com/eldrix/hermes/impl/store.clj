@@ -274,7 +274,7 @@
   ([store concept-id language-refset-ids]
    (when-let [refset-id (first language-refset-ids)]
      (let [d (get-preferred-description store concept-id snomed/Synonym refset-id)]
-       (if d d (recur store concept-id (rest language-refset-ids)))))))
+       (or d (recur store concept-id (rest language-refset-ids)))))))
 
 (s/fdef get-preferred-fully-specified-name
   :args (s/cat :store ::store
@@ -284,7 +284,7 @@
 (defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
   (when-let [refset-id (first language-refset-ids)]
     (let [d (get-preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
-      (if d d (recur store concept-id (rest language-refset-ids))))))
+      (or d (recur store concept-id (rest language-refset-ids))))))
 
 (s/fdef get-fully-specified-name
   :args (s/alt
