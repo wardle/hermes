@@ -71,8 +71,7 @@
 (defn- parse-focus-concept
   "eclFocusConcept = eclConceptReference / wildCard"
   [loc]
-  (let [cr (zx/xml1-> loc :eclConceptReference parse-concept-reference)]
-    (if cr cr :wildcard)))
+  (or (zx/xml1-> loc :eclConceptReference parse-concept-reference) :wildcard))
 
 (s/fdef realise-concept-ids
   :args (s/cat :ctx ::ctx :q ::query))
@@ -391,7 +390,7 @@
       (zx/xml1-> loc :languageFilter parse-language-filter)
       (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
       (zx/xml1-> loc :dialectFilter parse-dialect-filter)
-      (zx/xml1-> loc :activeFilter #(parse-description-active-filter %))
+      (zx/xml1-> loc :activeFilter parse-description-active-filter)
       (throw (ex-info "Unsupported description filter" {:ecl (zx/text loc)}))))
 
 (defn- parse-description-filter-constraint
@@ -758,11 +757,10 @@
   [{:keys [store] :as ctx} loc]
   (let [history-keyword (zx/xml1-> loc :historyKeyword zx/text)
         history-profile-suffix (zx/xml1-> loc :historyProfileSuffix zx/text)
-        profile (keyword (when history-profile-suffix (str/upper-case (str history-keyword history-profile-suffix))))
+        profile (when history-profile-suffix (keyword (str/upper-case (str history-keyword history-profile-suffix))))
         history-subset (zx/xml1-> loc :historySubset :expressionConstraint #(parse-expression-constraint ctx %))]
-    (if history-subset
-      history-subset
-      (search/q-concept-ids (store/history-profile store profile)))))
+    (or history-subset
+        (search/q-concept-ids (store/history-profile store profile)))))
 
 (defn- apply-filter-constraints
   [base-query _ctx filter-constraints]
