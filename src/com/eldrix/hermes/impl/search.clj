@@ -136,7 +136,7 @@
       (.add doc (LongPoint. "acceptable-in" (long-array [acceptable-in]))))
     (doseq [refset (get-in ed [:concept :refsets])]
       (.add doc (LongPoint. "concept-refsets" (long-array [refset]))))
-    (doseq [refset (get-in ed [:refsets])]
+    (doseq [refset (get ed :refsets)]
       (.add doc (LongPoint. "description-refsets" (long-array [refset]))))
     doc))
 
@@ -512,8 +512,7 @@ items."
 
 (defn q-attribute-in-set
   [property coll]
-  (if (= 0 (count coll))
-    nil
+  (when-not (zero? (count coll))
     (LongPoint/newSetQuery (str "d" property) ^Collection coll)))
 
 (defn q-attribute-count
