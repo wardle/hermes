@@ -457,7 +457,7 @@ items."
 
 (defn q-parentOfAny
   [store ^Collection concept-ids]
-  (let [^Collection all-parents (into #{} (mapcat #(map last (#'store/get-raw-parent-relationships store % snomed/IsA)) concept-ids))]
+  (let [^Collection all-parents (into #{} (mapcat #(map last (#'store/get-raw-parent-relationships store % snomed/IsA))) concept-ids)]
     (LongPoint/newSetQuery "concept-id" all-parents)))
 
 (defn q-parentOrSelfOf
@@ -467,7 +467,7 @@ items."
 
 (defn q-parentOrSelfOfAny
   [store ^Collection concept-ids]
-  (let [^Collection parent-ids (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %) concept-ids))]
+  (let [^Collection parent-ids (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-memberOf
