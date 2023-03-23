@@ -98,7 +98,7 @@
           (doto (a/chan) (a/close!))                        ;; Output channel - /dev/null
           (comp (map #(store/extended-refset-item store % :attr-ids? false))
                 (map make-document)
-                (map #(.addDocument writer %)))
+                (map #(.addDocument writer %)))             ;; adding documents in batches doesn't appear to improve performance
           ch))
       (.forceMerge writer 1))))
 
