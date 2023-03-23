@@ -189,7 +189,7 @@
         builder (BooleanQuery$Builder.)]
     (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
     (if (and fuzzy (pos? fuzzy)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
-                                (.add builder tq BooleanClause$Occur/SHOULD))
+                                 (.add builder tq BooleanClause$Occur/SHOULD))
     (.setMinimumNumberShouldMatch builder 1)
     (.build builder)))
 
@@ -364,7 +364,7 @@ items."
         results)
       (let [fuzzy (or fuzzy 0)
             fallback (or fallback-fuzzy 0)]
-        (when (and (zero? fuzzy) (pos? fallback))              ; only fallback to fuzzy search if no fuzziness requested first time
+        (when (and (zero? fuzzy) (pos? fallback))           ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
 (defn q-self
