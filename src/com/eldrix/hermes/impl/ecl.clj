@@ -126,7 +126,7 @@
       (if-not expression
         (search/q-concept-ids concept-ids)                  ;; return result as a query against the concept identifiers.
         (let [attrs-concept-ids (realise-concept-ids ctx expression) ;; realise the concept-identifiers for the property (e.g. all descendants of "associated with")
-              result (into #{} (mapcat #(store/get-parent-relationships-of-types store % attrs-concept-ids) concept-ids))] ;; and get those values for all of our current concepts
+              result (into #{} (mapcat #(store/get-parent-relationships-of-types store % attrs-concept-ids)) concept-ids)] ;; and get those values for all of our current concepts
           (recur result (next attributes)))))))
 
 (defn- parse-dotted-expression-constraint
