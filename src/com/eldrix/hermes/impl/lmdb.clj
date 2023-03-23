@@ -74,7 +74,7 @@
   map-size   : size in bytes, default 5gb"
   [f & {:keys [read-only? map-size] :or {read-only? true map-size default-map-size}}]
   (let [f' ^File (io/file f)]
-    (when (not (.exists f'))
+    (when-not (.exists f')
       (if read-only?
         (throw (ex-info "Store not found and opening in read-only mode" {:f f}))
         (Files/createDirectory (.toPath f') (make-array FileAttribute 0))))
