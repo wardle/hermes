@@ -2,6 +2,15 @@
 
 This log documents significant changes for each release.
 
+
+## [1.1.1000] - 2023-03-23
+
+* Update to version 1.1 series given drop in support for Lucene 8.x series and therefore Java 1.8
+* Upgraded dependencies (e.g. netty-buffer 4.1.90)
+* Add ability to stream search results asynchronously
+* Miscellaneous performance improvements
+* Miscellaneous code style improvements
+
 ## [1.0.960] - 2023-02-15
 
 * Drop support for Lucene 8.x series and therefore Java 1.8 (latter out of support from 31 March 2022, and Lucene 9.x requires at least Java 11). 
