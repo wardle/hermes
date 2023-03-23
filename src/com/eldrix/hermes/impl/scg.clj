@@ -115,7 +115,7 @@
 
 (defn- simplify-focus-concepts
   [node]
-  (into #{} (map :conceptId (:focusConcepts node))))
+  (set (map :conceptId (:focusConcepts node))))
 
 (defn- simplify-refinement
   [node]
