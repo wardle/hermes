@@ -16,6 +16,7 @@
   "Search creates a Lucene search index for descriptions."
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
@@ -436,7 +437,7 @@ items."
 
 (defn q-ancestorOfAny
   [store ^Collection concept-ids]
-  (let [^Collection parent-ids (into #{} (mapcat #(disj (store/get-all-parents store %) %) concept-ids))]
+  (let [^Collection parent-ids (set/difference (store/get-all-parents store concept-ids) (set concept-ids))]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOf
@@ -447,8 +448,7 @@ items."
 
 (defn q-ancestorOrSelfOfAny
   [store ^Collection concept-ids]
-  (let [^Collection all-parents (into #{} (mapcat #(store/get-all-parents store %) concept-ids))]
-    (LongPoint/newSetQuery "concept-id" all-parents)))
+  (LongPoint/newSetQuery "concept-id" ^Collection (store/get-all-parents store concept-ids)))
 
 (defn q-parentOf
   [store concept-id]
