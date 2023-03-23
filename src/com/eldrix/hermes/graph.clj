@@ -329,12 +329,11 @@
   [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
-  (let [rel-type (:type (pco/params env))]
-    (if rel-type
-      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id rel-type)
-       :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type svc concept-id rel-type)}}
-      {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id)
-       :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships svc concept-id)})))
+  (if-let [rel-type (:type (pco/params env))]
+    {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id rel-type)
+     :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type svc concept-id rel-type)}}
+    {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id)
+     :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships svc concept-id)}))
 
 (pco/defresolver readctv3-concept
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
