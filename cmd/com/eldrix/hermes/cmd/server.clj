@@ -70,7 +70,7 @@
    (fn [context]
      (if (get-in context [:response :headers "Content-Type"])
        context
-       (update-in context [:response] coerce-to (accepted-type context))))})
+       (update context :response coerce-to (accepted-type context))))})
 
 (defn inject-svc
   "A simple interceptor to inject terminology service 'svc' into the context."
