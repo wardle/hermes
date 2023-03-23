@@ -286,7 +286,7 @@
   (def docs (->> items
                  (map #(store/extended-refset-item store % :attr-ids? false))
                  (map make-document)))
-  (dorun (map #(.addDocument writer %) docs))
+  (run! #(.addDocument writer %2) docs)
   (.forceMerge writer 1)
   (.close writer)
 
