@@ -53,10 +53,8 @@
 (defn- parse-expression-value
   "expressionValue = conceptReference / '(' ws subExpression ws ')'"
   [expression-value]
-  (let [conceptReference (zx/xml1-> expression-value :conceptReference parse-concept-reference)
-        subExpression (zx/xml1-> expression-value :subExpression parse-subexpression)]
-    (if conceptReference conceptReference subExpression)))
-
+  (or (zx/xml1-> expression-value :conceptReference parse-concept-reference)
+      (zx/xml1-> expression-value :subExpression parse-subexpression)))
 
 (defn- parse-attribute-value
   "attributeValue = expressionValue / QM stringValue QM / '#' numericValue / booleanValue"
@@ -107,7 +105,7 @@
 
 (defn- parse-expression [expression]
   (let [ds (zx/xml1-> expression :definitionStatus zx/text)]
-    {:definitionStatus (if ds ds "===")
+    {:definitionStatus (or ds "===")
      :subExpression    (zx/xml1-> expression :subExpression parse-subexpression)}))
 
 (defn parse
