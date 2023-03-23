@@ -219,9 +219,13 @@
   ```"
   [store description-id]
   (let [refset-items (kv/get-component-refset-items store description-id)
-        refsets (into #{} (map :refsetId refset-items))
-        preferred-in (into #{} (map :refsetId (filter #(= snomed/Preferred (:acceptabilityId %)) refset-items)))
-        acceptable-in (into #{} (map :refsetId (filter #(= snomed/Acceptable (:acceptabilityId %)) refset-items)))]
+        refsets (into #{} (map :refsetId) refset-items)
+        preferred-in (into #{}
+                           (comp (filter #(= snomed/Preferred (:acceptabilityId %))) (map :refsetId))
+                           refset-items)
+        acceptable-in (into #{}
+                            (comp (filter #(= snomed/Acceptable (:acceptabilityId %))) (map :refsetId))
+                            refset-items)]
     {:refsets      refsets
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
