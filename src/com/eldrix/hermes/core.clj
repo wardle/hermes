@@ -608,7 +608,7 @@
   (let [target-concept-ids
         (cond
           ;; a string should be an ECL expression -> expand to a set of identifiers
-          (string? target) (into #{} (map :conceptId (expand-ecl svc target)))
+          (string? target) (into #{} (map :conceptId) (expand-ecl svc target))
           ;; a collection should be a collection of identifiers -> make a set
           (coll? target) (set target)
           ;; a single number will be a refset identifier -> get its members
