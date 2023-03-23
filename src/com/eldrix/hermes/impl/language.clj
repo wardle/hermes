@@ -152,7 +152,7 @@
   - language-priority-list : an 'Accept-Language' header (e.g. 'en-GB')"
   [installed language-priority-list]
   (if-let [specific-refset-id (parse-accept-language-refset-id language-priority-list)]
-    (let [installed-refsets (into #{} (flatten (vals installed)))]
+    (let [installed-refsets (-> installed vals flatten set)]
       (filter installed-refsets [specific-refset-id]))
     (let [installed-locales (keys installed) ;; list of java.util.Locales
           priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
