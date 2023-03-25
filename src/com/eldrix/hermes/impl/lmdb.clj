@@ -440,7 +440,8 @@
          (finally (.release kb)))))))
 
 (defn get-raw-parent-relationships
-  "Return the parent relationships of the given concept.
+  "Return either all parent relationships of the given concept or only those
+  relationships of the given type.
   Returns a vector of tuples [from--type--group--to]."
   ([^LmdbStore store concept-id]
    (map-keys-in-range (.-coreEnv store) (.-conceptParentRelationships store)
