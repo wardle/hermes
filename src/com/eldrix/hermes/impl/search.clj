@@ -451,23 +451,30 @@ items."
   (LongPoint/newSetQuery "concept-id" ^Collection (store/get-all-parents store concept-ids)))
 
 (defn q-parentOf
+  "A query for parents (immediate supertypes) of the specified concept excluding
+  the concept itself."
   [store concept-id]
-  (let [^Collection parent-ids (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA))]
+  (let [^Collection parent-ids (store/get-proximal-parent-ids store concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOfAny
+  "A query for parents (immediate supertypes) of the specified concepts."
   [store ^Collection concept-ids]
-  (let [^Collection all-parents (into #{} (mapcat #(map last (#'store/get-raw-parent-relationships store % snomed/IsA))) concept-ids)]
+  (let [^Collection all-parents (into #{} (mapcat #(store/get-proximal-parent-ids store %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" all-parents)))
 
 (defn q-parentOrSelfOf
+  "A query for parents (immediate supertypes) of the specified concept including
+  the concept itself."
   [store concept-id]
-  (let [^Collection parent-ids (conj (map last (#'store/get-raw-parent-relationships store concept-id snomed/IsA)) concept-id)]
+  (let [^Collection parent-ids (conj (store/get-proximal-parent-ids store concept-id) concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOrSelfOfAny
+  "A query for parents (immediate supertypes) of the specified concepts
+  including the concepts themselves."
   [store ^Collection concept-ids]
-  (let [^Collection parent-ids (into #{} (mapcat #(conj (map last (#'store/get-raw-parent-relationships store % snomed/IsA)) %)) concept-ids)]
+  (let [^Collection parent-ids (into (set concept-ids) (mapcat #(store/get-proximal-parent-ids store %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-memberOf
@@ -476,6 +483,7 @@ items."
   (LongPoint/newExactQuery "concept-refsets" refset-id))
 
 (defn q-memberOfAny
+  "A query for concepts that are referenced by the given reference sets."
   [^Collection refset-ids]
   (LongPoint/newSetQuery "concept-refsets" refset-ids))
 
