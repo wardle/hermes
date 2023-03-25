@@ -115,6 +115,14 @@
         (reduce-kv (fn [acc k v]
                      (assoc acc k (get-all-parents store v))) {}))))
 
+(defn get-proximal-parent-ids
+  "Returns a sequence of identifiers for the proximal parents of the given type,
+  defaulting to the 'IS-A' relationship if no type is given."
+  ([store concept-id type-concept-id]
+   (map peek (kv/get-raw-parent-relationships store concept-id type-concept-id)))
+  ([store concept-id]
+   (map peek (kv/get-raw-parent-relationships store concept-id snomed/IsA))))
+
 (defn get-child-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
