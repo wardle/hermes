@@ -104,4 +104,4 @@
 
            :lint/splint
            {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.0.1"}}
-            :main-opts ["-m" "noahtheduke.splint" "src" "cmd"]}}}
+            :main-opts  ["-m" "noahtheduke.splint" "src" "cmd"]}}}
