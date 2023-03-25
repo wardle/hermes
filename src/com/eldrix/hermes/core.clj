@@ -807,9 +807,9 @@
         n-modules (count module-names)]
     (when (seq metadata)
       (log/info "importing" (count metadata) "distribution(s) from" dir))
-    (doseq [{:keys [licenceStatement error] :as dist} metadata]
+    (doseq [dist metadata]
       (log/info "distribution: " (select-keys dist [:name :effectiveTime]))
-      (log/info "license: " (or licenceStatement (:error dist))))
+      (log/info "license: " (or (:licenceStatement dist) (:error dist))))
     (when (pos? n-modules)
       (log/info n-modules "modules listed in distribution metadata")
       (doseq [module-name module-names]
