@@ -70,6 +70,7 @@
                 :target (str class-dir "/logback.xml")})
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src" "cmd"]
+                  :ns-compile   ['com.eldrix.hermes.cmd.core]
                   :compile-opts {:elide-meta     [:doc :added]
                                  :direct-linking true}
                   :java-opts    ["-Dlogback.configurationFile=logback-build.xml"]
