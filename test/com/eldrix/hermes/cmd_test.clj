@@ -32,7 +32,7 @@
     :args ["--db" "snomed.db" "install" "--dist" "uk.nhs/sct-clinical" "--api-key=api-key.txt"]
     :test (fn [parsed]
             (is (= (get-in parsed [:options :db]) "snomed.db"))
-            (is (= (get-in parsed [:options :api-key])) "api-key.txt")
+            (is (= (get-in parsed [:options :api-key]) "api-key.txt"))
             (is (nil? (:errors parsed))))}
    {:s    "Test install with release date"
     :args ["--db snomed.db" "install" "uk.nhs/sct-clinical" "--api-key=api-key.txt" "--release-date" "2023-01-01"]
