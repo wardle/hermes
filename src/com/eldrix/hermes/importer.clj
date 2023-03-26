@@ -23,8 +23,10 @@
             [com.eldrix.hermes.snomed :as snomed])
   (:import (java.io File)))
 
-(defn is-snomed-file? [f]
+(defn snomed-file? [f]
   (snomed/parse-snomed-filename (.getName (io/file f))))
+
+(def ^:deprecated is-snomed-file? snomed-file?)
 
 (defn snomed-file-seq
   "A tree sequence for SNOMED CT data files, returning a sequence of maps.

@@ -920,23 +920,28 @@
 (def ModelModule 900000000000012004)
 (def ModuleDependencyReferenceSet 900000000000534007)
 
-(defn is-primitive?
+(defn primitive?
   "Is this concept primitive? ie not sufficiently defined by necessary conditions?"
   [^Concept c]
   (= Primitive (:definitionStatusId c)))
 
-(defn is-defined?
+(defn defined?
   "Is this concept fully defined? ie sufficiently defined by necessary conditions?"
   [^Concept c]
   (= Defined (:definitionStatusId c)))
 
-(defn is-fully-specified-name?
+(defn fully-specified-name?
   [^Description d]
   (= FullySpecifiedName (:typeId d)))
 
-(defn is-synonym?
+(defn synonym?
   [^Description d]
   (= Synonym (:typeId d)))
+
+(def ^:deprecated is-primitive? "DEPRECATED. Use [[primitive?]] instead." primitive?)
+(def ^:deprecated is-defined? "DEPRECATED. Use [[defined?]] instead." defined?)
+(def ^:deprecated is-fully-specified-name? "DEPRECATED. Use [[fully-specified-name?]] instead." fully-specified-name?)
+(def ^:deprecated is-synonym? "DEPRECATED. Use [[synonym?]] instead." synonym?)
 
 (s/fdef term->lowercase
   :args (s/cat :description :info.snomed/Description))
