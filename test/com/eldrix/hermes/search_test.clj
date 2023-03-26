@@ -2,7 +2,6 @@
   (:require [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is]]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.search :as search]))
 
 (def example-results-1
