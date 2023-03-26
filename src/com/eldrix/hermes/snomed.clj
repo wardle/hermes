@@ -948,21 +948,21 @@
 (defn term->lowercase
   "Return the term of the description as a lower-case string,
   if possible, as determined by the case significance flag."
-  [^Description d]
-  (case (:caseSignificanceId d)
+  [{:keys [caseSignificanceId term]}]
+  (case caseSignificanceId
     ;; initial character is case-insensitive - we can make initial character lowercase
     900000000000020002
-    (when (pos? (count (:term d)))
-      (str (str/lower-case (first (:term d)))
-           (subs (:term d) 1)))
+    (when (pos? (count term))
+      (str (str/lower-case (first term))
+           (subs term 1)))
     ;; entire term case-insensitive - just make it all lower-case
     900000000000448009
-    (str/lower-case (:term d))
+    (str/lower-case term)
     ;; entire term is case-sensitive - can't do anything
     900000000000017005
-    (:term d)
+    term
     ;; fallback option - don't do anything
-    (:term d)))
+    term))
 
 ;; just an experiment with multimethods...
 (defmulti valid? #(identifier->type (:id %)))
