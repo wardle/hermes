@@ -3,8 +3,6 @@
             [clojure.test :refer [deftest is testing]]
             [com.eldrix.hermes.cmd.cli :as cli]))
 
-
-
 (def cli-tests
   [{:s    "Testing legacy download command line arguments"
     :args ["--db" "snomed.db" "download" "uk.nhs/sct-clinical" "api-key" "api-key.txt" "cache-dir" "/var/tmp"]
@@ -90,9 +88,9 @@
             (is (= 8090 (:port options))))}])
 
 (deftest test-parse-cli-options
-  (doseq [{:keys [s args test]} cli-tests]
+  (doseq [{s :s args :args test-fn :test} cli-tests]
     (testing s
-      (test (cli/parse-cli args)))))
+      (test-fn (cli/parse-cli args)))))
 
 (deftest test-allowed-origins
   (is (= (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origins" "example.com,example.net"])

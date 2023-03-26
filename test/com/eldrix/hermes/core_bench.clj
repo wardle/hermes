@@ -13,25 +13,26 @@
 
 (use-fixtures :once live-test-fixture)
 
-(deftest ^:benchmark bench-get-extended-concept
-  (println "\n*** Benchmarking hermes/get-extended-concept")
+(deftest ^:benchmark bench-extended-concept
+  (println "\n*** Benchmarking hermes/extended-concept")
   (quick-bench
-    (hermes/get-extended-concept *svc* 24700007)))
+    (hermes/extended-concept *svc* 24700007)))
 
 (deftest ^:benchmark bench-make-extended-descriptions
   (let [lang-refset-ids ((.-localeMatchFn *svc*) "en-GB")]
     (println "\n*** Benchmarking search/make-extended-descriptions")
     (quick-bench
-      (com.eldrix.hermes.impl.search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/get-concept *svc* 24700007)))))
+      (search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/concept *svc* 24700007)))))
 
-(deftest ^:benchmark bench-get-all-parents
-  (println "\n*** Benchmarking hermes/get-all-parents")
+(deftest ^:benchmark bench-all-parents
+  (println "\n*** Benchmarking hermes/all-parents")
   (quick-bench
-    (hermes/get-all-parents *svc* 24700007)))
+    (hermes/all-parents *svc* 24700007)))
 
 (comment
   (run-tests)
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
   (def lang-refset-ids ((.-localeMatchFn *svc*) "en-GB"))
-  (crit/quick-bench (com.eldrix.hermes.impl.search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/get-concept *svc* 24700007))))
+  (crit/quick-bench
+    (search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/concept *svc* 24700007))))
 

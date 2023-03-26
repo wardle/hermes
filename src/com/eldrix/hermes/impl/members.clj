@@ -265,9 +265,9 @@
   (def store (store/open-store "snomed-2022-04-21.db/store.db"))
   (.refsetFieldNames store)
   (get (.refsetFieldNames store) 30931000001101)
-  (store/get-refset-descriptors store 30931000001101)
-  (store/get-refset-descriptor-attribute-ids store 30931000001101)
-  (store/get-preferred-synonym store 449608002 [999001261000000100])
+  (store/refset-descriptors store 30931000001101)
+  (store/refset-descriptor-attribute-ids store 30931000001101)
+  (store/preferred-synonym store 449608002 [999001261000000100])
 
   (build-members-index "snomed.db/store.db" "snomed.db/members.db")
   (def reader (open-index-reader "snomed.db/members.db"))
@@ -276,7 +276,7 @@
   (search searcher (q-and [(q-prefix "mapTarget" "G21.0") (q-refset-id 447562003)]))
   (time
     (do (def ids (search searcher (q-and [(q-prefix "mapTarget" "G50") (q-refset-id 447562003)])))
-        (map #(store/get-component-refset-items store % 447562003) ids)))
+        (map #(store/component-refset-items store % 447562003) ids)))
   (def directory (ByteBuffersDirectory.))
   (def config (IndexWriterConfig. (StandardAnalyzer.)))
   (def writer (IndexWriter. directory config))

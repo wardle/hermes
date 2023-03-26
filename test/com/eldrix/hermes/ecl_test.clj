@@ -53,7 +53,7 @@
    {:ecl "<  19829001 |Disorder of lung| :\n         116676008 |Associated morphology|  =  79654002 |Edema|"
     :f   (fn [concept-ids]
            (let [morphologies (->> concept-ids
-                                   (map #(hermes/get-parent-relationships-of-type *svc* % snomed/AssociatedMorphology))
+                                   (map #(hermes/parent-relationships-of-type *svc* % snomed/AssociatedMorphology))
                                    (map set))]
              (is (every? true? (map #(contains? % 79654002) morphologies))) ;; all must have EXACTLY oedema as morphology
              (is (every? false? (map #(contains? % 85628007) morphologies)))))} ;; and *not* a subtype of oedema such as chronic oedema
@@ -127,7 +127,7 @@
     (let [results (hermes/expand-ecl *svc* ecl)]
       (when f (f (set (map :conceptId results))))
       (when f2 (dorun (->> results
-                           (map #(hermes/get-extended-concept *svc* (:conceptId %)))
+                           (map #(hermes/extended-concept *svc* (:conceptId %)))
                            (map f2)))))))
 
 (deftest ^:live test-history
@@ -145,7 +145,7 @@
 (deftest ^:live test-member-filter
   (dorun (->> (hermes/expand-ecl *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapPriority = #1, mapTarget = \"J45.9\" }}")
               (map :conceptId)
-              (map #(hermes/get-component-refset-items *svc* % 447562003))
+              (map #(hermes/component-refset-items *svc* % 447562003))
               (map #(map :mapTarget %))
               (map #(some (fn [s] (.startsWith "J45.9" s)) %))
               (map #(is true? %))))

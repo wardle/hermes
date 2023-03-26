@@ -20,7 +20,7 @@
       (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 0 0)]
         (store/write-batch {:type :info.snomed/Concept
                             :data [concept]} st)
-        (is (= concept (store/get-concept st 24700007))))
+        (is (= concept (store/concept st 24700007))))
       (let [description (snomed/map->Description {:id                 754365011,
                                                   :effectiveTime      (LocalDate/of 2020 11 11)
                                                   :active             true,
@@ -32,25 +32,25 @@
                                                   :caseSignificanceId 900000000000448009})]
         (store/write-batch {:type :info.snomed/Description
                             :data [description]} st)
-        (is (= description (store/get-description st 754365011)))
-        (is (= description (store/get-fully-specified-name st 24700007)))))))
+        (is (= description (store/description st 754365011)))
+        (is (= description (store/fully-specified-name st 24700007)))))))
 
 (deftest write-concept-test
   (with-open [st (store/open-store)]
-    (is (nil? (store/get-concept st 24700007)))
+    (is (nil? (store/concept st 24700007)))
     (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 1 0)]
       (store/write-batch {:type :info.snomed/Concept
                           :data [concept]} st)
-      (is (= concept (store/get-concept st 24700007)))
+      (is (= concept (store/concept st 24700007)))
       (let [older-concept (snomed/->Concept 24700007 (LocalDate/of 2020 10 01) true 0 0)]
         (store/write-batch {:type :info.snomed/Concept
                             :data [older-concept]} st)
-        (is (not= older-concept (store/get-concept st 24700007)))
-        (is (= concept (store/get-concept st 24700007))))
+        (is (not= older-concept (store/concept st 24700007)))
+        (is (= concept (store/concept st 24700007))))
       (let [newer-concept (snomed/->Concept 24700007 (LocalDate/of 2021 01 01) true 0 0)]
         (store/write-batch {:type :info.snomed/Concept
                             :data [newer-concept]} st)
-        (is (= newer-concept (store/get-concept st 24700007)))))))
+        (is (= newer-concept (store/concept st 24700007)))))))
 
 (deftest write-components-test
   (with-open [st (store/open-store)]
@@ -61,21 +61,14 @@
       (store/write-batch {:type :info.snomed/Relationship :data relationships} st)
       (store/index st)
       (testing "Concept read/write"
-        (is (every? true? (map #(= % (store/get-concept st (:id %))) concepts))))
+        (is (every? true? (map #(= % (store/concept st (:id %))) concepts))))
       (testing "Concept descriptions"
-        (is (every? true? (map #(= % (store/get-description st (:id %))) descriptions)))
-        (is (every? true? (map #(= (set (get descriptions-by-concept-id (:id %))) (set (store/get-concept-descriptions st (:id %)))) concepts))))
+        (is (every? true? (map #(= % (store/description st (:id %))) descriptions)))
+        (is (every? true? (map #(= (set (get descriptions-by-concept-id (:id %))) (set (store/concept-descriptions st (:id %)))) concepts))))
       (testing "Concept relationships"
-        (is (every? true? (map #(= % (store/get-relationship st (:id %))) relationships)))
+        (is (every? true? (map #(= % (store/relationship st (:id %))) relationships)))
         (is (every? true? (map #(store/is-a? st % (:id root-concept)) concepts)))
-        (is (= (set (map :id concepts)) (store/get-all-children st (:id root-concept))))))))
-
-(comment
-  (def st (store/open-store))
-  (def rel-1 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
-  (def rel-2 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
-  (store/write-batch {:type :info.snomed/Relationship :data [rel-2 rel-1]} st)
-  (store/get-parent-relationships st 24700007))
+        (is (= (set (map :id concepts)) (store/all-children st (:id root-concept))))))))
 
 (deftest write-relationships
   ;; 3229461000000123	20210512	1	999000011000000103	1089261000000101	213345000	0	116680003	900000000000011006	900000000000451002
@@ -85,11 +78,11 @@
     (with-open [st (store/open-store)]
       (store/write-batch {:type :info.snomed/Relationship :data [r1 r2]} st)
       (store/index st)
-      (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))))
+      (is (= {116680003 #{213345000}} (store/parent-relationships st 1089261000000101))))
     (with-open [st (store/open-store)]
       (store/write-batch {:type :info.snomed/Relationship :data [r2 r1]} st)
       (store/index st)
-      (is (= {116680003 #{213345000}} (store/get-parent-relationships st 1089261000000101))
+      (is (= {116680003 #{213345000}} (store/parent-relationships st 1089261000000101))
           "Different relationships with same source, target and type identifiers should result in indices deterministically, not on basis of import order"))))
 
 
@@ -105,13 +98,13 @@
       (store/write-batch {:type :info.snomed/Concept :data concepts} st)
       (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
       (store/index st)
-      (is (= #{refset-id} (store/get-installed-reference-sets st)))
-      (dorun (map #(is (= % (store/get-refset-item st (:id %)))) refset-items))
-      (is (every? true? (map #(= #{refset-id} (store/get-component-refset-ids st (:id %))) members)))
-      (is (every? true? (map #(empty? (store/get-component-refset-ids st (:id %))) non-members)))
-      (is (every? true? (map #(let [[item & more] (store/get-component-refset-items st (.-referencedComponentId %))]
+      (is (= #{refset-id} (store/installed-reference-sets st)))
+      (dorun (map #(is (= % (store/refset-item st (:id %)))) refset-items))
+      (is (every? true? (map #(= #{refset-id} (store/component-refset-ids st (:id %))) members)))
+      (is (every? true? (map #(empty? (store/component-refset-ids st (:id %))) non-members)))
+      (is (every? true? (map #(let [[item & more] (store/component-refset-items st (.-referencedComponentId %))]
                                 (and (nil? more) (= item %))) refset-items)))
-      (is (every? true? (map #(= % (store/get-refset-item st (.-id %))) refset-items)))
+      (is (every? true? (map #(= % (store/refset-item st (.-id %))) refset-items)))
       (let [status (store/status st)]
         (is (= (:concepts status) n-concepts))
         (is (= 0 (:descriptions status)))
@@ -130,7 +123,7 @@
                           :data refset-descriptors} store)
       (store/write-batch {:type :info.snomed/ModuleDependencyRefset
                           :data module-dependencies} store)
-      (dorun (map #(is (= % (store/get-refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies))))))
+      (dorun (map #(is (= % (store/refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies))))))
 
 (deftest test-refset-descriptors
   (let [refset-concept (gen/generate (rf2/gen-concept {:id 1322291000000109 :active true}))
@@ -140,26 +133,26 @@
       (store/write-batch {:type :info.snomed/Concept :data [refset-concept]} store)
       (store/write-batch {:type :info.snomed/RefsetDescriptorRefset :data [rd1 rd2]} store)
       (store/index store)
-      (is (= rd1 (store/get-refset-item store (:id rd1))))
-      (is (= rd2 (store/get-refset-item store (:id rd2))))
-      (is (= (list rd1 rd2) (store/get-refset-descriptors store 1322291000000109)))
-      (is (= (list 449608002 900000000000533001) (store/get-refset-descriptor-attribute-ids store 1322291000000109))))))
+      (is (= rd1 (store/refset-item store (:id rd1))))
+      (is (= rd2 (store/refset-item store (:id rd2))))
+      (is (= (list rd1 rd2) (store/refset-descriptors store 1322291000000109)))
+      (is (= (list 449608002 900000000000533001) (store/refset-descriptor-attribute-ids store 1322291000000109))))))
 
 (deftest ^:live live-store
   (with-open [store (store/open-store "snomed.db/store.db")]
     (testing "Multiple sclerosis"
-      (let [ms (store/get-concept store 24700007)]
+      (let [ms (store/concept store 24700007)]
         (is (= 24700007 (:id ms)))
-        (let [fsn (store/get-fully-specified-name store 24700007)]
+        (let [fsn (store/fully-specified-name store 24700007)]
           (is (= 24700007 (:conceptId fsn)))
           (is (= "Multiple sclerosis (disorder)" (:term fsn)))
           (is (:active fsn))
-          (is (snomed/is-fully-specified-name? fsn)))
-        (let [all-parents1 (store/get-all-parents store 24700007)
-              all-parents2 (store/get-all-parents store 6118003)
-              all-parents3 (store/get-all-parents store 80146002)
-              all-parents4 (store/get-all-parents store [24700007 80146002])
-              all-parents5 (store/get-all-parents store [24700007 6118003])]
+          (is (snomed/fully-specified-name? fsn)))
+        (let [all-parents1 (store/all-parents store 24700007)
+              all-parents2 (store/all-parents store 6118003)
+              all-parents3 (store/all-parents store 80146002)
+              all-parents4 (store/all-parents store [24700007 80146002])
+              all-parents5 (store/all-parents store [24700007 6118003])]
           (is (contains? all-parents1 6118003))              ;; it is a demyelinating disease
           (is (contains? all-parents1 138875005))           ;; it is a SNOMED CT concept
           (is (set/subset? all-parents2 all-parents1))
@@ -172,15 +165,22 @@
 
 (deftest ^:live test-localisation
   (with-open [store (store/open-store "snomed.db/store.db")]
-    (let [gb (store/get-preferred-synonym store 80146002 [999000691000001104 900000000000508004 999001261000000100])
-          usa (store/get-preferred-synonym store 80146002 [900000000000509007])]
+    (let [gb (store/preferred-synonym store 80146002 [999000691000001104 900000000000508004 999001261000000100])
+          usa (store/preferred-synonym store 80146002 [900000000000509007])]
       (is (= "Appendicectomy" (:term gb)))
       (is (= "Appendectomy" (:term usa))))
     (let [lang-match-fn (lang/match-fn store)]
-      (is (= "Appendicectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
-      (is (= "Appendectomy" (:term (store/get-preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
+      (is (= "Appendicectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
+      (is (= "Appendectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
 
 (comment
   (run-tests)
   (write-components-test)
   (live-store))
+
+(comment
+  (def st (store/open-store))
+  (def rel-1 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
+  (def rel-2 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
+  (store/write-batch {:type :info.snomed/Relationship :data [rel-2 rel-1]} st)
+  (store/parent-relationships st 24700007))

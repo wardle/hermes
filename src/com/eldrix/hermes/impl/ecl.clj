@@ -126,7 +126,7 @@
       (if-not expression
         (search/q-concept-ids concept-ids)                  ;; return result as a query against the concept identifiers.
         (let [attrs-concept-ids (realise-concept-ids ctx expression) ;; realise the concept-identifiers for the property (e.g. all descendants of "associated with")
-              result (into #{} (mapcat #(store/get-parent-relationships-of-types store % attrs-concept-ids)) concept-ids)] ;; and get those values for all of our current concepts
+              result (into #{} (mapcat #(store/parent-relationships-of-types store % attrs-concept-ids)) concept-ids)] ;; and get those values for all of our current concepts
           (recur result (next attributes)))))))
 
 (defn- parse-dotted-expression-constraint
@@ -203,10 +203,10 @@
 
       ;; for "!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
       (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
-      (search/q-typeAny (disj (store/get-all-children store 900000000000446008) ecl-concept-reference))
+      (search/q-typeAny (disj (store/all-children store 900000000000446008) ecl-concept-reference))
 
       (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (search/q-typeAny (set/difference (store/get-all-children store 900000000000446008) ecl-concept-references))
+      (search/q-typeAny (set/difference (store/all-children store 900000000000446008) ecl-concept-references))
 
       :else
       (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
@@ -227,7 +227,7 @@
         types (map type-token->type-id (filter identity (conj type-tokens type-token)))
         type-ids (case boolean-comparison-operator
                    "=" types
-                   "!=" (set/difference (store/get-all-children store 900000000000446008) (set types))
+                   "!=" (set/difference (store/all-children store 900000000000446008) (set types))
                    (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
@@ -739,7 +739,7 @@
   memberFilterConstraint = {{ ws (m / M) ws memberFilter *(ws , ws memberFilter) ws }}"
   [{:keys [store memberSearcher] :as ctx} refsets loc]
   (let [refset-ids (cond (= :wildcard refsets)
-                         (store/get-installed-reference-sets store)
+                         (store/installed-reference-sets store)
                          (:conceptId refsets)
                          [(:conceptId refsets)]
                          :else

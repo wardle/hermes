@@ -94,7 +94,7 @@
     (is result)))
 
 (deftest ^:live test-ctv3-crossmap
-  (when (contains? (hermes/get-installed-reference-sets (::graph/svc *registry*)) 900000000000497000)
+  (when (contains? (hermes/installed-reference-sets (::graph/svc *registry*)) 900000000000497000)
     (let [ms (p.eql/process *registry*
                             {:info.read/ctv3 "F20.."}
                             [:info.snomed.Concept/id
@@ -105,8 +105,8 @@
 (deftest ^:live test-refsets
   (testing "refset ids and items"
     (let [svc (::graph/svc *registry*)
-          refset-items (hermes/get-component-refset-items svc 24700007)
-          refset-ids (hermes/get-component-refset-ids svc 24700007)
+          refset-items (hermes/component-refset-items svc 24700007)
+          refset-ids (hermes/component-refset-ids svc 24700007)
           ms (p.eql/process *registry*
                             {:info.snomed.Concept/id 24700007}
                             [:info.snomed.Concept/id

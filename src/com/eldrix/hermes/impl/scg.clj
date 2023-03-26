@@ -192,7 +192,7 @@
   [{:keys [store update-terms? locale-priorities] :as config} exp]
   (let [lang-refsets (when store (lang/match store locale-priorities))
         cfg (if (and store update-terms? (seq lang-refsets))
-              (assoc config :get-preferred-synonym-fn (fn [concept-id] (store/get-preferred-synonym store concept-id lang-refsets)))
+              (assoc config :get-preferred-synonym-fn (fn [concept-id] (store/preferred-synonym store concept-id lang-refsets)))
               config)]
     (str (:definitionStatus exp) " " (render-subexpression cfg (:subExpression exp)))))
 

@@ -28,23 +28,21 @@
 ;; this is a temporary approach to permit parallel evaluation of the
 ;; key stores
 
-(def get-concept kv/get-concept)
-(def get-concept-descriptions kv/get-concept-descriptions)
-(def get-installed-reference-sets kv/get-installed-reference-sets)
-(def get-component-refset-items kv/get-component-refset-items)
+(def concept kv/concept)
+(def concept-descriptions kv/concept-descriptions)
+(def installed-reference-sets kv/installed-reference-sets)
+(def component-refset-items kv/component-refset-items)
 (def stream-all-refset-items kv/stream-all-refset-items)
-(def get-refset-field-names kv/get-refset-field-names)
-(def get-refset-item kv/get-refset-item)
+(def refset-field-names kv/refset-field-names)
+(def refset-item kv/refset-item)
 (def status kv/status)
-(def get-component-refset-ids kv/get-component-refset-ids)
+(def component-refset-ids kv/component-refset-ids)
 (def stream-all-concepts kv/stream-all-concepts)
-(def get-description kv/get-description)
-(def get-relationship kv/get-relationship)
+(def description kv/description)
+(def relationship kv/relationship)
 (def compact kv/compact)
-(def get-raw-child-relationships kv/get-raw-child-relationships)
-(def get-raw-parent-relationships kv/get-raw-parent-relationships)
-(def get-source-association-referenced-components kv/get-source-association-referenced-components)
-(def source-associations kv/get-source-associations)
+(def source-association-referenced-components kv/source-association-referenced-components)
+(def source-associations kv/source-associations)
 (defn open-store
   (^Closeable [] (kv/open-store))
   (^Closeable [f] (kv/open-store f))
@@ -52,7 +50,7 @@
 
 (def close kv/close)
 
-(defn get-all-parents
+(defn all-parents
   "Returns all parent concepts for the concept(s), including that concept or
   those concepts, by design.
    Parameters:
@@ -60,7 +58,7 @@
    - `concept-id-or-ids` a concept identifier, or collection of identifiers
    - `type-id`, defaults to 'IS-A' (116680003)."
   ([store concept-id-or-ids]
-   (get-all-parents store concept-id-or-ids snomed/IsA))
+   (all-parents store concept-id-or-ids snomed/IsA))
   ([store concept-id-or-ids type-id]
    (loop [work (if (number? concept-id-or-ids) #{concept-id-or-ids} (set concept-id-or-ids))
           result (transient #{})]
@@ -68,11 +66,11 @@
        (persistent! result)
        (let [id (first work)
              done-already? (contains? result id)
-             parent-ids (if done-already? () (map last (kv/get-raw-parent-relationships store id type-id)))]
+             parent-ids (if done-already? () (map last (kv/raw-parent-relationships store id type-id)))]
          (recur (apply conj (rest work) parent-ids)
                 (conj! result id)))))))
 
-(defn get-parent-relationships
+(defn parent-relationships
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets of each relationship.
   Returns a map:
@@ -82,52 +80,52 @@
   See `get-parent-relationships-expanded` to get each target expanded via
   transitive closure tables."
   [store concept-id]
-  (->> (kv/get-raw-parent-relationships store concept-id)
+  (->> (kv/raw-parent-relationships store concept-id)
        (reduce (fn [acc v]
                  (update acc (v 1) (fnil conj #{}) (v 3))) {}))) ;; tuple [concept-id type-id group destination-id] so return indices 1+3
 
-(defn get-parent-relationships-of-type
+(defn parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
   [store concept-id type-concept-id]
-  (->> (kv/get-raw-parent-relationships store concept-id type-concept-id)
+  (->> (kv/raw-parent-relationships store concept-id type-concept-id)
        (reduce (fn [acc v] (conj acc (v 3))) #{})))
 
-(defn get-parent-relationships-of-types
+(defn parent-relationships-of-types
   [store concept-id type-concept-ids]
-  (set (mapcat #(get-parent-relationships-of-type store concept-id %) type-concept-ids)))
+  (set (mapcat #(parent-relationships-of-type store concept-id %) type-concept-ids)))
 
-(defn get-parent-relationships-expanded
+(defn parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets and their transitive closure tables. This
   makes it trivial to build queries that find all concepts with, for example, a
   common finding site at any level of granularity."
   ([store concept-id]
-   (->> (kv/get-raw-parent-relationships store concept-id)
+   (->> (kv/raw-parent-relationships store concept-id)
         (reduce (fn [acc [_source-id type-id _group target-id]]
                   (update acc type-id conj target-id)) {})
         (reduce-kv (fn [acc k v]
-                     (assoc acc k (get-all-parents store v))) {})))
+                     (assoc acc k (all-parents store v))) {})))
   ([store concept-id type-id]
-   (->> (kv/get-raw-parent-relationships store concept-id type-id)
+   (->> (kv/raw-parent-relationships store concept-id type-id)
         (reduce (fn [acc [_source-id type-id _group target-id]]
                   (update acc type-id conj target-id)))
         (reduce-kv (fn [acc k v]
-                     (assoc acc k (get-all-parents store v))) {}))))
+                     (assoc acc k (all-parents store v))) {}))))
 
-(defn get-proximal-parent-ids
+(defn proximal-parent-ids
   "Returns a sequence of identifiers for the proximal parents of the given type,
   defaulting to the 'IS-A' relationship if no type is given."
   ([store concept-id type-concept-id]
-   (map peek (kv/get-raw-parent-relationships store concept-id type-concept-id)))
+   (map peek (kv/raw-parent-relationships store concept-id type-concept-id)))
   ([store concept-id]
-   (map peek (kv/get-raw-parent-relationships store concept-id snomed/IsA))))
+   (map peek (kv/raw-parent-relationships store concept-id snomed/IsA))))
 
-(defn get-child-relationships-of-type
+(defn child-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
   [store concept-id type-concept-id]
-  (->> (kv/get-raw-child-relationships store concept-id type-concept-id)
+  (->> (kv/raw-child-relationships store concept-id type-concept-id)
        (reduce (fn [acc v] (conj acc (v 3))) #{})))
 
 (defn paths-to-root
@@ -146,7 +144,7 @@
     (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))
   ```"
   [store concept-id]
-  (loop [parent-ids (map last (kv/get-raw-parent-relationships store concept-id snomed/IsA))
+  (loop [parent-ids (map last (kv/raw-parent-relationships store concept-id snomed/IsA))
          results []]
     (let [parent (first parent-ids)]
       (if-not parent
@@ -154,7 +152,7 @@
         (recur (rest parent-ids)
                (concat results (paths-to-root store parent)))))))
 
-(defn get-all-children
+(defn all-children
   "Returns all child concepts for the concept.
   It takes 3500 milliseconds on my 2013 laptop to return all child concepts
   of the root SNOMED CT concept, so this should only be used for more granular
@@ -164,7 +162,7 @@
    - store
    - `concept-id`
    - `type-id`, defaults to 'IS-A' (116680003)."
-  ([store concept-id] (get-all-children store concept-id snomed/IsA))
+  ([store concept-id] (all-children store concept-id snomed/IsA))
   ([store concept-id type-id]
    (loop [work #{concept-id}
           result #{}]
@@ -172,17 +170,17 @@
        result
        (let [id (first work)
              done-already? (contains? result id)
-             children (if done-already? () (map last (kv/get-raw-child-relationships store id type-id)))]
+             children (if done-already? () (map last (kv/raw-child-relationships store id type-id)))]
          (recur (apply conj (rest work) children)
                 (conj result id)))))))
 
-(defn get-grouped-properties
+(defn grouped-properties
   "Return a concept's properties as a collection of maps, each map representing
   related properties in a 'relationshipGroup'. By default, all groups are
   returned, but this can optionally be limited to those containing a specific
   relationship type."
   ([store concept-id]
-   (->> (kv/get-raw-parent-relationships store concept-id)  ;; tuples concept--type--group--destination
+   (->> (kv/raw-parent-relationships store concept-id)  ;; tuples concept--type--group--destination
         (map rest)                                          ;; turn into tuple of type--group--destination
         (group-by second)                                   ;; now group by 'group'
         (reduce-kv                                          ;; and turn each into a map of type--destination, still grouped by group
@@ -190,29 +188,29 @@
           {})
         vals))
   ([store concept-id type-id]
-   (->> (get-grouped-properties store concept-id)
+   (->> (grouped-properties store concept-id)
         (filter #(contains? % type-id)))))
 
-(defn get-leaves
+(defn leaves
   "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
   
    Parameters:
   - concept-ids  : a collection of concept identifiers"
   [store concept-ids]
-  (set/difference (set concept-ids) (into #{} (mapcat #(disj (get-all-parents store %) %) concept-ids))))
+  (set/difference (set concept-ids) (into #{} (mapcat #(disj (all-parents store %) %) concept-ids))))
 
 (defn transitive-synonyms
   "Returns all synonyms of the specified concept, including those of its
   descendants."
   ([store concept-id] (transitive-synonyms store concept-id {}))
   ([store concept-id {:keys [include-inactive?]}]
-   (let [concepts (conj (get-all-children store concept-id) concept-id)
-         ds (mapcat (partial kv/get-concept-descriptions store) concepts)
+   (let [concepts (conj (all-children store concept-id) concept-id)
+         ds (mapcat (partial kv/concept-descriptions store) concepts)
          ds' (if include-inactive? ds (filter :active ds))]
      (filter #(= snomed/Synonym (:typeId %)) ds'))))
 
 
-(defn get-description-refsets
+(defn description-refsets
   "Get the refsets and language applicability for a description.
   
    Returns a map containing:
@@ -222,11 +220,11 @@
 
   Example:
   ``` 
-  (map #(merge % (get-description-refsets store (:id %)))
-       (get-concept-descriptions store 24700007))
+  (map #(merge % (description-refsets store (:id %)))
+       (concept-descriptions store 24700007))
   ```"
   [store description-id]
-  (let [refset-items (kv/get-component-refset-items store description-id)
+  (let [refset-items (kv/component-refset-items store description-id)
         refsets (into #{} (map :refsetId) refset-items)
         preferred-in (into #{}
                            (comp (filter #(= snomed/Preferred (:acceptabilityId %))) (map :refsetId))
@@ -238,10 +236,10 @@
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
-(s/fdef get-preferred-description
+(s/fdef preferred-description
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
   :ret (s/nilable :info.snomed/Description))
-(defn get-preferred-description
+(defn preferred-description
   "Return the preferred description for the concept specified as defined by
   the language reference set specified for the description type.
   - store               :
@@ -260,15 +258,15 @@
    999001261000000100: UK English (clinical) language reference set
   ```"
   [store concept-id description-type-id language-refset-id]
-  (let [descriptions (->> (kv/get-concept-descriptions store concept-id)
+  (let [descriptions (->> (kv/concept-descriptions store concept-id)
                           (filter #(and (:active %) (= description-type-id (:typeId %)))))
-        refset-item (->> (mapcat #(kv/get-component-refset-items store (:id %) language-refset-id) descriptions)
-                         (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
-                         (first))
-        preferred (:referencedComponentId refset-item)]
-    (when preferred (kv/get-description store preferred))))
+        item (->> (mapcat #(kv/component-refset-items store (:id %) language-refset-id) descriptions)
+                  (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
+                  (first))
+        preferred (:referencedComponentId item)]
+    (when preferred (kv/description store preferred))))
 
-(defn get-preferred-synonym
+(defn preferred-synonym
   "Returns the preferred synonym for the concept specified, looking in the language reference sets
   specified in order, returning the first 'preferred' value. The ordering of the reference
   set identifiers is therefore significant.
@@ -285,72 +283,64 @@
   This means that we need to be able to submit *multiple* language reference set identifiers."
   ([store concept-id language-refset-ids]
    (when-let [refset-id (first language-refset-ids)]
-     (let [d (get-preferred-description store concept-id snomed/Synonym refset-id)]
+     (let [d (preferred-description store concept-id snomed/Synonym refset-id)]
        (or d (recur store concept-id (rest language-refset-ids)))))))
 
-(s/fdef get-preferred-fully-specified-name
+(s/fdef preferred-fully-specified-name
   :args (s/cat :store ::store
                :concept-id :info.snomed.Concept/id
                :language-refset-ids (s/coll-of :info.snomed.Concept/id))
   :ret (s/nilable :info.snomed/Description))
-(defn get-preferred-fully-specified-name [store concept-id language-refset-ids]
+(defn preferred-fully-specified-name [store concept-id language-refset-ids]
   (when-let [refset-id (first language-refset-ids)]
-    (let [d (get-preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
+    (let [d (preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
       (or d (recur store concept-id (rest language-refset-ids))))))
 
-(s/fdef get-fully-specified-name
+(s/fdef fully-specified-name
   :args (s/alt
           :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
           :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
                             :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
   :ret (s/nilable :info.snomed/Description))
-(defn get-fully-specified-name
+(defn fully-specified-name
   "Return the fully specified name for the concept specified. If no language preferences are provided the first
   description of type FSN will be returned. If language preferences are provided, but there is no
   match *and* `fallback?` is true, then the first description of type FSN will be returned."
   ([store concept-id]
-   (get-fully-specified-name store concept-id [] true))
+   (fully-specified-name store concept-id [] true))
   ([store concept-id language-refset-ids fallback?]
    (if-not (seq language-refset-ids)
-     (first (filter snomed/is-fully-specified-name? (kv/get-concept-descriptions store concept-id)))
-     (let [preferred (get-preferred-fully-specified-name store concept-id language-refset-ids)]
+     (first (filter snomed/fully-specified-name? (kv/concept-descriptions store concept-id)))
+     (let [preferred (preferred-fully-specified-name store concept-id language-refset-ids)]
        (if (and fallback? (nil? preferred))
-         (get-fully-specified-name store concept-id)
+         (fully-specified-name store concept-id)
          preferred)))))
 
 (s/fdef make-extended-concept
   :args (s/cat :store ::store :concept :info.snomed/Concept)
   :ret (s/nilable #(instance? ExtendedConcept %)))
-(defn make-extended-concept [store concept]
-  (when-not (map? concept)
-    (throw (IllegalArgumentException. "invalid concept")))
-  (let [concept-id (:id concept)
-        descriptions (map #(merge % (get-description-refsets store (:id %)))
-                          (kv/get-concept-descriptions store concept-id))
-        parent-relationships (get-parent-relationships-expanded store concept-id)
-        direct-parent-relationships (get-parent-relationships store concept-id)
-        refsets (kv/get-component-refset-ids store concept-id)]
-    (snomed/->ExtendedConcept
-      concept
-      descriptions
-      parent-relationships
-      direct-parent-relationships
-      refsets)))
+(defn make-extended-concept [store {concept-id :id :as c}]
+  (let [descriptions (map #(merge % (description-refsets store (:id %)))
+                          (kv/concept-descriptions store concept-id))
+        parent-rels (parent-relationships-expanded store concept-id)
+        direct-parent-rels (parent-relationships store concept-id)
+        refsets (kv/component-refset-ids store concept-id)]
+    (snomed/->ExtendedConcept c descriptions parent-rels direct-parent-rels refsets)))
 
-(s/fdef get-extended-concept
+(s/fdef extended-concept
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
-(defn get-extended-concept
+(defn extended-concept
   "Get an extended concept for the concept specified."
   [store concept-id]
-  (make-extended-concept store (kv/get-concept store concept-id)))
+  (make-extended-concept store (kv/concept store concept-id)))
 
-(defn get-release-information
+(defn release-information
   "Returns descriptions representing the installed distributions.
   Ordering will be by date except that the description for the 'core' module
   will always be first.
   See https://confluence.ihtsdotools.org/display/DOCTIG/4.1.+Root+and+top-level+Concepts"
   [st]
-  (let [root-synonyms (sort-by :effectiveTime (filter :active (kv/get-concept-descriptions st snomed/Root)))
+  (let [root-synonyms (sort-by :effectiveTime (filter :active (kv/concept-descriptions st snomed/Root)))
         ;; get core date by looking for descriptions in 'CORE' module and get the latest
         core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
         others (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
@@ -368,15 +358,15 @@
    (case (or profile :HISTORY-MAX)
      :HISTORY-MIN [snomed/SameAsReferenceSet]
      :HISTORY-MOD [snomed/SameAsReferenceSet snomed/ReplacedByReferenceSet snomed/WasAReferenceSet snomed/PartiallyEquivalentToReferenceSet]
-     :HISTORY-MAX (get-all-children st snomed/HistoricalAssociationReferenceSet))))
+     :HISTORY-MAX (all-children st snomed/HistoricalAssociationReferenceSet))))
 
 (defn source-historical
   "Return the requested historical associations for the component of types as
   defined by refset-ids, or all association refsets if omitted."
   ([st component-id]
-   (source-historical st component-id (get-all-children st snomed/HistoricalAssociationReferenceSet)))
+   (source-historical st component-id (all-children st snomed/HistoricalAssociationReferenceSet)))
   ([st component-id refset-ids]
-   (mapcat #(kv/get-source-association-referenced-components st component-id %) refset-ids)))
+   (mapcat #(kv/source-association-referenced-components st component-id %) refset-ids)))
 
 (s/fdef with-historical
   :args (s/cat :st ::store
@@ -394,25 +384,24 @@
   are included, but this is configurable. "
   ([st concept-ids]
    (with-historical st concept-ids
-                    (disj (get-all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
+                    (disj (all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
   ([st concept-ids historical-refset-ids]
    (let [refset-ids (set historical-refset-ids)
-         future-ids (map :targetComponentId (filter #(refset-ids (:refsetId %)) (mapcat #(kv/get-component-refset-items st %) concept-ids)))
+         future-ids (map :targetComponentId (filter #(refset-ids (:refsetId %)) (mapcat #(kv/component-refset-items st %) concept-ids)))
          modern-ids (set/union (set concept-ids) (set future-ids))
          historic-ids (set (mapcat #(source-historical st % refset-ids) modern-ids))]
      (set/union modern-ids historic-ids))))
 
-
-(defn get-refset-descriptors
+(defn refset-descriptors
   [store refset-id]
-  (->> (kv/get-component-refset-items store refset-id 900000000000456007)
+  (->> (kv/component-refset-items store refset-id 900000000000456007)
        (sort-by :attributeOrder)))
 
-(defn get-refset-descriptor-attribute-ids
+(defn refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
   set."
   [store refset-id]
-  (->> (kv/get-component-refset-items store refset-id 900000000000456007)
+  (->> (kv/component-refset-items store refset-id 900000000000456007)
        (sort-by :attributeOrder)
        (mapv :attributeDescriptionId)))
 
@@ -422,7 +411,7 @@
   been imported."
   ([store item]
    (if (and (:active item) (seq (:fields item)) (instance? SimpleRefsetItem item))
-     (let [attr-ids (get-refset-descriptor-attribute-ids store (:refsetId item))
+     (let [attr-ids (refset-descriptor-attribute-ids store (:refsetId item))
            reifier (snomed/refset-reifier attr-ids)]
        (reifier item))
      item)))
@@ -432,9 +421,9 @@
   The attributes will be keyed based on information from the reference set
   descriptor information and known field names."
   [store {:keys [refsetId] :as item} & {:keys [attr-ids?] :or {attr-ids? true}}]
-  (let [attr-ids (when attr-ids? (get-refset-descriptor-attribute-ids store refsetId))
-        refset-field-names (or (kv/get-refset-field-names store refsetId) (throw (ex-info "No field names for reference set" {:refsetId refsetId})))
-        field-names (map keyword (subvec refset-field-names 5))
+  (let [attr-ids (when attr-ids? (refset-descriptor-attribute-ids store refsetId))
+        all-field-names (or (refset-field-names store refsetId) (throw (ex-info "No field names for reference set" {:refsetId refsetId})))
+        field-names (mapv keyword (subvec all-field-names 5))
         fields (subvec (snomed/->vec item) 5)]              ;; every reference set has 5 core attributes and then additional fields
     (merge
       (zipmap field-names fields)
@@ -502,27 +491,27 @@
   (kv/index-relationships store)
   (kv/index-refsets store))
 
-(defmulti is-a? (fn [_store concept _parent-id] (class concept)))
+(defmulti is-a? (fn [_store x _parent-id] (class x)))
 
 (defmethod is-a? Long [store concept-id parent-id]
-  (contains? (get-all-parents store concept-id) parent-id))
+  (contains? (all-parents store concept-id) parent-id))
 
-(defmethod is-a? Concept [store concept parent-id]
-  (contains? (get-all-parents store (:id concept)) parent-id))
+(defmethod is-a? Concept [store {concept-id :id} parent-id]
+  (contains? (all-parents store concept-id) parent-id))
 
-(defmethod is-a? ExtendedConcept [_ extended-concept parent-id]
-  (contains? (get-in extended-concept [:parentRelationships snomed/IsA]) parent-id))
+(defmethod is-a? ExtendedConcept [_ ec parent-id]
+  (contains? (get-in ec [:parentRelationships snomed/IsA]) parent-id))
 
-(defmulti has-property? (fn [_store concept _property-id _value-id] (class concept)))
+(defmulti has-property? (fn [_store x _property-id _value-id] (class x)))
 
 (defmethod has-property? Long [store concept-id property-id value-id]
-  (contains? (get-parent-relationships-of-type store concept-id property-id) value-id))
+  (contains? (parent-relationships-of-type store concept-id property-id) value-id))
 
-(defmethod has-property? Concept [store concept property-id value-id]
-  (contains? (get-parent-relationships-of-type store (:id concept) property-id) value-id))
+(defmethod has-property? Concept [store {concept-id :id} property-id value-id]
+  (contains? (parent-relationships-of-type store concept-id property-id) value-id))
 
-(defmethod has-property? ExtendedConcept [_ extended-concept property-id value-id]
-  (contains? (get-in extended-concept [:parentRelationships property-id]) value-id))
+(defmethod has-property? ExtendedConcept [_ ec property-id value-id]
+  (contains? (get-in ec [:parentRelationships property-id]) value-id))
 
 
 

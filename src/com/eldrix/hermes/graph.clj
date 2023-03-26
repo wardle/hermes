@@ -77,24 +77,24 @@
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output concept-properties}
-  (record->map "info.snomed.Concept" (hermes/get-concept svc id)))
+  (record->map "info.snomed.Concept" (hermes/concept svc id)))
 
 (pco/defresolver description-by-id
   "Returns a description by identifier; results namespaced to
   `:info.snomed.Description/"
   [{::keys [svc]} {:info.snomed.Description/keys [id]}]
   {::pco/output description-properties}
-  (record->map "info.snomed.Description" (hermes/get-description svc id)))
+  (record->map "info.snomed.Description" (hermes/description svc id)))
 
 (pco/defresolver relationship-by-id
   [{::keys [svc]} {:info.snomed.Relationship/keys [id]}]
   {::pco/output relationship-properties}
-  (record->map "info.snomed.Relationship" (hermes/get-relationship svc id)))
+  (record->map "info.snomed.Relationship" (hermes/relationship svc id)))
 
 (pco/defresolver refset-item-by-id
   [{::keys [svc]} {:info.snomed.RefsetItem/keys [id]}]
   {::pco/output refset-item-properties}
-  (record->map "info.snomed.RefsetItem" (hermes/get-refset-item svc id)))
+  (record->map "info.snomed.RefsetItem" (hermes/refset-item svc id)))
 
 (pco/defresolver component-by-id
   "Resolve an arbitrary SNOMED URI as per https://confluence.ihtsdotools.org/display/DOCURI/2.2+URIs+for+Components+and+Reference+Set+Members"
@@ -126,14 +126,14 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/descriptions description-properties}]}
-  {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc id))})
+  {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/descriptions svc id))})
 
 (pco/defresolver concept-synonyms
   "Returns descriptions of type 'synonym' for a given concept"
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/synonyms description-properties}]}
-  {:info.snomed.Concept/synonyms (map (partial record->map "info.snomed.Description") (hermes/get-synonyms svc id))})
+  {:info.snomed.Concept/synonyms (map (partial record->map "info.snomed.Description") (hermes/synonyms svc id))})
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
@@ -158,12 +158,12 @@
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
   (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (Locale/getDefault)))]
-    {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/get-preferred-synonym svc id lang))}))
+    {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/preferred-synonym svc id lang))}))
 
 (pco/defresolver fully-specified-name
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/fullySpecifiedName description-properties}]}
-  {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/get-fully-specified-name svc id))})
+  {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/fully-specified-name svc id))})
 
 (pco/defresolver lowercase-term
   "Returns a lowercase term of a SNOMED CT description according to the rules
@@ -189,7 +189,7 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [:info.snomed.Concept/refsetIds]}
-  {:info.snomed.Concept/refsetIds (set (hermes/get-component-refset-ids svc id))})
+  {:info.snomed.Concept/refsetIds (set (hermes/component-refset-ids svc id))})
 
 (pco/defresolver concept-refset-items
   "Returns the refset items for a concept."
@@ -197,8 +197,8 @@
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map #(record->map "info.snomed.RefsetItem" %)
                                          (if-let [refset-id (:refsetId (pco/params env))]
-                                           (hermes/get-component-refset-items svc concept-id refset-id)
-                                           (hermes/get-component-refset-items svc concept-id)))})
+                                           (hermes/component-refset-items svc concept-id refset-id)
+                                           (hermes/component-refset-items svc concept-id)))})
 
 (pco/defresolver description-concepts
   [{:info.snomed.Description/keys [moduleId conceptId typeId caseSignificanceId]}]
@@ -285,14 +285,14 @@
   "Returns the single concept that this concept has been replaced by."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/replacedBy [:info.snomed.Concept/id]}]}
-  (let [replacement (first (hermes/get-component-refset-items svc id snomed/ReplacedByReferenceSet))]
+  (let [replacement (first (hermes/component-refset-items svc id snomed/ReplacedByReferenceSet))]
     {:info.snomed.Concept/replacedBy (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-moved-to-namespace
   "Returns the namespace to which this concept moved."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/movedToNamespace [:info.snomed.Concept/id]}]}
-  (let [replacement (first (hermes/get-component-refset-items svc id snomed/MovedToReferenceSet))]
+  (let [replacement (first (hermes/component-refset-items svc id snomed/MovedToReferenceSet))]
     {:info.snomed.Concept/movedToNamespace (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-same-as
@@ -301,7 +301,7 @@
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/sameAs
-   (seq (->> (hermes/get-component-refset-items svc concept-id snomed/SameAsReferenceSet)
+   (seq (->> (hermes/component-refset-items svc concept-id snomed/SameAsReferenceSet)
              (filter :active)
              (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
@@ -310,7 +310,7 @@
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/possiblyEquivalentTo
-   (seq (->> (hermes/get-component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
+   (seq (->> (hermes/component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
              (filter :active)
              (mapv #(hash-map :info.snomed.Concept/id (:targetComponentId %)))))})
 
@@ -330,10 +330,10 @@
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
   (if-let [rel-type (:type (pco/params env))]
-    {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id rel-type)
-     :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/get-parent-relationships-of-type svc concept-id rel-type)}}
-    {:info.snomed.Concept/parentRelationshipIds       (hermes/get-parent-relationships-expanded svc concept-id)
-     :info.snomed.Concept/directParentRelationshipIds (hermes/get-parent-relationships svc concept-id)}))
+    {:info.snomed.Concept/parentRelationshipIds       (hermes/parent-relationships-expanded svc concept-id rel-type)
+     :info.snomed.Concept/directParentRelationshipIds {rel-type (hermes/parent-relationships-of-type svc concept-id rel-type)}}
+    {:info.snomed.Concept/parentRelationshipIds       (hermes/parent-relationships-expanded svc concept-id)
+     :info.snomed.Concept/directParentRelationshipIds (hermes/parent-relationships svc concept-id)}))
 
 (pco/defresolver readctv3-concept
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
@@ -345,7 +345,7 @@
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
   [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
   {::pco/output [:info.read/ctv3]}
-  {:info.read/ctv3 (:mapTarget (first (hermes/get-component-refset-items svc id 900000000000497000)))})
+  {:info.read/ctv3 (:mapTarget (first (hermes/component-refset-items svc id 900000000000497000)))})
 
 (s/fdef perform-search :args (s/cat :hermes/svc ::hermes/svc :params ::hermes/search-params))
 (defn perform-search [svc params]
@@ -387,7 +387,7 @@
 (pco/defresolver installed-refsets
   [{::keys [svc]} _]
   {::pco/output [{:info.snomed/installedReferenceSets [:info.snomed.Concept/id]}]}
-  {:info.snomed/installedReferenceSets (mapv #(hash-map :info.snomed.Concept/id %) (hermes/get-installed-reference-sets svc))})
+  {:info.snomed/installedReferenceSets (mapv #(hash-map :info.snomed.Concept/id %) (hermes/installed-reference-sets svc))})
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
@@ -432,14 +432,14 @@
 (comment
   (def svc (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
   svc
-  (hermes/get-concept svc 24700007)
-  (hermes/get-extended-concept svc 24700007)
+  (hermes/concept svc 24700007)
+  (hermes/extended-concept svc 24700007)
   (hermes/search svc {:s          "polymyositis"
                       :fuzzy      2
                       :constraint "<404684003"
                       :max-hits   10})
 
-  (map (partial record->map "info.snomed.Description") (hermes/get-descriptions svc 24700007))
+  (map (partial record->map "info.snomed.Description") (hermes/descriptions svc 24700007))
 
   concept-by-id
   (concept-by-id {::svc svc} {:info.snomed.Concept/id 24700007})
@@ -455,9 +455,9 @@
 
 
   (sort (map #(vector (:id %) (:term %))
-             (map #(hermes/get-preferred-synonym svc % "en-GB") (hermes/get-installed-reference-sets svc))))
+             (map #(hermes/preferred-synonym svc % "en-GB") (hermes/installed-reference-sets svc))))
 
-  (first (hermes/get-component-refset-items svc 24700007 900000000000497000))
+  (first (hermes/component-refset-items svc 24700007 900000000000497000))
   (p.eql/process registry
                  {:info.snomed.Concept/id 80146002}
                  [:info.snomed.Concept/id

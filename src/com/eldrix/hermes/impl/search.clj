@@ -99,7 +99,7 @@
   [store language-refset-ids concept]
   (let [ec (store/make-extended-concept store concept)
         ec' (dissoc ec :descriptions)
-        preferred (store/get-preferred-synonym store (:id concept) language-refset-ids)]
+        preferred (store/preferred-synonym store (:id concept) language-refset-ids)]
     (when-not preferred
       (log/warn "could not determine preferred synonym for " (:id concept) " using refsets: " language-refset-ids))
     ;; turn concept inside out to focus on description instead
@@ -432,49 +432,49 @@ items."
 (defn q-ancestorOf
   "A query for concepts that are ancestors of the specified concept."
   [store concept-id]
-  (let [^Collection parent-ids (disj (store/get-all-parents store concept-id) concept-id)]
+  (let [^Collection parent-ids (disj (store/all-parents store concept-id) concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOfAny
   [store ^Collection concept-ids]
-  (let [^Collection parent-ids (set/difference (store/get-all-parents store concept-ids) (set concept-ids))]
+  (let [^Collection parent-ids (set/difference (store/all-parents store concept-ids) (set concept-ids))]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOf
   "A query for concepts that are ancestors of the specified concept plus the concept itself."
   [store concept-id]
-  (let [^Collection parent-ids (store/get-all-parents store concept-id)]
+  (let [^Collection parent-ids (store/all-parents store concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOfAny
   [store ^Collection concept-ids]
-  (LongPoint/newSetQuery "concept-id" ^Collection (store/get-all-parents store concept-ids)))
+  (LongPoint/newSetQuery "concept-id" ^Collection (store/all-parents store concept-ids)))
 
 (defn q-parentOf
   "A query for parents (immediate supertypes) of the specified concept excluding
   the concept itself."
   [store concept-id]
-  (let [^Collection parent-ids (store/get-proximal-parent-ids store concept-id)]
+  (let [^Collection parent-ids (store/proximal-parent-ids store concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOfAny
   "A query for parents (immediate supertypes) of the specified concepts."
   [store ^Collection concept-ids]
-  (let [^Collection all-parents (into #{} (mapcat #(store/get-proximal-parent-ids store %)) concept-ids)]
+  (let [^Collection all-parents (into #{} (mapcat #(store/proximal-parent-ids store %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" all-parents)))
 
 (defn q-parentOrSelfOf
   "A query for parents (immediate supertypes) of the specified concept including
   the concept itself."
   [store concept-id]
-  (let [^Collection parent-ids (conj (store/get-proximal-parent-ids store concept-id) concept-id)]
+  (let [^Collection parent-ids (conj (store/proximal-parent-ids store concept-id) concept-id)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-parentOrSelfOfAny
   "A query for parents (immediate supertypes) of the specified concepts
   including the concepts themselves."
   [store ^Collection concept-ids]
-  (let [^Collection parent-ids (into (set concept-ids) (mapcat #(store/get-proximal-parent-ids store %)) concept-ids)]
+  (let [^Collection parent-ids (into (set concept-ids) (mapcat #(store/proximal-parent-ids store %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-memberOf
@@ -499,7 +499,7 @@ items."
 (defn q-memberOfInstalledReferenceSet
   "A query for concepts that are a member of any reference set."
   [store]
-  (LongPoint/newSetQuery "concept-refsets" ^Collection (store/get-installed-reference-sets store)))
+  (LongPoint/newSetQuery "concept-refsets" ^Collection (store/installed-reference-sets store)))
 
 (defn q-any
   "Returns a query that returns 'any' concept."
@@ -608,7 +608,7 @@ items."
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q
     (->> (do-query-for-concept-ids searcher q max-hits)
-         (map (partial store/get-fully-specified-name store))
+         (map (partial store/fully-specified-name store))
          (map #(select-keys % [:conceptId :term])))))
 
 (comment

@@ -341,11 +341,11 @@
           (read-fn rb))
         (finally (.release kb))))))
 
-(defn get-concept
+(defn concept
   [^LmdbStore store ^long id]
   (get-object (.-coreEnv store) (.-concepts store) id ser/read-concept))
 
-(defn get-description
+(defn description
   "Return the description with the given `concept-id` and `description-id`.
 
   If no concept-id is given, this uses the descriptionId-conceptId index to
@@ -401,7 +401,7 @@
                 (persistent! results))))))
       (finally (.release start-kb) (.release end-kb)))))
 
-(defn get-concept-descriptions
+(defn concept-descriptions
   "Returns a vector of descriptions for the given concept."
   [^LmdbStore store ^long concept-id]
   (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
@@ -418,18 +418,18 @@
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
 
-(defn get-relationship
+(defn relationship
   [^LmdbStore store ^long relationship-id]
   (get-object (.-coreEnv store) (.-relationships store) relationship-id ser/read-relationship))
 
-(defn get-refset-item
+(defn refset-item
   "Get the specified refset item.
   Parameters:
   - store
   - UUID  : the UUID of the refset item to fetch
   - msb/lsb : the most and least significant 64-bit longs representing the UUID."
   ([^LmdbStore store ^UUID uuid]
-   (get-refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
+   (refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
   ([^LmdbStore store ^long msb ^long lsb]
    (with-open [txn (.txnRead ^Env (.-refsetsEnv store))]
      (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
@@ -439,7 +439,7 @@
            (ser/read-refset-item vb))
          (finally (.release kb)))))))
 
-(defn get-raw-parent-relationships
+(defn raw-parent-relationships
   "Return either all parent relationships of the given concept or only those
   relationships of the given type.
   Returns a vector of tuples [from--type--group--to]."
@@ -454,7 +454,7 @@
                       [concept-id type-id -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
 
-(defn get-raw-child-relationships
+(defn raw-child-relationships
   "Return the child relationships of the given concept.
   Returns a vector of tuples [from--type--group--to]."
   ([^LmdbStore store concept-id]
@@ -468,7 +468,7 @@
                       [concept-id type-id -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
 
-(defn get-component-refset-items
+(defn component-refset-items
   "Get the refset items for the given component, optionally
    limited to the refset specified.
    - store
@@ -478,14 +478,14 @@
    (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
                       [component-id 0 0 0]
                       [component-id -1 -1 -1]
-                      (fn [^ByteBuf b] (get-refset-item store (.getLong b 16) (.getLong b 24)))))
+                      (fn [^ByteBuf b] (refset-item store (.getLong b 16) (.getLong b 24)))))
   ([^LmdbStore store component-id refset-id]
    (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
                       [component-id refset-id 0 0]
                       [component-id refset-id -1 -1]
-                      (fn [^ByteBuf b] (get-refset-item store (.getLong b 16) (.getLong b 24))))))
+                      (fn [^ByteBuf b] (refset-item store (.getLong b 16) (.getLong b 24))))))
 
-(defn get-component-refset-ids
+(defn component-refset-ids
   "Return a set of refset-ids to which this component belongs."
   [^LmdbStore store component-id]
   (set (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
@@ -507,7 +507,7 @@
   ([^LmdbStore store ch close?]
    (stream-all (.-refsetsEnv store) (.-refsetItems store) ch ser/read-refset-item close?)))
 
-(defn get-refset-field-names
+(defn refset-field-names
   "Returns the field names for the given reference set.
 
   The reference set descriptors provide a human-readable description and a type
@@ -517,12 +517,12 @@
   [^LmdbStore store refset-id]
   (get-object (.-refsetsEnv store) (.-refsetFieldNames store) refset-id ser/read-field-names))
 
-(defn get-installed-reference-sets
+(defn installed-reference-sets
   "Returns a set of identifiers representing installed reference sets.
 
   While it is possible to use the SNOMED ontology to find all reference sets:
     ```
-    (get-leaves store (get-all-children store 900000000000455006))
+    (get-leaves store (all-children store 900000000000455006))
     ```
   That might return reference sets with no actual members in the installed
   edition. Instead, we keep track of installed reference sets as we import
@@ -537,21 +537,21 @@
         (recur (conj! results (.readLong ^ByteBuf (.key cursor))) (.next cursor))
         (persistent! results)))))
 
-(defn get-source-associations
+(defn source-associations
   "Returns the associations in which this component is the target.
   targetComponentId -- refsetId -- referencedComponentId - itemId1 - itemId2"
   ([^LmdbStore store component-id]
    (map-keys-in-range (.-coreEnv store) (.-associations store)
                       [component-id 0 0 0 0]
                       [component-id -1 -1 -1 -1]
-                      (fn [^ByteBuf b] (get-refset-item store (.getLong b 24) (.getLong b 32)))))
+                      (fn [^ByteBuf b] (refset-item store (.getLong b 24) (.getLong b 32)))))
   ([^LmdbStore store component-id refset-id]
    (map-keys-in-range (.-coreEnv store) (.-associations store)
                       [component-id refset-id 0 0 0]
                       [component-id refset-id -1 -1 -1]
-                      (fn [^ByteBuf b] (get-refset-item store (.getLong b 24) (.getLong b 32))))))
+                      (fn [^ByteBuf b] (refset-item store (.getLong b 24) (.getLong b 32))))))
 
-(defn get-source-association-referenced-components
+(defn source-association-referenced-components
   "Returns a sequence of component identifiers that reference the specified
   component in the specified association reference set."
   [^LmdbStore store component-id refset-id]

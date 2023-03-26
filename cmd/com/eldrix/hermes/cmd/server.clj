@@ -106,16 +106,16 @@
   {:name  ::get-concept
    :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (hermes/get-concept svc concept-id)]
+              (when-let [concept (hermes/concept svc concept-id)]
                 (assoc context :result concept))))})
 
 (def get-extended-concept
   {:name  ::get-extended-concept
    :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [concept (hermes/get-extended-concept svc concept-id)]
+              (when-let [concept (hermes/extended-concept svc concept-id)]
                 (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
-                      preferred (hermes/get-preferred-synonym svc concept-id langs)]
+                      preferred (hermes/preferred-synonym svc concept-id langs)]
                   (assoc context :result (assoc concept :preferredDescription preferred))))))})
 
 (def get-historical
@@ -128,13 +128,13 @@
   {:name  ::get-concept-reference-sets
    :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (assoc context :result (hermes/get-component-refset-items-extended svc concept-id))))})
+              (assoc context :result (hermes/component-refset-items-extended svc concept-id))))})
 
 (def get-concept-descriptions
   {:name  ::get-concept-descriptions
    :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
-              (when-let [ds (hermes/get-descriptions svc concept-id)]
+              (when-let [ds (hermes/descriptions svc concept-id)]
                 (assoc context :result ds))))})
 
 (def get-concept-preferred-description
@@ -142,7 +142,7 @@
    :enter (fn [{::keys [svc] :as context}]
             (when-let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))]
               (let [langs (or (get-in context [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))]
-                (when-let [ds (hermes/get-preferred-synonym svc concept-id langs)]
+                (when-let [ds (hermes/preferred-synonym svc concept-id langs)]
                   (assoc context :result ds)))))})
 
 (def get-map-to
@@ -151,11 +151,11 @@
             (let [concept-id (Long/parseLong (get-in context [:request :path-params :concept-id]))
                   refset-id (Long/parseLong (get-in context [:request :path-params :refset-id]))]
               (when (and concept-id refset-id)
-                (if-let [rfs (seq (hermes/get-component-refset-items svc concept-id refset-id))]
+                (if-let [rfs (seq (hermes/component-refset-items svc concept-id refset-id))]
                   (assoc context :result rfs)               ;; return the results as concept found in refset
                   ;; if concept not found, map into the refset and get the refset items for all mapped results
                   (when-let [mapped-concept-ids (seq (first (hermes/map-into svc [concept-id] refset-id)))]
-                    (assoc context :result (flatten (map #(hermes/get-component-refset-items svc % refset-id) mapped-concept-ids))))))))})
+                    (assoc context :result (flatten (map #(hermes/component-refset-items svc % refset-id) mapped-concept-ids))))))))})
 
 (def get-map-from
   {:name  ::get-map-from

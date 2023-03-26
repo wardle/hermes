@@ -87,10 +87,10 @@
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (with-open [store (store/open-store (str store-path))]
-      (is (= refset-concept (store/get-concept store (:id refset-concept))))
+      (is (= refset-concept (store/concept store (:id refset-concept))))
       (is (every? #(instance? SimpleRefsetItem %) refset-items))
       (doseq [item refset-items]                            ;; has every instance been reified to the correct type of reference set?
-        (is (instance? AssociationRefsetItem (store/get-refset-item store (:id item))))))))
+        (is (instance? AssociationRefsetItem (store/refset-item store (:id item))))))))
 
 (deftest test-components
   (let [{:keys [release-path db-path]} *paths*
@@ -135,14 +135,14 @@
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (with-open [store (store/open-store (str store-path))]
-      (log/info "installed reference sets:" (store/get-installed-reference-sets store)))
+      (log/info "installed reference sets:" (store/installed-reference-sets store)))
     (hermes/index (str db-path))
     (with-open [svc (hermes/open (str db-path))]
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
             en-US-description-ids (set (map :referencedComponentId en-US))]
-        (is (= en-GB-refset (hermes/get-concept svc 999001261000000100)))
-        (dorun (map #(is (contains? en-GB-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-GB")))) concepts))
-        (dorun (map #(is (contains? en-US-description-ids (:id (hermes/get-preferred-synonym svc (:id %) "en-US")))) concepts))))))
+        (is (= en-GB-refset (hermes/concept svc 999001261000000100)))
+        (dorun (map #(is (contains? en-GB-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-GB")))) concepts))
+        (dorun (map #(is (contains? en-US-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-US")))) concepts))))))
 
 (deftest test-module-dependencies
   (let [template {:active true :sourceEffectiveTime (LocalDate/of 2014 1 31) :targetEffectiveTime (LocalDate/of 2014 1 31) :fields []}

@@ -87,49 +87,49 @@
     (.close indexReader)
     (.close memberReader)))
 
-(s/fdef get-concept
+(s/fdef concept
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-concept
+(defn concept
   "Return the concept with the specified identifier."
   [^Svc svc concept-id]
-  (store/get-concept (.-store svc) concept-id))
+  (store/concept (.-store svc) concept-id))
 
-(s/fdef get-description
+(s/fdef description
   :args (s/cat :svc ::svc :description-id :info.snomed.Description/id))
-(defn get-description
+(defn description
   "Return the description with the specified identifier."
   [^Svc svc description-id]
-  (store/get-description (.-store svc) description-id))
+  (store/description (.-store svc) description-id))
 
-(s/fdef get-relationship
+(s/fdef relationship
   :args (s/cat :svc ::svc :relationship-id :info.snomed.Relationship/id))
-(defn get-relationship
+(defn relationship
   "Return the relationship with the specified identifier."
   [^Svc svc relationship-id]
-  (store/get-relationship (.-store svc) relationship-id))
+  (store/relationship (.-store svc) relationship-id))
 
-(s/fdef get-extended-concept
+(s/fdef extended-concept
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-extended-concept
+(defn extended-concept
   "Return an extended concept that includes the concept, its descriptions,
   its relationships and its refset memberships. See
   [[com.eldrix.hermes.snomed/ExtendedConcept]]"
   [^Svc svc concept-id]
-  (store/get-extended-concept (.-store svc) concept-id))
+  (store/extended-concept (.-store svc) concept-id))
 
-(s/fdef get-descriptions
+(s/fdef descriptions
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-descriptions
+(defn descriptions
   "Return a sequence of descriptions for the given concept."
   [^Svc svc concept-id]
-  (store/get-concept-descriptions (.-store svc) concept-id))
+  (store/concept-descriptions (.-store svc) concept-id))
 
-(s/fdef get-synonyms
+(s/fdef synonyms
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-synonyms
+(defn synonyms
   "Returns a sequence of synonyms for the given concept."
   [^Svc svc concept-id]
-  (->> (get-descriptions svc concept-id)
+  (->> (descriptions svc concept-id)
        (filter #(= snomed/Synonym (:typeId %)))))
 
 (s/fdef stream-all-concepts
@@ -141,94 +141,94 @@
   ([^Svc svc ch close?]
    (store/stream-all-concepts (.-store svc) ch close?)))
 
-(s/fdef get-all-parents
+(s/fdef all-parents
   :args (s/cat :svc ::svc :concept-id-or-ids (s/or :concept :info.snomed.Concept/id :concepts (s/coll-of :info.snomed.Concept/id)) :type-id (s/? :info.snomed.Concept/id)))
-(defn get-all-parents
+(defn all-parents
   "Returns a set of concept ids of the parents of the specified concept(s). By
   design, this includes the concept(s)."
   ([^Svc svc concept-id-or-ids]
-   (get-all-parents svc concept-id-or-ids snomed/IsA))
+   (all-parents svc concept-id-or-ids snomed/IsA))
   ([^Svc svc concept-id-or-ids type-id]
-   (store/get-all-parents (.-store svc) concept-id-or-ids type-id)))
+   (store/all-parents (.-store svc) concept-id-or-ids type-id)))
 
-(s/fdef get-all-children
+(s/fdef all-children
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
-(defn get-all-children
+(defn all-children
   "Returns a set of concept ids of the children of the specified concept. By
   design, this includes the concept itself."
   ([^Svc svc concept-id]
-   (store/get-all-children (.-store svc) concept-id))
+   (store/all-children (.-store svc) concept-id))
   ([^Svc svc concept-id type-id]
-   (store/get-all-children (.-store svc) concept-id type-id)))
+   (store/all-children (.-store svc) concept-id type-id)))
 
-(s/fdef get-parent-relationships
+(s/fdef parent-relationships
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn get-parent-relationships
+(defn parent-relationships
   "Returns a map of the parent relationships keyed by type."
   [^Svc svc concept-id]
-  (store/get-parent-relationships (.-store svc) concept-id))
+  (store/parent-relationships (.-store svc) concept-id))
 
-(defn get-parent-relationships-expanded
+(defn parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets and their transitive closure tables. This
   makes it trivial to build queries that find all concepts with, for example, a
   common finding site at any level of granularity."
   ([^Svc svc concept-id]
-   (store/get-parent-relationships-expanded (.-store svc) concept-id))
+   (store/parent-relationships-expanded (.-store svc) concept-id))
   ([^Svc svc concept-id type-id]
-   (store/get-parent-relationships-expanded (.-store svc) concept-id type-id)))
+   (store/parent-relationships-expanded (.-store svc) concept-id type-id)))
 
-(s/fdef get-parent-relationships-of-type
+(s/fdef parent-relationships-of-type
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concept-id :info.snomed.Concept/id))
-(defn get-parent-relationships-of-type
+(defn parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
   [^Svc svc concept-id type-concept-id]
-  (store/get-parent-relationships-of-type (.-store svc) concept-id type-concept-id))
+  (store/parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(s/fdef get-child-relationships-of-type
+(s/fdef child-relationships-of-type
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
-(defn get-child-relationships-of-type
+(defn child-relationships-of-type
   "Returns a set of identifiers representing the child relationships of the
   specified type of the specified concept."
   [^Svc svc concept-id type-concept-id]
-  (store/get-child-relationships-of-type (.-store svc) concept-id type-concept-id))
+  (store/child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
-(s/fdef get-component-refset-items
+(s/fdef component-refset-items
   :args (s/cat :svc ::svc :component-id ::component-id :refset-id (s/? :info.snomed.Concept/id)))
-(defn get-component-refset-items
+(defn component-refset-items
   "Returns a sequence of refset items for the given component."
   ([^Svc svc component-id]
-   (store/get-component-refset-items (.-store svc) component-id))
+   (store/component-refset-items (.-store svc) component-id))
   ([^Svc svc component-id refset-id]
-   (store/get-component-refset-items (.-store svc) component-id refset-id)))
+   (store/component-refset-items (.-store svc) component-id refset-id)))
 
 (defn ^:deprecated get-reference-sets
   "DEPRECATED: use [[get-component-refset-items]] instead."
   [^Svc svc component-id]
-  (get-component-refset-items svc component-id))
+  (component-refset-items svc component-id))
 
-(s/fdef get-component-refset-ids
+(s/fdef component-refset-ids
   :args (s/cat :svc ::svc :component-id ::component-id))
-(defn get-component-refset-ids
+(defn component-refset-ids
   "Returns a collection of refset identifiers to which this concept is a member."
   [^Svc svc component-id]
-  (store/get-component-refset-ids (.-store svc) component-id))
+  (store/component-refset-ids (.-store svc) component-id))
 
-(s/fdef get-refset-item
+(s/fdef refset-item
   :args (s/cat :svc ::svc :uuid uuid?))
-(defn get-refset-item
+(defn refset-item
   "Return a specific refset item by UUID."
   [^Svc svc ^UUID uuid]
-  (store/get-refset-item (.-store svc) uuid))
+  (store/refset-item (.-store svc) uuid))
 
-(s/fdef get-refset-descriptor-attribute-ids
+(s/fdef refset-descriptor-attribute-ids
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id))
-(defn get-refset-descriptor-attribute-ids
+(defn refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
   set."
   [^Svc svc refset-id]
-  (store/get-refset-descriptor-attribute-ids (.-store svc) refset-id))
+  (store/refset-descriptor-attribute-ids (.-store svc) refset-id))
 
 (s/fdef extended-refset-item
   :args (s/cat :svc ::svc :item :info.snomed/SimpleRefset))
@@ -239,20 +239,20 @@
   [^Svc svc item]
   (store/extended-refset-item (.-store svc) item))
 
-(defn get-component-refset-items-extended
+(defn component-refset-items-extended
   "Returns a sequence of refset items for the given component, supplemented
   with a map of extended attributes as defined by the refset descriptor"
   ([^Svc svc component-id]
-   (->> (store/get-component-refset-items (.-store svc) component-id)
+   (->> (store/component-refset-items (.-store svc) component-id)
         (map #(extended-refset-item svc %))))
   ([^Svc svc component-id refset-id]
-   (->> (store/get-component-refset-items (.-store svc) component-id refset-id)
+   (->> (store/component-refset-items (.-store svc) component-id refset-id)
         (map #(extended-refset-item svc %)))))
 
 (defn active-association-targets
   "Return the active association targets for a given component."
   [^Svc svc component-id refset-id]
-  (->> (get-component-refset-items svc component-id refset-id)
+  (->> (component-refset-items svc component-id refset-id)
        (filter :active)
        (map :targetComponentId)))
 
@@ -270,16 +270,16 @@
   See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.5.1+Historical+Association+Reference+Sets
   and https://confluence.ihtsdotools.org/display/editorialag/Component+Moved+Elsewhere"
   [^Svc svc component-id]
-  (select-keys (group-by :refsetId (get-component-refset-items svc component-id))
-               (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
+  (select-keys (group-by :refsetId (component-refset-items svc component-id))
+               (store/all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
 
 (defn source-historical-associations
   "Returns all historical-type associations in which the specified component is
   the target. For example, searching for `24700007` will result in a map keyed
   by refset-id (e.g. `SAME-AS` reference set) and a set of concept identifiers."
   [^Svc svc component-id]
-  (let [refset-ids (store/get-all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)]
-    (apply merge (map #(when-let [result (seq (store/get-source-association-referenced-components (.-store svc) component-id %))]
+  (let [refset-ids (store/all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)]
+    (apply merge (map #(when-let [result (seq (store/source-association-referenced-components (.-store svc) component-id %))]
                          (hash-map % (set result))) refset-ids))))
 
 (defn source-historical
@@ -322,10 +322,10 @@
   [^Svc svc profile]
   (store/history-profile (.-store svc) profile))
 
-(defn get-installed-reference-sets
+(defn installed-reference-sets
   "Return a set of identifiers representing installed reference sets."
   [^Svc svc]
-  (store/get-installed-reference-sets (.-store svc)))
+  (store/installed-reference-sets (.-store svc)))
 
 (defn member-field
   "Returns a set of referenced component identifiers that are members of the
@@ -380,7 +380,7 @@
   For more control, use [[member-field]]."
   [^Svc svc refset-id code]
   (->> (member-field svc refset-id "mapTarget" code)
-       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
+       (mapcat #(store/component-refset-items (.-store svc) % refset-id))
        (filter #(= (:mapTarget %) code))))
 
 (s/fdef reverse-map-prefix
@@ -397,12 +397,12 @@
   For more control, use [[member-field-prefix]]."
   [^Svc svc refset-id prefix]
   (->> (member-field-prefix svc refset-id "mapTarget" prefix)
-       (mapcat #(store/get-component-refset-items (.-store svc) % refset-id))
+       (mapcat #(store/component-refset-items (.-store svc) % refset-id))
        (filter #(.startsWith ^String (:mapTarget %) prefix))))
 
-(s/fdef get-preferred-synonym
+(s/fdef preferred-synonym
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
-(defn get-preferred-synonym
+(defn preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
 
@@ -413,22 +413,22 @@
                      language ranges or a list of language ranges in the form of
                      the \"Accept-Language \" header defined in RFC3066."
   ([^Svc svc concept-id]
-   (get-preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
+   (preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
    (let [locale-match-fn (.-localeMatchFn svc)]
-     (store/get-preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
+     (store/preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
 
-(s/fdef get-fully-specified-name
+(s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
-(defn get-fully-specified-name
+(defn fully-specified-name
   ([^Svc svc concept-id]
-   (get-fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
+   (fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
    (let [locale-match-fn (.-localeMatchFn svc)]
-     (store/get-fully-specified-name (.-store svc) concept-id (locale-match-fn language-range) false))))
+     (store/fully-specified-name (.-store svc) concept-id (locale-match-fn language-range) false))))
 
-(defn get-release-information [^Svc svc]
-  (store/get-release-information (.-store svc)))
+(defn release-information [^Svc svc]
+  (store/release-information (.-store svc)))
 
 (defn subsumed-by? [^Svc svc concept-id subsumer-concept-id]
   (store/is-a? (.-store svc) concept-id subsumer-concept-id))
@@ -441,7 +441,7 @@
   Checks the is-a relationships of the concepts in question against the set of
   parent identifiers."
   [^Svc svc concept-ids parent-ids]
-  (some (set parent-ids) (get-all-parents svc concept-ids)))
+  (some (set parent-ids) (all-parents svc concept-ids)))
 
 (defn parse-expression [^Svc _svc s]
   (scg/parse s))
@@ -511,10 +511,10 @@
 
 (s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
-(s/fdef all-transitive-synonyms
+(s/fdef transitive-synonyms
   :args (s/cat :svc ::svc
                :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of :info.snomed.Concept/id))))
-(defn all-transitive-synonyms
+(defn transitive-synonyms
   "Returns all synonyms of the specified concepts, including those of its
   descendants.
 
@@ -535,9 +535,9 @@
                           :by-concept-ids v)]
         (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
 
-(s/fdef get-refset-members
+(s/fdef refset-members
   :args (s/cat :svc ::svc :refset-ids (s/+ :info.snomed.Concept/id)))
-(defn get-refset-members
+(defn refset-members
   "Return a set of identifiers for the members of the given refset(s).
 
   Parameters:
@@ -612,10 +612,10 @@
           ;; a collection should be a collection of identifiers -> make a set
           (coll? target) (set target)
           ;; a single number will be a refset identifier -> get its members
-          (number? target) (get-refset-members svc target))]
+          (number? target) (refset-members svc target))]
     (->> source-concept-ids
-         (map #(set/intersection (get-all-parents svc %) target-concept-ids))
-         (map #(store/get-leaves (.-store svc) %)))))
+         (map #(set/intersection (all-parents svc %) target-concept-ids))
+         (map #(store/leaves (.-store svc) %)))))
 
 (defn ^:deprecated map-features
   "DEPRECATED: Use [[map-into]] instead."
@@ -660,8 +660,8 @@
   Versions are represented as `java.time.LocalDate.
   Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
   [^Svc svc]
-  (let [items (->> (get-refset-members svc snomed/ModuleDependencyReferenceSet)
-                   (mapcat #(get-component-refset-items svc % snomed/ModuleDependencyReferenceSet)))]
+  (let [items (->> (refset-members svc snomed/ModuleDependencyReferenceSet)
+                   (mapcat #(component-refset-items svc % snomed/ModuleDependencyReferenceSet)))]
     (module-dependencies* items)))
 
 (s/fdef module-dependency-problems
@@ -674,8 +674,8 @@
        (map (fn [{:keys [source target] :as dep}]
               (-> dep
                   (dissoc :valid)
-                  (assoc-in [:source :nm] (:term (get-preferred-synonym svc (:moduleId source))))
-                  (assoc-in [:target :nm] (:term (get-preferred-synonym svc (:moduleId target)))))))
+                  (assoc-in [:source :nm] (:term (preferred-synonym svc (:moduleId source))))
+                  (assoc-in [:target :nm] (:term (preferred-synonym svc (:moduleId target)))))))
        (sort-by #(get-in % [:source :module]))))
 
 ;;
@@ -704,9 +704,9 @@
                             result
                             (historical-associations svc (:id c)))))))))
 
-(s/fdef get-example-historical-associations
+(s/fdef example-historical-associations
   :args (s/cat :svc ::svc :type-id :info.snomed.Concept/id :n pos-int?))
-(defn- get-example-historical-associations
+(defn- example-historical-associations
   "Returns 'n' examples of the type of historical association specified."
   [^Svc svc type-id n]
   (let [ch (a/chan 100 (remove :active))]
@@ -736,6 +736,31 @@
   returns: `[6 664572001]`"
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
+
+
+(def ^:deprecated get-concept "DEPRECATED. Use [[concept]] instead" concept)
+(def ^:deprecated get-description "DEPRECATED. Use [[description]] instead." description)
+(def ^:deprecated get-relationship "DEPRECATED. Use [[relationship]] instead." relationship)
+(def ^:deprecated get-extended-concept "DEPRECATED. Use [[extended-concept]] instead." extended-concept)
+(def ^:deprecated get-descriptions "DEPRECATED. Use [[descriptions]] instead." descriptions)
+(def ^:deprecated get-synonyms "DEPRECATED. Use [[synonyms]] instead." synonyms)
+(def ^:deprecated get-all-parents "DEPRECATED. Use [[all-parents]] instead." all-parents)
+(def ^:deprecated get-all-children "DEPRECATED. Use [[all-children]] instead." all-children)
+(def ^:deprecated get-parent-relationships "DEPRECATED. Use [[parent-relationships]] instead." parent-relationships)
+(def ^:deprecated get-parent-relationships-expanded "DEPRECATED. Use [[parent-relationships-expanded]] instead." parent-relationships-expanded)
+(def ^:deprecated get-parent-relationships-of-type "DEPRECATED. Use [[parent-relationships-of-type]] instead." parent-relationships-of-type)
+(def ^:deprecated get-child-relationships-of-type "DEPRECATED. Use [[child-relationships-of-type]] instead." child-relationships-of-type)
+(def ^:deprecated get-component-refset-items "DEPRECATED. Use [[component-refset-items]] instead." component-refset-items)
+(def ^:deprecated get-component-refset-ids "DEPRECATED. Use [[component-refset-ids]] instead." component-refset-ids)
+(def ^:deprecated get-refset-item "DEPRECATED. Use [[refset-item]] instead." refset-item)
+(def ^:deprecated get-refset-descriptor-attribute-ids "DEPRECATED. Use [[refset-descriptor-attribute-ids]] instead." refset-descriptor-attribute-ids)
+(def ^:deprecated get-component-refset-items-extended "DEPRECATED. Use [[component-refset-items-extended]] instead." component-refset-items-extended)
+(def ^:deprecated get-installed-reference-sets "DEPRECATED. Use [[installed-reference-sets]] instead." installed-reference-sets)
+(def ^:deprecated get-preferred-synonym "DEPRECATED. Use [[preferred-synonym]] instead." preferred-synonym)
+(def ^:deprecated get-fully-specified-name "DEPRECATED. Use [[fully-specified-name]] instead." fully-specified-name)
+(def ^:deprecated get-release-information "DEPRECATED. Use [[release-information]] instead." release-information)
+(def ^:deprecated all-transitive-synonyms "DEPRECATED. Use [[transitive-synonyms]] instead." transitive-synonyms)
+(def ^:deprecated get-refset-members "DEPRECATED. Use [[refset-members]] instead." refset-members)
 
 ;;;;
 ;;;;
@@ -771,7 +796,7 @@
          st (store/open-store (io/file root (:store manifest)))
          index-reader (search/open-index-reader (io/file root (:search manifest)))
          member-reader (members/open-index-reader (io/file root (:members manifest)))]
-     (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/get-release-information st)))))
+     (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/release-information st)))))
      (map->Svc {:store          st
                 :indexReader    index-reader
                 :searcher       (IndexSearcher. index-reader)
@@ -882,7 +907,7 @@
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
   (merge
     {:releases
-     (map :term (get-release-information svc))}
+     (map :term (release-information svc))}
     {:locales
      (->> (keys (lang/installed-language-reference-sets (.-store svc)))
           (map #(.toLanguageTag ^Locale %)))}
@@ -892,13 +917,13 @@
                        (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
     (when modules?
       {:modules (let [results (reduce (fn [acc {source :source}]
-                                        (assoc acc (:moduleId source) (str (:term (get-fully-specified-name svc (:moduleId source))) ": " (:version source))))
+                                        (assoc acc (:moduleId source) (str (:term (fully-specified-name svc (:moduleId source))) ": " (:version source))))
                                       {} (module-dependencies svc))]
                   (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
 
     (when installed-refsets?
-      {:installed-refsets (let [results (->> (get-installed-reference-sets svc)
-                                             (reduce (fn [acc id] (assoc acc id (:term (get-fully-specified-name svc id)))) {}))]
+      {:installed-refsets (let [results (->> (installed-reference-sets svc)
+                                             (reduce (fn [acc id] (assoc acc id (:term (fully-specified-name svc id)))) {}))]
                             (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))
 
 (defn status
@@ -935,31 +960,31 @@
   (def p (p/open))
   (add-tap #'p/submit)                                      ; Add portal as a tap> target
   (def svc (open "snomed.db"))
-  (get-concept svc 24700007)
-  (get-all-children svc 24700007)
-  (time (get-all-parents svc 24700007))
-  (time (get-extended-concept svc 24700007))
-  (s/valid? :info.snomed/Concept (get-concept svc 24700007))
+  (concept svc 24700007)
+  (all-children svc 24700007)
+  (time (all-parents svc 24700007))
+  (time (extended-concept svc 24700007))
+  (s/valid? :info.snomed/Concept (concept svc 24700007))
 
-  (tap> (get-concept svc 24700007))
-  (tap> (get-extended-concept svc 205631000000104))
-  (get-extended-concept svc 24700007)
+  (tap> (concept svc 24700007))
+  (tap> (extended-concept svc 205631000000104))
+  (extended-concept svc 24700007)
   (search svc {:s "mult scl"})
   (tap> (search svc {:s "mult scl"}))
   (search svc {:s "mult scl" :constraint "<< 24700007"})
 
   (search svc {:s "ICD-10 complex map"})
   (->> (member-field-prefix svc 447562003 "mapTarget" "I30")
-       (map #(:term (get-preferred-synonym svc % "en"))))
+       (map #(:term (preferred-synonym svc % "en"))))
 
   (search svc {:constraint "<900000000000455006 {{ term = \"emerg\"}}"})
   (search svc {:constraint "<900000000000455006 {{ term = \"household\", type = syn, dialect = (en-GB)  }}"})
 
   (member-field-prefix svc 447562003 "mapTarget" "I")
-  (get-component-refset-items svc 24700007 447562003)
-  (map :mapTarget (get-component-refset-items svc 24700007 447562003))
+  (component-refset-items svc 24700007 447562003)
+  (map :mapTarget (component-refset-items svc 24700007 447562003))
 
-  (get-extended-concept svc 24700007)
+  (extended-concept svc 24700007)
   (subsumed-by? svc 24700007 6118003)                       ;; demyelinating disease of the CNS
 
   (are-any? svc [24700007] [45454])
@@ -984,18 +1009,18 @@
 
   ;; explore SNOMED - get counts of historical association types / frequencies
   (def counts (historical-association-counts svc))
-  (reduce-kv (fn [m k v] (assoc m (:term (get-fully-specified-name svc k)) (apply max v))) {} counts)
+  (reduce-kv (fn [m k v] (assoc m (:term (fully-specified-name svc k)) (apply max v))) {} counts)
 
   (historical-associations svc 5171008)
-  (get-fully-specified-name svc 900000000000526001)
-  (get-example-historical-associations svc snomed/PossiblyEquivalentToReferenceSet 2)
-  (filter :active (get-component-refset-items svc 203004 snomed/PossiblyEquivalentToReferenceSet))
-  (get-preferred-synonym svc 24700007 "en-GB")
-  (get-parent-relationships-of-type svc 24700007 snomed/IsA)
-  (get-child-relationships-of-type svc 24700007 snomed/IsA)
+  (fully-specified-name svc 900000000000526001)
+  (example-historical-associations svc snomed/PossiblyEquivalentToReferenceSet 2)
+  (filter :active (component-refset-items svc 203004 snomed/PossiblyEquivalentToReferenceSet))
+  (preferred-synonym svc 24700007 "en-GB")
+  (parent-relationships-of-type svc 24700007 snomed/IsA)
+  (child-relationships-of-type svc 24700007 snomed/IsA)
   (set (map :conceptId (expand-ecl-historic svc "<<24700007")))
 
   (require '[criterium.core :as crit])
-  (crit/bench (get-extended-concept svc 24700007))
+  (crit/bench (extended-concept svc 24700007))
   (crit/bench (search svc {:s "multiple sclerosis"})))
 

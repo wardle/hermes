@@ -142,7 +142,7 @@
   {#object[java.util.Locale 0x31e2875 \"en_GB\"] (999001261000000100 900000000000508004),
    #object[java.util.Locale 0x7d55b894 \"en_US\"] (900000000000509007)}"
   [store]
-  (let [installed-refsets (store/get-installed-reference-sets store)]
+  (let [installed-refsets (store/installed-reference-sets store)]
     (filter-language-reference-sets language-reference-sets installed-refsets)))
 
 (defn- do-match
