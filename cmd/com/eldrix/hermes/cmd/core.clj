@@ -92,8 +92,8 @@
         (str/join \newline)))
   ([options-summary cmds]
    (let [n (count cmds), cmds' (map cli/commands cmds)      ;; get information about each command requested
-         {:keys [usage cmd desc]} (first cmds')]   ;; handle case of one command specially
-     (->> [(str "Usage: hermes [options] " (if (= 1 n) (or usage cmd) (str/join " " cmds)))
+         {cmd-usage :usage cmd :cmd desc :desc} (first cmds')]   ;; handle case of one command specially
+     (->> [(str "Usage: hermes [options] " (if (= 1 n) (or cmd-usage cmd) (str/join " " cmds)))
            ""
            (if (= 1 n) desc (str/join \newline (map cli/format-command cmds')))
            ""
