@@ -2,11 +2,16 @@
 
 This log documents significant changes for each release.
 
+## [1.2.xxxx] - Not yet released
+
+* Significant but backwards-compatible change in top-level API with improved, and shortened function names (e.g. `concept` rather than `get-concept` for Clojure-based library clients)
+* Miscellaneous code style and performance improvements 
+* Remove unnecessary dependencies when building uberjar, which should improve start-up performance
 
 ## [1.1.1000] - 2023-03-23
 
 * Update to version 1.1 series given drop in support for Lucene 8.x series and therefore Java 1.8
-* Upgraded dependencies (e.g. netty-buffer 4.1.90)
+* Upgrade dependencies (e.g. netty-buffer 4.1.90)
 * Add ability to stream search results asynchronously
 * Miscellaneous performance improvements
 * Miscellaneous code style improvements
