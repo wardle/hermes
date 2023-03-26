@@ -1,8 +1,8 @@
 (ns com.eldrix.hermes.core-bench
-  (:require [clojure.test :refer :all]
-            [criterium.core :as crit :refer [with-progress-reporting quick-bench]]
-            [com.eldrix.hermes.core :as hermes]))
-
+  (:require [clojure.test :refer [deftest run-tests use-fixtures]]
+            [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.search :as search]
+            [criterium.core :as crit :refer [quick-bench]]))
 
 (def ^:dynamic *svc* nil)
 

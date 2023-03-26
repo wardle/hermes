@@ -1,6 +1,6 @@
 (ns com.eldrix.hermes.cmd-test
   (:require [clojure.string :as str]
-            [clojure.test :refer :all]
+            [clojure.test :refer [deftest is testing]]
             [com.eldrix.hermes.cmd.cli :as cli]))
 
 
