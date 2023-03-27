@@ -688,16 +688,33 @@
 (defn- historical-association-counts
   "Returns counts of all historical association counts.
 
-  Example result:
+  Example:
   ```
-    {900000000000526001 #{1},              ;; replaced by - always one
-     900000000000527005 #{1 4 6 3 2},       ;; same as - multiple!
-     900000000000524003 #{1},               ;; moved to - always 1
-     900000000000523009 #{7 1 4 6 3 2 11 9 5 10 8},
-     900000000000528000 #{7 1 4 3 2 5},
-     900000000000530003 #{1 2},
-     900000000000525002 #{1 3 2}}
-  ```"
+  (-> (historical-association-counts svc)
+      (update-keys #(->> (str/split (:term (preferred-synonym svc %)) #\" \")
+                         (remove #{\"association\" \"reference\" \"set\"})
+                         (str/join \"-\") str/lower-case keyword))
+      (update-vals sort)
+      sort)
+
+  =>
+
+  ([:alternative ([1 310] [2 263] [3 16] [4 17])]
+   [:had-actual-medicinal-product ([1 3836])]
+   [:had-virtual-medicinal-product ([1 1006])]
+   [:moved-from ([1 9975] [2 61] [3 3])]
+   [:moved-to ([1 21430] [2 17])]
+   [:partially-equivalent-to ([2 17] [3 5])]
+   [:possibly-equivalent-to ([1 23967] [2 11441] [3 2084] [4 590] [5 166] [6 69] [7 32] [8 10] [9 7] [10 9] [11 4] [12 3] [13 32] [14 3] [15 1] [16 2])]
+   [:possibly-replaced-by ([2 19] [3 6])]
+   [:replaced-by ([1 21621] [2 50])]
+   [:same-as ([1 115391] [2 2880] [3 90] [4 18])]
+   [:was-a ([1 43882] [2 4913] [3 791] [4 286] [5 5] [7 1])])
+  ```
+  In this example, from the March 2023 release of the UK edition of SNOMED CT,
+  we see that there are 50 inactive concepts with two 'REPLACED BY' historical
+  associations.
+  "
   [^Svc svc]
   (let [ch (a/chan 100 (remove :active))]
     (a/thread (store/stream-all-concepts (.-store svc) ch))
@@ -706,7 +723,7 @@
         (if-not c
           result
           (recur (reduce-kv (fn [m k v]
-                              (update m k (fnil conj #{}) (count v)))
+                              (update-in m [k (count (filter :active v))] (fnil inc 0)))
                             result
                             (historical-associations svc (:id c)))))))))
 
