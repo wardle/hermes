@@ -380,8 +380,8 @@
   in which it is the target. For a now inactive concept, this will return the
   active associations and their historic associations.
 
-  By default, all types of historical associations except MoveTo and MovedFrom
-  are included, but this is configurable. "
+  By default, all active types of historical associations except MoveTo and
+  MovedFrom are included, but this is configurable. "
   ([st concept-ids]
    (with-historical st concept-ids
                     (disj (all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
