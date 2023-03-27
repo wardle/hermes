@@ -267,8 +267,14 @@
   concepts - so they will have been removed. It is hoped that most MOVED-TO
   concepts will also have a SAME-AS or POSSIBLY-EQUIVALENT-TO historical
   association.
+
   See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.5.1+Historical+Association+Reference+Sets
-  and https://confluence.ihtsdotools.org/display/editorialag/Component+Moved+Elsewhere"
+  and https://confluence.ihtsdotools.org/display/editorialag/Component+Moved+Elsewhere
+
+  Note: Unlike some other functions that deal with historical associations,
+  this returns the reference set items themselves and will include both active
+  *and* inactive reference set items. Other functions usually only take into
+  account *active* reference set items."
   [^Svc svc component-id]
   (select-keys (group-by :refsetId (component-refset-items svc component-id))
                (store/all-children (.-store svc) snomed/HistoricalAssociationReferenceSet)))
