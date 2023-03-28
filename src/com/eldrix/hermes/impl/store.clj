@@ -455,7 +455,7 @@
   "Write a batch of SNOMED components to the store. Returns nil.
   Parameters:
   - store - SNOMED CT store implementation
-  - batch - a map containing :type and :data keys.
+  - batch - a map containing :type, :headings and :data keys.
   The implementation will be chosen via the :type of the batch."
   (fn [_store batch] (:type batch)))
 (defmethod write-batch :info.snomed/Concept [store {data :data}]
