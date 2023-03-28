@@ -454,36 +454,40 @@
 (defmulti write-batch
   "Write a batch of SNOMED components to the store. Returns nil.
   Parameters:
-  - batch - a map containing :type and :data keys
-  - store - SNOMED CT store implementation"
-  :type)
-(defmethod write-batch :info.snomed/Concept [batch store]
-  (kv/write-concepts store (:data batch)))
-(defmethod write-batch :info.snomed/Description [batch store]
-  (kv/write-descriptions store (:data batch)))
-(defmethod write-batch :info.snomed/Relationship [batch store]
-  (kv/write-relationships store (:data batch)))
-(defmethod write-batch :info.snomed/Refset [{:keys [headings data]} store]
+  - store - SNOMED CT store implementation
+  - batch - a map containing :type and :data keys.
+  The implementation will be chosen via the :type of the batch."
+  (fn [_store batch] (:type batch)))
+(defmethod write-batch :info.snomed/Concept [store {data :data}]
+  (kv/write-concepts store data))
+(defmethod write-batch :info.snomed/Description [store {data :data}]
+  (kv/write-descriptions store data))
+(defmethod write-batch :info.snomed/Relationship [store {data :data}]
+  (kv/write-relationships store data))
+(defmethod write-batch :info.snomed/Refset [store {:keys [headings data]}]
   (let [items (map #(reify-refset-item store %) data)]
     (kv/write-refset-items store headings items)))
 
 (defn write-batch-one-by-one
   "Write out a batch one item at a time. "
-  [batch store]
+  [store batch]
   (doseq [b (map #(assoc batch :data [%]) (:data batch))]
     (try
-      (write-batch b store)
+      (write-batch store b)
       (catch Exception e
         (log/error "import error: failed to import data: " b)
         (throw (ex-info "Import error" {:batch (dissoc batch :data)
                                         :data  b :exception (Throwable->map e)}))))))
 
-(defn write-batch-with-fallback [batch store]
+(defn write-batch-with-fallback
+  "Write a batch of data to the store. If there is an error, the write is
+  retried one-by-one so that the parsing error can be identified down to an
+  individual item."
+  [store batch]
   (try
-    (write-batch batch store)
+    (write-batch store batch)
     (catch Exception _
-      (write-batch-one-by-one batch store))))
-
+      (write-batch-one-by-one store batch))))
 
 (defn index [store]
   (kv/drop-relationships-index store)

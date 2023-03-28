@@ -18,8 +18,7 @@
   (testing "Simple manual store and retrieval"
     (with-open [st (store/open-store)]
       (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 0 0)]
-        (store/write-batch {:type :info.snomed/Concept
-                            :data [concept]} st)
+        (store/write-batch st {:type :info.snomed/Concept :data [concept]})
         (is (= concept (store/concept st 24700007))))
       (let [description (snomed/map->Description {:id                 754365011,
                                                   :effectiveTime      (LocalDate/of 2020 11 11)
@@ -30,8 +29,7 @@
                                                   :typeId             900000000000003001,
                                                   :term               "Multiple sclerosis (disorder)",
                                                   :caseSignificanceId 900000000000448009})]
-        (store/write-batch {:type :info.snomed/Description
-                            :data [description]} st)
+        (store/write-batch st {:type :info.snomed/Description :data [description]})
         (is (= description (store/description st 754365011)))
         (is (= description (store/fully-specified-name st 24700007)))))))
 
@@ -39,26 +37,23 @@
   (with-open [st (store/open-store)]
     (is (nil? (store/concept st 24700007)))
     (let [concept (snomed/->Concept 24700007 (LocalDate/of 2020 11 11) true 1 0)]
-      (store/write-batch {:type :info.snomed/Concept
-                          :data [concept]} st)
+      (store/write-batch st {:type :info.snomed/Concept :data [concept]})
       (is (= concept (store/concept st 24700007)))
       (let [older-concept (snomed/->Concept 24700007 (LocalDate/of 2020 10 01) true 0 0)]
-        (store/write-batch {:type :info.snomed/Concept
-                            :data [older-concept]} st)
+        (store/write-batch st {:type :info.snomed/Concept :data [older-concept]})
         (is (not= older-concept (store/concept st 24700007)))
         (is (= concept (store/concept st 24700007))))
       (let [newer-concept (snomed/->Concept 24700007 (LocalDate/of 2021 01 01) true 0 0)]
-        (store/write-batch {:type :info.snomed/Concept
-                            :data [newer-concept]} st)
+        (store/write-batch st {:type :info.snomed/Concept :data [newer-concept]})
         (is (= newer-concept (store/concept st 24700007)))))))
 
 (deftest write-components-test
   (with-open [st (store/open-store)]
     (let [{:keys [root-concept concepts descriptions relationships]} (hgen/make-simple-hierarchy)
           descriptions-by-concept-id (reduce (fn [acc v] (update acc (:conceptId v) conj v)) {} descriptions)]
-      (store/write-batch {:type :info.snomed/Concept :data concepts} st)
-      (store/write-batch {:type :info.snomed/Description :data descriptions} st)
-      (store/write-batch {:type :info.snomed/Relationship :data relationships} st)
+      (store/write-batch st {:type :info.snomed/Concept :data concepts})
+      (store/write-batch st {:type :info.snomed/Description :data descriptions})
+      (store/write-batch st {:type :info.snomed/Relationship :data relationships})
       (store/index st)
       (testing "Concept read/write"
         (is (every? true? (map #(= % (store/concept st (:id %))) concepts))))
@@ -76,11 +71,11 @@
   (let [r1 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active false :effectiveTime (LocalDate/of 2021 5 12)}))
         r2 (gen/generate (rf2/gen-relationship {:sourceId 1089261000000101 :destinationId 213345000 :typeId 116680003 :active true :effectiveTime (LocalDate/of 2021 5 12)}))]
     (with-open [st (store/open-store)]
-      (store/write-batch {:type :info.snomed/Relationship :data [r1 r2]} st)
+      (store/write-batch st {:type :info.snomed/Relationship :data [r1 r2]})
       (store/index st)
       (is (= {116680003 #{213345000}} (store/parent-relationships st 1089261000000101))))
     (with-open [st (store/open-store)]
-      (store/write-batch {:type :info.snomed/Relationship :data [r2 r1]} st)
+      (store/write-batch st {:type :info.snomed/Relationship :data [r2 r1]})
       (store/index st)
       (is (= {116680003 #{213345000}} (store/parent-relationships st 1089261000000101))
           "Different relationships with same source, target and type identifiers should result in indices deterministically, not on basis of import order"))))
@@ -94,9 +89,9 @@
           members (set (take (/ n-concepts (inc (rand-int 10))) (shuffle concepts)))
           non-members (set/difference (set concepts) members)
           refset-items (map #(gen/generate (rf2/gen-simple-refset {:refsetId refset-id :active true :referencedComponentId (:id %)})) members)]
-      (store/write-batch {:type :info.snomed/Concept :data [refset]} st)
-      (store/write-batch {:type :info.snomed/Concept :data concepts} st)
-      (store/write-batch {:type :info.snomed/SimpleRefset :data refset-items} st)
+      (store/write-batch st {:type :info.snomed/Concept :data [refset]})
+      (store/write-batch st {:type :info.snomed/Concept :data concepts})
+      (store/write-batch st {:type :info.snomed/SimpleRefset :data refset-items})
       (store/index st)
       (is (= #{refset-id} (store/installed-reference-sets st)))
       (dorun (map #(is (= % (store/refset-item st (:id %)))) refset-items))
@@ -117,12 +112,9 @@
     (let [simple (gen/sample (rf2/gen-simple-refset))
           refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset))
           module-dependencies (gen/sample (rf2/gen-module-dependency-refset))]
-      (store/write-batch {:type :info.snomed/SimpleRefset
-                          :data simple} store)
-      (store/write-batch {:type :info.snomed/RefsetDescriptorRefset
-                          :data refset-descriptors} store)
-      (store/write-batch {:type :info.snomed/ModuleDependencyRefset
-                          :data module-dependencies} store)
+      (store/write-batch store {:type :info.snomed/SimpleRefset :data simple})
+      (store/write-batch store {:type :info.snomed/RefsetDescriptorRefset :data refset-descriptors})
+      (store/write-batch store {:type :info.snomed/ModuleDependencyRefset :data module-dependencies})
       (dorun (map #(is (= % (store/refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies))))))
 
 (deftest test-refset-descriptors
@@ -130,8 +122,8 @@
         rd1 (gen/generate (rf2/gen-refset-descriptor-refset {:refsetId 900000000000456007 :referencedComponentId 1322291000000109 :active true :attributeOrder 0 :attributeDescriptionId 449608002}))
         rd2 (gen/generate (rf2/gen-refset-descriptor-refset {:refsetId 900000000000456007 :referencedComponentId 1322291000000109 :active true :attributeOrder 1 :attributeDescriptionId 900000000000533001}))]
     (with-open [store (store/open-store)]
-      (store/write-batch {:type :info.snomed/Concept :data [refset-concept]} store)
-      (store/write-batch {:type :info.snomed/RefsetDescriptorRefset :data [rd1 rd2]} store)
+      (store/write-batch store {:type :info.snomed/Concept :data [refset-concept]})
+      (store/write-batch store {:type :info.snomed/RefsetDescriptorRefset :data [rd1 rd2]})
       (store/index store)
       (is (= rd1 (store/refset-item store (:id rd1))))
       (is (= rd2 (store/refset-item store (:id rd2))))
@@ -183,5 +175,5 @@
   (def st (store/open-store))
   (def rel-1 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active false :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
   (def rel-2 (gen/generate (rf2/gen-relationship {:sourceId 24700007 :destinationId 6118003 :typeId 116680003 :active true :effectiveTime (java.time.LocalDate/of 2020 1 1)})))
-  (store/write-batch {:type :info.snomed/Relationship :data [rel-2 rel-1]} st)
+  (store/write-batch st {:type :info.snomed/Relationship :data [rel-2 rel-1]})
   (store/parent-relationships st 24700007))

@@ -845,7 +845,7 @@
         (when batch
           (if (instance? Throwable batch)
             (throw batch)
-            (do (store/write-batch-with-fallback batch store)
+            (do (store/write-batch-with-fallback store batch)
                 (recur (a/<!! data-c)))))))))
 
 (defn log-metadata [dir]
