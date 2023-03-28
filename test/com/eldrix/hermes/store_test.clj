@@ -147,6 +147,7 @@
           (is (= 24700007 (:conceptId fsn)))
           (is (= "Multiple sclerosis (disorder)" (:term fsn)))
           (is (:active fsn))
+          (is (= fsn (store/description store (:id fsn))))
           (is (snomed/fully-specified-name? fsn)))
         (let [all-parents1 (store/all-parents store 24700007)
               all-parents2 (store/all-parents store 6118003)
