@@ -146,7 +146,7 @@
               all-parents3 (store/all-parents store 80146002)
               all-parents4 (store/all-parents store [24700007 80146002])
               all-parents5 (store/all-parents store [24700007 6118003])]
-          (is (contains? all-parents1 6118003))              ;; it is a demyelinating disease
+          (is (contains? all-parents1 6118003))             ;; it is a demyelinating disease
           (is (contains? all-parents1 138875005))           ;; it is a SNOMED CT concept
           (is (set/subset? all-parents2 all-parents1))
           (is (= (set/union all-parents1 all-parents3) all-parents4))

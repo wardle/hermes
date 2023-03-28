@@ -180,7 +180,7 @@
   returned, but this can optionally be limited to those containing a specific
   relationship type."
   ([store concept-id]
-   (->> (kv/raw-parent-relationships store concept-id)  ;; tuples concept--type--group--destination
+   (->> (kv/raw-parent-relationships store concept-id)      ;; tuples concept--type--group--destination
         (map rest)                                          ;; turn into tuple of type--group--destination
         (group-by second)                                   ;; now group by 'group'
         (reduce-kv                                          ;; and turn each into a map of type--destination, still grouped by group
