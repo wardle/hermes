@@ -1,11 +1,13 @@
 (ns com.eldrix.hermes.graph-test
-  (:require [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [deftest is run-tests testing use-fixtures]]
-            [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.graph :as graph]
-            [com.eldrix.hermes.snomed :as snomed]
-            [com.wsscode.pathom3.connect.indexes :as pci]
-            [com.wsscode.pathom3.interface.eql :as p.eql]))
+  (:require
+    [clojure.set :as set]
+    [clojure.spec.test.alpha :as stest]
+    [clojure.test :refer [deftest is run-tests testing use-fixtures]]
+    [com.eldrix.hermes.core :as hermes]
+    [com.eldrix.hermes.graph :as graph]
+    [com.eldrix.hermes.snomed :as snomed]
+    [com.wsscode.pathom3.connect.indexes :as pci]
+    [com.wsscode.pathom3.interface.eql :as p.eql]))
 
 (stest/instrument)
 (def ^:dynamic *registry* nil)
@@ -72,26 +74,76 @@
     (is (= 37340000 (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/id])))
     (is (= "Motor neuron disease" (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
-(deftest ^:live test-replaced-by
-  (let [result (p.eql/process *registry*
-                              {:info.snomed.Concept/id 203004}
-                              [:info.snomed.Concept/id
-                               {:info.snomed.Concept/module [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                               :info.snomed.Concept/active
-                               {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term
-                                                                           :info.snomed.Description/active]}
-                               {:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id
-                                                                           :info.snomed.Concept/active
-                                                                           {:info.snomed.Concept/preferredDescription
-                                                                            [:info.snomed.Description/term]}]}
-                               {:info.snomed.Concept/sameAs [:info.snomed.Concept/id
-                                                             :info.snomed.Concept/active
-                                                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                               {:info.snomed.Concept/replacedBy [:info.snomed.Concept/id
-                                                                 :info.snomed.Concept/active
-                                                                 {:info.snomed.Concept/preferredDescription
-                                                                  [:info.snomed.Description/term]}]}])]
-    (is result)))
+
+(defn test-historical-refset-item
+  [refset-items query-result concept-id refset-id k to-many?]
+  (let [all-concept-ids (set (map :referencedComponentId refset-items))
+        all-target-ids (set (map :targetComponentId refset-items))
+        rel-result (k query-result)
+        result-target-ids (if to-many? (set (map :info.snomed.Concept/id rel-result))
+                                       (set [(:info.snomed.Concept/id rel-result)]))]
+
+    (is (= 1 (count all-concept-ids)) "List of 'correct' reference set items do not have same referencedComponentId")
+    (is (= concept-id (first all-concept-ids)) "List of 'correct' reference set items do not reference the correct concept")
+    (is (= concept-id (:info.snomed.Concept/id query-result)) "Query result does not reference correct concept")
+    (is (every? #(= refset-id (:refsetId %)) refset-items) "List of 'correct' reference sets items are from incorrect reference set")
+    (is (not (:info.snomed.Concept/active query-result)) "Concept is not inactive")
+    (if to-many?
+      (do (is (coll? rel-result) "Relationship is 'to-many' but no collection returned")
+          (is (= all-target-ids result-target-ids) "Query result incorrect"))
+      (do (is (map? rel-result) "Relationship is 'to-one' but no map returned.")
+          (is (set/subset? result-target-ids all-target-ids) "Query result incorrect")))))
+
+(defn test-historical-refset
+  "Test graph resolution of a historical association relationship.
+  - svc       : hermes service
+  - f         : a function that can take a concept-id to perform graph resolution
+  - refset-id : the reference set to test
+  - k         : a function (e.g. a key) to get relationship from result
+  - to-many?  : boolean, is the result a to-many relationship?"
+  [svc f refset-id k to-many?]
+  (let [examples (#'hermes/example-historical-associations svc refset-id 250)
+        concept-ids (keys examples)]
+    (run! (fn [concept-id]
+            (let [result (f concept-id)
+                  items (get-in examples [concept-id refset-id])]
+              (test-historical-refset-item items result concept-id refset-id k to-many?)))
+          concept-ids)))
+
+(def historical-tests
+  [{:refset-id snomed/PossiblyEquivalentToReferenceSet
+    :key       :info.snomed.Concept/possiblyEquivalentTo
+    :to-many?  true}
+   {:refset-id snomed/ReplacedByReferenceSet
+    :key       :info.snomed.Concept/replacedBy
+    :to-many?  false}
+   {:refset-id snomed/SameAsReferenceSet
+    :key       :info.snomed.Concept/sameAs
+    :to-many?  true}])
+
+(deftest ^:live test-historical
+  (let [query [:info.snomed.Concept/id                      ;; we use the same query for all of these historical tests
+               {:info.snomed.Concept/module [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+               :info.snomed.Concept/active
+               {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term
+                                                           :info.snomed.Description/active]}
+               {:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id
+                                                           :info.snomed.Concept/active
+                                                           {:info.snomed.Concept/preferredDescription
+                                                            [:info.snomed.Description/term]}]}
+               {:info.snomed.Concept/sameAs [:info.snomed.Concept/id
+                                             :info.snomed.Concept/active
+                                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+               {:info.snomed.Concept/replacedBy [:info.snomed.Concept/id
+                                                 :info.snomed.Concept/active
+                                                 {:info.snomed.Concept/preferredDescription
+                                                  [:info.snomed.Description/term]}]}]
+        process (fn [concept-id] (p.eql/process *registry* {:info.snomed.Concept/id concept-id} query))
+        svc (::graph/svc *registry*)]
+    (run! (fn [{refset-id :refset-id k :key to-many? :to-many?}]
+            (testing (:term (hermes/preferred-synonym svc refset-id))
+              (test-historical-refset svc process refset-id k to-many?)))
+          historical-tests)))
 
 (deftest ^:live test-ctv3-crossmap
   (when (contains? (hermes/installed-reference-sets (::graph/svc *registry*)) 900000000000497000)

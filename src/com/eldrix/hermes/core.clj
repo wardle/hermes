@@ -713,8 +713,7 @@
   ```
   In this example, from the March 2023 release of the UK edition of SNOMED CT,
   we see that there are 50 inactive concepts with two 'REPLACED BY' historical
-  associations.
-  "
+  associations."
   [^Svc svc]
   (let [ch (a/chan 100 (remove :active))]
     (a/thread (store/stream-all-concepts (.-store svc) ch))
@@ -735,14 +734,14 @@
   (let [ch (a/chan 100 (remove :active))]
     (a/thread (store/stream-all-concepts (.-store svc) ch))
     (loop [i 0
-           result []]
+           result {}]
       (let [c (a/<!! ch)]
         (if-not (and c (< i n))
           result
           (let [assocs (historical-associations svc (:id c))
                 append? (contains? assocs type-id)]
             (recur (if append? (inc i) i)
-                   (if append? (conj result {(:id c) assocs}) result))))))))
+                   (if append? (assoc result (:id c) assocs) result))))))))
 
 
 (s/fdef paths-to-root
