@@ -264,7 +264,7 @@
                   (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
                   (first))
         preferred (:referencedComponentId item)]
-    (when preferred (kv/description store preferred))))
+    (when preferred (kv/description store concept-id preferred))))
 
 (defn preferred-synonym
   "Returns the preferred synonym for the concept specified, looking in the language reference sets
