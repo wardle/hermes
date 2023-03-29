@@ -2,11 +2,14 @@
 
 This log documents significant changes for each release.
 
-## [1.2.xxxx] - Not yet released
+## [1.2.1026] - 2023-03-29
 
 * Significant but backwards-compatible change in top-level API with improved, and shortened function names (e.g. `concept` rather than `get-concept` for Clojure-based library clients)
 * Miscellaneous code style and performance improvements 
-* Remove unnecessary dependencies when building uberjar, which should improve start-up performance
+* Internal (private) API changes
+* Improve tests
+* More deterministic derivation of 'replace by' in graph API.
+* Remove unnecessary dependencies when building uberjar, improving start-up performance
 
 ## [1.1.1000] - 2023-03-23
 
