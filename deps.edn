@@ -96,7 +96,7 @@
 
            :lint/kondo
            {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.03.17"}}
-            :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
+            :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "--lint" "cmd" "--lint" "test"]}
 
            :lint/eastwood
            {:extra-deps {jonase/eastwood {:mvn/version "1.3.0"}}
@@ -104,4 +104,4 @@
 
            :lint/splint
            {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.0.1"}}
-            :main-opts  ["-m" "noahtheduke.splint" "src" "cmd"]}}}
+            :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}}}
