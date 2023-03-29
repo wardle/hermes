@@ -13,7 +13,9 @@
 ;   limitations under the License.
 ;;;;
 (ns com.eldrix.hermes.impl.store
-  "Store provides access to a key value store."
+  "Store provides a store of SNOMED CT data with appropriate indices to permit
+  fast lookup. It is currently implemented using two LMDB key value stores on
+  the local filesystem."
   (:require [clojure.core.async :as a]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
@@ -26,7 +28,7 @@
 (s/def ::store any?)
 
 ;; this is a temporary approach to permit parallel evaluation of the
-;; key stores
+;; backing key stores
 
 (def concept kv/concept)
 (def concept-descriptions kv/concept-descriptions)

@@ -5,7 +5,7 @@
   operates principally in read-only mode. We use netty's direct buffers, and a
   shared pool because of allocation overhead compared to on-heap buffers.
 
-  We use the key value store in one of two ways. The first is to store entities.
+  We use key value stores in one of two ways. The first is to store entities.
   These are usually keyed by the identifier, except for descriptions, which are
   keyed by a tuple of concept identifier and description identifier. That
   optimises the common fetch of all descriptions for a given concept. The second
