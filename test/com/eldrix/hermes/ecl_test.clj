@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.ecl-test
-  (:require [clojure.set :as set]
+  (:require [clojure.core.async :as a]
+            [clojure.set :as set]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is use-fixtures run-tests]]
             [com.eldrix.hermes.core :as hermes]
@@ -139,7 +140,7 @@
 
 
 (def member-filter-tests
-  [{:ecl       " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"
+  [{:ecl  " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"
     :incl #{195967001 707447008 401193004}}])
 
 (deftest ^:live test-member-filter
@@ -153,6 +154,15 @@
     (let [results (hermes/expand-ecl *svc* ecl)]
       (when incl (is (set/subset? incl (set (map :conceptId results))))))))
 
+(deftest ^:live test-refinement-with-wildcard-value
+  (let [ch (a/chan)]
+    (a/go (a/>!! ch (hermes/expand-ecl *svc* "<24700007: 370135005 =*")))
+    (let [[v c] (a/alts!! [ch (a/timeout 200)])]
+      (is (= c ch) "Timeout during expansion of ECL containing a refinement with a wildcard value")
+      (let [results (->> v (map :conceptId) distinct
+                         (map #(boolean (seq (hermes/parent-relationships-of-type *svc* % 370135005)))))]
+        (is (seq results) "Invalid results")
+        (is (every? true? results) "Invalid results")))))
 
 
 (comment

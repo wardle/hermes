@@ -443,13 +443,22 @@
   "Generate a nested query for the attributes specified, rewriting any
   exclusion clauses in the parent nested context. "
   [ctx query attribute-concept-ids]
-  (let [[incl excl] (search/rewrite-query query)
-        incl-concepts (when incl (realise-concept-ids ctx incl))
-        excl-concepts (when excl (realise-concept-ids ctx excl))]
-    (if (and incl excl)
-      (search/q-not (search/q-or (map #(search/q-attribute-in-set % incl-concepts) attribute-concept-ids))
-                    (search/q-and (map #(search/q-attribute-in-set % excl-concepts) attribute-concept-ids)))
-      (search/q-or (map #(search/q-attribute-in-set % incl-concepts) attribute-concept-ids)))))
+  (let [[incl excl] (search/rewrite-query query)]
+    (cond
+      ;; if there is a star symbol for an attribute value, we convert into a search for any match WITH that attribute (ie count > 0)
+      (and (search/q-match-all? incl) (nil? excl))
+      (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
+      ;; if there is a star symbol, but also exclusions, exclude them
+      (search/q-match-all? incl)
+      (search/q-not (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
+                    (search/q-and (map #(search/q-attribute-in-set % (realise-concept-ids ctx excl)) attribute-concept-ids)))
+      ;; if we have inclusions and exclusions, realise the concepts   ;; TODO: is it better to do exclusions on the ids, or in Lucene?
+      (and incl excl)
+      (search/q-not (search/q-or (map #(search/q-attribute-in-set % (realise-concept-ids ctx incl)) attribute-concept-ids))
+                    (search/q-and (map #(search/q-attribute-in-set % (realise-concept-ids ctx excl)) attribute-concept-ids)))
+      ;; we only have inclusions, so realise and search
+      incl
+      (search/q-or (map #(search/q-attribute-in-set % (realise-concept-ids ctx incl)) attribute-concept-ids)))))
 
 (defn- parse-attribute--expression
   [ctx cardinality reverse-flag? attribute-concept-ids loc]
@@ -817,11 +826,11 @@
         base-query (cond
                      ;; "*"
                      (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
-                     (search/q-descendantOrSelfOf snomed/Root) ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
+                     (search/q-match-all) ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
 
                      ;; "<< *"
                      (and (= :descendantOrSelfOf constraint-operator) wildcard?) ;; "<< *" = all concepts
-                     (search/q-descendantOrSelfOf snomed/Root)
+                     (search/q-match-all)
 
                      ;; ">> *"
                      (and (= :ancestorOrSelfOf constraint-operator) wildcard?) ;; ">> *" = all concepts
