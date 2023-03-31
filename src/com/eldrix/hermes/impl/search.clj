@@ -376,6 +376,11 @@ items."
 (defn q-match-all []
   (MatchAllDocsQuery.))
 
+(defn q-match-all?
+  "Does the query match all documents?"
+  [q]
+  (instance? MatchAllDocsQuery q))
+
 (defn q-concept-ids
   "Returns a query that will return documents for the concepts specified."
   [^Collection concept-ids]
