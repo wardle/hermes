@@ -132,11 +132,12 @@
                            (map f2)))))))
 
 (deftest ^:live test-history
-  (let [r1 (hermes/expand-ecl *svc* "<<  195967001 |Asthma|")
-        r2 (hermes/expand-ecl-historic *svc* "<<  195967001 |Asthma|")
-        r3 (hermes/expand-ecl *svc* "<< 195967001 {{+HISTORY}}")]
+  (let [r1 (set (hermes/expand-ecl *svc* "<<  195967001 |Asthma|"))
+        r2 (set (hermes/expand-ecl-historic *svc* "<<  195967001 |Asthma|"))
+        r3 (set (hermes/expand-ecl *svc* "<< 195967001 {{+HISTORY}}"))]
     (is (< (count r1) (count r2)))
-    (is (= (set r2) (set r3)))))
+    (is (= r2 r3))
+    (is (set/subset? r1 r2))))
 
 
 (def member-filter-tests
@@ -174,6 +175,12 @@
   (testing "Zero cardinality"
     (let [results (hermes/expand-ecl *svc* "<<24700007: [0..0] 246075003=*")] ;; 246075003 = causative agent.
       (is (seq results) "Invalid result. Multiple sclerosis and descendants should not have attributes of 'causative agent'"))))
+
+
+(deftest ^:live test-term-filter
+  (let [r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
+        r2 (set (hermes/search *svc* {:s "heart att" :constraint "<  64572001 |Disease| "}))]
+    (is (= r1 r2))))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
