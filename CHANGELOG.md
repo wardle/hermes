@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1032] - 2023-04-01
+
+* Optimise handling wildcard value for attribute in an ECL refinement; the prior implementation had no special 
+handling for this, and so expanded the value to all concepts, impacting performance.
+* Fix handling of cardinality in expressions with a minimum of '0' (e.g. [0..1] or [0..0]). 
+
 ## [1.2.1026] - 2023-03-29
 
 * Significant but backwards-compatible change in top-level API with improved, and shortened function names (e.g. `concept` rather than `get-concept` for Clojure-based library clients)
