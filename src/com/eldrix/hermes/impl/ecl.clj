@@ -461,9 +461,10 @@
       (search/q-or (map #(search/q-attribute-in-set % (realise-concept-ids ctx incl)) attribute-concept-ids)))))
 
 (defn- parse-attribute--expression
-  [ctx cardinality reverse-flag? attribute-concept-ids loc]
+  [ctx {min-value :min-value max-value :max-value :as cardinality} reverse-flag? attribute-concept-ids loc]
   (let [sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
-        attribute-query (make-attribute-query ctx sub-expression attribute-concept-ids)]
+        attribute-query (when-not (and cardinality (zero? min-value)) (make-attribute-query ctx sub-expression attribute-concept-ids))
+        cardinality-queries (when cardinality (seq (remove nil? (map #(search/q-attribute-count % min-value max-value) attribute-concept-ids))))]
     (cond
       ;; we are not trying to implement edge case of an expression containing both cardinality and reversal, at least not yet
       ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.3+Cardinality for how it *should* work
@@ -476,10 +477,11 @@
       (process-dotted ctx (realise-concept-ids ctx sub-expression) [(search/q-concept-ids attribute-concept-ids)])
 
       ;; if we have cardinality, add a clause to ensure we have the right count for those properties
-      cardinality
-      (search/q-and (filter identity
-                            (conj (map #(search/q-attribute-count % (:min-value cardinality) (:max-value cardinality)) attribute-concept-ids)
-                                  attribute-query)))
+      (and attribute-query cardinality-queries)
+      (search/q-and (conj cardinality-queries attribute-query))
+
+      cardinality-queries
+      cardinality-queries
 
       :else
       attribute-query)))

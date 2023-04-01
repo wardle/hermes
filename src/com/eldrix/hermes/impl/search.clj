@@ -556,7 +556,7 @@ items."
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
 
       (and (zero? minimum) (pos? maximum))
-      (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 (int maximum))))))
+      (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field (int (inc maximum)) Integer/MAX_VALUE)))))
 
 (defn q-term [s] (make-tokens-query s))
 

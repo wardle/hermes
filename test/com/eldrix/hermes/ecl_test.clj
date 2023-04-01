@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as a]
             [clojure.set :as set]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [deftest is use-fixtures run-tests]]
+            [clojure.test :refer [deftest is use-fixtures run-tests testing]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
@@ -164,6 +164,16 @@
         (is (seq results) "Invalid results")
         (is (every? true? results) "Invalid results")))))
 
+(deftest ^:live test-cardinality
+  (testing "Cardinality 0..1 and 1..1"
+    (let [r0-1 (hermes/expand-ecl *svc* "<<24700007: [0..1] 370135005=*")  ;;370135005 = pathological process
+          r1-1 (hermes/expand-ecl *svc* "<<24700007: [1..1] 370135005=*")]
+      (is (seq r1-1) "Multiple sclerosis and descendants should have attribute of 'pathological process'")
+      (is (>= (count r0-1) (count r1-1)) "Results for cardinality 0..1 should be the same, more than 1..1")
+      (is (set/subset? (set r1-1) (set r0-1)) "Results for cardinality 1..1 should a subset of 0..1")))
+  (testing "Zero cardinality"
+    (let [results (hermes/expand-ecl *svc* "<<24700007: [0..0] 246075003=*")] ;; 246075003 = causative agent.
+      (is (seq results) "Invalid result. Multiple sclerosis and descendants should not have attributes of 'causative agent'"))))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
