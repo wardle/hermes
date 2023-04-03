@@ -483,6 +483,8 @@
   (kv/write-descriptions store data))
 (defmethod write-batch :info.snomed/Relationship [store {data :data}]
   (kv/write-relationships store data))
+(defmethod write-batch :info.snomed/ConcreteValue [store {data :data}]
+  (kv/write-concrete-values store data))
 (defmethod write-batch :info.snomed/Refset [store {:keys [headings data]}]
   (let [items (map #(reify-refset-item store %) data)]
     (kv/write-refset-items store headings items)))

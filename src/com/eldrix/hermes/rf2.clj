@@ -152,6 +152,37 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
+;;;; RF2 concrete values specification
+;;;;
+
+(s/def :info.snomed.ConcreteValue/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
+                                                 #(gen-relationship-id)))
+(s/def :info.snomed.ConcreteValue/effectiveTime ::effectiveTime)
+(s/def :info.snomed.ConcreteValue/active ::active)
+(s/def :info.snomed.ConcreteValue/moduleId :info.snomed.Concept/id)
+(s/def :info.snomed.ConcreteValue/sourceId :info.snomed.Concept/id)
+(s/def :info.snomed.ConcreteValue/value string?)
+(s/def :info.snomed.ConcreteValue/relationshipGroup (s/with-gen nat-int?
+                                                                #(s/gen (s/int-in 0 5))))
+(s/def :info.snomed.ConcreteValue/typeId :info.snomed.Concept/id)
+(s/def :info.snomed.ConcreteValue/characteristicTypeId :info.snomed.Concept/id)
+(s/def :info.snomed.ConcreteValue/modifierId (s/with-gen :info.snomed.Concept/id
+                                                         #(gen/return 900000000000451002)))
+(s/def :info.snomed/ConcreteValue (s/keys :req-un [:info.snomed.ConcreteValue/id :info.snomed.ConcreteValue/effectiveTime
+                                                   :info.snomed.ConcreteValue/active :info.snomed.ConcreteValue/moduleId
+                                                   :info.snomed.ConcreteValue/sourceId :info.snomed.ConcreteValue/value
+                                                   :info.snomed.ConcreteValue/relationshipGroup :info.snomed.ConcreteValue/typeId
+                                                   :info.snomed.ConcreteValue/characteristicTypeId :info.snomed.ConcreteValue/modifierId]))
+
+(defn gen-concrete-value
+  "A generator of SNOMED concrete value entities."
+  ([] (gen/fmap snomed/map->ConcreteValue (s/gen :info.snomed/ConcreteValue)))
+  ([rel] (gen/fmap #(merge % rel) (gen-concrete-value))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;
 ;;;; Extended concept specification
 ;;;;
 (s/def :info.snomed/ExtendedConcept (s/keys :req-un [::concept

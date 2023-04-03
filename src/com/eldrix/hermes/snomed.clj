@@ -109,6 +109,18 @@
    ^long characteristicTypeId
    ^long modifierId])
 
+(defrecord ConcreteValue
+  [^long id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long sourceId
+   ^String value
+   ^long relationshipGroup
+   ^long typeId
+   ^long characteristicTypeId
+   ^long modifierId])
+
 ;; ReferenceSet support customization and enhancement of SNOMED CT content. These include representation of subsets,
 ;; language preferences maps for or from other code systems. There are multiple reference set types which extend
 ;; this structure. We have concrete versions of the most useful reference set types permitting hand-crafted
@@ -333,6 +345,23 @@
 
 (defmethod ->vec Relationship [r]
   [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:destinationId r)
+   (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)])
+
+(defn parse-concrete-value [v]
+  (->ConcreteValue
+    (Long/parseLong (v 0))                                  ;; relationship id
+    (parse-date (v 1))                                      ;; effectiveTime
+    (parse-bool (v 2))                                      ;; active
+    (Long/parseLong (v 3))                                  ;; moduleId
+    (Long/parseLong (v 4))                                  ;; sourceId
+    (v 5)                                                   ;; value
+    (Long/parseLong (v 6))                                  ;; relationshipGroup
+    (Long/parseLong (v 7))                                  ;; typeId
+    (Long/parseLong (v 8))                                  ;; characteristicTypeId
+    (Long/parseLong (v 9))))                                ;; modifier Id
+
+(defmethod ->vec ConcreteValue [r]
+  [(:id r) (:effectiveTime r) (:active r) (:moduleId r) (:sourceId r) (:value r)
    (:relationshipGroup r) (:typeId r) (:characteristicTypeId r) (:modifierId r)])
 
 (def refset-standard-patterns
@@ -605,22 +634,26 @@
          (:sourceEffectiveTime r) (:targetEffectiveTime r)]
         (:fields r)))
 
-(def parsers
-  {:info.snomed/Concept                parse-concept
-   :info.snomed/Description            parse-description
-   :info.snomed/Relationship           parse-relationship
 
+(def parsers
+  {:info.snomed/Concept                    parse-concept
+   :info.snomed/Description                parse-description
+   :info.snomed/Relationship               parse-relationship
+   :info.snomed/ConcreteValue              parse-concrete-value
+   :info.snomed/RelationshipConcreteValues parse-concrete-value
+
+   
    ;; types of reference set
-   :info.snomed/RefsetDescriptorRefset parse-refset-descriptor-item
-   :info.snomed/SimpleRefset           parse-simple-refset-item
-   :info.snomed/AssociationRefset      parse-association-refset-item
-   :info.snomed/LanguageRefset         parse-language-refset-item
-   :info.snomed/SimpleMapRefset        parse-simple-map-refset-item
-   :info.snomed/ComplexMapRefset       parse-complex-map-refset-item
-   :info.snomed/ExtendedMapRefset      parse-extended-map-refset-item
-   :info.snomed/AttributeValueRefset   parse-attribute-value-refset-item
+   :info.snomed/RefsetDescriptorRefset     parse-refset-descriptor-item
+   :info.snomed/SimpleRefset               parse-simple-refset-item
+   :info.snomed/AssociationRefset          parse-association-refset-item
+   :info.snomed/LanguageRefset             parse-language-refset-item
+   :info.snomed/SimpleMapRefset            parse-simple-map-refset-item
+   :info.snomed/ComplexMapRefset           parse-complex-map-refset-item
+   :info.snomed/ExtendedMapRefset          parse-extended-map-refset-item
+   :info.snomed/AttributeValueRefset       parse-attribute-value-refset-item
    ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
-   :info.snomed/ModuleDependencyRefset parse-module-dependency-refset-item})
+   :info.snomed/ModuleDependencyRefset     parse-module-dependency-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -639,6 +672,8 @@
 (derive :info.snomed/Concept :info.snomed/Component)
 (derive :info.snomed/Description :info.snomed/Component)
 (derive :info.snomed/Relationship :info.snomed/Component)
+(derive :info.snomed/ConcreteValue :info.snomed/Component)
+(derive :info.snomed/RelationshipConcreteValues :info.snomed/ConcreteValue) ;; unfortunately, SNOMED uses 'RelationshipConcreteValues' (plural) instead of singular form like other entities
 (derive :info.snomed/Refset :info.snomed/Component)
 (derive :info.snomed/RefsetDescriptorRefset :info.snomed/Refset)
 (derive :info.snomed/SimpleRefset :info.snomed/Refset)
@@ -656,6 +691,7 @@
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
 (derive Relationship :info.snomed/Relationship)
+(derive ConcreteValue :info.snomed/ConcreteValue)
 (derive RefsetDescriptorRefsetItem :info.snomed/RefsetDescriptorRefset)
 (derive SimpleRefsetItem :info.snomed/SimpleRefset)
 (derive AssociationRefsetItem :info.snomed/AssociationRefset)
@@ -684,7 +720,7 @@
   (?<filetype>(?<status>[x|z]*)(?<type>sct|der|doc|res|tls)(?<format>.*?))
   _
   # content-type
-  (?<contenttype>((?<pattern>.*?)(?<entity>Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier))|(.*?))
+  (?<contenttype>((?<pattern>.*?)(?<entity>Concept|Relationship|Refset|Description|TextDefinition|StatedRelationship|Identifier|RelationshipConcreteValues))|(.*?))
   _
   # content-sub-type - this element is optional entirely, so include a trailing underscore
   ((?<contentsubtype>

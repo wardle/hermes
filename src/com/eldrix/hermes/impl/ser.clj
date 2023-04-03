@@ -1,7 +1,7 @@
 (ns com.eldrix.hermes.impl.ser
   "Optimised hand-crafted serialization of SNOMED entities."
   (:require [com.eldrix.hermes.snomed :as snomed])
-  (:import (com.eldrix.hermes.snomed Concept Description Relationship
+  (:import (com.eldrix.hermes.snomed Concept Description Relationship ConcreteValue
                                      SimpleRefsetItem SimpleMapRefsetItem
                                      RefsetDescriptorRefsetItem
                                      LanguageRefsetItem
@@ -87,7 +87,31 @@
       id effectiveTime active moduleId
       source-id destination-id relationship-group type-id characteristic-type-id modifier-id)))
 
+(defn write-concrete-value [^ByteBuf out ^ConcreteValue o]
+  (.writeLong out (.-id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o)) (.writeLong out (.-sourceId o))
+  (writeUTF out (.-value o))
+  (.writeLong out (.-relationshipGroup o))
+  (.writeLong out (.-typeId o))
+  (.writeLong out (.-characteristicTypeId o))
+  (.writeLong out (.-modifierId o)))
 
+(defn read-concrete-value [^ByteBuf in]
+  (let [id (.readLong in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        source-id (.readLong in)
+        value (readUTF in)
+        relationship-group (.readLong in)
+        type-id (.readLong in)
+        characteristic-type-id (.readLong in)
+        modifier-id (.readLong in)]
+    (snomed/->ConcreteValue
+      id effectiveTime active moduleId
+      source-id value relationship-group type-id characteristic-type-id modifier-id)))
 
 ;;;;
 ;;;; Reference set items

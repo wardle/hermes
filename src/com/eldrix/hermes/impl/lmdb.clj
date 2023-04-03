@@ -18,13 +18,14 @@
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log]
             [com.eldrix.hermes.impl.ser :as ser])
   (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
            (java.nio.file.attribute FileAttribute)
            (io.netty.buffer PooledByteBufAllocator ByteBuf)
            (java.nio.charset StandardCharsets)
            (java.time LocalDate)
-           (com.eldrix.hermes.snomed Description Relationship Concept)
+           (com.eldrix.hermes.snomed Concept Description Relationship ConcreteValue)
            (java.util UUID)
            (java.io Closeable File)
            (java.nio.file Files Path CopyOption StandardCopyOption)))
@@ -41,6 +42,8 @@
    ^Dbi concepts                                            ;; conceptId = concept
    ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
    ^Dbi relationships                                       ;; relationshipId = relationship
+   ^Dbi concreteValues                                      ;; conceptId-relationshipId = concreteValue
+
    ;; core indices - compound keys with empty values
    ^Dbi descriptionConcept                                  ;; descriptionId - conceptId
    ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
@@ -67,6 +70,11 @@
 
 (def ^:private default-map-size (* 5 1024 1024 1024))
 
+(defn dbi-names
+  "Returns an environment's DBI names as a set."
+  [^Env env]
+  (set (map #(String. ^bytes % StandardCharsets/UTF_8) (.getDbiNames env))))
+
 (defn- open*
   "Open a store at the path specified.
   f          : path of directory, anything coercible by clojure.io/as-file
@@ -82,8 +90,9 @@
           core-f (.toFile (.resolve root-path "core.db"))
           refsets-f (.toFile (.resolve root-path "refsets.db"))
           core-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
-                       (.setMapSize map-size) (.setMaxDbs 8)
+                       (.setMapSize map-size) (.setMaxDbs 9)
                        (.open core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
+          core-dbis (dbi-names core-env)  ;; generate a set of dbi names
           refsets-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
                           (.setMapSize map-size) (.setMaxDbs 2)
                           (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
@@ -92,6 +101,7 @@
           concepts (.openDbi ^Env core-env "c" base-flags)
           conceptDescriptions (.openDbi ^Env core-env "d" base-flags)
           relationships (.openDbi ^Env core-env "r" base-flags)
+          concreteValues (when (or (not read-only?) (core-dbis "cv")) (.openDbi ^Env core-env "cv" base-flags)) ;; may be nil with version lmdb/15  ;;TODO: remove optionality for lmdb/16
           descriptionConcept (.openDbi ^Env core-env "dc" base-flags)
           conceptParentRelationships (.openDbi ^Env core-env "cpr" base-flags)
           conceptChildRelationships (.openDbi ^Env core-env "ccr" base-flags)
@@ -100,11 +110,13 @@
           ;; refsets env
           refsetItems (.openDbi ^Env refsets-env "rs" base-flags)
           refsetFieldNames (.openDbi ^Env refsets-env "rs-n" base-flags)]
-
+      (when-not (core-dbis "cv")
+        (log/warn "store with no support for concrete values"))
       (->LmdbStore root-path
                    core-env
-                   concepts conceptDescriptions relationships descriptionConcept
-                   conceptParentRelationships conceptChildRelationships componentRefsets associations
+                   concepts conceptDescriptions relationships concreteValues
+                   descriptionConcept conceptParentRelationships
+                   conceptChildRelationships componentRefsets associations
                    refsets-env
                    refsetItems refsetFieldNames))))
 
@@ -198,6 +210,21 @@
                (.put db txn kb vb put-flags)))
            (.commit txn)
            (finally (.release kb) (.release vb))))))
+
+(defn write-concrete-values
+  [^LmdbStore store concrete-values]
+  (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
+    (when-let [db ^Dbi (.-concreteValues store)]  ;; TODO: remove guard once development complete... and bump to lmdb/16
+      (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; conceptId-relationshipId  (compound key)
+            vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
+        (try (doseq [^ConcreteValue cv concrete-values]
+               (doto kb .clear (.writeLong (.-sourceId cv)) (.writeLong (.-id cv)))
+               (when (should-write-object? db txn kb 16 (.-effectiveTime cv)) ;; skip a 16 byte key (concept-id--relationship-id)
+                 (.clear vb)
+                 (ser/write-concrete-value vb cv)
+                 (.put db txn kb vb put-flags)))
+             (.commit txn)
+             (finally (.release kb) (.release vb)))))))
 
 (defn drop-relationships-index
   "Deletes all indices relating to relationships."
@@ -421,6 +448,25 @@
 (defn relationship
   [^LmdbStore store ^long relationship-id]
   (get-object (.-coreEnv store) (.-relationships store) relationship-id ser/read-relationship))
+
+(defn concrete-values
+  "Return concrete values for the specified concept, if the underlying store
+  supports concrete values."
+  [^LmdbStore store concept-id]
+  (when (.-concreteValues store) ;; TODO: remove guard once development complete... and bump to lmdb/16
+    (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+      (try
+        (doto start-kb (.writeLong concept-id) (.writeLong 0))
+        (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
+                    cursor (.openCursor ^Dbi (.-concreteValues store) txn)]
+          (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
+            (loop [results (transient []) continue? true]
+              (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
+                (persistent! results)
+                (let [d (ser/read-concrete-value (.val cursor))]
+                  (.resetReaderIndex ^ByteBuf (.val cursor))  ;; reset position in value otherwise .next will throw an exception on second item
+                  (recur (conj! results d) (.next cursor)))))))
+        (finally (.release start-kb))))))
 
 (defn refset-item
   "Get the specified refset item.

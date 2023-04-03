@@ -39,6 +39,9 @@
 (deftest ser-relationship
   (doall (map #(test-ser ser/write-relationship ser/read-relationship %) (gen/sample (rf2/gen-relationship) n))))
 
+(deftest ser-concrete-value
+  (run! #(test-ser ser/write-concrete-value ser/read-concrete-value %) (gen/sample (rf2/gen-concrete-value) n)))
+
 (deftest ser-field-names
   (doall (map #(test-ser ser/write-field-names ser/read-field-names %) (gen/sample (s/gen (s/coll-of string?))))))
 
