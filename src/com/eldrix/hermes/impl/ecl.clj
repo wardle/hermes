@@ -482,11 +482,11 @@
       (and attribute-query cardinality-queries)
       (search/q-and (conj cardinality-queries attribute-query))
 
-      cardinality-queries
-      cardinality-queries
+      attribute-query
+      attribute-query
 
       :else
-      attribute-query)))
+      (throw (ex-info "invalid attribute query" {:s (zx/text loc)})))))
 
 (defn- parse-ecl-attribute
   "eclAttribute = [\"[\" cardinality \"]\" ws]
