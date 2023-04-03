@@ -92,7 +92,7 @@
           core-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
                        (.setMapSize map-size) (.setMaxDbs 9)
                        (.open core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
-          core-dbis (dbi-names core-env)  ;; generate a set of dbi names
+          core-dbis (dbi-names core-env)                    ;; generate a set of dbi names
           refsets-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
                           (.setMapSize map-size) (.setMaxDbs 2)
                           (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
