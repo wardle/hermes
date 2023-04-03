@@ -111,7 +111,7 @@
   ([store concept-id type-id]
    (->> (kv/raw-parent-relationships store concept-id type-id)
         (reduce (fn [acc [_source-id type-id _group target-id]]
-                  (update acc type-id conj target-id)))
+                  (update acc type-id conj target-id)) {})
         (reduce-kv (fn [acc k v]
                      (assoc acc k (all-parents store v))) {}))))
 
