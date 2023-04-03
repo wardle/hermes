@@ -176,22 +176,38 @@
          (recur (apply conj (rest work) children)
                 (conj result id)))))))
 
-(defn grouped-properties
-  "Return a concept's properties as a collection of maps, each map representing
-  related properties in a 'relationshipGroup'. By default, all groups are
-  returned, but this can optionally be limited to those containing a specific
-  relationship type."
-  ([store concept-id]
-   (->> (kv/raw-parent-relationships store concept-id)      ;; tuples concept--type--group--destination
-        (map rest)                                          ;; turn into tuple of type--group--destination
-        (group-by second)                                   ;; now group by 'group'
-        (reduce-kv                                          ;; and turn each into a map of type--destination, still grouped by group
-          (fn [m k v] (assoc m k (into {} (map #(hash-map (first %) (last %)) v))))
-          {})
-        vals))
-  ([store concept-id type-id]
-   (->> (grouped-properties store concept-id)
-        (filter #(contains? % type-id)))))
+(defn properties-by-group
+  "Returns a concept's properties as a map of group-id to a map of type-id
+  to a set of target identifiers.
+  e.g.
+  ```
+  (properties-by-group store 24700007)
+  =>
+  {0 {116680003 #{6118003 414029004 39367000}},
+   1 {116676008 #{32693004}, 363698007 #{21483005}, 370135005 #{769247005}},
+   2 {116676008 #{409774005}, 363698007 #{21483005}, 370135005 #{769247005}}}
+  ```"
+  [store concept-id]
+  (->> (kv/raw-parent-relationships store concept-id)
+       (reduce (fn [acc [_ type-id group-id target-id]]
+                 (update-in acc [group-id type-id] (fnil conj #{}) target-id)) {})))
+
+(defn properties-by-type
+  "Return a concept's properties as a map of type-id to a map of group-id to a
+  set of target-ids.
+  e.g.
+  ```
+  (properties-by-type store 24700007)
+  =>
+  {116676008 {1 #{32693004}, 2 #{409774005}},
+   116680003 {0 #{6118003 414029004 39367000}},
+   363698007 {1 #{21483005}, 2 #{21483005}},
+   370135005 {1 #{769247005}, 2 #{769247005}}}
+  ```"
+  [store concept-id]
+  (->> (kv/raw-parent-relationships store concept-id)
+       (reduce (fn [acc [_ type-id group-id target-id]]
+                 (update-in acc [type-id group-id] (fnil conj #{}) target-id)) {})))
 
 (defn leaves
   "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
