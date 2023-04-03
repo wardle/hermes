@@ -485,6 +485,9 @@
       attribute-query
       attribute-query
 
+      cardinality-queries
+      (search/q-and cardinality-queries)
+
       :else
       (throw (ex-info "invalid attribute query" {:s (zx/text loc)})))))
 
