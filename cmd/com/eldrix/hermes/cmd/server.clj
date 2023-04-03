@@ -89,18 +89,20 @@
 
 (def service-error-handler
   (intc-err/error-dispatch
-    [context err]
+    [ctx err]
     [{:exception-type :java.lang.NumberFormatException :interceptor ::get-search}]
-    (assoc context :response {:status 400
-                              :body   (str "Invalid search parameters; invalid number: " (ex-message (:exception (ex-data err))))})
+    (assoc ctx :response {:status 400
+                          :body   {:error (str "invalid search parameters; invalid number: " (ex-message (:exception (ex-data err))))}})
     [{:exception-type :java.lang.IllegalArgumentException :interceptor ::get-search}]
-    (assoc context :response {:status 400 :body (str "invalid search parameters: " (ex-message (:exception (ex-data err))))})
+    (assoc ctx :response {:status 400
+                          :body {:error (str "invalid search parameters: " (ex-message (:exception (ex-data err))))}})
 
-    [{:exception-type :clojure.lang.ExceptionInfo :interceptor ::get-search}]
-    (assoc context :response {:status 400 :body (str "invalid search parameters: " (ex-message (:exception (ex-data err))))})
+    [{:exception-type :clojure.lang.ExceptionInfo}]
+    (let [ex (:exception (ex-data err))] ;; unwrap error message
+      (assoc ctx :response {:status 400 :body (merge {:error (ex-message ex)} (ex-data ex))}))
 
     :else
-    (assoc context :io.pedestal.interceptor.chain/error err)))
+    (assoc ctx :io.pedestal.interceptor.chain/error err)))
 
 (def get-concept
   {:name  ::get-concept
@@ -199,6 +201,7 @@
               (if (< 0 max-hits 10000)
                 (assoc context :result (hermes/search svc (assoc params :max-hits max-hits)))
                 (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
+
 
 (def get-expand
   {:name  ::get-expand
