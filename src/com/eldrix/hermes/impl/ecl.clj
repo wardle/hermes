@@ -417,13 +417,17 @@
   [ctx loc]
   (search/q-and (zx/xml-> loc :conceptFilter #(parse-concept-filter ctx %))))
 
-(defn- parse-cardinality [loc]
-  (let [min-value (Long/parseLong (zx/xml1-> loc :minValue zx/text))
+(defn- parse-cardinality
+  "cardinality = minValue to maxValue
+  minValue = nonNegativeIntegerValue
+  to = \"..\"
+  maxValue = nonNegativeIntegerValue / many
+  many = \"*\""
+  [loc]
+  (let [min-value (Integer/parseInt (zx/xml1-> loc :minValue zx/text))
         max-value (zx/xml1-> loc :maxValue zx/text)]
     {:min-value min-value
-     :max-value (if (= max-value "*")
-                  0
-                  (Long/parseLong max-value))}))
+     :max-value (if (= max-value "*") Integer/MAX_VALUE (Integer/parseInt max-value))}))
 
 (defn- make-nested-query
   "Generate a nested query with the function 'f' specified. Each query

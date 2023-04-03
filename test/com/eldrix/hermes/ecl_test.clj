@@ -174,8 +174,13 @@
       (is (set/subset? (set r1-1) (set r0-1)) "Results for cardinality 1..1 should a subset of 0..1")))
   (testing "Zero cardinality"
     (let [results (hermes/expand-ecl *svc* "<<24700007: [0..0] 246075003=*")] ;; 246075003 = causative agent.
-      (is (seq results) "Invalid result. Multiple sclerosis and descendants should not have attributes of 'causative agent'"))))
-
+      (is (seq results) "Invalid result. Multiple sclerosis and descendants should not have attributes of 'causative agent'")))
+  (testing "Many cardinality"
+    (let [results (hermes/expand-ecl *svc* "<24700007: [2..*]  370135005=*")]  ;; two or more pathological processes))))))
+      (is (->> results
+               (map :conceptId)
+               (map (fn [concept-id] (count (hermes/parent-relationships-of-type *svc* concept-id 370135005))))
+               (every? #(> % 1)))))))
 
 (deftest ^:live test-term-filter
   (let [r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
