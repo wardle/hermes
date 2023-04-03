@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1040] - 2023-04-03
+
+* Improvements to cardinality constraints during ECL processing
+
 ## [1.2.1032] - 2023-04-01
 
 * Optimise handling wildcard value for attribute in an ECL refinement; the prior implementation had no special 
