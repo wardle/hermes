@@ -210,7 +210,8 @@
                  (update-in acc [type-id group-id] (fnil conj #{}) target-id)) {})))
 
 (defn leaves
-  "Returns the subset of the specified `concept-ids` such that no member of the subset is subsumed by another member.
+  "Returns the subset of the specified `concept-ids` such that no member of the
+  subset is subsumed by another member.
   
    Parameters:
   - concept-ids  : a collection of concept identifiers"
