@@ -285,9 +285,7 @@
             acceptability (zx/xml1-> tag :acceptabilitySet parse-acceptability-set->kws)]
         (recur
           (zip/next tag)
-          (let [c (count results)
-                is-even? (even? c)
-                is-odd? (not is-even?)]
+          (let [c (count results), is-even? (even? c), is-odd? (not is-even?)]
             (cond
               (and (nil? d-alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
               results
