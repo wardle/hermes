@@ -110,7 +110,7 @@
           ;; refsets env
           refsetItems (.openDbi ^Env refsets-env "rs" base-flags)
           refsetFieldNames (.openDbi ^Env refsets-env "rs-n" base-flags)]
-      (when-not (core-dbis "cv")
+      (when (and read-only? (not (core-dbis "cv")))
         (log/warn "store with no support for concrete values"))
       (->LmdbStore root-path
                    core-env
