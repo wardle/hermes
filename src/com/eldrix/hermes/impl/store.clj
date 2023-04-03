@@ -32,6 +32,7 @@
 
 (def concept kv/concept)
 (def concept-descriptions kv/concept-descriptions)
+(def concrete-values kv/concrete-values)
 (def installed-reference-sets kv/installed-reference-sets)
 (def component-refset-items kv/component-refset-items)
 (def stream-all-refset-items kv/stream-all-refset-items)
@@ -343,8 +344,9 @@
                           (kv/concept-descriptions store concept-id))
         parent-rels (parent-relationships-expanded store concept-id)
         direct-parent-rels (parent-relationships store concept-id)
+        concrete (concrete-values store concept-id)
         refsets (kv/component-refset-ids store concept-id)]
-    (snomed/->ExtendedConcept c descriptions parent-rels direct-parent-rels refsets)))
+    (snomed/->ExtendedConcept c descriptions parent-rels direct-parent-rels concrete refsets)))
 
 (s/fdef extended-concept
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))

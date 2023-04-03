@@ -290,6 +290,7 @@
    descriptions
    parentRelationships
    directParentRelationships
+   concreteValues
    refsets]
   IExtendedConcept
   (id [_] (.-id concept))
@@ -642,7 +643,7 @@
    :info.snomed/ConcreteValue              parse-concrete-value
    :info.snomed/RelationshipConcreteValues parse-concrete-value
 
-   
+
    ;; types of reference set
    :info.snomed/RefsetDescriptorRefset     parse-refset-descriptor-item
    :info.snomed/SimpleRefset               parse-simple-refset-item
