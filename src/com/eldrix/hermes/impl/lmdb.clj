@@ -212,17 +212,22 @@
            (finally (.release kb) (.release vb))))))
 
 (defn write-concrete-values
+  "Write concrete values to the store. Only active concrete values are stored.
+  Inactive concrete values are managed carefully so that if appropriate,
+  previously stored concrete values are deleted."
   [^LmdbStore store concrete-values]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
-    (when-let [db ^Dbi (.-concreteValues store)]  ;; TODO: remove guard once development complete... and bump to lmdb/16
+    (when-let [db ^Dbi (.-concreteValues store)]            ;; TODO: remove guard once development complete... and bump to lmdb/16
       (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; conceptId-relationshipId  (compound key)
             vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
         (try (doseq [^ConcreteValue cv concrete-values]
                (doto kb .clear (.writeLong (.-sourceId cv)) (.writeLong (.-id cv)))
                (when (should-write-object? db txn kb 16 (.-effectiveTime cv)) ;; skip a 16 byte key (concept-id--relationship-id)
-                 (.clear vb)
-                 (ser/write-concrete-value vb cv)
-                 (.put db txn kb vb put-flags)))
+                 (if (:active cv)
+                   (do (.clear vb)
+                       (ser/write-concrete-value vb cv)
+                       (.put db txn kb vb put-flags))
+                   (.delete db txn kb))))
              (.commit txn)
              (finally (.release kb) (.release vb)))))))
 
@@ -451,20 +456,20 @@
 
 (defn concrete-values
   "Return concrete values for the specified concept, if the underlying store
-  supports concrete values."
+  supports concrete values. Only active concrete values are returned."
   [^LmdbStore store concept-id]
-  (when (.-concreteValues store) ;; TODO: remove guard once development complete... and bump to lmdb/16
+  (when (.-concreteValues store)                            ;; TODO: remove guard once development complete... and bump to lmdb/16
     (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
       (try
         (doto start-kb (.writeLong concept-id) (.writeLong 0))
         (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
                     cursor (.openCursor ^Dbi (.-concreteValues store) txn)]
-          (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
+          (when (.get cursor start-kb GetOp/MDB_SET_RANGE)  ;; get cursor to first key greater than or equal to specified key.
             (loop [results (transient []) continue? true]
               (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
                 (persistent! results)
                 (let [d (ser/read-concrete-value (.val cursor))]
-                  (.resetReaderIndex ^ByteBuf (.val cursor))  ;; reset position in value otherwise .next will throw an exception on second item
+                  (.resetReaderIndex ^ByteBuf (.val cursor)) ;; reset position in value otherwise .next will throw an exception on second item
                   (recur (conj! results d) (.next cursor)))))))
         (finally (.release start-kb))))))
 
