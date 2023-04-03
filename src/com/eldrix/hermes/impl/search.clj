@@ -555,6 +555,9 @@ items."
       (and (zero? minimum) (zero? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
 
+      (and (zero? minimum) (= Integer/MAX_VALUE maximum)) ;;A cardinality of [0..*] should therefore never be used as this indicates that the given attribute is not being constrained in any way, and is therefore a redundant part of the expression constraint.
+      (MatchAllDocsQuery.)
+
       (and (zero? minimum) (pos? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field (int (inc maximum)) Integer/MAX_VALUE)))))
 
