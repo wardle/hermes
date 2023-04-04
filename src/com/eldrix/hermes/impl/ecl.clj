@@ -508,14 +508,16 @@
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
         reverse-flag? (zx/xml1-> loc :reverseFlag zx/text)
         ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
-        ;; resolve the attribute(s) - we logically AND to ensure all are valid concrete value attributes (ie descendants of 762706009 - snomed/ConceptModelDataAttribute)
-        ;; this means a wildcard (*) attribute doesn't accidentally bring in the whole >600000 concepts in SNOMED CT!
-        attribute-concept-ids (when ecl-attribute-name
-                                (realise-concept-ids ctx (search/q-and [(search/q-descendantOf snomed/ConceptModelDataAttribute) ecl-attribute-name]))) ;; realise the attributes in the expression
         expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
         string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
-        boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)]
+        boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        ;; resolve the attribute(s) - we logically AND to ensure all are valid attributes (descendants of 246061005 snomed/Attribute)
+        ;; or for concrete value attribute checks, we ensure attributes are descendants of 762706009 - snomed/ConceptModelDataAttribute)
+        ;; this means a wildcard (*) attribute doesn't accidentally bring in too many concepts
+        parent-attribute-id (if expression-operator snomed/Attribute snomed/ConceptModelDataAttribute)
+        attribute-concept-ids (when ecl-attribute-name
+                                (realise-concept-ids ctx (search/q-and [(search/q-descendantOf parent-attribute-id) ecl-attribute-name])))] ;; realise the attributes in the expression]
     (when-not (seq attribute-concept-ids)
       (throw (ex-info "attribute expression resulted in no valid attributes" {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
     (cond
