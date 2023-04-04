@@ -228,8 +228,8 @@
       ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to) :constraints {:concept-id #"[0-9]+" :refset-id #"[0-9]+"}]
       ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?) :constraints {:concept-id #"[0-9]+" :subsumer-id #"[0-9]+"}]
       ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from) :constraints {:refset-id #"[0-9]+"}]
-      ["/v1/snomed/search" :get [service-error-handler coerce-body content-neg-intc entity-render get-search]]
-      ["/v1/snomed/expand" :get [service-error-handler coerce-body content-neg-intc entity-render get-expand]]}))
+      ["/v1/snomed/search" :get [coerce-body service-error-handler content-neg-intc entity-render get-search]]
+      ["/v1/snomed/expand" :get [coerce-body service-error-handler content-neg-intc entity-render get-expand]]}))
 
 (def service-map
   {::http/routes routes
