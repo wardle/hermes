@@ -17,7 +17,7 @@
 
  :aliases {:build
            {:deps       {io.github.clojure/tools.build          {:mvn/version "0.9.4"}
-                         slipset/deps-deploy                    {:mvn/version "0.2.0"}
+                         slipset/deps-deploy                    {:mvn/version "0.2.1"}
                          io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
             :ns-default build}
 
@@ -40,7 +40,7 @@
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.37.1"}}}
+                          djblue/portal                    {:mvn/version "0.38.2"}}}
 
            :test
            {:extra-paths ["cmd" "test" "test/resources"]
@@ -76,11 +76,11 @@
             :exec-args   {:patterns [".*-bench$"]}}
 
            :outdated
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1017"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.3.1043"}}
             :main-opts  ["-m" "antq.core"]}
 
            :upgrade
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.2.1017"}}
+           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.3.1043"}}
             :main-opts  ["-m" "antq.core" "--upgrade"]}
 
            :check
@@ -103,5 +103,5 @@
             :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
            :lint/splint
-           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.0.1"}}
+           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.1.1"}}
             :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}}}
