@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1060] - 2023-04-04
 
 * Add support for concrete values for store, indexing and search 
 * Improve server error handling and reporting
