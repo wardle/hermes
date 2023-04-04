@@ -187,20 +187,28 @@
         r2 (set (hermes/search *svc* {:s "heart att" :constraint "<  64572001 |Disease| "}))]
     (is (= r1 r2))))
 
+(defn some-concrete-value?
+  "Returns whether a concept's concrete values match the value specified."
+  ([concept-id value]
+   (->> (store/concrete-values (:store *svc*) concept-id)
+        (some #(= value (:value %)))))
+  ([concept-id type-id value]
+   (->> (store/concrete-values (:store *svc*) concept-id)
+        (filter #(= type-id (:typeId %)))
+        (some #(= value (:value %))))))
+
+
 (deftest ^:live test-concrete
   (let [r1 (hermes/expand-ecl *svc* "< 763158003 |Medicinal product (product)| :
      411116001 |Has manufactured dose form (attribute)|  = <<  385268001 |Oral dose form (dose form)| ,
     {    <<  127489000 |Has active ingredient (attribute)|  = <<  372687004 |Amoxicillin (substance)| ,
           1142135004 |Has presentation strength numerator value (attribute)|  = #250,
-         732945000 |Has presentation strength numerator unit (attribute)|  =  258684004 |milligram (qualifier value)|}")]
+         732945000 |Has presentation strength numerator unit (attribute)|  =  258684004 |milligram (qualifier value)|}")
+        r2 (hermes/expand-ecl *svc* "*:*=#250000")]
     (is (pos? (count r1)) "No results found for ECL expression containing concrete values")
-    (is (->> r1
-             (map (fn [{concept-id :conceptId}]
-                    (->> (store/concrete-values (:store *svc*) concept-id)
-                         (filter #(= 1142135004 (:typeId %)))
-                         (filter #(= "#250" (:value %)))
-                         count)))
-             (every? pos?)))))
+    (is (pos? (count r2)) "No results found for ECL expression containing concrete values")
+    (is (every? true? (map #(some-concrete-value? (:conceptId %) 1142135004 "#250") r1)))
+    (is (every? true? (map #(some-concrete-value? (:conceptId %) "#250000") r2)))))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
