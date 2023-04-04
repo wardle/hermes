@@ -31,7 +31,7 @@
            (org.apache.lucene.analysis Analyzer)
            (org.apache.lucene.document Document DoubleField TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
            (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
-           (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
+           (org.apache.lucene.search IndexSearcher MatchNoDocsQuery TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
                                      BooleanQuery$Builder DoubleValuesSource Query ScoreDoc WildcardQuery
                                      MatchAllDocsQuery BooleanQuery BooleanClause)
            (org.apache.lucene.store FSDirectory)
@@ -378,6 +378,9 @@ items."
   "Returns a query that will only return documents for the concept specified."
   [concept-id]
   (LongPoint/newExactQuery "concept-id" concept-id))
+
+(defn q-match-none []
+  (MatchNoDocsQuery.))
 
 (defn q-match-all []
   (MatchAllDocsQuery.))
