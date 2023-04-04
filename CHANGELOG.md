@@ -2,9 +2,15 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Add support for concrete values for store, indexing and search 
+* Improve server error handling and reporting
+* Improve cardinality queries in ECL parsing/expansion
+
 ## [1.2.1040] - 2023-04-03
 
-* Improvements to cardinality constraints during ECL processing
+* Improve cardinality constraints during ECL processing
 
 ## [1.2.1032] - 2023-04-01
 
