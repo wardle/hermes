@@ -9,7 +9,7 @@
            com.eldrix/hermes-api                    {:mvn/version "1.0.17"}
            com.eldrix/trud                          {:mvn/version "1.0.87"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
-           io.netty/netty-buffer                    {:mvn/version "4.1.90.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.91.Final"}
            org.apache.lucene/lucene-core            {:mvn/version "9.5.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.5.0"}
            org.apache.lucene/lucene-backward-codecs {:mvn/version "9.5.0"}
