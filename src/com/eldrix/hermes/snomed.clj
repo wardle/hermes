@@ -884,6 +884,7 @@
 ;; Relationship type concepts
 (def Attribute 246061005)
 (def ConceptModelAttribute 410662002)
+(def ConceptModelDataAttribute 762706009)
 (def Access 260507000)
 (def AssociatedFinding 246090004)
 (def AssociatedMorphology 116676008)

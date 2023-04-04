@@ -508,10 +508,10 @@
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
         reverse-flag? (zx/xml1-> loc :reverseFlag zx/text)
         ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
-        ;; resolve the attribute(s) - we logically AND to ensure all are valid attributes (ie descendants of 246061005 - snomed/Attribute)
+        ;; resolve the attribute(s) - we logically AND to ensure all are valid concrete value attributes (ie descendants of 762706009 - snomed/ConceptModelDataAttribute)
         ;; this means a wildcard (*) attribute doesn't accidentally bring in the whole >600000 concepts in SNOMED CT!
         attribute-concept-ids (when ecl-attribute-name
-                                (realise-concept-ids ctx (search/q-and [(search/q-descendantOf snomed/Attribute) ecl-attribute-name]))) ;; realise the attributes in the expression
+                                (realise-concept-ids ctx (search/q-and [(search/q-descendantOf snomed/ConceptModelDataAttribute) ecl-attribute-name]))) ;; realise the attributes in the expression
         expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
         string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
