@@ -452,15 +452,26 @@
       (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
       ;; if there is a star symbol, but also exclusions, exclude them
       (search/q-match-all? incl)
-      (search/q-not (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
-                    (search/q-and (map #(search/q-attribute-in-set % (realise-concept-ids ctx excl)) attribute-concept-ids)))
+      (let [excl' (realise-concept-ids ctx excl)]
+        (search/q-not (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
+                      (search/q-and (map #(search/q-attribute-in-set % excl') attribute-concept-ids))))
       ;; if we have inclusions and exclusions, realise the concepts   ;; TODO: is it better to do exclusions on the ids, or in Lucene?
       (and incl excl)
-      (search/q-not (search/q-or (map #(search/q-attribute-in-set % (realise-concept-ids ctx incl)) attribute-concept-ids))
-                    (search/q-and (map #(search/q-attribute-in-set % (realise-concept-ids ctx excl)) attribute-concept-ids)))
-      ;; we only have inclusions, so realise and search
+      (let [incl' (realise-concept-ids ctx incl)
+            excl' (realise-concept-ids ctx excl)]
+        (search/q-not (search/q-or (map #(search/q-attribute-in-set % incl') attribute-concept-ids))
+                      (search/q-and (map #(search/q-attribute-in-set % excl') attribute-concept-ids))))
+      ;; we only have inclusions?
       incl
-      (search/q-or (map #(search/q-attribute-in-set % (realise-concept-ids ctx incl)) attribute-concept-ids)))))
+      (let [incl' (realise-concept-ids ctx incl)]
+        (search/q-or (map #(search/q-attribute-in-set % incl') attribute-concept-ids)))
+
+      excl
+      (let [excl' (realise-concept-ids ctx excl)]
+        (search/q-not (search/q-match-all) (search/q-and (map #(search/q-attribute-in-set % excl') attribute-concept-ids))))
+
+      :else
+      (search/q-match-none))))
 
 (defn- parse-attribute--expression
   [ctx {min-value :min-value max-value :max-value :as cardinality} reverse-flag? attribute-concept-ids loc]
