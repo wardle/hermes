@@ -46,7 +46,7 @@
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
            (java.util UUID)
-           (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult)))
+           (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult IConcreteValue)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
@@ -90,6 +90,7 @@
   IDescription
   (id [_] id)
   (effectiveTime [_] effectiveTime)
+  (active [_] active)
   (moduleId [_] moduleId)
   (conceptId [_] conceptId)
   (languageCode [_] languageCode)
@@ -119,7 +120,18 @@
    ^long relationshipGroup
    ^long typeId
    ^long characteristicTypeId
-   ^long modifierId])
+   ^long modifierId]
+  IConcreteValue
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (sourceId [_] sourceId)
+  (value [_] value)
+  (relationshipGroup [_] relationshipGroup)
+  (typeId [_] typeId)
+  (characteristicTypeId [_] characteristicTypeId)
+  (modifierId [_] modifierId))
 
 ;; ReferenceSet support customization and enhancement of SNOMED CT content. These include representation of subsets,
 ;; language preferences maps for or from other code systems. There are multiple reference set types which extend
@@ -301,6 +313,7 @@
   (descriptions [_] descriptions)
   (parentRelationships [_] parentRelationships)
   (directParentRelationships [_] directParentRelationships)
+  (concreteValues [_] concreteValues)
   (refsets [_] refsets))
 
 
