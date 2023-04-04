@@ -187,6 +187,21 @@
         r2 (set (hermes/search *svc* {:s "heart att" :constraint "<  64572001 |Disease| "}))]
     (is (= r1 r2))))
 
+(deftest ^:live test-concrete
+  (let [r1 (hermes/expand-ecl *svc* "< 763158003 |Medicinal product (product)| :
+     411116001 |Has manufactured dose form (attribute)|  = <<  385268001 |Oral dose form (dose form)| ,
+    {    <<  127489000 |Has active ingredient (attribute)|  = <<  372687004 |Amoxicillin (substance)| ,
+          1142135004 |Has presentation strength numerator value (attribute)|  = #250,
+         732945000 |Has presentation strength numerator unit (attribute)|  =  258684004 |milligram (qualifier value)|}")]
+    (is (pos? (count r1)) "No results found for ECL expression containing concrete values")
+    (is (->> r1
+             (map (fn [{concept-id :conceptId}]
+                    (->> (store/concrete-values (:store *svc*) concept-id)
+                         (filter #(= 1142135004 (:typeId %)))
+                         (filter #(= "#250" (:value %)))
+                         count)))
+             (every? pos?)))))
+
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
   (require '[com.eldrix.hermes.impl.ecl :as ecl])

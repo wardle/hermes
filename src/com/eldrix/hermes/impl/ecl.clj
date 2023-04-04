@@ -491,13 +491,19 @@
       :else
       (throw (ex-info "invalid attribute query" {:s (zx/text loc)})))))
 
+
+(def ^:private concrete-numeric-comparison-ops
+  {"="  search/q-concrete=
+   ">"  search/q-concrete>
+   "<"  search/q-concrete<
+   ">=" search/q-concrete>=
+   "<=" search/q-concrete<=
+   "!=" search/q-concrete!=})
+
 (defn- parse-ecl-attribute
-  "eclAttribute = [\"[\" cardinality \"]\" ws]
-  [reverseFlag ws] eclAttributeName ws
-  (expressionComparisonOperator ws subExpressionConstraint /
-  numericComparisonOperator ws \"#\" numericValue /
-  stringComparisonOperator ws QM stringValue QM /
-  booleanComparisonOperator ws booleanValue)"
+  "1.5: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws QM stringValue QM / booleanComparisonOperator ws booleanValue)
+
+   2.0: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue)\n"
   [ctx loc]
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
         reverse-flag? (zx/xml1-> loc :reverseFlag zx/text)
@@ -520,7 +526,9 @@
         (throw (ex-info (str "unsupported expression operator " expression-operator) {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
 
       numeric-operator
-      (throw (ex-info "expressions containing numeric concrete refinements not yet supported." {:text (zx/text loc)}))
+      (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
+            op (concrete-numeric-comparison-ops numeric-operator)]
+        (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids)))
 
       string-operator
       (throw (ex-info "expressions containing string concrete refinements not yet supported." {:text (zx/text loc)}))

@@ -29,7 +29,7 @@
   (:import (org.apache.lucene.analysis.standard StandardAnalyzer)
            (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
            (org.apache.lucene.analysis Analyzer)
-           (org.apache.lucene.document Document TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
+           (org.apache.lucene.document Document DoubleField TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
            (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.search IndexSearcher TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
                                      BooleanQuery$Builder DoubleValuesSource Query ScoreDoc WildcardQuery
@@ -131,6 +131,12 @@
       (let [relationship (str "d" rel)]                     ;; encode direct parent relationships as ("d" + relationship type = concept id)
         (doseq [concept-id concept-ids]
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
+    (doseq [{typeId :typeId, ^String v :value} (get-in ed [:concept :concreteValues])]
+      (let [k (str "v" typeId)]
+        (case (.charAt v 0)
+          \# (.add doc (DoubleField. k ^double (Double/parseDouble (subs v 1)))) ;; parse numbers into double
+          \" (.add doc (StringField. k ^String (subs v 1 (unchecked-dec (.length v))) Field$Store/NO)) ;; unwrap string from quotes for search index
+          (.add doc (StringField. k v Field$Store/NO)))))  ;; store booleans as strings
     (doseq [preferred-in (:preferredIn ed)]
       (.add doc (LongPoint. "preferred-in" (long-array [preferred-in]))))
     (doseq [acceptable-in (:acceptableIn ed)]
@@ -586,6 +592,13 @@ items."
     :preferred-in (LongPoint/newSetQuery "preferred-in" refset-ids)
     :acceptable-in (LongPoint/newSetQuery "acceptable-in" refset-ids)
     (throw (IllegalArgumentException. (str "unknown acceptability '" accept "'")))))
+
+(defn q-concrete= [type-id n] (DoubleField/newExactQuery (str "v" type-id) n))
+(defn q-concrete> [type-id n] (DoubleField/newRangeQuery (str "v" type-id) (Math/nextUp (double n)) Double/POSITIVE_INFINITY))
+(defn q-concrete>= [type-id n] (DoubleField/newRangeQuery (str "v" type-id) n Double/POSITIVE_INFINITY))
+(defn q-concrete< [type-id n] (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY (Math/nextDown (double n))))
+(defn q-concrete<= [type-id n] (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY n))
+(defn q-concrete!= [type-id n] (q-and [(q-concrete< type-id n) (q-concrete> type-id n)]))
 
 (defn rewrite-query
   "Rewrites a query separating out any top-level 'inclusions' from 'exclusions'.
