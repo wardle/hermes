@@ -7,6 +7,7 @@ This log documents significant changes for each release.
 * Add support for concrete values for store, indexing and search 
 * Improve server error handling and reporting
 * Improve cardinality queries in ECL parsing/expansion
+* Improve wildcard attribute search
 
 ## [1.2.1040] - 2023-04-03
 
