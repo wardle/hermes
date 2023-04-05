@@ -224,6 +224,23 @@
 (s/def :info.snomed.RefsetItem/owlExpression string?)       ;;; TODO: could generate arbitrary OWL in future
 (s/def :info.snomed.RefsetItem/sourceEffectiveTime ::effectiveTime)
 (s/def :info.snomed.RefsetItem/targetEffectiveTime ::effectiveTime)
+(s/def :info.snomed.RefsetItem/domainConstraint (s/and string? #(pos? (count %)))) ;; TODO: should generate ECL
+(s/def :info.snomed.RefsetItem/parentDomain (s/and string? #(pos? (count %)))) ;; TODO: should generate ECL
+(s/def :info.snomed.RefsetItem/proximalPrimitiveConstraint (s/and string? #(pos? (count %)))) ;; TODO: should generate ECL
+(s/def :info.snomed.RefsetItem/proximalPrimitiveRefinement (s/and string? #(pos? (count %)))) ;; TODO: should generate ECL
+(s/def :info.snomed.RefsetItem/domainTemplateForPrecoordination (s/and string? #(pos? (count %))))
+(s/def :info.snomed.RefsetItem/domainTemplateForPostcoordination (s/and string? #(pos? (count %))))
+(s/def :info.snomed.RefsetItem/guideURL (s/and string? #(pos? (count %))))
+(s/def :info.snomed.RefsetItem/domainId :info.snomed.Concept/id)
+(s/def :info.snomed.RefsetItem/grouped boolean?)
+(s/def :info.snomed.RefsetItem/attributeCardinality (s/and string? #(pos? (count %)))) ;; TODO: should be 'minimum' to 'maximum' as per ECL grammar
+(s/def :info.snomed.RefsetItem/attributeInGroupCardinality (s/and string? #(pos? (count %)))) ;; TODO: should be 'minimum' to 'maximum' as per ECL grammar
+(s/def :info.snomed.RefsetItem/ruleStrengthId :info.snomed.Concept/id)  ;; always subtype of 723573005 | Concept model rule strength|
+(s/def :info.snomed.RefsetItem/contentTypeId :info.snomed.Concept/id)   ;; always subtype of 723574004 | Content type|
+(s/def :info.snomed.RefsetItem/rangeConstraint (s/and string? #(pos? (count %))))  ;; TODO: a complex parseable string of varying formats! See https://confluence.ihtsdotools.org/display/DOCMRCM/5.3+MRCM+Attribute+Range+Reference+Set
+(s/def :info.snomed.RefsetItem/attributeRule (s/and string? #(pos? (count %))))
+(s/def :info.snomed.RefsetItem/mrcmRuleRefsetId :info.snomed.Concept/id) ;; always a subtype of 723564002 | MRCM reference set|
+
 (s/def :info.snomed.RefsetItem/field (s/or :concept :info.snomed.Concept/id
                                            :description :info.snomed.Description/id
                                            :relationship :info.snomed.Relationship/id
@@ -453,6 +470,87 @@
            (gen/fmap #(merge % {:refsetId 900000000000534007}))))
   ([item] (->> (gen-module-dependency-refset)
                (gen/fmap #(merge % item)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(s/def :info.snomed/MRCMDomainRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/domainConstraint
+                   :info.snomed.RefsetItem/parentDomain
+                   :info.snomed.RefsetItem/proximalPrimitiveConstraint
+                   :info.snomed.RefsetItem/proximalPrimitiveRefinement
+                   :info.snomed.RefsetItem/domainTemplateForPrecoordination
+                   :info.snomed.RefsetItem/domainTemplateForPostcoordination
+                   :info.snomed.RefsetItem/guideURL]))
+
+(defn gen-mrcm-domain-refset
+  "A generator of SNOMED MRCM domain reference set entities."
+  ([] (gen/fmap snomed/map->MRCMDomainRefsetItem (s/gen :info.snomed/MRCMDomainRefset)))
+  ([refset] (gen/fmap #(merge % refset) (gen-mrcm-domain-refset))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(s/def :info.snomed/MRCMAttributeDomainRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/domainId
+                   :info.snomed.RefsetItem/grouped
+                   :info.snomed.RefsetItem/attributeCardinality
+                   :info.snomed.RefsetItem/attributeInGroupCardinality
+                   :info.snomed.RefsetItem/ruleStrengthId
+                   :info.snomed.RefsetItem/contentTypeId]))
+
+(defn gen-mrcm-attribute-domain-refset
+  "A generator of SNOMED MRCM Attribute Domain reference set entities."
+  ([] (gen/fmap snomed/map->MRCMAttributeDomainRefsetItem (s/gen :info.snomed/MRCMAttributeDomainRefset)))
+  ([refset] (gen/fmap #(merge % refset) (gen-mrcm-attribute-domain-refset))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(s/def :info.snomed/MRCMAttributeRangeRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/rangeConstraint
+                   :info.snomed.RefsetItem/attributeRule
+                   :info.snomed.RefsetItem/ruleStrengthId
+                   :info.snomed.RefsetItem/contentTypeId]))
+
+(defn gen-mrcm-attribute-range-refset
+  "A generator of SNOMED MRCM attribute range reference set entities."
+  ([] (gen/fmap snomed/map->MRCMAttributeRangeRefsetItem (s/gen :info.snomed/MRCMAttributeRangeRefset)))
+  ([refset] (gen/fmap #(merge % refset) (gen-simple-refset))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(s/def :info.snomed/MRCMModuleScopeRefset
+  (s/keys :req-un [:info.snomed.RefsetItem/id
+                   :info.snomed.RefsetItem/effectiveTime
+                   :info.snomed.RefsetItem/active
+                   :info.snomed.RefsetItem/moduleId
+                   :info.snomed.RefsetItem/refsetId
+                   :info.snomed.RefsetItem/referencedComponentId
+                   :info.snomed.RefsetItem/mrcmRuleRefsetId]))
+
+(defn gen-mrcm-module-scope-refset
+  "A generator of SNOMED MRCM module scope reference set entities."
+  ([] (gen/fmap snomed/map->MRCMModuleScopeRefsetItem (s/gen :info.snomed/MRCMModuleScopeRefset)))
+  ([refset] (gen/fmap #(merge % refset) (gen-mrcm-module-scope-refset))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

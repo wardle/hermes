@@ -7,7 +7,8 @@
                                      LanguageRefsetItem
                                      ComplexMapRefsetItem ExtendedMapRefsetItem
                                      AttributeValueRefsetItem OWLExpressionRefsetItem
-                                     AssociationRefsetItem ModuleDependencyRefsetItem)
+                                     AssociationRefsetItem ModuleDependencyRefsetItem
+                                     MRCMAttributeDomainRefsetItem MRCMAttributeRangeRefsetItem MRCMDomainRefsetItem MRCMModuleScopeRefsetItem)
            (java.time LocalDate)
            (io.netty.buffer ByteBuf ByteBufUtil)
            (java.util UUID)
@@ -428,6 +429,127 @@
     (snomed/->ModuleDependencyRefsetItem
       id effectiveTime active moduleId refsetId referencedComponentId sourceEffectiveTime targetEffectiveTime fields)))
 
+(defn write-mrcm-domain-refset-item [^ByteBuf out ^MRCMDomainRefsetItem o]
+  (write-uuid out (.-id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (writeUTF out (.-domainConstraint o))
+  (writeUTF out (.-parentDomain o))
+  (writeUTF out (.-proximalPrimitiveConstraint o))
+  (writeUTF out (.-proximalPrimitiveRefinement o))
+  (writeUTF out (.-domainTemplateForPrecoordination o))
+  (writeUTF out (.-domainTemplateForPostcoordination o))
+  (writeUTF out (.-guideURL o)))
+
+(defn read-mrcm-domain-refset-item [^ByteBuf in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        domainConstraint (readUTF in)
+        parentDomain (readUTF in)
+        proximalPrimitiveConstraint (readUTF in)
+        proximalPrimitiveRefinement (readUTF in)
+        domainTemplateForPrecoordination (readUTF in)
+        domainTemplateForPostcoordination (readUTF in)
+        guideURL (readUTF in)]
+    (snomed/->MRCMDomainRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId
+      domainConstraint parentDomain
+      proximalPrimitiveConstraint proximalPrimitiveRefinement
+      domainTemplateForPrecoordination domainTemplateForPostcoordination
+      guideURL)))
+
+
+(defn write-mrcm-attribute-domain-refset-item [^ByteBuf out ^MRCMAttributeDomainRefsetItem o]
+  (write-uuid out (.-id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeLong out (.-domainId o))
+  (.writeBoolean out (.-grouped o))
+  (writeUTF out (.-attributeCardinality o))
+  (writeUTF out (.-attributeInGroupCardinality o))
+  (.writeLong out (.-ruleStrengthId o))
+  (.writeLong out (.-contentTypeId o)))
+
+(defn read-mrcm-attribute-domain-refset-item [^ByteBuf in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        domainId (.readLong in)
+        grouped (.readBoolean in)
+        attributeCardinality (readUTF in)
+        attributeInGroupCardinality (readUTF in)
+        ruleStrengthId (.readLong in)
+        contentTypeId (.readLong in)]
+    (snomed/->MRCMAttributeDomainRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId
+      domainId grouped attributeCardinality attributeInGroupCardinality
+      ruleStrengthId contentTypeId)))
+
+
+
+(defn write-mrcm-attribute-range-refset-item [^ByteBuf out ^MRCMAttributeRangeRefsetItem o]
+  (write-uuid out (.-id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (writeUTF out (.-rangeConstraint o))
+  (writeUTF out (.-attributeRule o))
+  (.writeLong out (.-ruleStrengthId o))
+  (.writeLong out (.-contentTypeId o)))
+
+(defn read-mrcm-attribute-range-refset-item [^ByteBuf in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        rangeConstraint (readUTF in)
+        attributeRule (readUTF in)
+        ruleStrengthId (.readLong in)
+        contentTypeId (.readLong in)]
+    (snomed/->MRCMAttributeRangeRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId
+      rangeConstraint attributeRule ruleStrengthId contentTypeId)))
+
+
+(defn write-mrcm-module-scope-refset-item [^ByteBuf out ^MRCMModuleScopeRefsetItem o]
+  (write-uuid out (.-id o))
+  (.writeLong out (.toEpochDay ^LocalDate (.-effectiveTime o)))
+  (.writeBoolean out (.-active o))
+  (.writeLong out (.-moduleId o))
+  (.writeLong out (.-refsetId o))
+  (.writeLong out (.-referencedComponentId o))
+  (.writeLong out (.-mrcmRuleRefsetId o)))
+
+(defn read-mrcm-module-scope-refset-item [^ByteBuf in]
+  (let [id (read-uuid in)
+        effectiveTime (LocalDate/ofEpochDay (.readLong in))
+        active (.readBoolean in)
+        moduleId (.readLong in)
+        refsetId (.readLong in)
+        referencedComponentId (.readLong in)
+        mrcmRuleRefsetId (.readLong in)]
+    (snomed/->MRCMModuleScopeRefsetItem
+      id effectiveTime active moduleId refsetId referencedComponentId
+      mrcmRuleRefsetId)))
+
+
 ;;
 ;;
 ;;
@@ -465,6 +587,19 @@
 (defmethod write-refset-item :info.snomed/ModuleDependencyRefset [^ByteBuf out o]
   (.writeByte out 10)
   (write-module-dependency-refset-item out o))
+(defmethod write-refset-item :info.snomed/MRCMDomainRefset [^ByteBuf out o]
+  (.writeByte out 11)
+  (write-mrcm-domain-refset-item out o))
+(defmethod write-refset-item :info.snomed/MRCMAttributeDomainRefset [^ByteBuf out o]
+  (.writeByte out 12)
+  (write-mrcm-attribute-domain-refset-item out o))
+(defmethod write-refset-item :info.snomed/MRCMAttributeRangeRefset [^ByteBuf out o]
+  (.writeByte out 13)
+  (write-mrcm-attribute-range-refset-item out o))
+(defmethod write-refset-item :info.snomed/MRCMModuleScopeRefset [^ByteBuf out o]
+  (.writeByte out 14)
+  (write-mrcm-module-scope-refset-item out o))
+
 
 (defn read-refset-item [^ByteBuf in]
   (case (.readByte in)
@@ -477,7 +612,11 @@
     7 (read-attribute-value-refset-item in)
     8 (read-refset-descriptor-refset-item in)
     9 (read-association-refset-item in)
-    10 (read-module-dependency-refset-item in)))
+    10 (read-module-dependency-refset-item in)
+    11 (read-mrcm-domain-refset-item in)
+    12 (read-mrcm-attribute-domain-refset-item in)
+    13 (read-mrcm-attribute-range-refset-item in)
+    14 (read-mrcm-module-scope-refset-item in)))
 
 (defn read-effective-time
   "Optimised fetch of only the effectiveTime of a SNOMED component.

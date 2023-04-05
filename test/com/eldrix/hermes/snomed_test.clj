@@ -79,6 +79,9 @@
    {:spec     :info.snomed/Relationship
     :make-fn  snomed/map->Relationship
     :parse-fn snomed/parse-relationship}
+   {:spec     :info.snomed/ConcreteValue
+    :make-fn  snomed/map->ConcreteValue
+    :parse-fn snomed/parse-concrete-value}
    {:spec     :info.snomed/SimpleRefset
     :make-fn  snomed/map->SimpleRefsetItem
     :parse-fn snomed/parse-simple-refset-item}
@@ -105,7 +108,19 @@
     :parse-fn snomed/parse-attribute-value-refset-item}
    {:spec     :info.snomed/OWLExpressionRefset
     :make-fn  snomed/map->OWLExpressionRefsetItem
-    :parse-fn snomed/parse-owl-expression-refset-item}])
+    :parse-fn snomed/parse-owl-expression-refset-item}
+   {:spec     :info.snomed/MRCMDomainRefset
+    :make-fn  snomed/map->MRCMDomainRefsetItem
+    :parse-fn snomed/parse-mrcm-domain-refset-item}
+   {:spec     :info.snomed/MRCMAttributeDomainRefset
+    :make-fn  snomed/map->MRCMAttributeDomainRefsetItem
+    :parse-fn snomed/parse-mrcm-attribute-domain-refset-item}
+   {:spec     :info.snomed/MRCMAttributeRangeRefset
+    :make-fn  snomed/map->MRCMAttributeRangeRefsetItem
+    :parse-fn snomed/parse-mrcm-attribute-range-refset-item}
+   {:spec     :info.snomed/MRCMModuleScopeRefset
+    :make-fn  snomed/map->MRCMModuleScopeRefsetItem
+    :parse-fn snomed/parse-mrcm-module-scope-refset-item}])
 
 (deftest test-parse-unparse
   (doseq [{:keys [spec make-fn parse-fn]} parse-unparse-tests]

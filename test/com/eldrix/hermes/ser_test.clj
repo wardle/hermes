@@ -55,7 +55,11 @@
    (rf2/gen-attribute-value-refset)
    (rf2/gen-owl-expression-refset)
    (rf2/gen-refset-descriptor-refset)
-   (rf2/gen-module-dependency-refset)])
+   (rf2/gen-module-dependency-refset)
+   (rf2/gen-mrcm-domain-refset)
+   (rf2/gen-mrcm-attribute-domain-refset)
+   (rf2/gen-mrcm-attribute-range-refset)
+   (rf2/gen-mrcm-module-scope-refset)])
 
 (deftest ser-refset-items
   (dorun (map #(test-ser ser/write-fields ser/read-fields %) (gen/sample (s/gen :info.snomed.RefsetItem/fields) n)))

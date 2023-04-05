@@ -295,6 +295,64 @@
    ^String owlExpression
    fields])
 
+;; MRCM Domain Reference Set Item
+;; see https://confluence.ihtsdotools.org/display/DOCMRCM/5.1+MRCM+Domain+Reference+Set
+(defrecord MRCMDomainRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId                                           ;; a subtype descendant of: 723589008 | MRCM domain reference set|
+   ^long referencedComponentId
+   ^String domainConstraint
+   ^String parentDomain
+   ^String proximalPrimitiveConstraint
+   ^String proximalPrimitiveRefinement
+   ^String domainTemplateForPrecoordination
+   ^String domainTemplateForPostcoordination
+   ^String guideURL])
+
+;; MRCM Attribute Domain Reference Set Item
+;; see https://confluence.ihtsdotools.org/display/DOCMRCM/5.2+MRCM+Attribute+Domain+Reference+Set
+(defrecord MRCMAttributeDomainRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId                                           ;; a subtype descendant of: 723604009 | MRCM attribute domain reference set|
+   ^long referencedComponentId
+   ^long domainId
+   ^boolean grouped
+   ^String attributeCardinality
+   ^String attributeInGroupCardinality
+   ^long ruleStrengthId
+   ^long contentTypeId])
+
+;; MRCM Attribute Range Reference Set Item
+;; see https://confluence.ihtsdotools.org/display/DOCMRCM/5.3+MRCM+Attribute+Range+Reference+Set
+(defrecord MRCMAttributeRangeRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId                                           ;; a subtype descendant of: 723592007 | MRCM attribute range reference set|
+   ^long referencedComponentId
+   ^String rangeConstraint
+   ^String attributeRule
+   ^long ruleStrengthId
+   ^long contentTypeId])
+
+;; MRCM Module Scope Reference Set Item
+;; see https://confluence.ihtsdotools.org/display/DOCMRCM/5.4+MRCM+Module+Scope+Reference+Set
+(defrecord MRCMModuleScopeRefsetItem
+  [^UUID id
+   ^LocalDate effectiveTime
+   ^boolean active
+   ^long moduleId
+   ^long refsetId                                           ;;  set to 723563008 | MRCM module scope reference set|
+   ^long referencedComponentId
+   ^long mrcmRuleRefsetId])
+
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
 (defrecord ExtendedConcept
@@ -648,6 +706,83 @@
          (:sourceEffectiveTime r) (:targetEffectiveTime r)]
         (:fields r)))
 
+(defn parse-mrcm-domain-refset-item [_pattern v]
+  (->MRCMDomainRefsetItem
+    (unsafe-parse-uuid (v 0))
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id
+    (v 6)                                                   ;;domain constraint
+    (v 7)                                                   ;;parent domain
+    (v 8)                                                   ;; proximal primitive constraint
+    (v 9)                                                   ;; proximal primitive refinement
+    (v 10)                                                  ;; domain template for precoordination
+    (v 11)                                                  ;; domain template for postcoordination
+    (v 12)))                                                ;; guide URL
+(defmethod ->vec MRCMDomainRefsetItem [r]
+  (mapv #(get r %)
+        [:id :effectiveTime :active :moduleId :refsetId :referencedComponentId
+         :domainConstraint :parentDomain :proximalPrimitiveConstraint
+         :proximalPrimitiveRefinement :domainTemplateForPrecoordination
+         :domainTemplateForPostcoordination :guideURL]))
+
+(defn parse-mrcm-attribute-domain-refset-item [_pattern v]
+  (->MRCMAttributeDomainRefsetItem
+    (unsafe-parse-uuid (v 0))
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id))
+    (Long/parseLong (v 6))                                  ;; domain id
+    (parse-bool (v 7))                                      ;; grouped
+    (v 8)                                                   ;; attribute cardinality
+    (v 9)                                                   ;; attribute in group cardinality
+    (Long/parseLong (v 10))                                 ;; rule strength id
+    (Long/parseLong (v 11))))                               ;; content type id
+
+(defmethod ->vec MRCMAttributeDomainRefsetItem [r]
+  (mapv #(get r %)
+        [:id :effectiveTime :active :moduleId :refsetId :referencedComponentId
+         :domainId :grouped :attributeCardinality :attributeInGroupCardinality
+         :ruleStrengthId :contentTypeId]))
+
+(defn parse-mrcm-attribute-range-refset-item [_pattern v]
+  (->MRCMAttributeRangeRefsetItem
+    (unsafe-parse-uuid (v 0))
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id))
+    (v 6)                                                   ;; range constraint
+    (v 7)                                                   ;; attribute rule
+    (Long/parseLong (v 8))                                  ;; rule strength id
+    (Long/parseLong (v 9))))                                ;; content type id
+
+(defmethod ->vec MRCMAttributeRangeRefsetItem [r]
+  (mapv #(get r %)
+        [:id :effectiveTime :active :moduleId :refsetId :referencedComponentId
+         :rangeConstraint :attributeRule :ruleStrengthId :contentTypeId]))
+
+(defn parse-mrcm-module-scope-refset-item [_pattern v]
+  (->MRCMModuleScopeRefsetItem
+    (unsafe-parse-uuid (v 0))
+    (parse-date (v 1))                                      ;; effective time
+    (parse-bool (v 2))                                      ;; active?
+    (Long/parseLong (v 3))                                  ;; module Id
+    (Long/parseLong (v 4))                                  ;; refset Id
+    (Long/parseLong (v 5))                                  ;; referenced component id))
+    (Long/parseLong (v 6))))                                ;; mrcm rule refset id
+
+(defmethod ->vec MRCMModuleScopeRefsetItem [r]
+  (mapv #(get r %)
+        [:id :effectiveTime :active :moduleId :refsetId :referencedComponentId
+         :mrcmRuleRefsetId]))
+
+
 
 (def parsers
   {:info.snomed/Concept                    parse-concept
@@ -667,7 +802,11 @@
    :info.snomed/ExtendedMapRefset          parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset       parse-attribute-value-refset-item
    ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
-   :info.snomed/ModuleDependencyRefset     parse-module-dependency-refset-item})
+   :info.snomed/ModuleDependencyRefset     parse-module-dependency-refset-item
+   :info.snomed/MRCMDomainRefset           parse-mrcm-domain-refset-item
+   :info.snomed/MRCMAttributeDomainRefset  parse-mrcm-attribute-domain-refset-item
+   :info.snomed/MRCMAttributeRangeRefset   parse-mrcm-attribute-range-refset-item
+   :info.snomed/MRCMModuleScopeRefset      parse-mrcm-module-scope-refset-item})
 
 (s/def ::type parsers)
 (s/def ::data seq)
@@ -701,6 +840,10 @@
 (derive :info.snomed/AttributeValueRefset :info.snomed/Refset)
 (derive :info.snomed/OWLExpressionRefset :info.snomed/Refset)
 (derive :info.snomed/ModuleDependencyRefset :info.snomed/Refset)
+(derive :info.snomed/MRCMDomainRefset :info.snomed/Refset)
+(derive :info.snomed/MRCMAttributeDomainRefset :info.snomed/Refset)
+(derive :info.snomed/MRCMAttributeRangeRefset :info.snomed/Refset)
+(derive :info.snomed/MRCMModuleScopeRefset :info.snomed/Refset)
 
 (derive Concept :info.snomed/Concept)
 (derive Description :info.snomed/Description)
@@ -716,6 +859,10 @@
 (derive AttributeValueRefsetItem :info.snomed/AttributeValueRefset)
 (derive OWLExpressionRefsetItem :info.snomed/OWLExpressionRefset)
 (derive ModuleDependencyRefsetItem :info.snomed/ModuleDependencyRefset)
+(derive MRCMDomainRefsetItem :info.snomed/MRCMDomainRefset)
+(derive MRCMAttributeDomainRefsetItem :info.snomed/MRCMAttributeDomainRefset)
+(derive MRCMAttributeRangeRefsetItem :info.snomed/MRCMAttributeRangeRefset)
+(derive MRCMModuleScopeRefsetItem :info.snomed/MRCMModuleScopeRefset)
 
 (defrecord Result
   [^long id
@@ -970,6 +1117,12 @@
 ;; SNOMED CT 'model' component and reference set
 (def ModelModule 900000000000012004)
 (def ModuleDependencyReferenceSet 900000000000534007)
+
+;; SNOMED CT Machine Readable Concept Model (MRCM)
+(def MRCMDomainReferenceSet 723589008)
+(def MRCMAttributeDomainReferenceSet 723604009)
+(def MRCMAttributeRangeReferenceSet 723592007)
+(def MRCMModuleScopeReferenceSet 723563008)
 
 (defn primitive?
   "Is this concept primitive? ie not sufficiently defined by necessary conditions?"
