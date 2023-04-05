@@ -247,7 +247,7 @@
    Parameters:
   - concept-ids  : a collection of concept identifiers"
   [store concept-ids]
-  (set/difference (set concept-ids) (into #{} (mapcat #(disj (all-parents store %) %) concept-ids))))
+  (set/difference (set concept-ids) (into #{} (mapcat #(disj (all-parents store %) %)) concept-ids)))
 
 (defn transitive-synonyms
   "Returns all synonyms of the specified concept, including those of its
