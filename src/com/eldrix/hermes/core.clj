@@ -132,6 +132,13 @@
   (->> (descriptions svc concept-id)
        (filter #(= snomed/Synonym (:typeId %)))))
 
+(s/fdef concrete-values
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+(defn concrete-values
+  "Returns a sequence of concrete values for the given concept."
+  [^Svc svc concept-id]
+  (store/concrete-values (.-store svc) concept-id))
+
 (s/fdef stream-all-concepts
   :args (s/cat :svc ::svc :ch any? :close? (s/? boolean?)))
 (defn stream-all-concepts
