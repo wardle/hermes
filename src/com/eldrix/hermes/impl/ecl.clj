@@ -409,7 +409,7 @@
 (defn- parse-concept-filter
   "conceptFilter = definitionStatusFilter / moduleFilter / effectiveTimeFilter / activeFilter"
   [_ctx loc]
-  (or (zx/xml1-> loc :activeFilter #(parse-concept-active-filter %))
+  (or (zx/xml1-> loc :activeFilter parse-concept-active-filter)
       (throw (ex-info "Unsupported concept filter" {:text (zx/text loc)}))))
 
 (defn- parse-concept-filter-constraint
