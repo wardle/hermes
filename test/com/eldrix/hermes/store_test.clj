@@ -115,7 +115,7 @@
       (store/write-batch store {:type :info.snomed/SimpleRefset :data simple})
       (store/write-batch store {:type :info.snomed/RefsetDescriptorRefset :data refset-descriptors})
       (store/write-batch store {:type :info.snomed/ModuleDependencyRefset :data module-dependencies})
-      (dorun (map #(is (= % (store/refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies))))))
+      (run! #(is (= % (store/refset-item store (:id %)))) (concat simple refset-descriptors module-dependencies)))))
 
 (deftest test-refset-descriptors
   (let [refset-concept (gen/generate (rf2/gen-concept {:id 1322291000000109 :active true}))
