@@ -19,7 +19,7 @@
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
         parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (str/split examples #"\n"))]
     (doseq [f parsed]
-      (is (not (nil? (:data f))) (str "couldn't parse filename" f)))))
+      (is (some? (:data f))) (str "couldn't parse filename" f))))
 
 (deftest test-filenames2
   (let [p (snomed/parse-snomed-filename "der2_cRefset_AttributeValueSnapshot_INT_20180131.txt")]
@@ -125,11 +125,10 @@
 (deftest test-parse-unparse
   (doseq [{:keys [spec make-fn parse-fn]} parse-unparse-tests]
     (dorun (->> (gen/sample (s/gen spec) 4)
-                (map #(make-fn %))
-                (map #(let [refset? (isa? spec :info.snomed/Refset)]
-                        (if refset?
-                          (is (= % (parse-fn (rf2/pattern-for-refset-item spec %) (snomed/unparse %))))
-                          (is (= % (parse-fn (snomed/unparse %)))))))))))
+                (map make-fn)
+                (map #(if (isa? spec :info.snomed/Refset)
+                        (is (= % (parse-fn (rf2/pattern-for-refset-item spec %) (snomed/unparse %))))
+                        (is (= % (parse-fn (snomed/unparse %))))))))))
 
 (def refset-examples
   [{:filename "der2_Refset_SimpleFull_INT_20180131.txt"

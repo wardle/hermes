@@ -102,7 +102,7 @@
       (is (every? true? (map #(= % (store/refset-item st (.-id %))) refset-items)))
       (let [status (store/status st)]
         (is (= (:concepts status) n-concepts))
-        (is (= 0 (:descriptions status)))
+        (is (zero? (:descriptions status)))
         (is (= (count refset-items) (:refset-items status)))
         (is (= 1 (:refsets status)))
         (is (= (count refset-items) (get-in status [:indices :component-refsets])))))))

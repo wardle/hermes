@@ -152,7 +152,7 @@
                             [:info.snomed.Concept/id
                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])]
       (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
-      (is (= 24700007 (get-in ms [:info.snomed.Concept/id]))))))
+      (is (= 24700007 (:info.snomed.Concept/id ms))))))
 
 (deftest ^:live test-refsets
   (testing "refset ids and items"
