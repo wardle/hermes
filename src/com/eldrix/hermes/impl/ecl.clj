@@ -455,7 +455,7 @@
       (let [excl' (realise-concept-ids ctx excl)]
         (search/q-not (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
                       (search/q-and (map #(search/q-attribute-in-set % excl') attribute-concept-ids))))
-      ;; if we have inclusions and exclusions, realise the concepts   ;; TODO: is it better to do exclusions on the ids, or in Lucene?
+      ;; if we have inclusions and exclusions, realise the concepts
       (and incl excl)
       (let [incl' (realise-concept-ids ctx incl)
             excl' (realise-concept-ids ctx excl)]
