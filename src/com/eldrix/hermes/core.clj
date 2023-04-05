@@ -769,7 +769,10 @@
 
 (defn ^:private mrcm-domains
   [{:keys [store memberSearcher]}]                          ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
-  (let [refset-ids (disj (store/all-children store snomed/MRCMDomainReferenceSet) snomed/MRCMDomainReferenceSet)]
+  (let [refset-ids (set (->> (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet))   ;; get all refset-items for the module scope reference set
+                             (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
+                             (map :mrcmRuleRefsetId)  ;; and get all refset ids, and then filter so we are using
+                             (filter #(store/is-a? store % snomed/MRCMDomainReferenceSet))))]
     (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
          (mapcat #(mapcat (fn [refset-id] (store/component-refset-items store % refset-id)) refset-ids)))))
 
