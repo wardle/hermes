@@ -94,7 +94,7 @@
       (store/write-batch st {:type :info.snomed/SimpleRefset :data refset-items})
       (store/index st)
       (is (= #{refset-id} (store/installed-reference-sets st)))
-      (dorun (map #(is (= % (store/refset-item st (:id %)))) refset-items))
+      (run! #(is (= % (store/refset-item st (:id %)))) refset-items)
       (is (every? true? (map #(= #{refset-id} (store/component-refset-ids st (:id %))) members)))
       (is (every? true? (map #(empty? (store/component-refset-ids st (:id %))) non-members)))
       (is (every? true? (map #(let [[item & more] (store/component-refset-items st (.-referencedComponentId %))]

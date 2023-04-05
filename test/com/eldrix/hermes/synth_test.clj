@@ -141,8 +141,8 @@
       (let [en-GB-description-ids (set (map :referencedComponentId en-GB))
             en-US-description-ids (set (map :referencedComponentId en-US))]
         (is (= en-GB-refset (hermes/concept svc 999001261000000100)))
-        (dorun (map #(is (contains? en-GB-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-GB")))) concepts))
-        (dorun (map #(is (contains? en-US-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-US")))) concepts))))))
+        (run! #(is (contains? en-GB-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-GB")))) concepts)
+        (run! #(is (contains? en-US-description-ids (:id (hermes/preferred-synonym svc (:id %) "en-US")))) concepts)))))
 
 (deftest test-module-dependencies
   (let [template {:active true :sourceEffectiveTime (LocalDate/of 2014 1 31) :targetEffectiveTime (LocalDate/of 2014 1 31) :fields []}

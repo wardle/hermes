@@ -31,19 +31,19 @@
 
 (deftest ser-concept
   (test-ser ser/write-concept ser/read-concept (snomed/->Concept 24700007 (LocalDate/of 2005 1 1) true 0 0))
-  (doall (map #(test-ser ser/write-concept ser/read-concept %) (gen/sample (rf2/gen-concept) n))))
+  (run! #(test-ser ser/write-concept ser/read-concept %) (gen/sample (rf2/gen-concept) n)))
 
 (deftest ser-description
   (is (every? true? (map #(test-ser ser/write-description ser/read-description %) (gen/sample (rf2/gen-description) n)))))
 
 (deftest ser-relationship
-  (doall (map #(test-ser ser/write-relationship ser/read-relationship %) (gen/sample (rf2/gen-relationship) n))))
+  (run! #(test-ser ser/write-relationship ser/read-relationship %) (gen/sample (rf2/gen-relationship) n)))
 
 (deftest ser-concrete-value
   (run! #(test-ser ser/write-concrete-value ser/read-concrete-value %) (gen/sample (rf2/gen-concrete-value) n)))
 
 (deftest ser-field-names
-  (doall (map #(test-ser ser/write-field-names ser/read-field-names %) (gen/sample (s/gen (s/coll-of string?))))))
+  (run! #(test-ser ser/write-field-names ser/read-field-names %) (gen/sample (s/gen (s/coll-of string?)))))
 
 (def refset-generators
   [(rf2/gen-simple-refset)
@@ -62,8 +62,8 @@
    (rf2/gen-mrcm-module-scope-refset)])
 
 (deftest ser-refset-items
-  (dorun (map #(test-ser ser/write-fields ser/read-fields %) (gen/sample (s/gen :info.snomed.RefsetItem/fields) n)))
-  (dorun (map #(test-ser ser/write-refset-item ser/read-refset-item %) (gen/sample (gen/one-of refset-generators) (* n (count refset-generators))))))
+  (run! #(test-ser ser/write-fields ser/read-fields %) (gen/sample (s/gen :info.snomed.RefsetItem/fields) n))
+  (run! #(test-ser ser/write-refset-item ser/read-refset-item %) (gen/sample (gen/one-of refset-generators) (* n (count refset-generators)))))
 
 (comment
   (run-tests)
