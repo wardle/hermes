@@ -193,6 +193,32 @@
        (reduce (fn [acc [_ type-id group-id target-id]]
                  (update-in acc [group-id type-id] (fnil conj #{}) target-id)) {})))
 
+(defn properties
+  "Returns a concept's properties, including concrete values. Ungrouped
+  properties are returned under key '0', with other groups returned with
+  non-zero keys. There is no other intrinsic meaning to the group identifier.
+
+  e.g. for lamotrigine:
+  ```
+  (properties store 1231295007)
+  =>
+  {0 {116680003 #{779653004}, 411116001 #{385060002}, 763032000 #{732936001},
+      766939001 #{773862006}, 1142139005 #{\"#1\"}},
+   1 {732943007 #{387562000}, 732945000 #{258684004}, 732947008 #{732936001},
+      762949000 #{387562000}, 1142135004 #{\"#250\"}, 1142136003 #{\"#1\"}}}
+  ```
+  See https://confluence.ihtsdotools.org/display/DOCRELFMT/4.2.3+Relationship+File+Specification
+    \"The relationshipGroup field is used to group relationships with the same
+    sourceId field into one or more logical sets. A relationship with a
+    relationshipGroup field value of '0' is considered not to be grouped. All
+    relationships with the same sourceId and non-zero relationshipGroup are
+    considered to be logically grouped.\""
+  [store concept-id]
+  (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
+            (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
+          (properties-by-group store concept-id)
+          (concrete-values store concept-id)))
+
 (defn properties-by-type
   "Return a concept's properties as a map of type-id to a map of group-id to a
   set of target-ids.
