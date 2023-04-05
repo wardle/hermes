@@ -212,7 +212,11 @@
     sourceId field into one or more logical sets. A relationship with a
     relationshipGroup field value of '0' is considered not to be grouped. All
     relationships with the same sourceId and non-zero relationshipGroup are
-    considered to be logically grouped.\""
+    considered to be logically grouped.\".
+
+  Note: All values are returned as sets. It is only through access to the MRCM
+  that cardinality rules could be applied safely, but that requires support for
+  ECL, which is not available at this low level of the library."
   [store concept-id]
   (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
             (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
