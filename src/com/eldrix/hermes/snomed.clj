@@ -1123,6 +1123,7 @@
 (def MRCMAttributeDomainReferenceSet 723604009)
 (def MRCMAttributeRangeReferenceSet 723592007)
 (def MRCMModuleScopeReferenceSet 723563008)
+(def MandatoryConceptModelRule 723597001)
 
 (defn primitive?
   "Is this concept primitive? ie not sufficiently defined by necessary conditions?"

@@ -804,7 +804,7 @@
     (case (count items)
       0 nil
       1 (first items)
-      (let [domain-ids (concept-domains svc concept-id)]  ;; only lookup concept's domains if we really need to
+      (let [domain-ids (concept-domains svc concept-id)]    ;; only lookup concept's domains if we really need to
         (->> items
              (filter #(domain-ids (:domainId %)))
              (sort-by :effectiveTime)
@@ -815,11 +815,13 @@
   have a cardinality of 0..1 or 1..1 leaving others as a set of values."
   [svc concept-id group-id props]
   (let [kw (if (zero? group-id) :attributeCardinality :attributeInGroupCardinality)]
-    (reduce-kv (fn [acc k v]
-                 (assoc acc k
-                   (if (and (= (count v) 1)
-                            (#{"0..1" "1..1"} (kw (attribute-domain svc concept-id k))))
-                     (first v) v))) {} props)))
+    (reduce-kv
+      (fn [acc k v]
+        (assoc acc k
+                   (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
+                     (if (and ad
+                              (#{"0..1" "1..1"} (kw ad)) ;; convert to single if cardinality permits
+                              (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
 (defn ^:private properties
   "Returns a concept's properties, including concrete values. Ungrouped
@@ -849,6 +851,12 @@
   (->> (store/properties (.-store svc) concept-id)
        (reduce-kv (fn [acc group-id props]
                     (assoc acc group-id (-fix-property-values svc concept-id group-id props))) {})))
+
+(defn ^:private pprint-properties
+  [svc props]
+  (let [ps (fn [x] (if (number? x) [x (:term (preferred-synonym svc x))] x))]
+    (update-vals props #(reduce-kv (fn [acc k v]
+                                     (assoc acc (ps k) (if (coll? v) (mapv ps v) (ps v)))) {} %))))
 
 
 (def ^:deprecated get-concept "DEPRECATED. Use [[concept]] instead" concept)
