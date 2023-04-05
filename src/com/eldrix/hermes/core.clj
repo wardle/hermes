@@ -79,7 +79,8 @@
    ^IndexSearcher searcher
    ^IndexReader memberReader
    ^IndexSearcher memberSearcher
-   localeMatchFn]
+   localeMatchFn
+   mrcmDomainFn]
   Service
   Closeable
   (close [_]
@@ -766,6 +767,89 @@
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
+(defn ^:private mrcm-domains
+  [{:keys [store memberSearcher]}]                          ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
+  (let [refset-ids (disj (store/all-children store snomed/MRCMDomainReferenceSet) snomed/MRCMDomainReferenceSet)]
+    (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
+         (mapcat #(mapcat (fn [refset-id] (store/component-refset-items store % refset-id)) refset-ids)))))
+
+(defn ^:private mrcm-domain-fn
+  "Create a function that can provide a set of domains for any given concept."
+  [{:keys [searcher] :as svc}]                              ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
+  (let [domains (->> (mrcm-domains svc)                     ;; for each domain, create a constraint query
+                     (reduce (fn [acc v] (assoc acc (:referencedComponentId v) (ecl/parse svc (:domainConstraint v)))) {}))]
+    (fn [concept-id]
+      (let [q1 (search/q-self concept-id)]
+        (reduce-kv (fn [acc domain-id q2]
+                     (if (seq (search/do-query-for-concept-ids searcher (search/q-and [q1 q2])))
+                       (conj acc domain-id) acc)) #{} domains)))))
+
+(defn ^:private concept-domains
+  "Return a set of domains for the given concept."
+  [^Svc svc concept-id]
+  ((.-mrcmDomainFn svc) concept-id))
+
+(defn ^:private attribute-domain
+  "Returns a single MRCMAttributeDomainRefsetItem for the attribute specified
+  in the context of the concept specified.
+
+  Some attributes can be used in multiple domains, and so there may be multiple
+  reference set items for the same attribute. Iff there are multiple items,
+  the domain of the concept is determined and used to return the correct item
+  in context."
+  [svc concept-id attribute-concept-id]
+  (let [items (->> (disj (all-children svc snomed/MRCMAttributeDomainReferenceSet) snomed/MRCMAttributeDomainReferenceSet)
+                   (mapcat #(component-refset-items svc attribute-concept-id %))
+                   (filter :active))]
+    (case (count items)
+      0 nil
+      1 (first items)
+      (let [domain-ids (concept-domains svc concept-id)]  ;; only lookup concept's domains if we really need to
+        (->> items
+             (filter #(domain-ids (:domainId %)))
+             (sort-by :effectiveTime)
+             last)))))
+
+(defn ^:private -fix-property-values
+  "Given a map of attributes and values, unwrap any values for attributes that
+  have a cardinality of 0..1 or 1..1 leaving others as a set of values."
+  [svc concept-id group-id props]
+  (let [kw (if (zero? group-id) :attributeCardinality :attributeInGroupCardinality)]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc k
+                   (if (and (= (count v) 1)
+                            (#{"0..1" "1..1"} (kw (attribute-domain svc concept-id k))))
+                     (first v) v))) {} props)))
+
+(defn ^:private properties
+  "Returns a concept's properties, including concrete values. Ungrouped
+  properties are returned under key '0', with other groups returned with
+  non-zero keys. There is no other intrinsic meaning to the group identifier.
+
+  Attribute values will be returned as a set of values unless the SNOMED
+  machine-readable concept model (MRCM) for the attribute in the context of the
+  concept's domain states that the cardinality of the is 0..1 or 1..1.
+
+  e.g. for lamotrigine:
+  ```
+  (properties svc 1231295007)
+  =>
+  {0 {116680003 #{779653004}, 411116001 385060002, 763032000 732936001,
+      766939001 #{773862006}, 1142139005 \"#1\"},
+   1 {732943007 387562000, 732945000 258684004, 732947008 732936001,
+      762949000 387562000, 1142135004 \"#250\", 1142136003 \"#1\"}}
+  ```
+  See https://confluence.ihtsdotools.org/display/DOCRELFMT/4.2.3+Relationship+File+Specification
+    \"The relationshipGroup field is used to group relationships with the same
+    sourceId field into one or more logical sets. A relationship with a
+    relationshipGroup field value of '0' is considered not to be grouped. All
+    relationships with the same sourceId and non-zero relationshipGroup are
+    considered to be logically grouped.\""
+  [^Svc svc concept-id]
+  (->> (store/properties (.-store svc) concept-id)
+       (reduce-kv (fn [acc group-id props]
+                    (assoc acc group-id (-fix-property-values svc concept-id group-id props))) {})))
+
 
 (def ^:deprecated get-concept "DEPRECATED. Use [[concept]] instead" concept)
 (def ^:deprecated get-description "DEPRECATED. Use [[description]] instead." description)
@@ -824,14 +908,15 @@
    (let [manifest (open-manifest root)
          st (store/open-store (io/file root (:store manifest)))
          index-reader (search/open-index-reader (io/file root (:search manifest)))
-         member-reader (members/open-index-reader (io/file root (:members manifest)))]
-     (when-not quiet (log/info "opened hermes terminology service " root (assoc manifest :releases (map :term (store/release-information st)))))
-     (map->Svc {:store          st
-                :indexReader    index-reader
-                :searcher       (IndexSearcher. index-reader)
-                :memberReader   member-reader
-                :memberSearcher (IndexSearcher. member-reader)
-                :localeMatchFn  (lang/match-fn st)}))))
+         member-reader (members/open-index-reader (io/file root (:members manifest)))
+         svc {:store          st
+              :indexReader    index-reader
+              :searcher       (IndexSearcher. index-reader)
+              :memberReader   member-reader
+              :memberSearcher (IndexSearcher. member-reader)
+              :localeMatchFn  (lang/match-fn st)}]
+     (when-not quiet (log/info "opening hermes terminology service " root (assoc manifest :releases (map :term (store/release-information st)))))
+     (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
 
 (defn close [^Closeable svc]
   (.close svc))
