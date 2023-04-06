@@ -767,12 +767,24 @@
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
+
+(defn ^:private mrcm-refset-ids
+  "Return a set of MRCM reference ids, optionally of the specified type."
+  ([{:keys [store memberSearcher]}]
+   (into #{}
+         (comp (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
+               (map :mrcmRuleRefsetId))
+         (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet))))
+  ([{:keys [store memberSearcher]} type-id]
+   (into #{}
+         (comp (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
+               (map :mrcmRuleRefsetId)
+               (filter #(store/is-a? store % type-id)))
+         (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet)))))
+
 (defn ^:private mrcm-domains
-  [{:keys [store memberSearcher]}]                          ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
-  (let [refset-ids (set (->> (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet))   ;; get all refset-items for the module scope reference set
-                             (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
-                             (map :mrcmRuleRefsetId)  ;; and get all refset ids, and then filter so we are using
-                             (filter #(store/is-a? store % snomed/MRCMDomainReferenceSet))))]
+  [{:keys [store memberSearcher] :as svc}]                          ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
+  (let [refset-ids (mrcm-refset-ids svc snomed/MRCMDomainReferenceSet)]
     (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
          (mapcat #(mapcat (fn [refset-id] (store/component-refset-items store % refset-id)) refset-ids)))))
 
@@ -801,7 +813,7 @@
   the domain of the concept is determined and used to return the correct item
   in context."
   [svc concept-id attribute-concept-id]
-  (let [items (->> (disj (all-children svc snomed/MRCMAttributeDomainReferenceSet) snomed/MRCMAttributeDomainReferenceSet)
+  (let [items (->> (mrcm-refset-ids svc snomed/MRCMAttributeDomainReferenceSet)
                    (mapcat #(component-refset-items svc attribute-concept-id %))
                    (filter :active))]
     (case (count items)
@@ -823,7 +835,7 @@
         (assoc acc k
                    (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
                      (if (and ad
-                              (#{"0..1" "1..1"} (kw ad)) ;; convert to single if cardinality permits
+                              (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
                               (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
 (defn ^:private properties
