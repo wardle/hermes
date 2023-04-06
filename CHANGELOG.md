@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Add support for the MLDS (Member Licensing and Distribution Service) for automated
+downloads and install of a number of distributions across the World.
+
 ## [1.2.1080] - 2023-04-06
 
 * Add support for the MRCM (Machine Readable Concept Model)
