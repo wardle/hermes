@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.cmd.cli
-  (:require [clojure.set :as set]
+  (:require [clojure.core.match :as match]
+            [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.cli :as cli]))
 
@@ -14,14 +15,22 @@
     :default-desc ""]
    [nil "--release-date DATE" "Date of release, ISO 8601. e.g. \"2022-02-03\" (optional)"]])
 
-(def distribution-opts
-  {"uk.nhs/sct-clinical" uk-trud-opts
-   "uk.nhs/sct-drug-ext" uk-trud-opts})
+(def mlds-opts
+  [[nil "--username USERNAME" "Username for MLDS"
+    :missing "Missing username"]
+   [nil "--password PASSWORD_FILE" "Path to a file containing password for MLDS"
+    :missing "Missing password"]
+   [nil "--release-date DATE" "Date of release, ISO 8601. e.g. \"2022-02-03\" (optional)"]])
 
-(def distributions (set (keys distribution-opts)))
+(defn distribution-opts
+  [id]
+  (match/match (str/split id #"\p{Punct}")
+    ["uk" "nhs" & _] uk-trud-opts
+    [_ "mlds" & _] mlds-opts
+    :else nil))
 
 (def install-parameters
-  #{"api-key" "cache-dir" "release-date"})
+  #{"api-key" "cache-dir" "release-date" "username" "password"})
 
 (def re-install-parameters
   "A regular expression to match one of the special 'install' parameters for
@@ -46,7 +55,6 @@
    :format          [nil "--format FMT" "Format for status output ('json' or 'edn')"
                      :parse-fn keyword :validate [#{:json :edn} "Format must be 'json' or 'edn'"]]
    :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
-                     :validate [(set (keys distribution-opts)) "Unknown distribution"]
                      :multi true :default [] :update-fn conj :default-desc ""]
    :verbose         ["-v" "--verbose"]
    :help            ["-h" "--help"]})
@@ -74,9 +82,9 @@
   required options specification dynamically."
   [{:keys [db?]} args]
   (let [{:keys [arguments options]} (clojure.tools.cli/parse-opts args (make-distribution-options* db?))
-        selected (set/union (set (:dist options)) (set/intersection (set arguments) distributions))
-        opts (set (map #(get distribution-opts %) selected))]
-    (make-distribution-options* db? (mapcat identity opts))))
+        possible (into (set (:dist options)) (set arguments)) ;; all possibly selected distributions
+        opts (distinct (mapcat distribution-opts possible))]
+    (make-distribution-options* db? opts)))
 
 (defn expand-legacy-parameters
   "Parse a sequence of well-known string arguments returning a vector of
@@ -104,7 +112,7 @@
    well-known distributions, then for backwards compatibility, add to the
    selected distributions."
   [{:keys [arguments] :as parsed}]
-  (if-let [dists (seq (filter distributions arguments))]
+  (if-let [dists (seq (filter distribution-opts arguments))]
     (-> parsed
         (assoc :arguments (remove (set dists) arguments))
         (update-in [:options :dist] into dists))
