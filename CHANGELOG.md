@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1080] - 2023-04-06
 
 * Add support for the MRCM (Machine Readable Concept Model)
 * Use MRCM to return concept properties according to cardinality rules
