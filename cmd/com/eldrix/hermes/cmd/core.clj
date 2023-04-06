@@ -10,7 +10,8 @@
     [com.eldrix.hermes.core :as hermes]
     [com.eldrix.hermes.download :as download]
     [com.eldrix.hermes.importer :as importer]
-    [expound.alpha :as expound]))
+    [expound.alpha :as expound])
+  (:import (java.net ConnectException)))
 
 (defn- log-module-dependency-problems [svc]
   (let [problem-deps (seq (hermes/module-dependency-problems svc))]
@@ -40,11 +41,13 @@
       (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
           (import-from opts [(.toString unzipped-path)])))
+      (catch ConnectException e
+        (log/error "could not connect to remote server" (or (ex-message e) {})))
       (catch Exception e
         (let [exd (ex-data e)]
           (if (contains? exd :clojure.spec.alpha/problems)
             ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
-            (log/error (.getMessage e))))))))
+            (log/error e)))))))
 
 (defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
