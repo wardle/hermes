@@ -825,6 +825,15 @@
              (sort-by :effectiveTime)
              last)))))
 
+(defn ^:private attribute-range
+  "Return a valid attribute range for the concept specified."
+  [{:keys [store] :as svc} concept-id]
+  (->> (mrcm-refset-ids svc snomed/MRCMAttributeRangeReferenceSet)
+       (mapcat #(store/component-refset-items store concept-id %))
+       (filter :active)
+       (sort-by :effectiveTime)
+       last))
+
 (defn ^:private -fix-property-values
   "Given a map of attributes and values, unwrap any values for attributes that
   have a cardinality of 0..1 or 1..1 leaving others as a set of values."
