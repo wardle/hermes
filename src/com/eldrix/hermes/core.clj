@@ -783,7 +783,7 @@
          (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet)))))
 
 (defn ^:private mrcm-domains
-  [{:keys [store memberSearcher] :as svc}]                          ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
+  [{:keys [store memberSearcher] :as svc}]                  ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
   (let [refset-ids (mrcm-refset-ids svc snomed/MRCMDomainReferenceSet)]
     (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
          (mapcat #(mapcat (fn [refset-id] (store/component-refset-items store % refset-id)) refset-ids)))))
