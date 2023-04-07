@@ -515,13 +515,10 @@
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-not q1 (search/q-fsn))
         base-concept-ids (search/do-query-for-concept-ids (.-searcher svc) q2)
-        historic-concept-ids (->> base-concept-ids
-                                  (mapcat #(vals (source-historical-associations svc %)))
-                                  (apply set/union))
+        historic-concept-ids (into #{} (mapcat #(source-historical svc %)) base-concept-ids)
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
     (search/do-query-for-results (.-searcher svc) query)))
-
 
 (s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
