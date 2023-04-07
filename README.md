@@ -105,7 +105,7 @@ In the United States, the National Library of Medicine (NLM) has [more informati
 
 In the United Kingdom, you can download a distribution from NHS Digital using the [TRUD service](https://isd.digital.nhs.uk).
 
-`hermes` also provides automated downloads. Currently this is only for the UK, because I don't have access to any other national release centre. `hermes` is designed with an extensible system to provide automated downloads, so could quite easily be adapted to support other release centres. 
+`hermes` also provides automated downloads for a range of distributions worldwide.
 
 If you've downloaded a distribution manually, import using one of these commands:
 
@@ -158,6 +158,32 @@ clj -M:run available --dist uk.nhs/sct-clinical --api-key trud-api-key.txt --cac
 My tiny i5 'NUC' machine takes 1 minute to import the UK edition of SNOMED CT and a further minute to import the UK
 dictionary
 of medicines and devices.
+
+If you have an account with the [MLDS](https://mlds.ihtsdotools.org), then you can use that website to download
+a distribution manually, or `hermes` can do it for you. 
+
+```shell
+java -jar hermes.jar available
+```
+or
+```shell
+clj -M:run available
+```
+
+For example, to install the Irish distribution:
+
+```shell
+java -jar hermes.jar --db snomed.db install --dist ie.mlds/285520 --username xxxx --password password.txt
+```
+or 
+```shell
+clj -M:run --db snomed.db install --dist ie.mlds/285520 --username xxxx --password password.txt
+```
+
+You can request a specific version by providing `--release-date` as an option.
+You will need to have a licence for the distribution you are trying to download,
+or you will get an 'invalid credentials' error. 
+
 
 ### 3. Index and compact
 
@@ -450,9 +476,6 @@ Otherwise, you will need to download your local distribution(s) manually.
 
 ##### i) Use a registered SNOMED CT distributor to automatically download and import
 
-There is currently only support for automatic download and import for the UK,
-but other distribution sources can be added if those services provide an API.
-
 You can see distributions that are available for automatic installation:
 
 ```shell
@@ -509,6 +532,24 @@ or
 clj -M:run install --dist uk.nhs/sct-clinical --help
 ```
 
+For the UK, TRUD requires an `--api-key`, which should be a path to a file 
+containing your API key for that service.
+
+You will need to provide different configuration options if `hermes`
+is using the MLDS to download distributions:
+
+```shell
+java -jar hermes.jar install --dist nl.mlds/128785 --help
+```
+or
+```shell
+clj -M:run install --dist nl.mlds/128785 --help
+```
+
+For MLDS downloads, you will need to provide `--username` and `--password` options. 
+The password should be the path to a file containing your password. This makes
+it safer to use in automated pipelines and less likely to be accidentally logged.
+
 ##### ii) Download and install SNOMED CT distribution file(s) manually
 
 Depending on where you live in the World, download the most appropriate
@@ -544,6 +585,7 @@ clj -M:run --db snomed.db import ~/Downloads/snomed-2020/
 
 The import of both International and UK distribution files takes
 a total of less than 3 minutes on my machine.
+
 
 #### 2. Index
 
