@@ -70,7 +70,7 @@ java -jar hermes.jar
 
 When run without parameters, you will be given help text.
 
-In all examples below, `java -jar hermes.jar` is equivalent `clj -M:run` and vice versa.
+In all examples below, `java -jar hermes.jar` is equivalent to `clj -M:run` and vice versa.
 
 ##### Run from source code using Clojure
 
@@ -90,7 +90,7 @@ clj -M:run
 
 When run without parameters, you will be given help text.
 
-In all examples below, `java -jar hermes.jar` is equivalent `clj -M:run` and vice versa.
+In all examples below, `java -jar hermes.jar` is equivalent to `clj -M:run` and vice versa.
 
 ### 2. Download and install one or more distributions
 
@@ -105,7 +105,7 @@ In the United States, the National Library of Medicine (NLM) has [more informati
 
 In the United Kingdom, you can download a distribution from NHS Digital using the [TRUD service](https://isd.digital.nhs.uk).
 
-`hermes` also provides automated downloads for a range of distributions worldwide.
+`hermes` also provides automated downloads for a range of distributions worldwide using the [MLDS](https://mlds.ihtsdotools.org).
 
 If you've downloaded a distribution manually, import using one of these commands:
 
