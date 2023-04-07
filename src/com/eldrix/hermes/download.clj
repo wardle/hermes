@@ -86,11 +86,14 @@
                            :spec ::mlds, :f (partial download-from-mlds id)})))))))
 
 (defn distribution
-  "Returns the distribution with the given identifier."
-  [id]
-  (let [available (->> (into trud-distributions (available-mlds-distributions))
-                       (reduce (fn [acc v] (assoc acc (:id v) v)) {}))]
-    (get available id)))
+  "Returns the distribution with the given identifier. Avoids network calls
+  for locally known distributions, but checks online providers if not found."
+  ([id] (distribution id true))
+  ([id local]
+   (let [dists (if local trud-distributions (into trud-distributions (available-mlds-distributions)))
+         available (reduce (fn [acc v] (assoc acc (:id v) v)) {} dists)
+         result (get available id)]
+     (if (and (not result) local) (distribution id false) result))))
 
 (def http-opts
   "Default HTTP client options"
