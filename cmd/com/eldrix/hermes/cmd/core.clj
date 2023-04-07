@@ -47,7 +47,7 @@
         (let [exd (ex-data e)]
           (if (contains? exd :clojure.spec.alpha/problems)
             ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
-            (log/error e)))))))
+            (log/error (ex-message e))))))))
 
 (defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
