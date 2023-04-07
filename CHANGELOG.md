@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1088] - 2023-04-07
 
 * Add support for the MLDS (Member Licensing and Distribution Service) for automated
 downloads and install of a number of distributions across the World.
