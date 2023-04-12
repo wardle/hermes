@@ -204,7 +204,7 @@
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64)] ;; relationship entity
       (try (doseq [^Relationship relationship relationships]
              (doto kb .clear (.writeLong (.-id relationship)))
-             (when (should-write-object? db txn kb 8 (.-effectiveTime relationship)) ;; skip a 8 byte key (relationship-id)
+             (when (should-write-object? db txn kb 8 (.-effectiveTime relationship)) ;; skip an 8 byte id (relationship-id) in the value
                (.clear vb)
                (ser/write-relationship vb relationship)
                (.put db txn kb vb put-flags)))
@@ -222,7 +222,7 @@
             vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
         (try (doseq [^ConcreteValue cv concrete-values]
                (doto kb .clear (.writeLong (.-sourceId cv)) (.writeLong (.-id cv)))
-               (when (should-write-object? db txn kb 16 (.-effectiveTime cv)) ;; skip a 16 byte key (concept-id--relationship-id)
+               (when (should-write-object? db txn kb 8 (.-effectiveTime cv)) ;; skip an 8 byte id (relationship-id) in the value
                  (if (:active cv)
                    (do (.clear vb)
                        (ser/write-concrete-value vb cv)
