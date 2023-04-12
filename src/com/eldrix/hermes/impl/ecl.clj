@@ -1002,6 +1002,18 @@
                  :expressionConstraint
                  (partial parse-expression-constraint ctx)))))
 
+(defn valid?
+  "Is the given string valid ECL?"
+  [s]
+  (let [p (ecl-parser s)]
+    (not (insta/failure? p))))
+
+(defn invalid?
+  "Returns parsing failure, if string is not valid ECL."
+  [s]
+  (let [p (ecl-parser s)]
+    (insta/get-failure p)))
+
 (comment
   ;; TODO: move into live service test suite
   (do

@@ -493,6 +493,13 @@
         q2 (ecl/parse svc ecl)]
     (search/do-query-for-concept-ids (.-searcher svc) (search/q-and [q1 q2]))))
 
+(s/fdef valid-ecl?
+  :args (s/cat :s string?))
+(defn valid-ecl?
+  "Is the ECL valid?"
+  [s]
+  (ecl/valid? s))
+
 (s/fdef ecl-contains?
   :args (s/cat :svc ::svc
                :concept-ids (s/coll-of :info.snomed.Concept/id)

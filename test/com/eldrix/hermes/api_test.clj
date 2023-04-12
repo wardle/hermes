@@ -1,7 +1,6 @@
 (ns com.eldrix.hermes.api-test
   (:require [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [is deftest use-fixtures]]
-            [com.eldrix.hermes.core :as hermes])
+            [clojure.test :refer [is deftest use-fixtures]])
   (:import [com.eldrix.hermes.client Hermes]))
 
 
@@ -24,7 +23,8 @@
 (deftest ^:live ecl
   (is (= #{24700007} (set (map :conceptId (.expandEcl *hermes* "24700007" false)))))
   (is (seq (.intersectEcl *hermes* [24700007] "<<24700007")))
-  (is (empty? (.intersectEcl *hermes* [24700007] "<24700007"))))
+  (is (empty? (.intersectEcl *hermes* [24700007] "<24700007")))
+  (is (.isValidEcl *hermes* "<24700007")))
 
 (deftest ^:live concrete-values
   (is (= #{"#62.5" "#1" "#250" "#2"} (set (map #(.value %) (.concreteValues (.extendedConcept *hermes* 1197141004)))))
