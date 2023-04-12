@@ -2,11 +2,12 @@
 
 This log documents significant changes for each release.
 
-## [1.2.1098] - 2023-04-12
+## [1.2.1102] - 2023-04-12
 
 * Show progress reporting when downloading from the UK's 'TRUD'
 * Avoid unnecessary network calls for distribution metadata
-* Fix import of concrete values when updating in place 
+* Fix import of concrete values when updating in place
+* Add `valid-ecl?` and `isValidEcl()` to top-level Clojure and Java APIs respectively.
 
 ## [1.2.1088] - 2023-04-07
 
@@ -107,7 +108,7 @@ handling for this, and so expanded the value to all concepts, impacting performa
 
 ## [1.0.804] - 2022-11-27
 
-* Upgrade to Lucene 9.4.2 (and Lucene 8.11.2 when java 8 compatibility required)
+* Upgrade to Lucene 9.4.2 (and Lucene 8.11.2 when Java 8 compatibility required)
 * Improve namespace layering structure by ensuring graph API only uses top-level APIs
 
 ## [1.0.792] - 2022-11-14
@@ -168,7 +169,7 @@ more than one relationship in a distribution relates to the same source-target-t
 
 * More deterministic build for uberjars
 * Reduce build product sizes by reducing dependencies
-* Simplify usage when used as a library by java clients, with an externally defined java API.
+* Simplify usage when used as a library by Java clients, with an externally defined Java API.
 * Avoid ahead-of-time compilation when used as a library
 * Improve logging for distribution import
 * Upgrade dependencies (Lucene v9.2, trud v1.0.80, 
@@ -188,7 +189,7 @@ more than one relationship in a distribution relates to the same source-target-t
 * Improve refset extended attribute support
 * Add new search index 'members.db' for search of reference set members
 * Partial ECL v2.0 support including +HISTORY and member filters
-* Add support for lucene v8 usage when required (e.g. for java 8 compatibility)
+* Add support for lucene v8 usage when required (e.g. for Java 8 compatibility)
 
 ## [0.10.533] - 2022-04-11
 
