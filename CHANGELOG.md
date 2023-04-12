@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1094] - 2023-04-12
+
+* Show progress reporting when downloading from the UK's 'TRUD'
+* Avoid unnecessary network calls for distribution metadata
+
 ## [1.2.1088] - 2023-04-07
 
 * Add support for the MLDS (Member Licensing and Distribution Service) for automated
