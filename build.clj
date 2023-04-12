@@ -85,5 +85,5 @@
    variable."
   [_]
   (uber nil)
-  (println "Deploying release to github")
+  (println "Deploying release to GitHub")
   (gh/release-artifact github))
