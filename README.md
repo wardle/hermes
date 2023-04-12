@@ -130,6 +130,18 @@ Ensure you have a [TRUD API key](https://isd.digital.nhs.uk/trud3/user/guest/gro
 
 This will download both the UK clinical edition and the UK drug extension. If you're a UK user, I'd recommend installing both.
 
+When running interactively at the command-line, you can use `--progress` to turn on 
+progress reporting when downloading items.
+
+e.g.
+```shell
+java -jar hermes.jar --progress --db snomed.db install --dist uk.nhs/sct-clinical --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud
+```
+```shell
+clj -M:run --progress --db snomed.db install --dist uk.nhs/sct-clinical --dist uk.nhs/sct-drug-ext --api-key trud-api-key.txt --cache-dir /tmp/trud
+```
+
+
 You can download a specific edition using an ISO 6801 formatted date:
 
 

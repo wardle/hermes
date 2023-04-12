@@ -57,6 +57,7 @@
    :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
                      :multi true :default [] :update-fn conj :default-desc ""]
    :verbose         ["-v" "--verbose"]
+   :progress        [nil "--progress" "Turn on progress reporting"]
    :help            ["-h" "--help"]})
 
 (defn option
@@ -72,7 +73,8 @@
   ([db? extra-opts] (concat (when db? [(option :db db-mandatory)])
                             [(option :dist)]
                             extra-opts
-                            [(option :help)])))
+                            [(option :progress)
+                             (option :help)])))
 
 (defn make-distribution-options
   "Generate a dynamic sequence of cli options for an distribution based on

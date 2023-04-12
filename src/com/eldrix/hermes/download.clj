@@ -6,7 +6,6 @@
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.trud.core :as trud]
-            [com.eldrix.trud.zip :as zip]
             [hato.client :as hc])
   (:import (java.io FileNotFoundException)
            (java.nio.file Files Path)
@@ -31,10 +30,11 @@
   - config: a map containing:
     :api-key : path to file containing TRUD api-key (e.g.\"/var/hermes/api-key.txt\")
     :cache-dir : TRUD download cache directory (e.g. \"/tmp/trud\")
+    :progress  : print progress?
     :release-date : (optional) an ISO 8601 date e.g. \"2022-02-03\"
   Returns TRUD metadata about the item specified.
   See com.eldrix.trud.core/get-latest for information about return value."
-  [item-identifier {:keys [api-key cache-dir release-date]}]
+  [item-identifier {:keys [api-key cache-dir progress release-date]}]
   (let [trud-key (str/trim-newline (slurp api-key))]
     (if release-date
       (let [release-date' (try (LocalDate/parse release-date) (catch DateTimeParseException _))
@@ -44,7 +44,8 @@
               (pp/print-table [:releaseDate :archiveFileName] (trud/get-releases trud-key item-identifier)))
           (assoc release :archiveFilePath (trud/download-release cache-dir release))))
       (trud/get-latest {:api-key   trud-key
-                        :cache-dir cache-dir}
+                        :cache-dir cache-dir
+                        :progress progress}
                        item-identifier))))
 
 (def trud-distributions
@@ -153,7 +154,7 @@
     (if-not (and spec (s/valid? spec params))
       (throw (ex-info (str "Invalid parameters for provider '" nm "'") (if spec (s/explain-data spec params) {})))
       (if-let [zipfile (f params)]
-        (zip/unzip zipfile)
+        (trud/unzip zipfile)
         (when-not list-releases? (log/warn "no files returned" {:provider nm}))))))
 
 (defn print-providers
