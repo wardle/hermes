@@ -528,7 +528,7 @@
     (try
       (write-batch store b)
       (catch Exception e
-        (log/error "import error: failed to import data: " b)
+        (log/error e "import error: failed to import data: " b)
         (throw (ex-info "Import error" {:batch (dissoc batch :data)
                                         :data  b :exception (Throwable->map e)}))))))
 
