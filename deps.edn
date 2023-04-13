@@ -51,7 +51,9 @@
                           com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                           :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
                           ch.qos.logback/logback-classic {:mvn/version "1.4.6"}
-                          criterium/criterium            {:mvn/version "0.4.6"}}
+                          criterium/criterium            {:mvn/version "0.4.6"}
+                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
+                          io.pedestal/pedestal.service   {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "cognitect.test-runner"]
             :exec-fn     cognitect.test-runner.api/test}
 
@@ -104,5 +106,5 @@
             :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
            :lint/splint
-           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.1.1"}}
+           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.2.1"}}
             :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}}}

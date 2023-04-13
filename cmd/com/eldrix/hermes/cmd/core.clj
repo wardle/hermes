@@ -124,7 +124,14 @@
     (f opts args)
     (exit 1 "ERROR: not implemented ")))
 
+(defn set-default-uncaught-exception-handler []
+  (Thread/setDefaultUncaughtExceptionHandler
+    (reify Thread$UncaughtExceptionHandler
+      (uncaughtException [_ thread ex]
+        (log/error ex "Uncaught exception on" (.getName thread))))))
+
 (defn -main [& args]
+  (set-default-uncaught-exception-handler)
   (let [{:keys [cmds options arguments summary errors warnings]} (cli/parse-cli args)]
     (doseq [warning warnings] (log/warn warning))
     (cond
