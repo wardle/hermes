@@ -635,6 +635,20 @@
          (map #(set/intersection (all-parents svc %) target-concept-ids))
          (map #(store/leaves (.-store svc) %)))))
 
+(s/fdef map-concept-into
+  :args (s/cat :svc ::svc
+               :concept-id :info.snomed.Concept/id
+               :target (s/alt :ecl string?
+                              :refset-id :info.snomed.Concept/id
+                              :concepts (s/coll-of :info.snomed.Concept/id))))
+(defn map-concept-into
+  "Returns a set of concept identifiers representing the result of mapping a
+  single concept into the target. For efficiency, it is almost always
+  better to use [[map-into]] with a collection of identifiers, as the `target`
+  will be then determined only once for all identifiers to be processed."
+  [svc concept-id target]
+  (first (map-into svc [concept-id] target)))
+
 (defn ^:deprecated map-features
   "DEPRECATED: Use [[map-into]] instead."
   [^Svc svc source-concept-ids target]
