@@ -573,10 +573,10 @@
                               :concepts (s/coll-of :info.snomed.Concept/id))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
-  dimensionality of the dataset. Returns a set of identifiers that are in the
-  'target'. The target can be a collection of identifiers, an ECL expression
-  or, for convenience, an identifier representing a reference set. The latter
-  two will be expanded into a set of identifiers.
+  dimensionality of the dataset. Returns a sequence of sets of identifiers that
+  are in the 'target'. The target can be a collection of identifiers, an ECL
+  expression or, for convenience, an identifier representing a reference set.
+  The latter two will be expanded into a set of identifiers.
 
   Parameters:
   - svc                : hermes service
