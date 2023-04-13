@@ -10,7 +10,6 @@
             [io.pedestal.test :refer [response-for]]))
 
 (def url-for
-  "Test url generator."
   (route/url-for-routes server/routes))
 
 (def ^:dynamic *svc* nil)
