@@ -95,10 +95,10 @@
                           :body   {:error (str "invalid search parameters; invalid number: " (ex-message (:exception (ex-data err))))}})
     [{:exception-type :java.lang.IllegalArgumentException :interceptor ::get-search}]
     (assoc ctx :response {:status 400
-                          :body {:error (str "invalid search parameters: " (ex-message (:exception (ex-data err))))}})
+                          :body   {:error (str "invalid search parameters: " (ex-message (:exception (ex-data err))))}})
 
     [{:exception-type :clojure.lang.ExceptionInfo}]
-    (let [ex (:exception (ex-data err))] ;; unwrap error message
+    (let [ex (:exception (ex-data err))]                    ;; unwrap error message
       (assoc ctx :response {:status 400 :body (merge {:error (ex-message ex)} (ex-data ex))}))
 
     :else
