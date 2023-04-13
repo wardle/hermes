@@ -24,7 +24,7 @@
 
 (use-fixtures :once live-test-fixture)
 
-(deftest get-concept
+(deftest ^:live get-concept
   (is (= 200 (:status (response-for *server-fn* :get (url-for ::server/get-concept :path-params {:concept-id "24700007"})))))
   (is (= 200 (:status (response-for *server-fn*
                                     :get (url-for ::server/get-concept :path-params {:concept-id "80146002"})
@@ -32,11 +32,11 @@
   (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-concept :path-params {:concept-id "123"})))))
   (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-concept :path-params {:concept-id "abc"}))))))
 
-(deftest get-concept-descriptions
+(deftest ^:live get-concept-descriptions
   (is (= 200 (:status (response-for *server-fn* :get (url-for ::server/get-concept-descriptions :path-params {:concept-id "24700007"})))))
   (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-concept-descriptions :path-params {:concept-id "123"}))))))
 
-(deftest get-preferred
+(deftest ^:live get-preferred
   (let [en-GB (response-for *server-fn*
                             :get (url-for ::server/get-concept-preferred-description :path-params {:concept-id "80146002"})
                             :headers {"Accept-Language" "en-GB"})
@@ -48,7 +48,7 @@
     (is (= "Appendicectomy" (get (json/read-str (:body en-GB)) "term")))
     (is (= "Appendectomy" (get (json/read-str (:body en-US)) "term")))))
 
-(deftest get-extended-concept
+(deftest ^:live get-extended-concept
   (is (= 200 (:status (response-for *server-fn* :get (url-for ::server/get-extended-concept :path-params {:concept-id "24700007"})))))
   (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-extended-concept :path-params {:concept-id "123"}))))))
 
