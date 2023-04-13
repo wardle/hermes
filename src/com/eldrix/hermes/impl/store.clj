@@ -383,7 +383,8 @@
 (defn extended-concept
   "Get an extended concept for the concept specified."
   [store concept-id]
-  (make-extended-concept store (kv/concept store concept-id)))
+  (when-let [concept (kv/concept store concept-id)]
+           (make-extended-concept store concept)))
 
 (defn release-information
   "Returns descriptions representing the installed distributions.
