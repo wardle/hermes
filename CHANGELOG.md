@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1108] - 2023-04-13
+
+* Avoid HTTP 500 errors for bad client input in HTTP server. 
+* More consistent responses for HTTP server (result vs. empty result vs. not found).
+* Automated testing of HTTP server responses
+
 ## [1.2.1102] - 2023-04-12
 
 * Show progress reporting when downloading from the UK's 'TRUD'
