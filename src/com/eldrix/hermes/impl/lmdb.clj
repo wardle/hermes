@@ -616,16 +616,17 @@
   [^LmdbStore store]
   (with-open [^Txn core-txn (.txnRead ^Env (.-coreEnv store))
               ^Txn refsets-txn (.txnRead ^Env (.-refsetsEnv store))]
-    {:concepts      (.entries (.stat ^Dbi (.-concepts store) core-txn))
-     :descriptions  (.entries (.stat ^Dbi (.-conceptDescriptions store) core-txn))
-     :relationships (.entries (.stat ^Dbi (.-relationships store) core-txn))
-     :refsets       (.entries (.stat ^Dbi (.-refsetFieldNames store) refsets-txn))
-     :refset-items  (.entries (.stat ^Dbi (.-refsetItems store) refsets-txn))
-     :indices       {:descriptions-concept         (.entries (.stat ^Dbi (.-descriptionConcept store) core-txn))
-                     :concept-parent-relationships (.entries (.stat ^Dbi (.-conceptParentRelationships store) core-txn))
-                     :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
-                     :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
-                     :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
+    {:concepts        (.entries (.stat ^Dbi (.-concepts store) core-txn))
+     :descriptions    (.entries (.stat ^Dbi (.-conceptDescriptions store) core-txn))
+     :relationships   (.entries (.stat ^Dbi (.-relationships store) core-txn))
+     :concrete-values (if-let [cv ^Dbi (.-concreteValues store)] (.entries (.stat cv core-txn)) 0)
+     :refsets         (.entries (.stat ^Dbi (.-refsetFieldNames store) refsets-txn))
+     :refset-items    (.entries (.stat ^Dbi (.-refsetItems store) refsets-txn))
+     :indices         {:descriptions-concept         (.entries (.stat ^Dbi (.-descriptionConcept store) core-txn))
+                       :concept-parent-relationships (.entries (.stat ^Dbi (.-conceptParentRelationships store) core-txn))
+                       :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
+                       :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
+                       :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
 
 
 (defn- dbi-stat
@@ -655,6 +656,7 @@
            :dbs      [(dbi-stat (.-concepts store) core-txn)
                       (dbi-stat (.-conceptDescriptions store) core-txn)
                       (dbi-stat (.-relationships store) core-txn)
+                      (dbi-stat (.-concreteValues store) core-txn)
                       (dbi-stat (.-descriptionConcept store) core-txn)
                       (dbi-stat (.-conceptParentRelationships store) core-txn)
                       (dbi-stat (.-conceptChildRelationships store) core-txn)
