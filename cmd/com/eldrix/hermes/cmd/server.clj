@@ -196,7 +196,7 @@
             (let [params (parse-search-params (get-in ctx [:request :params]))
                   max-hits (or (:max-hits params) 200)]
               (if (< 0 max-hits 10000)
-                (assoc ctx :result (hermes/search svc (assoc params :max-hits max-hits)))
+                (assoc ctx :result (or (hermes/search svc (assoc params :max-hits max-hits)) []))
                 (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
 
 
