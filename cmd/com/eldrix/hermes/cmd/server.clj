@@ -78,6 +78,12 @@
   {:name  ::inject-svc
    :enter (fn [ctx] (assoc ctx ::svc svc))})
 
+(def log-request
+  {:name  ::log-request
+   :enter (fn [{req :request :as ctx}]
+            (log/trace :request (select-keys req [:request-method :uri :query-string :remote-addr]))
+            ctx)})
+
 (def entity-render
   "Interceptor to render an entity '(:result ctx)' into the response."
   {:name :entity-render
@@ -229,9 +235,10 @@
       ["/v1/snomed/expand" :get [coerce-body service-error-handler content-neg-intc entity-render get-expand]]}))
 
 (def service-map
-  {::http/routes routes
-   ::http/type   :jetty
-   ::http/port   8080})
+  {::http/routes         routes
+   ::http/type           :jetty
+   ::http/port           8080
+   ::http/request-logger (intc/interceptor log-request)})
 
 (defn create-server
   "Create a HTTP SNOMED CT server.
