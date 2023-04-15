@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Return HTTP 200 and empty collection instead of HTTP 404 when search gives no results
+* Add trace logging for all HTTP requests although default configuration logs only at the INFO level. This means this can be configured at deployment.
+* Add concrete values to 'status' and 'statistics' reports
+
 ## [1.2.1108] - 2023-04-13
 
 * Avoid HTTP 500 errors for bad client input in HTTP server. 
