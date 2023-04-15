@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1115] - 2023-04-15
 
 * Return HTTP 200 and empty collection instead of HTTP 404 when search gives no results
 * Add trace logging for all HTTP requests although default configuration logs only at the INFO level. This means this can be configured at deployment.
