@@ -179,7 +179,7 @@
 
 (defn properties-by-group
   "Returns a concept's properties as a map of group-id to a map of type-id
-  to a set of target identifiers.
+  to a set of target identifiers. Results do not include concrete values.
   e.g.
   ```
   (properties-by-group store 24700007)
