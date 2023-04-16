@@ -1133,7 +1133,23 @@ http -j '127.0.0.1:8080/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHi
 Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=<19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true)
 
 This has an optional parameter `includeHistoric` which can expand the expansion
-to include historical associations. This is very useful in analytics.
+to include historical associations. This is very useful in analytics. SNOMED 
+introduced dedicated historic functionality in ECL v2.0, allowing you to choose
+to include historic associations as part of your ECL. You can use either approach
+in `hermes`.
+
+For example,
+
+```
+<195967001 |Asthma| {{ +HISTORY-MOD }}
+```
+
+is an ECL expression that will return Asthma, and all subtypes, including 
+those now considered inactive or duplicate. You can read more about the new
+[history supplement functionality](https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements) in ECL2.0 in the [formal documentation](http://snomed.org/ecl).
+
+
+[http://3.9.221.177:8080/v1/snomed/expand?ecl=<<195967001 {{ +HISTORY-MOD }}](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
 
 As a concept identifier is actually a valid SNOMED ECL expression, you can do this:
 
@@ -1167,8 +1183,6 @@ Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHisto
     ...
 ]
 ```
-
-Alternatively, you can use the new historic functionality built into SNOMED ECL.
 
 ##### Crossmap to and from SNOMED CT
 
