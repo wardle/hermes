@@ -193,6 +193,11 @@
        (reduce (fn [acc [_ type-id group-id target-id]]
                  (update-in acc [group-id type-id] (fnil conj #{}) target-id)) {})))
 
+(defn properties-by-group-expanded
+  [store concept-id]
+  (update-vals (properties-by-group store concept-id)
+               (fn [group] (update-vals group #(all-parents store %)))))
+
 (defn properties
   "Returns a concept's properties, including concrete values. Ungrouped
   properties are returned under key '0', with other groups returned with
@@ -221,6 +226,15 @@
   (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
             (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
           (properties-by-group store concept-id)
+          (concrete-values store concept-id)))
+
+(defn properties-expanded
+  "Return all properties grouped by relationship group, with results containing
+  concept identifiers expanded to include transitive relationships."
+  [store concept-id]
+  (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
+            (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
+          (properties-by-group-expanded store concept-id)
           (concrete-values store concept-id)))
 
 (defn properties-by-type
