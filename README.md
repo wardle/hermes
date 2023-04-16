@@ -660,27 +660,26 @@ clj -M:run --db snomed.db status --format json
 Result:
 
 ```json
-{:releases
- ("SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)"
-  "35.6.0_20230315000001 UK drug extension"
-  "35.6.0_20230315000001 UK clinical extension"),
- :locales ("en-GB" "en-US"),
- :components
- {:concepts 1068735,
-  :descriptions 3050621,
-  :relationships 7956235,
-  :concrete-values 33349,
-  :refsets 541,
-  :refset-items 13349472,
-  :indices
-  {:descriptions-concept 3050621,
-   :concept-parent-relationships 4737884,
-   :concept-child-relationships 4737884,
-   :component-refsets 10595249,
-   :associations 1254384,
-   :descriptions-search 3050621,
-   :members-search 13349472}}}
-
+{"releases":
+["SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)",
+  "35.6.0_20230315000001 UK drug extension",
+  "35.6.0_20230315000001 UK clinical extension"],
+  "locales":["en-GB", "en-US"],
+  "components":
+  {"concepts":1068735,
+    "descriptions":3050621,
+    "relationships":7956235,
+    "concrete-values":33349,
+    "refsets":541,
+    "refset-items":13349472,
+    "indices":
+    {"descriptions-concept":3050621,
+      "concept-parent-relationships":4737884,
+      "concept-child-relationships":4737884,
+      "component-refsets":10595249,
+      "associations":1254384,
+      "descriptions-search":3050621,
+      "members-search":13349472}}}
 ```
 In this example, you can see I have the July 2022 International release, with the 
 UK clinical and drug extensions from March 2023.
