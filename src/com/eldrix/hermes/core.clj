@@ -853,15 +853,17 @@
        last))
 
 (defn ^:private -fix-property-values
-  "Given a map of attributes and values, unwrap any values for attributes that
-  have a cardinality of 0..1 or 1..1 leaving others as a set of values."
-  [svc concept-id group-id props]
+  "Given a map of attributes and values (props), unwrap any values for
+  attributes that have a cardinality of 0..1 or 1..1 leaving others as a set of
+  values. If `only-concrete` is true, only concrete values are unwrapped."
+  [svc concept-id group-id props only-concrete]
   (let [kw (if (zero? group-id) :attributeCardinality :attributeInGroupCardinality)]
     (reduce-kv
       (fn [acc k v]
         (assoc acc k
                    (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
                      (if (and ad
+                              (or (not only-concrete) (string? (first v)))
                               (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
                               (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
@@ -870,13 +872,15 @@
   properties are returned under key '0', with other groups returned with
   non-zero keys. There is no other intrinsic meaning to the group identifier.
 
-  Attribute values will be returned as a set of values unless the SNOMED
-  machine-readable concept model (MRCM) for the attribute in the context of the
-  concept's domain states that the cardinality of the is 0..1 or 1..1.
+  Attribute values will be returned as a set of values optionally expanded to
+  include the transitive relationships, unless the value for the attribute is a
+  concrete value and the SNOMED machine-readable concept model (MRCM) for the
+  attribute in the context of the concept's domain states that the cardinality
+  of the property is 0..1 or 1..1.
 
   e.g. for lamotrigine:
   ```
-  (properties svc 1231295007)
+  (properties svc (properties svc 1231295007))
   =>
   {0 {116680003 #{779653004}, 411116001 385060002, 763032000 732936001,
       766939001 #{773862006}, 1142139005 \"#1\"},
@@ -889,10 +893,13 @@
     relationshipGroup field value of '0' is considered not to be grouped. All
     relationships with the same sourceId and non-zero relationshipGroup are
     considered to be logically grouped.\""
-  [^Svc svc concept-id]
-  (->> (store/properties (.-store svc) concept-id)
-       (reduce-kv (fn [acc group-id props]
-                    (assoc acc group-id (-fix-property-values svc concept-id group-id props))) {})))
+  ([^Svc svc concept-id] (properties svc concept-id nil))
+  ([^Svc svc concept-id {:keys [expand]}]
+   (->> (if expand
+          (store/properties-expanded (.-store svc) concept-id)
+          (store/properties (.-store svc) concept-id))
+        (reduce-kv (fn [acc group-id props]
+                     (assoc acc group-id (-fix-property-values svc concept-id group-id props expand))) {}))))
 
 (defn ^:private pprint-properties
   [svc props]
