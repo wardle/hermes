@@ -1183,6 +1183,24 @@ Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHisto
 ]
 ```
 
+You can search using concrete values. 
+
+Here is SNOMED ECL that will return all products containing 250mg of amoxicillin.
+```
+< 763158003 |Medicinal product (product)| :
+    {    <<  127489000 |Has active ingredient (attribute)|  = <<  372687004 |Amoxicillin (substance)| ,
+          1142135004 |Has presentation strength numerator value (attribute)|  = #250,
+         732945000 |Has presentation strength numerator unit (attribute)|  =  258684004 |milligram (qualifier value)|}
+```
+
+You can use `hermes` to expand this:
+
+Try it live:  [http://3.9.221.177:8080/v1/snomed/expand?ecl=<7631580003...](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%20763158003%20%7CMedicinal%20product%20%28product%29%7C%20%3A%0A%20%20%20%20%7B%20%20%20%20%3C%3C%20%20127489000%20%7CHas%20active%20ingredient%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20372687004%20%7CAmoxicillin%20%28substance%29%7C%20%2C%0A%20%20%20%20%20%20%20%20%20%201142135004%20%7CHas%20presentation%20strength%20numerator%20value%20%28attribute%29%7C%20%20%3D%20%23250%2C%0A%20%20%20%20%20%20%20%20%20732945000%20%7CHas%20presentation%20strength%20numerator%20unit%20%28attribute%29%7C%20%20%3D%20%20258684004%20%7Cmilligram%20%28qualifier%20value%29%7C%7D)
+
+Unfortunately, at the time of writing, the UK SNOMED drug extension doesn't 
+currently publish concrete values data for products in the UK dictionary of 
+medicines and devices, but this is on their roadmap.
+
 ##### Crossmap to and from SNOMED CT
 
 There are endpoints for crossmapping to and from SNOMED.
