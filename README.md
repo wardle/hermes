@@ -744,19 +744,23 @@ Options:
 
 ##### Endpoints:
 
-There are a range of endpoints. Here are some examples:
+There are a range of endpoints. 
 
-* `/v1/snomed/concepts/24700007` - return basic data about a single concept
-* `/v1/snomed/concepts/24700007/descriptions` - returns all descriptions for concept
-* `/v1/snomed/concepts/24700007/preferred` : returns preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
-* `/v1/snomed/concepts/24700007/extended` : returns an extended concept 
-* `/v1/snomed/concepts/24700007/historical` - returns historical associations for this concept
-* `/v1/snomed/concepts/24700007/refsets` - returns refsets to which this concept is a member
-* `/v1/snomed/concepts/24700007/map/999002271000000101` - crossmap to alternate codesystem (ICD-10 in this example)
-* `/v1/snomed/concepts/24700007/map/991411000000109` - map into a SNOMED subset (the UK emergency unit refset in this example)
-* `/v1/snomed/crossmap/999002271000000101/G35X` - cross from an alternate codesystem (ICD-10 in this example)
-* `/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5` - search for a term, constrained by SNOMED ECL expression
-* `/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true` - expand SNOMED ECL expression
+I have a very small, low-powered server (<$3/mo) available for demonstration purposes.
+
+Here are some examples:
+
+* [/v1/snomed/concepts/24700007](http://3.9.221.177:8080/v1/snomed/concepts/24700007) - basic data about a single concept
+* [/v1/snomed/concepts/24700007/descriptions](http://3.9.221.177:8080/v1/snomed/concepts/24700007/descriptions) - all descriptions for concept
+* [/v1/snomed/concepts/24700007/preferred](http://3.9.221.177:8080/v1/snomed/concepts/24700007/preferred) : preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
+* [/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended) : an extended concept 
+* [/v1/snomed/concepts/24700007/historical](http://3.9.221.177:8080/v1/snomed/concepts/24700007/historical) - historical associations for this concept
+* [/v1/snomed/concepts/24700007/refsets](http://3.9.221.177:8080/v1/snomed/concepts/24700007/refsets) - refsets to which this concept is a member
+* [/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101) - crossmap to alternate codesystem (ICD-10 in this example)
+* [/v1/snomed/concepts/24700007/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109) - map into a SNOMED subset (the UK emergency unit refset in this example)
+* [/v1/snomed/crossmap/999002271000000101/G35X](http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X) - cross from an alternate codesystem (ICD-10 in this example)
+* [/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5) - search for a term, constrained by SNOMED ECL expression
+* [/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true) - expand SNOMED ECL expression
 
 ##### Get a single concept 
 
@@ -774,6 +778,8 @@ http '127.0.0.1:8080/v1/snomed/concepts/24700007'
 }
 ```
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007](http://3.9.221.177:8080/v1/snomed/concepts/24700007)
+
 You'll want to use the other endpoints much more frequently.
 
 ##### Get extended information about a single concept
@@ -782,6 +788,8 @@ You'll want to use the other endpoints much more frequently.
 ```shell
 http 127.0.0.1:8080/v1/snomed/concepts/24700007/extended
 ```
+
+Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended)
 
 The result is an extended concept definition - all the information
 needed for inference, logic and display. For example, at the client
@@ -1048,6 +1056,8 @@ Example usage of search endpoint.
 http '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5'
 ````
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5)
+
 ```shell.
 [
   {
@@ -1086,6 +1096,8 @@ results:
 http '127.0.0.1:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500'
 ```
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500](http://3.9.221.177:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500)
+
 More complex expressions are supported, and no search term is actually needed.
 
 Let's get all drugs with exactly three active ingredients:
@@ -1094,11 +1106,15 @@ Let's get all drugs with exactly three active ingredients:
 http '127.0.0.1:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|'
 ```
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|](http://3.9.221.177:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
+
 Or, what about all disorders of the lung that are associated with oedema?
 
 ```shell
 http -j '127.0.0.1:8080/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|'
 ```
+
+Try it live: [http://3.9.221.177:8080/v1/snomed/search?constraint=/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|](http://3.9.221.177:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
 
 The ECL can be written more concisely:
 
@@ -1115,6 +1131,8 @@ the `expand` endpoint.
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true'
 ```
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=<19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true)
+
 This has an optional parameter `includeHistoric` which can expand the expansion
 to include historical associations. This is very useful in analytics.
 
@@ -1123,6 +1141,8 @@ As a concept identifier is actually a valid SNOMED ECL expression, you can do th
 ```shell
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true'
 ```
+Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true)
+
 
 ```json
 
@@ -1149,6 +1169,8 @@ http -j '127.0.0.1:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true'
 ]
 ```
 
+Alternatively, you can use the new historic functionality built into SNOMED ECL.
+
 ##### Crossmap to and from SNOMED CT
 
 There are endpoints for crossmapping to and from SNOMED.
@@ -1161,6 +1183,8 @@ Let's map one of our diagnostic terms into ICD-10:
 ```shell
 http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/999002271000000101
 ```
+
+Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101)
 
 Result:
 
@@ -1190,6 +1214,8 @@ And of course, we can crossmap back to SNOMED as well:
 http -j 127.0.0.1:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
+Try it live: [http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X](http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X)
+
 If you map a concept into a reference set that doesn't contain that concept, you'll
 automatically get the best parent matches instead.
 
@@ -1204,6 +1230,8 @@ reference set (`991411000000109`):
 ```shell
 http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/991411000000109
 ```
+
+Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109)
 
 The UK emergency unit reference set gives a subset of concepts used for central reporting problems and diagnoses in UK emergency units. 
 
@@ -1230,6 +1258,9 @@ that UK emergency unit reference set:
 ```shell
 http -j 127.0.0.1:8080/v1/snomed/concepts/763794005/map/991411000000109
 ```
+
+Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/763794005/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/763794005/map/991411000000109)
+
 
 Result:
 
