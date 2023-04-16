@@ -260,8 +260,8 @@ Most people who use a terminology run a server and make calls over the network.
 
 Previously, I implemented SNOMED CT within an EPR.
 Later I realised how important it was to build it as a separate module;
-I created terminology servers in java, and then later in golang;
-`hermes` is written in clojure. In the UK,  the different health services in England
+I created terminology servers in Java, and then later in Go;
+`hermes` is written in Clojure. In the UK,  the different health services in England
 and Wales have procured a centralised national terminology server. 
 While I support the provision of a national terminology server for convenience, 
 I think it's important to recognise that it is the *data* that matters most. We 
@@ -426,7 +426,7 @@ There are some examples of [different configurations available](https://github.c
 
 Yes. There are two options: 
 
-##### Option 1. Install an x86 java SDK and run using that (Rosetta). This is fast enough.
+##### Option 1. Install an x86 Java SDK and run using that (Rosetta). This is fast enough.
 
 For example, you can get a list of installed JDKs:
 ```shell
@@ -635,7 +635,7 @@ clj -M:run --db snomed.db compact
 
 #### 4. Run a REPL (optional)
 
-When I first built terminology tools, either in java or in golang, I needed to
+When I first built terminology tools, either in Java or in Go, I needed to
 also build a custom command-line interface in order to explore the ontology.
 This is not necessary as most developers using Clojure quickly learn the value
 of the REPL; a read-evaluate-print-loop in which one can issue arbitrary
