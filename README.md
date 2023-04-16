@@ -1148,8 +1148,7 @@ is an ECL expression that will return Asthma, and all subtypes, including
 those now considered inactive or duplicate. You can read more about the new
 [history supplement functionality](https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements) in ECL2.0 in the [formal documentation](http://snomed.org/ecl).
 
-
-[http://3.9.221.177:8080/v1/snomed/expand?ecl=<<195967001 {{ +HISTORY-MOD }}](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
+Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=<<195967001 {{ +HISTORY-MOD }}](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
 
 As a concept identifier is actually a valid SNOMED ECL expression, you can do this:
 
