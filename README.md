@@ -745,7 +745,7 @@ Options:
 
 There are a range of endpoints. 
 
-I have a very small, low-powered server (<$3/mo) available for demonstration purposes.
+I have a very small, low-powered server (<$3/mo) available for demonstration purposes. It is not intended for production use. 
 
 Here are some examples:
 
@@ -753,7 +753,7 @@ Here are some examples:
 * [/v1/snomed/concepts/24700007/descriptions](http://3.9.221.177:8080/v1/snomed/concepts/24700007/descriptions) - all descriptions for concept
 * [/v1/snomed/concepts/24700007/preferred](http://3.9.221.177:8080/v1/snomed/concepts/24700007/preferred) : preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
 * [/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended) : an extended concept 
-* [/v1/snomed/concepts/24700007/historical](http://3.9.221.177:8080/v1/snomed/concepts/24700007/historical) - historical associations for this concept
+* [/v1/snomed/concepts/586591000000100/historical](http://3.9.221.177:8080/v1/snomed/concepts/586591000000100/historical) - historical associations for this concept
 * [/v1/snomed/concepts/24700007/refsets](http://3.9.221.177:8080/v1/snomed/concepts/24700007/refsets) - refsets to which this concept is a member
 * [/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101) - crossmap to alternate codesystem (ICD-10 in this example)
 * [/v1/snomed/concepts/24700007/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109) - map into a SNOMED subset (the UK emergency unit refset in this example)
