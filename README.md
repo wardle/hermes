@@ -660,28 +660,30 @@ clj -M:run --db snomed.db status --format json
 Result:
 
 ```json
-{"releases":
- ["SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)",
-  "35.2.0_20221123000001 UK clinical extension",
-  "35.3.0_20221221000001 UK drug extension"],
- "locales":["en-GB", "en-US"],
- "components":
- {"concepts":1066649,
-  "descriptions":3039223,
-  "relationships":7914216,
-  "refsets":535,
-  "refset-items":13156533,
-  "indices":
-  {"descriptions-concept":3039223,
-   "concept-parent-relationships":4719818,
-   "concept-child-relationships":4719818,
-   "component-refsets":10444805,
-   "associations":1248897,
-   "descriptions-search":3039223,
-   "members-search":13156533}}}
+{:releases
+ ("SNOMED Clinical Terms version: 20220731 [R] (July 2022 Release)"
+  "35.6.0_20230315000001 UK drug extension"
+  "35.6.0_20230315000001 UK clinical extension"),
+ :locales ("en-GB" "en-US"),
+ :components
+ {:concepts 1068735,
+  :descriptions 3050621,
+  :relationships 7956235,
+  :concrete-values 33349,
+  :refsets 541,
+  :refset-items 13349472,
+  :indices
+  {:descriptions-concept 3050621,
+   :concept-parent-relationships 4737884,
+   :concept-child-relationships 4737884,
+   :component-refsets 10595249,
+   :associations 1254384,
+   :descriptions-search 3050621,
+   :members-search 13349472}}}
+
 ```
-In this example, you can see I have the July 22 International release, with the 
-UK clinical and drug extensions from November and December 22 respectively.
+In this example, you can see I have the July 2022 International release, with the 
+UK clinical and drug extensions from March 2023.
 Given that these releases have been imported, hermes recognises it can support
 the locales en-GB and en-US. For completeness, detailed statistics on 
 components and indices are also provided. Additional options are available:
