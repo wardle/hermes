@@ -14,6 +14,7 @@
 ;;;;
 (ns com.eldrix.hermes.cmd.server
   (:require [clojure.data.json :as json]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.snomed :as snomed]
@@ -96,12 +97,10 @@
 (def service-error-handler
   (intc-err/error-dispatch
     [ctx err]
-    [{:exception-type :java.lang.NumberFormatException :interceptor ::get-search}]
+
+    [{:exception-type :java.lang.NumberFormatException}]
     (assoc ctx :response {:status 400
-                          :body   {:error (str "invalid search parameters; invalid number: " (ex-message (:exception (ex-data err))))}})
-    [{:exception-type :java.lang.IllegalArgumentException :interceptor ::get-search}]
-    (assoc ctx :response {:status 400
-                          :body   {:error (str "invalid search parameters: " (ex-message (:exception (ex-data err))))}})
+                          :body   {:error (str "invalid number: " (ex-message (:exception (ex-data err))))}})
 
     [{:exception-type :clojure.lang.ExceptionInfo}]
     (let [ex (:exception (ex-data err))]                    ;; unwrap error message
@@ -185,11 +184,11 @@
           s (assoc :s s)
           constraint (assoc :constraint constraint)
           ecl (assoc :constraint ecl)
-          maxHits (assoc :max-hits (Integer/parseInt maxHits))
-          (string? isA) (assoc :properties {snomed/IsA (parse-long isA)})
-          (vector? isA) (assoc :properties {snomed/IsA (mapv parse-long isA)})
-          (string? refset) (assoc :concept-refsets [(parse-long refset)])
-          (vector? refset) (assoc :concept-refsets (mapv parse-long refset))
+          maxHits (assoc :max-hits (Long/parseLong maxHits))
+          (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
+          (coll? isA) (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
+          (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
+          (coll? refset) (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
           fuzzy (assoc :fuzzy (if (#{"true" "1"} fuzzy) 2 0))
           fallbackFuzzy (assoc :fallback-fuzzy (if (#{"true" "1"} fallbackFuzzy) 2 0))
           inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
@@ -200,24 +199,22 @@
   {:name  ::get-search
    :enter (fn [{::keys [svc] :as ctx}]
             (let [params (parse-search-params (get-in ctx [:request :params]))
-                  max-hits (or (:max-hits params) 200)]
+                  max-hits (or (:max-hits params) 500)]
               (if (< 0 max-hits 10000)
                 (assoc ctx :result (or (hermes/search svc (assoc params :max-hits max-hits)) []))
-                (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
-
+                (assoc ctx :response {:status 400 :body {:error (str "invalid parameter: maxHits")}}))))})
 
 (def get-expand
   {:name  ::get-expand
    :enter (fn [{::keys [svc] :as ctx}]
             (let [ecl (get-in ctx [:request :params :ecl])
                   include-historic? (or (#{"true" "1"} (get-in ctx [:request :params :includeHistoric]))
-                                        (#{"true" "1"} (get-in ctx [:request :params :include-historic]))) ; avoid breaking change - support legacy parameter
-                  max-hits (or (get-in ctx [:request :params :max-hits]) 500)]
-              (if (< 0 max-hits 10000)
+                                        (#{"true" "1"} (get-in ctx [:request :params :include-historic])))] ; avoid breaking change - support legacy parameter
+              (if (str/blank? ecl)
+                (assoc ctx :response {:status 400 :body {:error (str "missing parameter: ecl")}})
                 (assoc ctx :result (if include-historic?
                                      (hermes/expand-ecl-historic svc ecl)
-                                     (hermes/expand-ecl svc ecl)))
-                (throw (IllegalArgumentException. "invalid parameter: maxHits")))))})
+                                     (hermes/expand-ecl svc ecl))))))})
 
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
