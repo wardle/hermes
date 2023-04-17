@@ -48,7 +48,7 @@ supports search and autocompletion using the $expand operation.
 
 - [Quickstart](#quickstart)
 - [Common questions](#common-questions)
-  - [What is the use of `hermes`?](#what-is-the-use-of-hermes)
+  - [What can I do with `hermes`?](#what-can-i-do-with-hermes)
   - [Difference to a 'national terminology server'?](#how-is-this-different-to-a-national-terminology-service)
   - [Localisation](#localisation)
   - [Can I get support?](#can-i-get-support)
@@ -270,19 +270,21 @@ Will download, extract, import, index and compact a database, and then run a ser
 
 # Common questions
 
-### What is the use of `hermes`?
+### What can I do with `hermes`?
 
 `hermes` provides a simple library, and optionally a microservice, to help
 you make use of SNOMED CT.
 
 A library can be embedded into your application; this is easy using Clojure or
-Java. You make calls using the API just as you'd use any regular library.
+Java or any other language running on the JVM. You make calls using the API just 
+as you'd use any regular library. 
 
 A microservice runs independently and you make use of the data and software
-by making an API call over the network.
+by making an API call over the network. This makes the functionality available
+to any software code that can use HTTP and JSON, such as C#, Python or R.
 
 Like all `PatientCare` components, you can use `hermes` in either way.
-Usually, when you're starting out, it's best to use as a library but larger
+Sometimes, when you're starting out, it's best to use as a library but larger
 projects and larger installations will want to run their software components
 independently, optimising for usage patterns, resilience, reliability and
 rate of change.
