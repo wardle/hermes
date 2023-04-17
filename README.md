@@ -52,7 +52,7 @@ supports search and autocompletion using the $expand operation.
   - [Difference to a 'national terminology server'?](#how-is-this-different-to-a-national-terminology-service)
   - [Localisation](#localisation)
   - [Can I get support?](#can-i-get-support)
-  - [Why are you building so many small repositories?](#why-are-you-building-so-many-small-repositories)
+  - [Why are you building so many repositories?](#why-are-you-building-so-many-repositories)
   - [What are you using `hermes` for?](#what-are-you-using-hermes-for)
   - [What is this graph stuff you're doing?](#what-is-this-graph-stuff-youre-doing)
   - [Is `hermes` fast?](#is-hermes-fast)
@@ -364,7 +364,23 @@ work for me.
 Yes. Raise an issue, or more formal support options are available on request,
 including a fully-managed service.
 
-### Why are you building so many small repositories?
+### Why are you building so many repositories?
+
+Yes, I have a lot of repositories at [https://github.com/wardle](https://github.com/wardle),
+providing functionality such as:
+
+- Integration with UK NHS services via [concierge](https://github.com/wardle/concierge)
+- UK dictionary of medicines and devices via [dmd](https://github.com/wardle/dmd)
+- socioeconomic deprivation data via [deprivare](https://github.com/wardle/deprivare)
+- UK reference data updates via [trud](https://github.com/wardle/trud)
+
+I previously built an electronic patient record as a monolithic application with
+many of these subsystems as modules of that larger system. Over time, I'm
+splitting them out into their own more independent modules. 
+
+I see the future of building health and care applications as simply composing
+together different modules of core well-tested functionality to solve user 
+problems. 
 
 Small modules of functionality are easier to develop, easier to understand,
 easier to test and easier to maintain. I design modules to be composable so that I can
