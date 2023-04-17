@@ -373,8 +373,10 @@ providing functionality such as:
 - UK dictionary of medicines and devices via [dmd](https://github.com/wardle/dmd)
 - socioeconomic deprivation data via [deprivare](https://github.com/wardle/deprivare)
 - UK reference data updates via [trud](https://github.com/wardle/trud)
+- UK organisational data via [clods](https://github.com/wardle/clods)
+- UK geographical data via the NHS postcode directory [nhspd](https://github.com/wardle/nhspd)
 
-I previously built an electronic patient record as a monolithic application with
+- I previously built an electronic patient record as a monolithic application with
 many of these subsystems as modules of that larger system. Over time, I'm
 splitting them out into their own more independent modules. 
 
