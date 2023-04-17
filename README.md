@@ -67,7 +67,7 @@ supports search and autocompletion using the $expand operation.
     - [5. Get status (optional)](#5-get-the-status-of-your-installed-index)
     - [6. Run a HTTP terminology server](#6-run-a-terminology-web-service)
     - [7. Run a FHIR terminology server](#7-run-a-hl7-fhir-terminology-web-service)
-  - [B. Endpoints for the HTTP server]
+  - [B. Endpoints for the HTTP server](#b-endpoints-for-the-http-terminology-server)
     - [Get a single concept](#get-a-single-concept-)
     - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
     - [Search](#search)
