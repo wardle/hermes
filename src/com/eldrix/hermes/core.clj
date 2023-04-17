@@ -895,11 +895,10 @@
     considered to be logically grouped.\""
   ([^Svc svc concept-id] (properties svc concept-id nil))
   ([^Svc svc concept-id {:keys [expand]}]
-   (->> (if expand
-          (store/properties-expanded (.-store svc) concept-id)
-          (store/properties (.-store svc) concept-id))
-        (reduce-kv (fn [acc group-id props]
-                     (assoc acc group-id (-fix-property-values svc concept-id group-id props expand))) {}))))
+   (reduce-kv (fn [acc group-id props]
+                (assoc acc group-id (-fix-property-values svc concept-id group-id props expand)))
+              {} (if expand (store/properties-expanded (.-store svc) concept-id)
+                            (store/properties (.-store svc) concept-id)))))
 
 (defn ^:private pprint-properties
   [svc props]
