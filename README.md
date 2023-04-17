@@ -44,6 +44,39 @@ A HL7 FHIR terminology facade is under development : [hades](https://github.com/
 This exposes the functionality available in `hermes` via a FHIR terminology API. This already
 supports search and autocompletion using the $expand operation.
 
+# Table of contents
+
+- [Quickstart](#quickstart)
+- [Common questions](#common-questions)
+  - [What is the use of `hermes`?](#what-is-the-use-of-hermes)
+  - [Difference to a 'national terminology server'?](#how-is-this-different-to-a-national-terminology-service)
+  - [Localisation](#localisation)
+  - [Can I get support?](#can-i-get-support)
+  - [Why are you building so many small repositories?](#why-are-you-building-so-many-small-repositories)
+  - [What are you using `hermes` for?](#what-are-you-using-hermes-for)
+  - [What is this graph stuff you're doing?](#what-is-this-graph-stuff-youre-doing)
+  - [Is `hermes` fast?](#is-hermes-fast)
+  - [Can I use `hermes` with containers?](#can-i-use-hermes-with-containers)
+  - [Can I use `hermes` on Apple Silicon?](#can-i-use-hermes-on-apple-silicon-)
+- [Documentation](#documentation)
+  - [A. Download and build a terminology service](#a-how-to-download-and-build-a-terminology-service)
+    - [1. Download and install at least one distribution](#1-download-and-install-at-least-one-distribution)
+    - [2. Index](#2-index)
+    - [3. Compact (optional)](#3-compact-database-optional)
+    - [4. Run a REPL (optional)](#4-run-a-repl-optional)
+    - [5. Get status (optional)](#5-get-the-status-of-your-installed-index)
+    - [6. Run a HTTP terminology server](#6-run-a-terminology-web-service)
+    - [7. Run a FHIR terminology server](#7-run-a-hl7-fhir-terminology-web-service)
+  - [B. Endpoints for the HTTP server]
+    - [Get a single concept](#get-a-single-concept-)
+    - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
+    - [Search](#search)
+    - [Expanding SNOMED ECL (Expression Constraint Language)](#expanding-ecl-without-search)
+    - [Crossmap to and from SNOMED CT - e.g. ICD-10](#crossmap-to-and-from-snomed-ct)
+    - [Map a concept into a reference set](#map-a-concept-into-a-reference-set)
+  - [C. Embed into another application as a JVM library](#c-embed-into-another-application)
+  - [D. Development notes](#d-development)
+
 # Quickstart
 
 You can have a terminology server running in minutes.
@@ -741,7 +774,12 @@ Options:
 * `--allowed-origin "*"` is equivalent to `--allowed-origins "*"`
 * `--locale` sets the default locale. This is used in building your search index and as a default if clients do not specify their preference. e.g. `--locale=en-GB`
 
-##### Endpoints:
+#### 7. Run a HL7 FHIR terminology web service
+
+You can use [`hades`](https://github.com/wardle/hades) together with the 
+files you have just created to run a FHIR R4 terminology server.
+
+### B. Endpoints for the HTTP terminology server
 
 There are a range of endpoints. 
 
@@ -1123,8 +1161,10 @@ http -j '127.0.0.1:8080/v1/snomed/search?constraint= <19829001 AND <301867009'
 
 ##### Expanding ECL without search
 
-If you are simply expanding an ECL expression without search terms, you can use
-the `expand` endpoint.
+SNOMED CT provides the [Expression Constraint Language (ECL)](http://snomed.org/ecl) 
+to declaratively define constraints for expressions. `hermes` provides support 
+for the latest version of ECL. If you are simply expanding an ECL expression 
+without search terms, you can use the `expand` endpoint.
 
 ```shell
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true'
@@ -1315,7 +1355,7 @@ into subsets of terms as defined by a reference set for analytics.
 
 You could limit users to only entering the terms in a subset, but much better to allow clinicians to regard highly-specific granular terms and be able to map to less granular terms on demand.
 
-#### 7. Embed into another application
+### C. Embed into another application
 
 You can use git coordinates in a deps.edn file, or use maven:
 
@@ -1348,6 +1388,6 @@ You may need to add Clojars as a repository in your build tool. Here for maven:
 </repositories>
 ```
 
-# Development
+### D. Development
 
 See [/doc/development](/doc/development.md) on how to develop, test, lint, deploy and release `hermes`. 
