@@ -57,7 +57,7 @@ supports search and autocompletion using the $expand operation.
   - [What is this graph stuff you're doing?](#what-is-this-graph-stuff-youre-doing)
   - [Is `hermes` fast?](#is-hermes-fast)
   - [Can I use `hermes` with containers?](#can-i-use-hermes-with-containers)
-  - [Can I use `hermes` on Apple Silicon?](#can-i-use-hermes-on-apple-silicon-)
+  - [Can I use `hermes` on Apple Silicon?](#can-i-use-hermes-on-apple-silicon)
 - [Documentation](#documentation)
   - [A. Download and build a terminology service](#a-how-to-download-and-build-a-terminology-service)
     - [1. Download and install at least one distribution](#1-download-and-install-at-least-one-distribution)
