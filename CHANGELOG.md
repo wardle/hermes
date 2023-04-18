@@ -2,6 +2,16 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1142] - 2023-04-18
+
+* Make `properties` public in top-level library API
+* Add `match-locale` to top-level library API for when consumers need to parse
+the same language preferences for a number of separate calls
+* Add `/v1/snomed/concepts/:concept-id/properties` endpoint to HTTP API with 
+configuration options for pretty printing for human users, and `expand` for machine users
+* Improve handling of invalid parameters in HTTP API 
+* Improve documentation, including links to live examples 
+
 ## [1.2.1115] - 2023-04-15
 
 * Return HTTP 200 and empty collection instead of HTTP 404 when search gives no results
