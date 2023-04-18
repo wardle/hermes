@@ -70,7 +70,7 @@ supports search and autocompletion using the $expand operation.
   - [B. Endpoints for the HTTP server](#b-endpoints-for-the-http-terminology-server)
     - [Get a single concept](#get-a-single-concept-)
     - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
-    - [Get properties for a single concept]()
+    - [Get properties for a single concept](#get-properties-for-a-single-concept)
     - [Search](#search)
     - [Expanding SNOMED ECL (Expression Constraint Language)](#expanding-ecl-without-search)
     - [Crossmap to and from SNOMED CT - e.g. ICD-10](#crossmap-to-and-from-snomed-ct)
