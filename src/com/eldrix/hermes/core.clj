@@ -414,11 +414,33 @@
        (mapcat #(store/component-refset-items (.-store svc) % refset-id))
        (filter #(.startsWith ^String (:mapTarget %) prefix))))
 
+
+(s/fdef match-locale
+  :args (s/cat :svc ::svc :language-range (s/? ::non-blank-string)))
+(defn match-locale
+  "Return an ordered sequence of refset ids that are the best match for the
+  required language range. `language-range` should be a single string containing
+  a list of comma-separated language ranges or a list of language ranges in the
+  form of the \"Accept-Language \" header defined in RFC3066."
+  [^Svc svc language-range]
+  ((.-localeMatchFn svc) language-range))
+
+(s/fdef preferred-synonym*
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id)))
+(defn preferred-synonym*
+  "Given an ordered sequence of preferred language reference set ids, return
+  the preferred synonym for the concept specified."
+  [^Svc svc concept-id language-refset-ids]
+  (store/preferred-synonym (.-store svc) concept-id language-refset-ids))
+
 (s/fdef preferred-synonym
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
 (defn preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
+
+  Use [[match-locale]] and then repeated calls to [[preferred-synonym*]] if
+  preferred synonyms of a number of concepts are required (e.g. in a map/reduce etc)
 
   Parameters:
   - svc            : hermes service
@@ -429,8 +451,7 @@
   ([^Svc svc concept-id]
    (preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
-   (let [locale-match-fn (.-localeMatchFn svc)]
-     (store/preferred-synonym (.-store svc) concept-id (locale-match-fn language-range)))))
+   (preferred-synonym* svc concept-id (match-locale svc language-range))))
 
 (s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
@@ -438,8 +459,7 @@
   ([^Svc svc concept-id]
    (fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
-   (let [locale-match-fn (.-localeMatchFn svc)]
-     (store/fully-specified-name (.-store svc) concept-id (locale-match-fn language-range) false))))
+   (store/fully-specified-name (.-store svc) concept-id (match-locale svc language-range) false)))
 
 (defn release-information [^Svc svc]
   (store/release-information (.-store svc)))
