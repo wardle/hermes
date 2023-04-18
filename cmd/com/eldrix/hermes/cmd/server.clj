@@ -145,6 +145,26 @@
                   result (hermes/descriptions svc concept-id)]
               (assoc ctx :result (or (seq result) (when (hermes/concept svc concept-id) result)))))})
 
+(def ^:private property-formats
+  {"id"       :id
+   "syn"      :syn
+   "[id:syn]" :vec-id-syn
+   "{id:syn}" :map-id-syn
+   "id:syn"   :str-id-syn})
+
+(def get-concept-properties
+  {:name  ::get-concept-properties
+   :enter (fn [{::keys [svc] :as ctx}]
+            (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
+                  expand? (#{"true" "1"} (get-in ctx [:request :params :expand]))
+                  fmt (property-formats (get-in ctx [:request :params :format]))
+                  key-fmt (or (property-formats (get-in ctx [:request :params :key-format])) fmt)
+                  value-fmt (or (property-formats (get-in ctx [:request :params :value-format])) fmt)
+                  pretty (or key-fmt value-fmt)
+                  language-range (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
+                  result (hermes/properties svc concept-id {:expand expand?})]
+              (assoc ctx :result (if pretty (hermes/pprint-properties svc result {:key-fmt key-fmt :value-fmt value-fmt :lang language-range}) result))))})
+
 (def get-concept-preferred-description
   {:name  ::get-concept-preferred-description
    :enter (fn [{::keys [svc] :as ctx}]
@@ -221,6 +241,7 @@
   (route/expand-routes
     #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept) :constraints {:concept-id #"[0-9]+"}]
       ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions) :constraints {:concept-id #"[0-9]+"}]
+      ["/v1/snomed/concepts/:concept-id/properties" :get (conj common-routes get-concept-properties) :constraints {:concept-id #"[0-9]+"}]
       ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description) :constraints {:concept-id #"[0-9]+"}]
       ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept) :constraints {:concept-id #"[0-9]+"}]
       ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical) :constraints {:concept-id #"[0-9]+"}]

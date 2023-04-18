@@ -70,6 +70,7 @@ supports search and autocompletion using the $expand operation.
   - [B. Endpoints for the HTTP server](#b-endpoints-for-the-http-terminology-server)
     - [Get a single concept](#get-a-single-concept-)
     - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
+    - [Get properties for a single concept]()
     - [Search](#search)
     - [Expanding SNOMED ECL (Expression Constraint Language)](#expanding-ecl-without-search)
     - [Crossmap to and from SNOMED CT - e.g. ICD-10](#crossmap-to-and-from-snomed-ct)
@@ -811,6 +812,7 @@ Here are some examples:
 * [/v1/snomed/concepts/24700007/descriptions](http://3.9.221.177:8080/v1/snomed/concepts/24700007/descriptions) - all descriptions for concept
 * [/v1/snomed/concepts/24700007/preferred](http://3.9.221.177:8080/v1/snomed/concepts/24700007/preferred) : preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
 * [/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended) : an extended concept 
+* [/v1/snomed/concepts/1231295007/properties?expand=1](http://3.9.221.177:8080/v1/snomed/concepts/24700007/properties?expand=1) : properties for a concept
 * [/v1/snomed/concepts/586591000000100/historical](http://3.9.221.177:8080/v1/snomed/concepts/586591000000100/historical) - historical associations for this concept
 * [/v1/snomed/concepts/24700007/refsets](http://3.9.221.177:8080/v1/snomed/concepts/24700007/refsets) - refsets to which this concept is a member
 * [/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101) - crossmap to alternate codesystem (ICD-10 in this example)
@@ -833,6 +835,10 @@ http '127.0.0.1:8080/v1/snomed/concepts/24700007'
   "id": 24700007,
   "moduleId": 900000000000207008
 }
+```
+
+```edn
+
 ```
 
 Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007](http://3.9.221.177:8080/v1/snomed/concepts/24700007)
@@ -1105,6 +1111,105 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
 
 ```
 
+##### Get properties for a single concept
+
+Each concept within SNOMED CT is associated with relationships. You can use 
+`hermes` to return these as groups of properties, including concrete values
+when available.
+
+Here we look at properties for the concept representing the anti-convulsant
+lamotrigine:
+
+```shell
+http 'http://127.0.0.1:8080/v1/snomed/concepts/1231295007/properties'
+```
+
+Try it live [http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties](http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties)
+
+Note that when results are not expanded, the metadata model is used to fix 
+the cardinality of the values for the relationship in the context of the concept.
+
+```json
+{
+    "0": {
+        "1142139005": "#1",
+        "116680003": [
+            779653004
+        ],
+        "411116001": 385060002,
+        "763032000": 732936001,
+        "766939001": [
+            773862006
+        ]
+    },
+    "1": {
+        "1142135004": "#250",
+        "1142136003": "#1",
+        "732943007": 387562000,
+        "732945000": 258684004,
+        "732947008": 732936001,
+        "762949000": 387562000
+    }
+}
+```
+
+Available parameters
+
+- `expand` - expand results to include transitive relationships (`true`/`false`/`1`/`0`)
+- `format` - format results 
+- `key-format` - format keys
+- `value-format` - format values
+
+For machine-interpretation, it is best to simply use `?expand=1` and process
+identifiers appropriately. For human consumption, and for interactive use, 
+properties can be pretty-printed using a variety of formatting options:
+
+Each format can be one of 
+- `id` the identifier
+- `syn` synonym (language determined by Accept-Language header or system/index defaults)
+- `id:syn` a string of identifier and synonym
+- `[id:syn]` a vector of identifier and synonym
+- `{id:syn}` a map of identifier to synonym
+
+Example:
+
+```shell
+http 'http://127.0.0.1:8080/v1/snomed/concepts/1231295007/properties?expand=0&format=id:syn'
+```
+
+Try it live [http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties?expand=1&format=id:syn](http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties?expand=0&format=id:syn)
+
+Note again how the models within SNOMED CT are used to determine the cardinality
+of the returned relationships. A drug can have multiple roles, but has only
+single 'count of base of active ingredient and 'manufactured dose form' 
+properties.
+
+```json
+{
+    "0": {
+        "1142139005:Count of base of active ingredient": "#1",
+        "116680003:Is a": [
+            "779653004:Lamotrigine only product in oral dose form"
+        ],
+        "411116001:Has manufactured dose form": "385060002:Prolonged-release oral tablet",
+        "763032000:Has unit of presentation": "732936001:Tablet",
+        "766939001:Plays role": [
+            "773862006:Anticonvulsant therapeutic role"
+        ]
+    },
+    "1": {
+        "1142135004:Has presentation strength numerator value": "#250",
+        "1142136003:Has presentation strength denominator value": "#1",
+        "732943007:Has BoSS": "387562000:Lamotrigine",
+        "732945000:Has presentation strength numerator unit": "258684004:mg",
+        "732947008:Has presentation strength denominator unit": "732936001:Tablet",
+        "762949000:Has precise active ingredient": "387562000:Lamotrigine"
+    }
+}
+
+```
+
+
 ##### Search
 
 Example usage of search endpoint.
@@ -1115,7 +1220,7 @@ http '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5'
 
 Try it live: [http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5)
 
-```shell.
+```json
 [
   {
     "id": 486696014,
