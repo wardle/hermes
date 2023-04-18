@@ -921,11 +921,29 @@
               {} (if expand (store/properties-expanded (.-store svc) concept-id)
                             (store/properties (.-store svc) concept-id)))))
 
-(defn ^:private pprint-properties
-  [svc props]
-  (let [ps (fn [x] (if (number? x) [x (:term (preferred-synonym svc x))] x))]
+(defn pprint-properties
+  "Pretty print properties. Keys and values can be formatted using `fmt` or
+  separately using `key-fmt` and `value-fmt`.
+  Valid formats are:
+    :map-id-syn : map of id to synonym
+    :vec-id-syn : vector of id and synonym
+    :str-id-syn : id and synonym as a string
+    :syn        : synonym
+    :id         : id
+  `language-range` should be a language range such as \"en-GB\"."
+  [svc props {:keys [key-fmt value-fmt fmt language-range]}]
+  (let [lang-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault))))
+        ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
+        make-fmt (fn [fmt] (fn [v]
+                             (if-not (number? v) v
+                               (case fmt :id v, :syn (ps v)
+                                         :map-id-syn (hash-map v (ps v))
+                                         :vec-id-syn (vector v (ps v))
+                                         :str-id-syn (str v ":" (ps v))))))
+        key-fn (make-fmt (or key-fmt fmt :vec-id-syn))
+        val-fn (make-fmt (or value-fmt fmt :vec-id-syn))]
     (update-vals props #(reduce-kv (fn [acc k v]
-                                     (assoc acc (ps k) (if (coll? v) (mapv ps v) (ps v)))) {} %))))
+                                     (assoc acc (key-fn k) (if (coll? v) (mapv val-fn v) (val-fn v)))) {} %))))
 
 
 (def ^:deprecated get-concept "DEPRECATED. Use [[concept]] instead" concept)
