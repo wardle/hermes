@@ -887,16 +887,17 @@
                               (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
                               (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
-(defn ^:private properties
+(defn properties
   "Returns a concept's properties, including concrete values. Ungrouped
   properties are returned under key '0', with other groups returned with
   non-zero keys. There is no other intrinsic meaning to the group identifier.
 
   Attribute values will be returned as a set of values optionally expanded to
-  include the transitive relationships, unless the value for the attribute is a
-  concrete value and the SNOMED machine-readable concept model (MRCM) for the
+  include the transitive relationships. If the value for the attribute is a
+  concrete value or the SNOMED machine-readable concept model (MRCM) for the
   attribute in the context of the concept's domain states that the cardinality
-  of the property is 0..1 or 1..1.
+  of the property is 0..1 or 1..1 and the values are not expanded to include
+  transitive dependencies, the value will be unwrapped to a single value.
 
   e.g. for lamotrigine:
   ```
