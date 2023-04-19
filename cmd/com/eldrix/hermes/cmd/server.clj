@@ -163,7 +163,10 @@
                   pretty (or key-fmt value-fmt)
                   language-range (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
                   result (hermes/properties svc concept-id {:expand expand?})]
-              (assoc ctx :result (if pretty (hermes/pprint-properties svc result {:key-fmt key-fmt :value-fmt value-fmt :lang language-range}) result))))})
+              (assoc ctx :result                            ;; take care that if no result, is it because no props, or concept doesn't exist?
+                         (if (seq result)                   ;; so if there's an empty result
+                           (if pretty (hermes/pprint-properties svc result {:key-fmt key-fmt :value-fmt value-fmt :lang language-range}) result)
+                           (when (hermes/concept svc concept-id) result)))))}) ;; return 404 if concept doesn't exist
 
 (def get-concept-preferred-description
   {:name  ::get-concept-preferred-description
