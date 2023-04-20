@@ -52,6 +52,10 @@
   (is (= 200 (:status (response-for *server-fn* :get (url-for ::server/get-extended-concept :path-params {:concept-id "24700007"})))))
   (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-extended-concept :path-params {:concept-id "123"}))))))
 
+(deftest ^:live get-properties
+  (is (= 200 (:status (response-for *server-fn* :get (url-for ::server/get-concept-properties :path-params {:concept-id "24700007"})))))
+  (is (= 404 (:status (response-for *server-fn* :get (url-for ::server/get-concept-properties :path-params {:concept-id "123"}))))))
+
 (comment
   (def *svc* (hermes/open "snomed.db"))
   (def *server-fn* (::http/service-fn (server/create-server *svc* {})))
