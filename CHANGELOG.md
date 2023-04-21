@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* HTTP 404 for concept/properties if concept not found, rather than HTTP 200 response with empty data 
+
 ## [1.2.1142] - 2023-04-18
 
 * Make `properties` public in top-level library API
