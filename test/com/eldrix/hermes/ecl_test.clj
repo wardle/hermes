@@ -4,6 +4,7 @@
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is use-fixtures run-tests testing]]
             [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]))
@@ -209,6 +210,10 @@
     (is (pos? (count r2)) "No results found for ECL expression containing concrete values")
     (is (every? true? (map #(some-concrete-value? (:conceptId %) 1142135004 "#250") r1)))
     (is (every? true? (map #(some-concrete-value? (:conceptId %) "#250000") r2)))))
+
+(deftest ^:live test-query-for-refset-field
+  (let [ecl " ^ [targetComponentId]  900000000000527005 |SAME AS association reference set|  {{ M referencedComponentId =  67415000 |Hay asthma|  }}"]
+    (is (thrown? Exception (ecl/parse *svc* ecl)))))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))

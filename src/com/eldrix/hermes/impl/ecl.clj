@@ -816,6 +816,17 @@
       (search/q-concept-ids concept-ids'))
     base-query))
 
+(defn- parse-member-of
+  "memberOf = \"^\" [ ws \"[\" ws (refsetFieldNameSet / wildCard) ws \"]\"]
+  refsetFieldNameSet = refsetFieldName *(ws \",\" ws refsetFieldName)
+  refsetFieldName = 1*alpha"
+  [ctx loc]
+  (let [refset-field-names (zx/xml-> loc :refsetFieldNameSet :refsetFieldName zx/text)
+        wildcard (zx/xml1-> loc :wildCard)]
+    (if (or (seq refset-field-names) wildcard)
+      (throw (ex-info "selection of other fields in refset(s) not supported" {:wildcard (boolean wildcard) :refset-field-names refset-field-names :text (zx/text loc)}))
+      true)))
+
 (defn- parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / ( ws expressionConstraint ws )) *(ws memberFilterConstraint)) / (eclFocusConcept / ( ws expressionConstraint ws )) ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
 
@@ -842,7 +853,7 @@
   to the constraintOperator.\""
   [{:keys [store] :as ctx} loc]
   (let [constraint-operator (zx/xml1-> loc :constraintOperator parse-constraint-operator)
-        member-of (zx/xml1-> loc :memberOf)
+        member-of (zx/xml1-> loc :memberOf #(parse-member-of ctx %))
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
