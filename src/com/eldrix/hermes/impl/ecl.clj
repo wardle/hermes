@@ -819,7 +819,8 @@
 (defn- parse-member-of
   "memberOf = \"^\" [ ws \"[\" ws (refsetFieldNameSet / wildCard) ws \"]\"]
   refsetFieldNameSet = refsetFieldName *(ws \",\" ws refsetFieldName)
-  refsetFieldName = 1*alpha"
+  refsetFieldName = 1*alpha
+  wildCard = \"*\""
   [ctx loc]
   (let [refset-field-names (zx/xml-> loc :refsetFieldNameSet :refsetFieldName zx/text)
         wildcard (zx/xml1-> loc :wildCard)]
