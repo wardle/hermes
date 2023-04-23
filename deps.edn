@@ -27,7 +27,7 @@
             :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.214"}
                           org.clojure/data.json          {:mvn/version "2.4.0"}
                           expound/expound                {:mvn/version "0.9.0"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.6"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
             :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
@@ -49,7 +49,7 @@
                           com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
                           com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                           :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.6"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
                           criterium/criterium            {:mvn/version "0.4.6"}
                           io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
                           io.pedestal/pedestal.service   {:mvn/version "0.5.10"}}
@@ -59,7 +59,7 @@
            :test/cloverage
            {:extra-paths ["test"]
             :extra-deps  {cloverage/cloverage            {:mvn/version "1.2.4"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.6"}
+                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
                           org.clojure/test.check         {:mvn/version "1.1.1"}}
             :main-opts   ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]
             :exec-fn     cloverage.coverage/run-project
