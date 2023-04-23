@@ -2,9 +2,10 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1150]
 
-* HTTP 404 for concept/properties if concept not found, rather than HTTP 200 response with empty data 
+* HTTP 404 for concept/properties if concept not found, rather than HTTP 200 response with empty data
+* Upgrade to latest version of trud (fixing automatic downloads stalling when used without progress printing)
 
 ## [1.2.1142] - 2023-04-18
 
