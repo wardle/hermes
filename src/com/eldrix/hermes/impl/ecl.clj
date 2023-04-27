@@ -209,7 +209,7 @@
       (search/q-typeAny (set/difference (store/all-children store 900000000000446008) ecl-concept-references))
 
       :else
-      (throw (ex-info "unknown type-id filter" {:s (zx/text loc)})))))
+      (throw (ex-info "unknown type-id filter" {:text (zx/text loc)})))))
 
 (def ^:private type-token->type-id
   {:FSN 900000000000003001
@@ -228,7 +228,7 @@
         type-ids (case boolean-comparison-operator
                    "=" types
                    "!=" (set/difference (store/all-children store 900000000000446008) (set types))
-                   (throw (ex-info "invalid boolean operator for type token filter" {:s (zx/text loc) :op boolean-comparison-operator})))]
+                   (throw (ex-info "invalid boolean operator for type token filter" {:text (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
 (defn- parse-type-filter
@@ -291,7 +291,7 @@
               results
 
               (and d-alias (nil? mapped))
-              (throw (ex-info (str "unknown dialect: '" d-alias "'") {:s (zx/text loc)}))
+              (throw (ex-info (str "unknown dialect: '" d-alias "'") {:text (zx/text loc)}))
 
               (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
               (conj results mapped)
@@ -306,7 +306,7 @@
               (apply conj results [default-acceptability concept-id])
 
               (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
-              (throw (ex-info "parse error: acceptability before dialect alias" {:s (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
+              (throw (ex-info "parse error: acceptability before dialect alias" {:text (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
 
               (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
               (conj results acceptability))))))))
@@ -331,7 +331,7 @@
                               (search/q-acceptability accept refset-id)
                               (search/q-description-memberOf refset-id))) m)))
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:test (zx/text loc)})))))
 
 (defn- parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
@@ -354,7 +354,7 @@
                               (search/q-description-memberOf refset-id))) m)))
 
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:s (zx/text loc)})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc)})))))
 
 
 (defn- parse-dialect-filter
@@ -500,7 +500,7 @@
       (search/q-and cardinality-queries)
 
       :else
-      (throw (ex-info "invalid attribute query" {:s (zx/text loc)})))))
+      (throw (ex-info "invalid attribute query" {:text (zx/text loc)})))))
 
 
 (def ^:private concrete-numeric-comparison-ops
@@ -530,13 +530,13 @@
         attribute-concept-ids (when ecl-attribute-name
                                 (realise-concept-ids ctx (search/q-and [(search/q-descendantOf parent-attribute-id) ecl-attribute-name])))] ;; realise the attributes in the expression]
     (when-not (seq attribute-concept-ids)
-      (throw (ex-info "attribute expression resulted in no valid attributes" {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
+      (throw (ex-info "attribute expression resulted in no valid attributes" {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
     (cond
       expression-operator
       (case expression-operator
         "=" (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc)
         "!=" (search/q-not (search/q-match-all) (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
-        (throw (ex-info (str "unsupported expression operator " expression-operator) {:s (zx/text loc) :eclAttributeName ecl-attribute-name})))
+        (throw (ex-info (str "unsupported expression operator " expression-operator) {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
 
       numeric-operator
       (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
