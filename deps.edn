@@ -105,5 +105,5 @@
             :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
            :lint/splint
-           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.2.2"}}
+           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.2.4"}}
             :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}}}
