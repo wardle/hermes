@@ -63,12 +63,14 @@
     :f   (fn [concept-ids]
            (is (contains? concept-ids 40541001)))}          ;; acute pulmonary oedema has morphology 'acute oedema' and should be included via this expression
    {:ecl "<  404684003 |Clinical finding| :\n         363698007 |Finding site|  = <<  39057004 |Pulmonary valve structure| , \n         116676008 |Associated morphology|  = <<  415582006 |Stenosis|"
-    :f2  (fn [ec]
+    :as  :extended-concept
+    :f   (fn [ec]
            (is (store/is-a? nil ec 404684003))              ;; are all a clinical finding?
            (is (store/has-property? nil ec 363698007 39057004)) ;; are all affecting the pulmonary value?
            (is (store/has-property? nil ec 116676008 415582006)))} ;; are all a stenosis?
    {:ecl " * :  246075003 |Causative agent|  =  387517004 |Paracetamol|"
-    :f2  (fn [ec] (is (store/has-property? nil ec 246075003 387517004)))}
+    :as  :extended-concept
+    :f   (fn [ec] (is (store/has-property? nil ec 246075003 387517004)))}
 
    ;; attribute groups
    {:ecl "<  404684003 |Clinical finding| :
@@ -80,8 +82,21 @@
            (is (contains? concept-ids 86299006)))}          ;; this should find tetralogy of Fallot
 
    ;; attribute constraint operators
-   {:ecl "  <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|"}
-   {:ecl "<<  404684003 |Clinical finding| :\n        >>  246075003 |Causative agent|  = <<  267038008 |Edema|"}
+   {:ecl "  <<  404684003 |Clinical finding| :\n        <<  47429007 |Associated with|  = <<  267038008 |Edema|"
+    :as  :extended-concept
+    :f   (fn [{prels :parentRelationships :as ec}]
+           (testing (get-in ec [:concept :id])
+             (is (contains? (get prels snomed/IsA) 404684003))
+             (let [vs (reduce (fn [_ v] (when-let [result (get prels v)] (reduced result))) nil (hermes/all-children *svc* 47429007))]
+               (is (contains? vs 267038008)))))}
+
+   {:ecl "<<  404684003 |Clinical finding| :\n        >>  246075003 |Causative agent|  = <<  267038008 |Edema|"
+    :as :extended-concept
+    :f (fn [{prels :parentRelationships :as ec}]
+         (testing (get-in ec [:concept :id])
+           (is (contains? (get prels snomed/IsA) 404684003))
+           (let [vs (reduce (fn [_ v] (when-let [result (get prels v)] (reduced result))) nil (hermes/all-parents *svc* 246075003))]
+             (is (contains? vs 267038008)))))}
 
    ;; products with one, two, three active ingredients
    {:ecl "<  373873005 |Pharmaceutical / biologic product| :\n        [1..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|"}
@@ -125,12 +140,12 @@
     (is (= r1 r2))))
 
 (deftest ^:live do-simple-tests
-  (doseq [{:keys [ecl f f2]} simple-tests]
+  (doseq [{:keys [ecl as f] :or {as :concept-ids}} simple-tests]
     (let [results (hermes/expand-ecl *svc* ecl)]
-      (when f (f (set (map :conceptId results))))
-      (when f2 (dorun (->> results
-                           (map #(hermes/extended-concept *svc* (:conceptId %)))
-                           (map f2)))))))
+      (when f
+        (case as
+          :concept-ids (f (set (map :conceptId results)))
+          :extended-concept (run! f (map #(hermes/extended-concept *svc* (:conceptId %)) results)))))))
 
 (deftest ^:live test-history
   (let [r1 (set (hermes/expand-ecl *svc* "<<  195967001 |Asthma|"))
@@ -168,7 +183,7 @@
 
 (deftest ^:live test-cardinality
   (testing "Cardinality 0..1 and 1..1"
-    (let [r0-1 (hermes/expand-ecl *svc* "<<24700007: [0..1] 370135005=*")  ;;370135005 = pathological process
+    (let [r0-1 (hermes/expand-ecl *svc* "<<24700007: [0..1] 370135005=*") ;;370135005 = pathological process
           r1-1 (hermes/expand-ecl *svc* "<<24700007: [1..1] 370135005=*")]
       (is (seq r1-1) "Multiple sclerosis and descendants should have attribute of 'pathological process'")
       (is (>= (count r0-1) (count r1-1)) "Results for cardinality 0..1 should be the same, more than 1..1")
@@ -177,7 +192,7 @@
     (let [results (hermes/expand-ecl *svc* "<<24700007: [0..0] 246075003=*")] ;; 246075003 = causative agent.
       (is (seq results) "Invalid result. Multiple sclerosis and descendants should not have attributes of 'causative agent'")))
   (testing "Many cardinality"
-    (let [results (hermes/expand-ecl *svc* "<24700007: [2..*]  370135005=*")]  ;; two or more pathological processes))))))
+    (let [results (hermes/expand-ecl *svc* "<24700007: [2..*]  370135005=*")] ;; two or more pathological processes))))))
       (is (->> results
                (map :conceptId)
                (map (fn [concept-id] (count (hermes/parent-relationships-of-type *svc* concept-id 370135005))))
