@@ -58,6 +58,7 @@ supports search and autocompletion using the $expand operation.
   - [Is `hermes` fast?](#is-hermes-fast)
   - [Can I use `hermes` with containers?](#can-i-use-hermes-with-containers)
   - [Can I use `hermes` on Apple Silicon?](#can-i-use-hermes-on-apple-silicon)
+  - [Can I use `hermes` on other architectures or operating systems such as FreeBSD?](#can-i-use-hermes-on-other-architectures-or-operating-systems-such-as-freebsd)
 - [Documentation](#documentation)
   - [A. Download and build a terminology service](#a-how-to-download-and-build-a-terminology-service)
     - [1. Download and install at least one distribution](#1-download-and-install-at-least-one-distribution)
@@ -478,9 +479,18 @@ There are some examples of [different configurations available](https://github.c
 
 ### Can I use `hermes` on Apple Silicon? 
 
-Yes. There are two options: 
+Yes. There are three options. 
 
-##### Option 1. Install an x86 Java SDK and run using that (Rosetta). This is fast enough.
+The first is to use Rosetta and run an x86 Java SDK and this will look for an x86 LMDB library already bundled with `hermes`.
+
+The other two options install a native aarch64 LMDB library, and make it available to
+`hermes`. The best performance will be gained from using a native library.
+
+The next version of `lmdbjava` will include a pre-built lmdb binary for ARM on
+Mac OS X, so these steps will become unnecessary and `hermes` will work on 
+multiple architectures and operating systems without needing these steps.  
+
+##### Option 1. Install an x86 Java SDK and run using that (Rosetta). 
 
 For example, you can get a list of installed JDKs:
 ```shell
@@ -498,8 +508,27 @@ $ clj -M -e '(System/getProperty "os.arch")'
 "x86_64"
 
 ```
+##### Option 2. Install the lmdb library for your architecture
 
-##### Option 2. Build the lmdb library for your architecture (ie arm64). This is fastest.
+Here I use homebrew on my mac:
+
+```shell
+brew install lmdb
+brew list lmdb
+```
+
+Once you have a native LMDB installed on your machine, you can reference it 
+from the command line:
+
+```shell
+java -Dlmdbjava.native.lib=/opt/homebrew/Cellar/lmdb/0.9.30/lib/liblmdb.dylib -jar target/hermes-1.2.1151.jar --db snomed.db status
+```
+or
+```shell
+clj -J-Dlmdbjava.native.lib=/opt/homebrew/Cellar/lmdb/0.9.30/lib/liblmdb.dylib -M:run --db snomed.db status
+```
+
+##### Option 3. Build the lmdb library for your architecture (ie arm64).
 
 Install the xcode command line tools, if they are not already installed
 ```shell
@@ -515,6 +544,9 @@ mkdir -p ~/Library/Java/Extensions
 cp liblmdb.dylib ~/Library/Java/Extensions
 ```
 
+In this example, rather than specifying the location of the library at the 
+command line, I'm just copying the library to a well known location.
+
 Once this native library is copied, you can use `hermes` natively using an arm64 based JDK.
 
 ```shell
@@ -524,8 +556,30 @@ $ clj -M -e '(System/getProperty "os.arch")'
 "aarch64"
 ```
 
-It is likely that lmdbjava will include a pre-built lmdb binary for ARM on Mac OS X, so
-these steps will become unnecessary.
+### Can I use `hermes` on other architectures or operating systems such as FreeBSD?
+
+If `hermes` does not already contain a pre-built binary for your operating system and architecture,
+you simply need to install lmdb yourself. You may need to also tell `hermes` where to 
+find the native library.
+
+e.g. on FreeBSD:
+
+```shell
+$ pkg info -lx lmdb | grep liblmdb
+
+	/usr/local/lib/liblmdb.a
+	/usr/local/lib/liblmdb.so
+	/usr/local/lib/liblmdb.so.0
+```
+
+```shell
+java -Dlmdbjava.native.lib=/usr/local/lib/liblmdb.so -jar target/hermes-1.2.1151.jar --db snomed.db status
+```
+or
+```shell
+clj -J-Dlmdbjava.native.lib=/usr/local/lib/liblmdb.so -M:run --db snomed.db status
+```
+
 
 # Documentation
 
