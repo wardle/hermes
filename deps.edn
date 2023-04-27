@@ -10,7 +10,7 @@
            com.eldrix/trud                          {:mvn/version "1.0.103"}
            hato/hato                                {:mvn/version "0.9.0"}
            instaparse/instaparse                    {:mvn/version "1.4.12"}
-           io.netty/netty-buffer                    {:mvn/version "4.1.91.Final"}
+           io.netty/netty-buffer                    {:mvn/version "4.1.92.Final"}
            org.apache.lucene/lucene-core            {:mvn/version "9.5.0"}
            org.apache.lucene/lucene-queries         {:mvn/version "9.5.0"}
            org.apache.lucene/lucene-backward-codecs {:mvn/version "9.5.0"}
