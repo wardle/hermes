@@ -110,6 +110,8 @@
     (assoc ctx :io.pedestal.interceptor.chain/error err)))
 
 
+(defn parse-flag [s] (case s ("1" "true") true false))
+
 (def get-concept
   {:name  ::get-concept
    :enter (fn [{::keys [svc] :as ctx}]
@@ -156,7 +158,7 @@
   {:name  ::get-concept-properties
    :enter (fn [{::keys [svc] :as ctx}]
             (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
-                  expand? (#{"true" "1"} (get-in ctx [:request :params :expand]))
+                  expand? (parse-flag (get-in ctx [:request :params :expand]))
                   fmt (property-formats (get-in ctx [:request :params :format]))
                   key-fmt (or (property-formats (get-in ctx [:request :params :key-format])) fmt)
                   value-fmt (or (property-formats (get-in ctx [:request :params :value-format])) fmt)
@@ -212,11 +214,11 @@
           (coll? isA) (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
           (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
           (coll? refset) (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
-          fuzzy (assoc :fuzzy (if (#{"true" "1"} fuzzy) 2 0))
-          fallbackFuzzy (assoc :fallback-fuzzy (if (#{"true" "1"} fallbackFuzzy) 2 0))
-          inactiveConcepts (assoc :inactive-concepts? (boolean (#{"true" "1"} inactiveConcepts)))
-          inactiveDescriptions (assoc :inactive-descriptions? (boolean (#{"true" "1"} inactiveDescriptions)))
-          removeDuplicates (assoc :remove-duplicates? (boolean (#{"true" "1"} removeDuplicates)))))
+          fuzzy (assoc :fuzzy (if (parse-flag fuzzy) 2 0))
+          fallbackFuzzy (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
+          inactiveConcepts (assoc :inactive-concepts? (parse-flag inactiveConcepts))
+          inactiveDescriptions (assoc :inactive-descriptions? (parse-flag inactiveDescriptions))
+          removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))))
 
 (def get-search
   {:name  ::get-search
@@ -231,8 +233,8 @@
   {:name  ::get-expand
    :enter (fn [{::keys [svc] :as ctx}]
             (let [ecl (get-in ctx [:request :params :ecl])
-                  include-historic? (or (#{"true" "1"} (get-in ctx [:request :params :includeHistoric]))
-                                        (#{"true" "1"} (get-in ctx [:request :params :include-historic])))] ; avoid breaking change - support legacy parameter
+                  include-historic? (or (parse-flag (get-in ctx [:request :params :includeHistoric]))
+                                        (parse-flag (get-in ctx [:request :params :include-historic])))] ; avoid breaking change - support legacy parameter
               (if (str/blank? ecl)
                 (assoc ctx :response {:status 400 :body {:error (str "missing parameter: ecl")}})
                 (assoc ctx :result (if include-historic?
