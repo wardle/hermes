@@ -456,15 +456,24 @@
 (s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
 (defn fully-specified-name
+  "Return the fully specified name for the concept specified. If no language
+  preferences are provided the system default locale will be used."
   ([^Svc svc concept-id]
    (fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
   ([^Svc svc concept-id language-range]
    (store/fully-specified-name (.-store svc) concept-id (match-locale svc language-range) false)))
 
-(defn release-information [^Svc svc]
+(defn release-information
+  "Returns descriptions representing the installed distributions.
+  Ordering will be by date except that the description for the 'core' module
+  will always be first.
+  See https://confluence.ihtsdotools.org/display/DOCTIG/4.1.+Root+and+top-level+Concepts"
+  [^Svc svc]
   (store/release-information (.-store svc)))
 
-(defn subsumed-by? [^Svc svc concept-id subsumer-concept-id]
+(defn subsumed-by?
+  "Is `concept-id` subsumed by `subsumer-concept-id`?"
+  [^Svc svc concept-id subsumer-concept-id]
   (store/is-a? (.-store svc) concept-id subsumer-concept-id))
 
 (s/fdef are-any?
@@ -484,7 +493,50 @@
   :args (s/cat :svc ::svc :params ::search-params)
   :ret (s/coll-of ::result))
 (defn search
-  "Search the descriptions index using the search parameters specified."
+  "Perform a search against the index.
+
+  Parameters:
+  - svc    : hermes service
+  - params : a map of search parameters, which include:
+
+  | keyword                 | description (default)                             |
+  |---------------------    |---------------------------------------------------|
+  | :s                      | search string to use                              |
+  | :max-hits               | maximum hits (if omitted returns unlimited but    |
+  |                         | *unsorted* results)                               |
+  | :constraint             | SNOMED ECL constraint                             |
+  | :fuzzy                  | fuzziness (0-2, default 0)                        |
+  | :fallback-fuzzy         | if no results, try fuzzy search (0-2, default 0). |
+  | :remove-duplicates?     | remove duplicate results (default, false)         |
+
+  Example: to search for neurologist as an occupation ('IS-A' '14679004')
+  ```
+  (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
+  ```
+  For autocompletion, it is recommended to use fuzzy=0, and fallback-fuzzy=2.
+
+  There are some lower-level search parameters available, but it is usually
+  more appropriate to use a SNOMED ECL constraint instead of these.
+
+  | keyword                 | description (default)                             |
+  |---------------------    |---------------------------------------------------|
+  | :query                  | additional Lucene ^Query to apply                 |
+  | :show-fsn?              | show FSNs in results? (default, false)            |
+  | :inactive-concepts?     | search descriptions of inactive concepts? (false) |
+  | :inactive-descriptions? | search inactive descriptions? (default, true)     |
+  | :properties             | a map of properties and their possible values.    |
+  | :concept-refsets        | a collection of refset ids to limit search        |
+
+  The properties map contains keys for a property and then either a single
+  identifier or vector of identifiers to limit search.
+  For example
+  ```
+  (do-search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
+  ```
+  However, concrete values are not supported, so to search using concrete values
+  use a SNOMED ECL constraint instead.
+
+  A FSN is a fully-specified name and should generally be left out of search."
   [^Svc svc params]
   (if-let [constraint (:constraint params)]
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse svc constraint)))
@@ -507,7 +559,8 @@
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
 (defn intersect-ecl
-  "Returns a set of concept identifiers that satisfy the SNOMED ECL expression."
+  "Returns the subset of the concept identifiers that satisfy the SNOMED ECL
+  expression."
   [^Svc svc concept-ids ^String ecl]
   (let [q1 (search/q-concept-ids concept-ids)
         q2 (ecl/parse svc ecl)]
@@ -516,7 +569,9 @@
 (s/fdef valid-ecl?
   :args (s/cat :s string?))
 (defn valid-ecl?
-  "Is the ECL valid?"
+  "Is the ECL valid?
+  This does not attempt to expand the ECL, but simply checks that it is valid
+  ECL according to the grammar."
   [s]
   (ecl/valid? s))
 
@@ -525,7 +580,7 @@
                :concept-ids (s/coll-of :info.snomed.Concept/id)
                :ecl ::non-blank-string))
 (defn ^:deprecated ecl-contains?
-  "DEPRECATED: use `intersect-ecl` instead.
+  "DEPRECATED: use [[intersect-ecl]] instead.
 
   Do any of the concept-ids satisfy the constraint expression specified?
   This is an alternative to expanding the valueset and then checking membership."
@@ -792,11 +847,31 @@
 
 (s/fdef paths-to-root
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
-(defn paths-to-root [^Svc svc concept-id]
+(defn paths-to-root
+  "Return a sequence of paths from the concept to root node.
+  Each path is a sequence of identifiers, starting with the concept itself
+  and ending with the root node.
+
+  e.g.
+
+  ```
+  (paths-to-root svc 24700007)
+  =>
+  ((24700007 6118003 80690008 23853001 118940003 362965005 64572001 404684003 138875005)
+   (24700007 6118003 80690008 23853001 246556002 404684003 138875005)
+   (24700007 6118003 80690008 362975008 64572001 404684003 138875005)
+   (24700007 39367000 23853001 118940003 362965005 64572001 404684003 138875005)
+   (24700007 39367000 23853001 246556002 404684003 138875005)
+   (24700007 39367000 363171009 362965005 64572001 404684003 138875005)
+   (24700007 39367000 363171009 363170005 128139000 64572001 404684003 138875005)
+   (24700007 414029004 64572001 404684003 138875005))
+  ```"
+  [^Svc svc concept-id]
   (store/paths-to-root (.-store svc) concept-id))
 
 (defn some-indexed
   "Returns index and first logical true value of (pred x) in coll, or nil.
+
   e.g.
   ```
   (some-indexed #{64572001} '(385093006 233604007 205237003 363169009 363170005 123946008 64572001 404684003 138875005))
@@ -843,7 +918,7 @@
                        (conj acc domain-id) acc)) #{} domains)))))
 
 (defn ^:private concept-domains
-  "Return a set of domains for the given concept."
+  "Return a set of concept ids representing the domains for the given concept."
   [^Svc svc concept-id]
   ((.-mrcmDomainFn svc) concept-id))
 
