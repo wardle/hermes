@@ -1164,10 +1164,8 @@
    (compact root)))
 
 (comment
-  (require '[portal.api :as p])
-  (def p (p/open {:launcher :intellij}))
-  (def p (p/open))
-  (add-tap #'p/submit)                                      ; Add portal as a tap> target
+  (require '[dev.nu.morse :as morse])
+  (morse/launch-in-proc)
   (def svc (open "snomed.db"))
   (concept svc 24700007)
   (all-children svc 24700007)
@@ -1177,6 +1175,7 @@
 
   (tap> (concept svc 24700007))
   (tap> (extended-concept svc 205631000000104))
+  (morse/inspect (pprint-properties svc (properties svc 1231295007) {}))
   (extended-concept svc 24700007)
   (search svc {:s "mult scl"})
   (tap> (search svc {:s "mult scl"}))

@@ -41,7 +41,7 @@
                           criterium/criterium              {:mvn/version "0.4.6"}
                           com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
                           com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          djblue/portal                    {:mvn/version "0.40.0"}}}
+                          io.github.nubank/morse           {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}}
 
            :test
            {:extra-paths ["cmd" "test" "test/resources"]
