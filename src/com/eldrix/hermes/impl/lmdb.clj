@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.impl.lmdb
+(ns ^:no-doc com.eldrix.hermes.impl.lmdb
   "A backing key value store implemented using LMDB.
 
   LMDB has very fast read access, which makes it highly suitable as hermes

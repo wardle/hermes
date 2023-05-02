@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.impl.members
+(ns ^:no-doc com.eldrix.hermes.impl.members
   "Members creates a Lucene search index for reference set members."
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]

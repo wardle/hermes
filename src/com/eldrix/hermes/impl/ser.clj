@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.impl.ser
+(ns ^:no-doc com.eldrix.hermes.impl.ser
   "Optimised hand-crafted serialization of SNOMED entities."
   (:require [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.snomed Concept Description Relationship ConcreteValue

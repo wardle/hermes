@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.impl.search
+(ns ^:no-doc com.eldrix.hermes.impl.search
   "Search creates a Lucene search index for descriptions."
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]

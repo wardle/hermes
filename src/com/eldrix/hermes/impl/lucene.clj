@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.impl.lucene
+(ns ^:no-doc com.eldrix.hermes.impl.lucene
   (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
            (org.apache.lucene.search CollectionTerminatedException IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query

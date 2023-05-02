@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.impl.ecl
+(ns ^:no-doc com.eldrix.hermes.impl.ecl
   "Implementation of the SNOMED CT expression constraint language.
   See http://snomed.org/ecl"
   (:require [clojure.data.zip.xml :as zx]

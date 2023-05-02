@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.impl.language
+(ns ^:no-doc com.eldrix.hermes.impl.language
   "SNOMED language and localisation support.
   There are four ways to consider locale in SNOMED CT.
   1. A crude language label (e.g. \"en\" in each description.

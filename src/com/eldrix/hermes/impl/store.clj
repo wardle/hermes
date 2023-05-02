@@ -12,7 +12,7 @@
 ;   See the License for the specific language governing permissions and
 ;   limitations under the License.
 ;;;;
-(ns com.eldrix.hermes.impl.store
+(ns ^:no-doc com.eldrix.hermes.impl.store
   "Store provides a store of SNOMED CT data with appropriate indices to permit
   fast lookup. It is currently implemented using two LMDB key value stores on
   the local filesystem."
