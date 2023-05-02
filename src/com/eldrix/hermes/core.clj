@@ -499,14 +499,14 @@
   - svc    : hermes service
   - params : a map of search parameters, which include:
 
-  | keyword             | description                                       |
-  |---------------------|---------------------------------------------------|
-  | :s                  | search string to use                              |
-  | :max-hits           | maximum hits (see note below)                     |
-  | :constraint         | SNOMED ECL constraint                             |
-  | :fuzzy              | fuzziness (0-2, default 0)                        |
-  | :fallback-fuzzy     | if no results, try fuzzy search (0-2, default 0). |
-  | :remove-duplicates? | remove duplicate results (default, false)         |
+  | keyword               | description                                       |
+  |-----------------------|---------------------------------------------------|
+  | `:s`                  | search string to use                              |
+  | `:max-hits`           | maximum hits (see note below)                     |
+  | `:constraint`         | SNOMED ECL constraint                             |
+  | `:fuzzy`              | fuzziness (0-2, default 0)                        |
+  | `:fallback-fuzzy`     | if no results, try fuzzy search (0-2, default 0). |
+  | `:remove-duplicates?` | remove duplicate results (default, false)         |
 
   If `max-hits` is omitted, search will return unlimited *unsorted* results.
 
@@ -519,14 +519,17 @@
   There are some lower-level search parameters available, but it is usually
   more appropriate to use a SNOMED ECL constraint instead of these.
 
-  | keyword                 | description                                       |
-  |-------------------------|---------------------------------------------------|
-  | :query                  | additional Lucene ^Query to apply                 |
-  | :show-fsn?              | show FSNs in results? (default, false)            |
-  | :inactive-concepts?     | search descriptions of inactive concepts? (false) |
-  | :inactive-descriptions? | search inactive descriptions? (default, true)     |
-  | :properties             | a map of properties and their possible values.    |
-  | :concept-refsets        | a collection of refset ids to limit search        |
+  | keyword                   | description                                    |
+  |---------------------------|------------------------------------------------|
+  | `:query`                  | additional Lucene `Query` to apply             |
+  | `:show-fsn?`              | show FSNs in results?                          |
+  | `:inactive-concepts?`     | search descriptions of inactive concepts?      |
+  | `:inactive-descriptions?` | search inactive descriptions?                  |
+  | `:properties`             | a map of properties and their possible values. |
+  | `:concept-refsets`        | a collection of refset ids to limit search     |
+
+  By default, `:show-fsn?` and `:inactive-concepts?` are `false`, while
+  `:inactive-descriptions?` is `true`.
 
   The properties map contains keys for a property and then either a single
   identifier or vector of identifiers to limit search.
@@ -1009,13 +1012,13 @@
 
   Valid formats are:
 
-  | format      | description                  |
-  |-------------|------------------------------|
-  | :map-id-syn | map of id to synonym         |
-  | :vec-id-syn | vector of id and synonym     |
-  | :str-id-syn | id and synonym as a string   |
-  | :syn        | synonym                      |
-  | :id         | id                           |
+  | format        | description                  |
+  |---------------|------------------------------|
+  | `:map-id-syn` | map of id to synonym         |
+  | `:vec-id-syn` | vector of id and synonym     |
+  | `:str-id-syn` | id and synonym as a string   |
+  | `:syn`        | synonym                      |
+  | `:id`         | id                           |
 
   For example,
 
@@ -1188,7 +1191,8 @@
     (log/info "Compacting database... complete")))
 
 (defn index
-  "Build search indices for the database in directory 'root' specified."
+  "Build component  and search indices for the database in directory 'root'
+  specified."
   ([root] (index root (.toLanguageTag (Locale/getDefault))))
   ([root language-priority-list]
    (let [manifest (open-manifest root false)
@@ -1206,11 +1210,11 @@
      (log/info "Indexing... complete"))))
 
 (def ^:deprecated build-search-indices
-  "DEPRECATED: Use [[build-indices]] instead"
+  "DEPRECATED: Use [[index]] instead"
   index)
 
 (def ^:deprecated build-search-index
-  "DEPRECATED: Use [[build-search-indices]] instead"
+  "DEPRECATED: Use [[index]] instead"
   index)
 
 (defn ^:private safe-lower-case [s]
