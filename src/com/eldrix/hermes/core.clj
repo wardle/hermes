@@ -940,7 +940,8 @@
   (let [lang-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault))))
         ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
         make-fmt (fn [fmt] (fn [v]
-                             (if-not (number? v) v
+                             (if-not (number? v)
+                               v
                                (case fmt :id v, :syn (ps v)
                                          :map-id-syn (hash-map v (ps v))
                                          :vec-id-syn (vector v (ps v))
