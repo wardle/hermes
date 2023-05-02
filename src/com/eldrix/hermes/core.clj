@@ -820,7 +820,12 @@
                (filter #(store/is-a? store % type-id)))
          (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet)))))
 
-(defn ^:private mrcm-domains
+(s/fdef mrcm-domains
+  :args (s/cat :svc ::svc)
+  :ret (s/coll-of :info.snomed/MRCMDomainRefset))
+(defn mrcm-domains
+  "Return a sequence of MRCM Domain reference set items for the given service.
+  Each item essentially represents an 'MRCM domain'. "
   [{:keys [store memberSearcher] :as svc}]                  ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
   (let [refset-ids (mrcm-refset-ids svc snomed/MRCMDomainReferenceSet)]
     (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
