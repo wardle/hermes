@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1164] - 2023-05-02
 
 * Make `mrcm-domains` public in library API
 * Add `/v1/snomed/mrcm-domains` to HTTP API
