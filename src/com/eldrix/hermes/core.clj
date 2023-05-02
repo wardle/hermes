@@ -499,27 +499,28 @@
   - svc    : hermes service
   - params : a map of search parameters, which include:
 
-  | keyword                 | description (default)                             |
-  |---------------------    |---------------------------------------------------|
-  | :s                      | search string to use                              |
-  | :max-hits               | maximum hits (if omitted returns unlimited but    |
-  |                         | *unsorted* results)                               |
-  | :constraint             | SNOMED ECL constraint                             |
-  | :fuzzy                  | fuzziness (0-2, default 0)                        |
-  | :fallback-fuzzy         | if no results, try fuzzy search (0-2, default 0). |
-  | :remove-duplicates?     | remove duplicate results (default, false)         |
+  | keyword             | description                                       |
+  |---------------------|---------------------------------------------------|
+  | :s                  | search string to use                              |
+  | :max-hits           | maximum hits (see note below)                     |
+  | :constraint         | SNOMED ECL constraint                             |
+  | :fuzzy              | fuzziness (0-2, default 0)                        |
+  | :fallback-fuzzy     | if no results, try fuzzy search (0-2, default 0). |
+  | :remove-duplicates? | remove duplicate results (default, false)         |
+
+  If `max-hits` is omitted, search will return unlimited *unsorted* results.
 
   Example: to search for neurologist as an occupation ('IS-A' '14679004')
   ```
-  (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
+   (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
   ```
-  For autocompletion, it is recommended to use fuzzy=0, and fallback-fuzzy=2.
+  For autocompletion, it is recommended to use `fuzzy=0`, and `fallback-fuzzy=2`.
 
   There are some lower-level search parameters available, but it is usually
   more appropriate to use a SNOMED ECL constraint instead of these.
 
-  | keyword                 | description (default)                             |
-  |---------------------    |---------------------------------------------------|
+  | keyword                 | description                                       |
+  |-------------------------|---------------------------------------------------|
   | :query                  | additional Lucene ^Query to apply                 |
   | :show-fsn?              | show FSNs in results? (default, false)            |
   | :inactive-concepts?     | search descriptions of inactive concepts? (false) |
@@ -531,7 +532,7 @@
   identifier or vector of identifiers to limit search.
   For example
   ```
-  (do-search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
+   (do-search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
   ```
   However, concrete values are not supported, so to search using concrete values
   use a SNOMED ECL constraint instead.
@@ -741,7 +742,7 @@
   - :actual : actual version; may be nil
   - :valid  : is this dependency satisfied and consistent?
   Versions are represented as `java.time.LocalDate.
-  Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
+  Dependencies are not transitive as per https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set"
   [items]
   (let [installed (reduce (fn [acc {:keys [moduleId sourceEffectiveTime]}] ;; as there may be multiple module dependency items with different dates, we use the latest one
                             (update acc moduleId #(if (or (not %) (.isAfter ^LocalDate sourceEffectiveTime %)) sourceEffectiveTime %))) {} items)
@@ -765,7 +766,7 @@
   - :actual : actual version; may be nil
   - :valid  : is this dependency satisfied and consistent?
   Versions are represented as `java.time.LocalDate.
-  Dependencies are not transitive as per [[https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set]]."
+  Dependencies are not transitive as per https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set"
   [^Svc svc]
   (let [items (->> (refset-members svc snomed/ModuleDependencyReferenceSet)
                    (mapcat #(component-refset-items svc % snomed/ModuleDependencyReferenceSet)))]
@@ -1003,14 +1004,37 @@
 
 (defn pprint-properties
   "Pretty print properties. Keys and values can be formatted using `fmt` or
-  separately using `key-fmt` and `value-fmt`.
+  separately using `key-fmt` and `value-fmt`. `language-range` should be a
+  language range such as \"en-GB\".
+
   Valid formats are:
-    :map-id-syn : map of id to synonym
-    :vec-id-syn : vector of id and synonym
-    :str-id-syn : id and synonym as a string
-    :syn        : synonym
-    :id         : id
-  `language-range` should be a language range such as \"en-GB\"."
+
+  | format      | description                  |
+  |-------------|------------------------------|
+  | :map-id-syn | map of id to synonym         |
+  | :vec-id-syn | vector of id and synonym     |
+  | :str-id-syn | id and synonym as a string   |
+  | :syn        | synonym                      |
+  | :id         | id                           |
+
+  For example,
+
+  ```
+  (pprint-properties svc (properties svc 1231295007) {:fmt :vec-id-syn})
+  =>
+  {0 {[116680003 \"Is a\"] [[779653004 \"Lamotrigine only product in oral dose form\"]],
+      [411116001 \"Has manufactured dose form\"] [385060002 \"Prolonged-release oral tablet\"],
+      [763032000 \"Has unit of presentation\"] [732936001 \"Tablet\"],
+      [766939001 \"Plays role\"] [[773862006 \"Anticonvulsant therapeutic role\"]],
+      [1142139005 \"Count of base of active ingredient\"] \"#1\"},
+   1 {[732943007 \"Has BoSS\"] [387562000 \"Lamotrigine\"],
+      [732945000 \"Has presentation strength numerator unit\"] [258684004 \"mg\"],
+      [732947008 \"Has presentation strength denominator unit\"] [732936001 \"Tablet\"],
+      [762949000 \"Has precise active ingredient\"] [387562000 \"Lamotrigine\"],
+      [1142135004 \"Has presentation strength numerator value\"] \"#250\",
+      [1142136003 \"Has presentation strength denominator value\"] \"#1\"}}
+  ```
+  "
   [svc props {:keys [key-fmt value-fmt fmt language-range]}]
   (let [lang-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault))))
         ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
