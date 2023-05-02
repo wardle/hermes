@@ -5,7 +5,7 @@
 [![CircleCI](https://circleci.com/gh/wardle/hermes.svg?style=shield)](https://circleci.com/gh/wardle/hermes)
 <br/>
 [![DOI](https://zenodo.org/badge/293230222.svg)](https://zenodo.org/badge/latestdoi/293230222)
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/wardle/hermes)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/wardle/hermes)](https://github.com/wardle/hermes/releases/latest)
 [![Clojars Project](https://img.shields.io/clojars/v/com.eldrix/hermes.svg)](https://clojars.org/com.eldrix/hermes)
 [![cljdoc badge](https://cljdoc.org/badge/com.eldrix/hermes)](https://cljdoc.org/d/com.eldrix/hermes)
 
