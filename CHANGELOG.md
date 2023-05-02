@@ -2,10 +2,18 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Make `mrcm-domains` public in library API
+* Add `/v1/snomed/mrcm-domains` to HTTP API
+* More uniform error reporting when parsing SNOMED ECL
+* More comprehensive unit testing for SNOMED ECL
+* Update instructions for use under different architectures and operating systems
+
 ## [1.2.1150]
 
 * HTTP 404 for concept/properties if concept not found, rather than HTTP 200 response with empty data
-* Upgrade to latest version of trud (fixing automatic downloads stalling when used without progress printing)
+* Upgrade to latest version of [trud](https://github.com/wardle/trud) (fixing automatic downloads stalling when used without progress printing)
 
 ## [1.2.1142] - 2023-04-18
 
