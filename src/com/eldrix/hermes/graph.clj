@@ -1,4 +1,4 @@
-(ns com.eldrix.hermes.graph
+(ns ^:no-doc com.eldrix.hermes.graph
   "Provides a graph API around SNOMED CT structures.
   To use this namespace, you will need to ensure you 'require' the pathom3
   library. Add the following to your deps.edn file:
