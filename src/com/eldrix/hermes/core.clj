@@ -212,7 +212,7 @@
    (store/component-refset-items (.-store svc) component-id refset-id)))
 
 (defn ^:deprecated get-reference-sets
-  "DEPRECATED: use [[get-component-refset-items]] instead."
+  "DEPRECATED: use [[component-refset-items]] instead."
   [^Svc svc component-id]
   (component-refset-items svc component-id))
 
