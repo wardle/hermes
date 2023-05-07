@@ -350,7 +350,7 @@
 
 (defn member-field
   "Returns a set of referenced component identifiers that are members of the
-  given reference set with a matching 'value' for the 'field' specified.
+  given reference set with a matching value 's' for the 'field' specified.
   For example, to perform a reverse map from ICD-10:
   ```
   (member-field svc 447562003 \"mapTarget\" \"G35\")
@@ -362,7 +362,7 @@
 
 (defn member-field-prefix
   "Return a set of referenced component identifiers that are members of the
-  given reference set with a matching prefix 'value' for the 'field' specified.
+  given reference set with a matching 'prefix' for the 'field' specified.
   Example:
   ```
       (member-field-prefix svc 447562003 \"mapTarget\" \"G3\")
@@ -680,9 +680,9 @@
 
   Callers will usually need to map any source concept identifiers into their
   modern active replacements, if they are now inactive, as inactive source
-  concepts do not have relationships that can be used to perform map-into.
+  concepts do not have relationships that can be used to perform `map-into`.
 
-  The use of 'map-into' is in reducing the granularity of user-entered
+  The use of `map-into` is in reducing the granularity of user-entered
   data to aid analytics. For example, rather than limiting data entry to the UK
   emergency reference set, a set of commonly seen diagnoses in emergency
   departments in the UK, we can allow clinicians to enter highly specific,
@@ -774,12 +774,14 @@
 (s/fdef module-dependencies
   :args (s/cat :svc ::svc))
 (defn module-dependencies
-  "Returns a sequence of module dependencies, containing:
-  - :source : source of the dependency (a map of :moduleId, :version)
-  - :target : target on which the source depends (a map of :moduleId, :version)
-  - :actual : actual version; may be nil
-  - :valid  : is this dependency satisfied and consistent?
-  Versions are represented as `java.time.LocalDate.
+  "Returns a sequence of module dependencies, each item a map containing:
+
+  - `:source` : source of the dependency (a map of :moduleId, :version)
+  - `:target` : target on which the source depends (a map of :moduleId, :version)
+  - `:actual` : actual version; may be nil
+  - `:valid`  : is this dependency satisfied and consistent?
+
+  Versions are represented as `java.time.LocalDate`.
   Dependencies are not transitive as per https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set"
   [^Svc svc]
   (let [items (->> (refset-members svc snomed/ModuleDependencyReferenceSet)
