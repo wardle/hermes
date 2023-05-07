@@ -114,7 +114,14 @@
 (defn extended-concept
   "Return an extended concept that includes the concept, its descriptions,
   its relationships and its refset memberships. See
-  [[com.eldrix.hermes.snomed/ExtendedConcept]]"
+  `com.eldrix.hermes.snomed/ExtendedConcept`:
+
+  - `:concept`             : the concept
+  - `:descriptions`        : a sequence of `Description` items
+  - `:parentRelationships` : a map of relationship type to a set of concept ids
+  - `:directParentRelationships` : as per :parentRelationships but only proximal
+  - `:concreteValues`      : a sequence of `ConcreteValue` items
+  - `:refsets`             : a set of reference set ids to which concept a member"
   [^Svc svc concept-id]
   (store/extended-concept (.-store svc) concept-id))
 
@@ -443,9 +450,10 @@
   preferred synonyms of a number of concepts are required (e.g. in a map/reduce etc)
 
   Parameters:
-  - svc            : hermes service
-  - concept-id     : concept identifier
-  - language-range : a single string containing a list of comma-separated
+
+  - `svc`            : hermes service
+  - `concept-id`     : concept identifier
+  - `language-range` : a single string containing a list of comma-separated
                      language ranges or a list of language ranges in the form of
                      the \"Accept-Language \" header defined in RFC3066."
   ([^Svc svc concept-id]
@@ -658,9 +666,10 @@
   The latter two will be expanded into a set of identifiers.
 
   Parameters:
-  - svc                : hermes service
-  - source-concept-ids : a collection of concept identifiers
-  - target             : one of:
+
+  - `svc`                : hermes service
+  - `source-concept-ids` : a collection of concept identifiers
+  - `target`             : one of:
                            - a collection of concept identifiers
                            - an ECL expression
                            - a refset identifier
@@ -738,13 +747,15 @@
   :args (s/cat :items (s/coll-of :info.snomed/ModuleDependencyRefset)))
 (defn module-dependencies*
   "Given a collection of module dependency reference set items, return
-  transformed as :source, :target, :actual and :valid representing module
-  dependencies. Returns a sequence of:
-  - :source : source of the dependency (a map of :moduleId, :version)
-  - :target : target on which the source depends (a map of :moduleId, :version)
-  - :actual : actual version; may be nil
-  - :valid  : is this dependency satisfied and consistent?
-  Versions are represented as `java.time.LocalDate.
+  transformed as `:source`, `:target`, `:actual` and `:valid` representing
+  module dependencies. Returns a sequence of:
+
+  - `:source` : source of the dependency (a map of :moduleId, :version)
+  - `:target` : target on which the source depends (a map of :moduleId, :version)
+  - `:actual` : actual version; may be nil
+  - `:valid`  : is this dependency satisfied and consistent?
+
+  Versions are represented as `java.time.LocalDate`.
   Dependencies are not transitive as per https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set"
   [items]
   (let [installed (reduce (fn [acc {:keys [moduleId sourceEffectiveTime]}] ;; as there may be multiple module dependency items with different dates, we use the latest one
@@ -993,11 +1004,11 @@
       762949000 387562000, 1142135004 \"#250\", 1142136003 \"#1\"}}
   ```
   See https://confluence.ihtsdotools.org/display/DOCRELFMT/4.2.3+Relationship+File+Specification
-    \"The relationshipGroup field is used to group relationships with the same
-    sourceId field into one or more logical sets. A relationship with a
-    relationshipGroup field value of '0' is considered not to be grouped. All
-    relationships with the same sourceId and non-zero relationshipGroup are
-    considered to be logically grouped.\""
+  >  \"The relationshipGroup field is used to group relationships with the same
+  >  sourceId field into one or more logical sets. A relationship with a
+  >  relationshipGroup field value of '0' is considered not to be grouped. All
+  >  relationships with the same sourceId and non-zero relationshipGroup are
+  >  considered to be logically grouped.\""
   ([^Svc svc concept-id] (properties svc concept-id nil))
   ([^Svc svc concept-id {:keys [expand]}]
    (reduce-kv (fn [acc group-id props]
@@ -1165,6 +1176,7 @@
   the database directory `root` specified.
 
   Import is performed in three phases for each directory:
+
     1. import of core components and essential metadata, and
     2. interim indexing
     3. import of non-core and extension files.
@@ -1222,6 +1234,19 @@
 
 
 (defn status*
+  "Return status information for the given service. Returns a map containing:
+
+  - `:releases`          : a sequence of strings for installed distributions
+  - `:locales`           : installed/supported locales
+  - `:components`        : a map of component counts and indices
+  - `:modules`           : a map of module id to term, for installed modules
+  - `:installed-refsets` : a map of reference set id to term
+
+  What is returned is configurable using options:
+
+  - `:counts?`            : whether to include counts of components
+  - `:modules?`           : whether to include installed modules
+  - `:installed-refsets?` : whether to include installed reference sets"
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
   (merge
     {:releases
@@ -1245,7 +1270,9 @@
                             (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))
 
 (defn status
-  "Return status information for the database at 'root'."
+  "Return status information for the database at 'root' where `root` is
+  something coercible to `java.io.File`. This is a convenience wrapper for
+  [[status*]] that opens and closes the service for you."
   ([root] (status root nil))
   ([root {:keys [log?] :as opts}]
    (with-open [^Svc svc (open root {:quiet true})]
@@ -1253,7 +1280,7 @@
      (status* svc opts))))
 
 (defn ^:deprecated get-status
-  "Backwards-compatible status report. Use `status` instead. This flattens the
+  "Backwards-compatible status report. Use [[status]] instead. This flattens the
   component counts at the top-level to mimic legacy deprecated behaviour."
   [root & {:keys [counts? installed-refsets? modules? log?]
            :or   {counts? false installed-refsets? true modules? false log? true}}]
