@@ -8,7 +8,8 @@
                                      ComplexMapRefsetItem ExtendedMapRefsetItem
                                      AttributeValueRefsetItem OWLExpressionRefsetItem
                                      AssociationRefsetItem ModuleDependencyRefsetItem
-                                     MRCMAttributeDomainRefsetItem MRCMAttributeRangeRefsetItem MRCMDomainRefsetItem MRCMModuleScopeRefsetItem)
+                                     MRCMAttributeDomainRefsetItem MRCMAttributeRangeRefsetItem
+                                     MRCMDomainRefsetItem MRCMModuleScopeRefsetItem)
            (java.time LocalDate)
            (io.netty.buffer ByteBuf ByteBufUtil)
            (java.util UUID)
