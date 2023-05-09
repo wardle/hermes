@@ -114,8 +114,11 @@
     (cond
       (= 401 status)
       (log/error "invalid credentials. check username and password")
+      (= 500 status) ;; unfortunately, if the user is not authorised, the MLDS server returns 500 with JSON data
+      (let [body' (json/read-str (slurp body))]
+        (throw (ex-info (str "Unable to download: " (get body' "message")) {:url url :status status :body body'})))
       (or (not= 200 status) error)
-      (throw (ex-info "Unable to download" {:url url :status status :error error :body body}))
+      (throw (ex-info "Unable to download" {:url url :status status :error error :body (slurp body)}))
       :else (do (io/copy body (.toFile target)) target))))
 
 (defn download-from-mlds
