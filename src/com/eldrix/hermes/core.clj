@@ -779,7 +779,6 @@
   [^Svc svc source-concept-ids target]
   (map-into svc source-concept-ids target))
 
-
 (s/fdef module-dependencies*
   :args (s/cat :items (s/coll-of :info.snomed/ModuleDependencyRefset)))
 (defn module-dependencies*
