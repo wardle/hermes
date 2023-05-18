@@ -22,7 +22,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.lmdb :as kv]
             [com.eldrix.hermes.snomed :as snomed])
-  (:import (com.eldrix.hermes.snomed Concept ExtendedConcept SimpleRefsetItem)
+  (:import (com.eldrix.hermes.snomed Concept Description ExtendedConcept SimpleRefsetItem)
            (java.io Closeable)))
 
 (s/def ::store any?)
@@ -321,7 +321,7 @@
    900000000000509007: US English language reference set
    999001261000000100: UK English (clinical) language reference set
   ```"
-  [store concept-id description-type-id language-refset-id]
+  ^Description [store concept-id description-type-id language-refset-id]
   (let [descriptions (->> (kv/concept-descriptions store concept-id)
                           (filter #(and (:active %) (= description-type-id (:typeId %)))))
         item (->> (mapcat #(kv/component-refset-items store (:id %) language-refset-id) descriptions)
