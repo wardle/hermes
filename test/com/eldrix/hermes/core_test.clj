@@ -77,6 +77,15 @@
   (is (= 5 (count (map :conceptId (hermes/search *svc* {:s "multiple sclerosis" :max-hits 5})))))
   (is (thrown? Exception (hermes/search *svc* {:s "huntington" :max-hits "abc"}))))
 
+(deftest ^:live test-search-concept-ids
+  (let [results (vec (hermes/search-concept-ids *svc* {:language-range "en-US"} [24700007 37340000 80146002]))]
+    (is (= 24700007 (get-in results [0 :conceptId])))
+    (is (= "Multiple sclerosis" (get-in results [0 :term])))
+    (is (= 37340000 (get-in results [1 :conceptId])))
+    (is (= "Motor neuron disease" (get-in results [1 :term])))
+    (is (= 80146002 (get-in results [2 :conceptId])))
+    (is (= "Appendectomy" (get-in results [2 :term])))))
+
 (deftest ^:live test-with-historical
   (is (:active (hermes/concept *svc* 24700007)))
   (is (not (:active (hermes/concept *svc* 586591000000100))))

@@ -554,6 +554,43 @@
     (search/do-search (.-searcher svc) (assoc params :query (ecl/parse svc constraint)))
     (search/do-search (.-searcher svc) params)))
 
+(defn- concept-id->result
+  [^Svc svc concept-id language-refset-ids]
+  (when-let [ps (preferred-synonym* svc concept-id language-refset-ids)]
+    (snomed/->Result (.-id ps) concept-id (.-term ps) (.-term ps))))
+
+(s/def ::language-range string?)
+(s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
+(s/fdef search-concept-ids
+  :args (s/cat :svc ::svc :options (s/keys :opt-un [::language-range ::language-refset-ids]) :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+(defn search-concept-ids
+  "Return search results containing the preferred descriptions of the concepts
+  specified. Returns a transducer if no concept ids are specified. If a
+  preferred description cannot be found for the locale specified, `nil` will be
+  returned in the results.
+
+  Parameters:
+  |- svc            : service
+  |- options        : a map
+  |  |- :language-refset-ids
+  |  |      A collection of reference set ids for the preferred language(s).
+  |- |- :language-range
+  |  |      A single string containing a list of comma-separated language ranges
+  |  |      or a list of language ranges in the form of the \"Accept-Language\"
+  |  |      header as per RFC3066
+  |- concept-ids    : a collection of concept identifiers.
+
+  The system default locale will be used if both `language-range` and
+  `language-refset-ids` are omitted."
+  ([^Svc svc]
+   (search-concept-ids svc {}))
+  ([^Svc svc {:keys [language-refset-ids language-range]}]
+   (let [refset-ids (or language-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault)))))]
+     (map #(concept-id->result svc % refset-ids))))
+  ([^Svc svc {:keys [language-refset-ids language-range ]} concept-ids]
+   (let [refset-ids (or language-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault)))))]
+     (map #(concept-id->result svc % refset-ids) concept-ids))))
+
 (s/fdef expand-ecl
   :args (s/cat :svc ::svc :ecl ::non-blank-string :max-hits (s/? int?))
   :ret (s/coll-of ::result))
