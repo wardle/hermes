@@ -2,13 +2,13 @@
 
 This log documents significant changes for each release.
 
-## Not yet released (in development)
+## [1.2.1190] - 2023-05-18
 
 * Add `search-concept-ids` to facilitate pre-populating search results in pick lists
 * When streaming concepts from store, abort if channel is closed rather than continuing to send to a closed channel
 * Better reporting of errors when installing directly from MLDS
 
-## [1.2.1164] - 2023-05-02
+## [1.2.1172] - 2023-05-02
 
 * Make `mrcm-domains` public in library API
 * Add `/v1/snomed/mrcm-domains` to HTTP API
