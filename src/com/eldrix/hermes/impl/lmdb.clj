@@ -359,9 +359,9 @@
                cursor (.openCursor ^Dbi dbi txn)]
      (loop [continue? (.first cursor)]
        (if continue?
-         (do (a/>!! ch (read-fn (.val cursor)))
-             (.resetReaderIndex ^ByteBuf (.val cursor))     ;; reset position in value otherwise .next will throw an exception on second item
-             (recur (.next cursor)))
+         (when (a/>!! ch (read-fn (.val cursor)))  ;; >!! will return true unless channel closed
+           (.resetReaderIndex ^ByteBuf (.val cursor))       ;; reset position in value otherwise .next will throw an exception on second item
+           (recur (.next cursor)))
          (when close? (a/close! ch)))))))
 
 (defn get-object [^Env env ^Dbi dbi ^long id read-fn]
