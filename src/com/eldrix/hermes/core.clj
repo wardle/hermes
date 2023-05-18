@@ -1021,6 +1021,10 @@
                               (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
                               (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
+(s/def ::expand boolean?)
+(s/fdef properties
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
+               :opts (s/? (s/nilable (s/keys :opt-un [::expand])))))
 (defn properties
   "Returns a concept's properties, including concrete values. Ungrouped
   properties are returned under key '0', with other groups returned with
