@@ -156,6 +156,19 @@
   ([^Svc svc ch close?]
    (store/stream-all-concepts (.-store svc) ch close?)))
 
+(defn- get-n-concept-ids
+  "Returns 'n' concept identifiers.
+  e.g.,
+  ```
+    (take 50 (shuffle (get-n-concept-ids svc 50000)))
+  ```"
+  [svc n]
+  (let [ch (a/chan 1 (comp (map :id) (partition-all n)))]
+    (a/thread (stream-all-concepts svc ch))
+    (let [results (a/<!! ch)]
+      (a/close! ch)
+      results)))
+
 (s/fdef all-parents
   :args (s/cat :svc ::svc :concept-id-or-ids (s/or :concept :info.snomed.Concept/id :concepts (s/coll-of :info.snomed.Concept/id)) :type-id (s/? :info.snomed.Concept/id)))
 (defn all-parents
