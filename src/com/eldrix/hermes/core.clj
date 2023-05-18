@@ -32,7 +32,7 @@
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
-  (:import (com.eldrix.hermes.snomed Result)
+  (:import (com.eldrix.hermes.snomed Result Description)
            (org.apache.lucene.index IndexReader)
            (org.apache.lucene.search IndexSearcher Query)
            (java.util Locale UUID)
@@ -437,7 +437,7 @@
 (defn preferred-synonym*
   "Given an ordered sequence of preferred language reference set ids, return
   the preferred synonym for the concept specified."
-  [^Svc svc concept-id language-refset-ids]
+  ^Description [^Svc svc concept-id language-refset-ids]
   (store/preferred-synonym (.-store svc) concept-id language-refset-ids))
 
 (s/fdef preferred-synonym
