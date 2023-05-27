@@ -608,15 +608,17 @@
   :args (s/cat :svc ::svc :ecl ::non-blank-string :max-hits (s/? int?))
   :ret (s/coll-of ::result))
 (defn expand-ecl
-  "Expand an ECL expression."
+  "Expand an ECL expression. This is a low-level operation returning a collection
+  of result items. Results are ordered iff max-hits is specified.
+  Also see [[expand-ecl*]]."
   ([^Svc svc ecl]
    (let [q1 (ecl/parse svc ecl)
-         q2 (search/q-not q1 (search/q-fsn))]
-     (search/do-query-for-results (.-searcher svc) q2)))
+         q2 (search/q-synonym)]
+     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]))))
   ([^Svc svc ecl max-hits]
    (let [q1 (ecl/parse svc ecl)
-         q2 (search/q-not q1 (search/q-fsn))]
-     (search/do-query-for-results (.-searcher svc) q2 max-hits))))
+         q2 (search/q-synonym)]
+     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) max-hits))))
 
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
