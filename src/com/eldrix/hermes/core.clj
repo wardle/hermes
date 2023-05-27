@@ -620,6 +620,20 @@
          q2 (search/q-synonym)]
      (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) max-hits))))
 
+(s/fdef expand-ecl*
+  :args (s/cat :svc ::svc :ecl ::non-blank-string :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :ret (s/coll-of ::result))
+(defn expand-ecl*
+  "Expand an ECL expression returning only preferred descriptions for the language reference set(s) specified.
+  Use [[match-locale]] to determine a set of language reference set ids for a given 'Accept-Language' language range
+  as defined in RFC3066, or manually specify language reference set ids if required.
+  Also see [[expand-ecl]]."
+  [^Svc svc ecl language-refset-ids]
+  (let [q1 (ecl/parse svc ecl)
+        q2 (search/q-synonym)
+        q3 (search/q-acceptabilityAny :preferred-in language-refset-ids)]
+    (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]))))
+
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
 (defn intersect-ecl
