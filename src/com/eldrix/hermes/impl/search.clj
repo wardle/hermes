@@ -241,6 +241,10 @@
   []
   (LongPoint/newExactQuery "type-id" snomed/FullySpecifiedName))
 
+(defn q-synonym
+  []
+  (LongPoint/newExactQuery "type-id" snomed/Synonym))
+
 (defn q-concept-active
   [active?]
   (TermQuery. (Term. "concept-active" (str active?))))
