@@ -994,14 +994,14 @@
 ;; Metadata concepts
 (def Primitive 900000000000074008)                          ;; Not sufficiently defined by necessary conditions definition status (core metadata concept
 (def Defined 900000000000073002)                            ;; Sufficiently defined by necessary conditions definition status (core metadata concept)
-(def FullySpecifiedName 900000000000003001)
-(def Synonym 900000000000013009)
-(def Definition 900000000000550004)
-(def Preferred 900000000000548007)
-(def Acceptable 900000000000549004)
-(def OnlyInitialCharacterCaseInsensitive 900000000000020002)
-(def EntireTermCaseSensitive 900000000000017005)
-(def EntireTermCaseInsensitive 900000000000448009)
+(def FullySpecifiedName 900000000000003001)                 ;; description type
+(def Synonym 900000000000013009)                            ;; description type
+(def Definition 900000000000550004)                         ;; description type
+(def Preferred 900000000000548007)                          ;; acceptability
+(def Acceptable 900000000000549004)                         ;; acceptability
+(def OnlyInitialCharacterCaseInsensitive 900000000000020002) ;; case sensitivity
+(def EntireTermCaseSensitive 900000000000017005)            ;; case sensitivity
+(def EntireTermCaseInsensitive 900000000000448009)          ;; case sensitivity
 
 ;; Top level concepts
 (def BodyStructure 123037004)
