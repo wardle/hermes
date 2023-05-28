@@ -173,7 +173,7 @@
 
 (deftest ^:live test-refinement-with-wildcard-value
   (let [ch (a/chan)]
-    (a/go (a/>!! ch (hermes/expand-ecl *svc* "<24700007: 370135005 =*")))
+    (a/thread (a/>!! ch (hermes/expand-ecl *svc* "<24700007: 370135005 =*")))
     (let [[v c] (a/alts!! [ch (a/timeout 200)])]
       (is (= c ch) "Timeout during expansion of ECL containing a refinement with a wildcard value")
       (let [results (->> v (map :conceptId) distinct
