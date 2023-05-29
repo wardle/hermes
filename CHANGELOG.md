@@ -2,11 +2,13 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1204] - 2023-05-29
 
-* Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result (and add `expandEclPreferred` for Java API clients)
+* Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result 
+(and add `expandEclPreferred` for Java API clients)
 * Merge Java API wrapper ('hermes-api') into the main source repository
-* Add build steps to compile Java source code as part of 'prep-lib' and build of jar/uberjar artefacts.
+* Add build steps to compile Java source code as part of 'prep-lib' and build of jar/uberjar artefacts thus
+deprecating code in https://github.com/wardle/hermes-api. That repository will now be archived.
 
 
 ## [1.2.1190] - 2023-05-18
