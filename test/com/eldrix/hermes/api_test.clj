@@ -24,7 +24,17 @@
   (is (= #{24700007} (set (map :conceptId (.expandEcl *hermes* "24700007" false)))))
   (is (seq (.intersectEcl *hermes* [24700007] "<<24700007")))
   (is (empty? (.intersectEcl *hermes* [24700007] "<24700007")))
-  (is (.isValidEcl *hermes* "<24700007")))
+  (is (.isValidEcl *hermes* "<24700007"))
+  (let [en-gb (map :term (.expandEclPreferred *hermes* "<<24700007" "en-GB"))
+        expected-gb #{"Paediatric multiple sclerosis"}
+        en-us (map :term (.expandEclPreferred *hermes* "<<24700007" "en-US"))
+        expected-us #{"Pediatric multiple sclerosis"}]
+    (is (some expected-gb en-gb))
+    (is (some expected-us en-us))
+    (is (not (some expected-gb en-us)))
+    (is (not (some expected-us en-gb)))))
+
+
 
 (deftest ^:live concrete-values
   (is (= #{"#62.5" "#1" "#250" "#2"} (set (map #(.value %) (.concreteValues (.extendedConcept *hermes* 1197141004)))))
