@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result (and add `expandEclPreferred` for Java API clients)
+* Merge Java API wrapper ('hermes-api') into the main source repository
+* Add build steps to compile Java source code as part of 'prep-lib' and build of jar/uberjar artefacts.
+
+
 ## [1.2.1190] - 2023-05-18
 
 * Add `search-concept-ids` to facilitate pre-populating search results in pick lists
