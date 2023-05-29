@@ -233,16 +233,25 @@
   {:name  ::get-expand
    :enter (fn [{::keys [svc] :as ctx}]
             (let [ecl (get-in ctx [:request :params :ecl])
+                  preferred? (parse-flag (get-in ctx [:request :params :preferred]))
+                  dialect-id (some-> (get-in ctx [:request :params :dialectId]) parse-long vector)
                   include-historic? (or (parse-flag (get-in ctx [:request :params :includeHistoric]))
                                         (parse-flag (get-in ctx [:request :params :include-historic])))] ; avoid breaking change - support legacy parameter
-              (if (str/blank? ecl)
-                (assoc ctx :response {:status 400 :body {:error (str "missing parameter: ecl")}})
-                (assoc ctx :result (if include-historic?
-                                     (hermes/expand-ecl-historic svc ecl)
-                                     (hermes/expand-ecl svc ecl))))))})
+              (cond
+                (str/blank? ecl)
+                (assoc ctx :response {:status 400 :body {:error "missing parameter: ecl"}})
+                (and include-historic? preferred?)          ;; while possible to implement, this combination would not make sense
+                (assoc ctx :response {:status 400 :body {:error "invalid parameters: nonsensical use of both 'includeHistoric' and 'preferred'"}})
+                include-historic?
+                (assoc ctx :result (hermes/expand-ecl-historic svc ecl))
+                preferred?
+                (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault))))))]
+                  (assoc ctx :result (hermes/expand-ecl* svc ecl refset-ids)))
+                :else
+                (assoc ctx :result (hermes/expand-ecl svc ecl)))))})
 
 (def get-mrcm-domains
-  {:name ::get-mrcm-domains
+  {:name  ::get-mrcm-domains
    :enter (fn [{svc ::svc :as ctx}]
             (assoc ctx :result (hermes/mrcm-domains svc)))})
 
