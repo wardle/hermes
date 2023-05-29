@@ -114,6 +114,10 @@ To release the uberjar to GitHub, if you have the right credentials:
 clojure -T:build release
 ```
 
+For this to work you need to set an environment variable named GITHUB_TOKEN 
+with your personal access token. You can create the token on github.com under 
+your profile: Settings -> Developer settings -> Personal access tokens.
+
 #### Building library jar
 
 A library jar contains only `hermes`-code, and none of the bundled dependencies.
@@ -134,4 +138,7 @@ To deploy the library jar to clojars, if you have the right credentials
 clojure -T:build deploy
 ```
 
+For this to work, you need to set the environment variables CLOJARS_USERNAME and
+CLOJARS_PASSWORD. These can be downloaded from www.clojars.org on the "Deploy Tokens"
+page after logging in.
 
