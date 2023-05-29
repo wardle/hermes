@@ -1,115 +1,122 @@
-{:paths   ["src" "resources"]
+{:paths
+ ["src/clj" "resources" "target/classes"]
 
- :deps    {org.clojure/clojure                      {:mvn/version "1.11.1"}
-           org.clojure/core.async                   {:mvn/version "1.6.673"}
-           org.clojure/core.match                   {:mvn/version "1.0.1"}
-           org.clojure/data.xml                     {:mvn/version "0.2.0-alpha8"}
-           org.clojure/data.zip                     {:mvn/version "1.0.0"}
-           org.clojure/tools.logging                {:mvn/version "1.2.4"}
-           com.eldrix/hermes-api                    {:mvn/version "1.0.25"}
-           com.eldrix/trud                          {:mvn/version "1.0.103"}
-           hato/hato                                {:mvn/version "0.9.0"}
-           instaparse/instaparse                    {:mvn/version "1.4.12"}
-           io.netty/netty-buffer                    {:mvn/version "4.1.92.Final"}
-           org.apache.lucene/lucene-core            {:mvn/version "9.5.0"}
-           org.apache.lucene/lucene-queries         {:mvn/version "9.5.0"}
-           org.apache.lucene/lucene-backward-codecs {:mvn/version "9.5.0"}
-           org.lmdbjava/lmdbjava                    {:mvn/version "0.8.3"}}
+ :deps/prep-lib
+ {:alias  :build
+  :fn     compile-java
+  :ensure "target/classes"}
 
- :aliases {:build
-           {:deps       {io.github.clojure/tools.build          {:mvn/version "0.9.4"}
-                         slipset/deps-deploy                    {:mvn/version "0.2.1"}
-                         io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
-            :ns-default build}
+ :deps
+ {org.clojure/clojure                      {:mvn/version "1.11.1"}
+  org.clojure/core.async                   {:mvn/version "1.6.673"}
+  org.clojure/core.match                   {:mvn/version "1.0.1"}
+  org.clojure/data.xml                     {:mvn/version "0.2.0-alpha8"}
+  org.clojure/data.zip                     {:mvn/version "1.0.0"}
+  org.clojure/tools.logging                {:mvn/version "1.2.4"}
+  com.eldrix/trud                          {:mvn/version "1.0.104"}
+  hato/hato                                {:mvn/version "0.9.0"}
+  instaparse/instaparse                    {:mvn/version "1.4.12"}
+  io.netty/netty-buffer                    {:mvn/version "4.1.93.Final"}
+  org.apache.lucene/lucene-core            {:mvn/version "9.6.0"}
+  org.apache.lucene/lucene-queries         {:mvn/version "9.6.0"}
+  org.apache.lucene/lucene-backward-codecs {:mvn/version "9.6.0"}
+  org.lmdbjava/lmdbjava                    {:mvn/version "0.8.3"}}
 
-           :run
-           {:extra-paths ["cmd"]
-            :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.214"}
-                          org.clojure/data.json          {:mvn/version "2.4.0"}
-                          expound/expound                {:mvn/version "0.9.0"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
-                          io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
-                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
-            :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
+ :aliases
+ {:build
+  {:deps       {io.github.clojure/tools.build          {:mvn/version "0.9.4"}
+                slipset/deps-deploy                    {:mvn/version "0.2.1"}
+                io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
+   :ns-default build}
 
-           :dev
-           {:extra-paths ["cmd" "test"]
-            :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.0.214"}
-                          io.pedestal/pedestal.service     {:mvn/version "0.5.10"}
-                          io.pedestal/pedestal.jetty       {:mvn/version "0.5.10"}
-                          org.clojure/test.check           {:mvn/version "1.1.1"}
-                          criterium/criterium              {:mvn/version "0.4.6"}
-                          com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
-                          com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
-                          io.github.nubank/morse           {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}}
+  :run
+  {:extra-paths ["cmd"]
+   :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.219"}
+                 org.clojure/data.json          {:mvn/version "2.4.0"}
+                 expound/expound                {:mvn/version "0.9.0"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
+                 io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
+                 io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
+   :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
-           :test
-           {:extra-paths ["cmd" "test" "test/resources"]
-            :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
-                          com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
-                          com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                          :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
-                          criterium/criterium            {:mvn/version "0.4.6"}
-                          io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
-                          io.pedestal/pedestal.service   {:mvn/version "0.5.10"}}
-            :main-opts   ["-m" "cognitect.test-runner"]
-            :exec-fn     cognitect.test-runner.api/test}
+  :dev
+  {:extra-paths ["cmd" "test"]
+   :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.0.219"}
+                 io.pedestal/pedestal.service     {:mvn/version "0.5.10"}
+                 io.pedestal/pedestal.jetty       {:mvn/version "0.5.10"}
+                 org.clojure/test.check           {:mvn/version "1.1.1"}
+                 criterium/criterium              {:mvn/version "0.4.6"}
+                 com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
+                 com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
+                 io.github.nubank/morse           {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}}
 
-           :test/cloverage
-           {:extra-paths ["test"]
-            :extra-deps  {cloverage/cloverage            {:mvn/version "1.2.4"}
-                          ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
-                          org.clojure/test.check         {:mvn/version "1.1.1"}}
-            :main-opts   ["-m" "cloverage.coverage" "-p" "src" "-s" "test"]
-            :exec-fn     cloverage.coverage/run-project
-            :exec-args   {:src-ns-path  ["src"]
-                          :test-ns-path ["test"]}}
+  :test
+  {:extra-paths ["cmd" "test" "test/resources"]
+   :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
+                 com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
+                 com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                 :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
+                 criterium/criterium            {:mvn/version "0.4.6"}
+                 io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
+                 io.pedestal/pedestal.service   {:mvn/version "0.5.10"}}
+   :main-opts   ["-m" "cognitect.test-runner"]
+   :exec-fn     cognitect.test-runner.api/test}
 
-           :bench
-           {:extra-paths ["cmd" "test" "test/resources"]
-            :extra-deps  {org.clojure/test.check    {:mvn/version "1.1.1"}
-                          com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                     :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                          criterium/criterium       {:mvn/version "0.4.6"}
-                          com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}}
-            :main-opts   ["-m" "cognitect.test-runner" "-r" ".*bench$"]
-            :exec-fn     cognitect.test-runner.api/test
-            :exec-args   {:patterns [".*-bench$"]}}
+  :test/cloverage
+  {:extra-paths ["test"]
+   :extra-deps  {cloverage/cloverage            {:mvn/version "1.2.4"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
+                 org.clojure/test.check         {:mvn/version "1.1.1"}}
+   :main-opts   ["-m" "cloverage.coverage" "-p" "src/clj" "-s" "test"]
+   :exec-fn     cloverage.coverage/run-project
+   :exec-args   {:src-ns-path  ["src/clj"]
+                 :test-ns-path ["test"]}}
 
-           :outdated
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.4.1070"}}
-            :main-opts  ["-m" "antq.core"]}
+  :bench
+  {:extra-paths ["cmd" "test" "test/resources"]
+   :extra-deps  {org.clojure/test.check    {:mvn/version "1.1.1"}
+                 com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                            :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
+                 criterium/criterium       {:mvn/version "0.4.6"}
+                 com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}}
+   :main-opts   ["-m" "cognitect.test-runner" "-r" ".*bench$"]
+   :exec-fn     cognitect.test-runner.api/test
+   :exec-args   {:patterns [".*-bench$"]}}
 
-           :upgrade
-           {:extra-deps {com.github.liquidz/antq {:mvn/version "2.4.1070"}}
-            :main-opts  ["-m" "antq.core" "--upgrade"]}
+  :outdated
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.4.1070"}}
+   :main-opts  ["-m" "antq.core"]}
 
-           :check
-           {:extra-deps {athos/clj-check
-                         {:git/url "https://github.com/athos/clj-check.git"
-                          :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-            :main-opts  ["-m" "clj-check.check"]}
+  :upgrade
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.4.1070"}}
+   :main-opts  ["-m" "antq.core" "--upgrade"]}
 
-           :hiera
-           {:deps      {io.github.greglook/clj-hiera {:git/tag "2.0.0", :git/sha "b14e514"}}
-            :exec-fn   hiera.main/graph
-            :exec-args {:cluster-depth 3}}
+  :check
+  {:extra-deps {athos/clj-check
+                {:git/url "https://github.com/athos/clj-check.git"
+                 :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+   :main-opts  ["-m" "clj-check.check"]}
 
-           :lint/kondo
-           {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.04.14"}}
-            :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "--lint" "cmd" "--lint" "test"]}
+  :hiera
+  {:deps      {io.github.greglook/clj-hiera {:git/tag "2.0.0", :git/sha "b14e514"}}
+   :exec-fn   hiera.main/graph
+   :exec-args {:cluster-depth 3}}
 
-           :lint/eastwood
-           {:extra-deps {jonase/eastwood {:mvn/version "1.4.0"}}
-            :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
+  :lint/kondo
+  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.05.26"}}
+   :main-opts  ["-m" "clj-kondo.main" "--lint" "src/clj" "--lint" "cmd" "--lint" "test"]}
 
-           :lint/splint
-           {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.3.2"}}
-            :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}
+  :lint/eastwood
+  {:extra-deps {jonase/eastwood {:mvn/version "1.4.0"}}
+   :main-opts  ["-m" "eastwood.lint" {:source-paths ["src/clj"]}]}
 
-           :codox
-           {:extra-deps {codox/codox {:mvn/version "0.10.8"}}
-            :exec-fn    codox.main/generate-docs
-            :exec-args  {:source-paths ["src"]
-                         :metadata     {:doc/format :markdown}}}}}
+  :lint/splint
+  {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.7.0"}}
+   :main-opts  ["-m" "noahtheduke.splint" "src/clj" "cmd" "test"]}
+
+  :codox
+  {:extra-deps {codox/codox {:mvn/version "0.10.8"}}
+   :exec-fn    codox.main/generate-docs
+   :exec-args  {:source-paths ["src/clj"]
+                :metadata     {:doc/format :markdown}}}}}

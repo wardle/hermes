@@ -397,8 +397,8 @@
 (defn extended-concept
   "Get an extended concept for the concept specified."
   [store concept-id]
-  (when-let [concept (kv/concept store concept-id)]
-           (make-extended-concept store concept)))
+  (when-let [c (kv/concept store concept-id)]
+    (make-extended-concept store c)))
 
 (defn release-information
   "Returns descriptions representing the installed distributions.
@@ -518,12 +518,12 @@
         results))))
 
 (defmulti write-batch
-  "Write a batch of SNOMED components to the store. Returns nil.
-  Parameters:
-  - store - SNOMED CT store implementation
-  - batch - a map containing :type, :headings and :data keys.
-  The implementation will be chosen via the :type of the batch."
-  (fn [_store batch] (:type batch)))
+          "Write a batch of SNOMED components to the store. Returns nil.
+          Parameters:
+          - store - SNOMED CT store implementation
+          - batch - a map containing :type, :headings and :data keys.
+          The implementation will be chosen via the :type of the batch."
+          (fn [_store batch] (:type batch)))
 (defmethod write-batch :info.snomed/Concept [store {data :data}]
   (kv/write-concepts store data))
 (defmethod write-batch :info.snomed/Description [store {data :data}]

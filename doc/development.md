@@ -55,6 +55,12 @@ The LMDB implementation was deliberately not designed to be a generic key value 
 
 ## How to build from source code
 
+### Compile Java source files
+
+```shell
+clj -T:build compile-java
+```
+
 #### Run compilation checks (optional)
 
 ```

@@ -1,10 +1,11 @@
 (ns build
+  (:refer-clojure :exclude [compile])
   (:require [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as dd]
             [borkdude.gh-release-artifact :as gh]))
 
 (def lib 'com.eldrix/hermes)
-(def version (format "1.2.%s" (b/git-count-revs nil)))
+(def version (format "1.2.%s-alpha" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def jar-basis (b/create-basis {:project "deps.edn"}))
 (def uber-basis (b/create-basis {:project "deps.edn"
@@ -20,19 +21,25 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
+(defn compile-java [_]
+  (b/javac {:src-dirs  ["src/java"]
+            :class-dir class-dir
+            :basis     jar-basis}))
+
 (defn jar [_]
   (clean nil)
   (println "Building" jar-file)
+  (compile-java nil)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
                 :version   version
                 :basis     jar-basis
-                :src-dirs  ["src"]
+                :src-dirs  ["src/clj"]
                 :scm       {:url                 "https://github.com/wardle/hermes"
                             :tag                 (str "v" version)
                             :connection          "scm:git:git://github.com/wardle/hermes.git"
                             :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}})
-  (b/copy-dir {:src-dirs   ["src" "resources"]
+  (b/copy-dir {:src-dirs   ["src/clj" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
           :jar-file  jar-file}))
@@ -68,8 +75,9 @@
                :target-dir class-dir})
   (b/copy-file {:src    "cmd/logback.xml"
                 :target (str class-dir "/logback.xml")})
+  (compile-java nil)
   (b/compile-clj {:basis        uber-basis
-                  :src-dirs     ["src" "cmd"]
+                  :src-dirs     ["src/clj" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]
                   :compile-opts {:elide-meta     [:doc :added]
                                  :direct-linking true}

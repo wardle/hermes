@@ -626,8 +626,8 @@
 (defn expand-ecl*
   "Expand an ECL expression returning only preferred descriptions for the language reference set(s) specified.
   Use [[match-locale]] to determine a set of language reference set ids for a given 'Accept-Language' language range
-  as defined in RFC3066, or manually specify language reference set ids if required.
-  Also see [[expand-ecl]]."
+  as defined in RFC3066, or manually specify language reference set ids if required. In order to return a single
+  term per concept, use a single language reference set. Also see [[expand-ecl]] and [[expand-ecl-historic]]."
   [^Svc svc ecl language-refset-ids]
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-synonym)
@@ -672,12 +672,11 @@
   "Expand an ECL expression and include historic associations of the results,
   so that the results will include now inactive/deprecated concept identifiers."
   [^Svc svc ^String ecl]
-  (let [q1 (ecl/parse svc ecl)
-        q2 (search/q-not q1 (search/q-fsn))
-        base-concept-ids (search/do-query-for-concept-ids (.-searcher svc) q2)
+  (let [base-query (search/q-and [(ecl/parse svc ecl) (search/q-synonym)])
+        base-concept-ids (search/do-query-for-concept-ids (.-searcher svc) base-query)
         historic-concept-ids (into #{} (mapcat #(source-historical svc %)) base-concept-ids)
         historic-query (search/q-concept-ids historic-concept-ids)
-        query (search/q-not (search/q-or [q1 historic-query]) (search/q-fsn))]
+        query (search/q-and [(search/q-or [base-query historic-query]) (search/q-synonym)])]
     (search/do-query-for-results (.-searcher svc) query)))
 
 (s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
