@@ -875,7 +875,7 @@ Here are some examples:
 
 **WARNING**
 
-The HTTP API returns either data formatted as JSON or EDN. Identifiers, such as concept or description identifiers, 
+The HTTP API returns data formatted as either JSON or EDN. Identifiers, such as concept or description identifiers, 
 in SNOMED CT are [64-bit positive integers](https://confluence.ihtsdotools.org/display/DOCRELFMT/6+SNOMED+CT+Identifiers).
 The JSON specification does not limit the size of numeric types, but some implementations struggle to properly manage
 very large numbers and can silently truncate numbers. Most implementations have no such difficulty; if your client
