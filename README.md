@@ -873,6 +873,18 @@ Here are some examples:
 * [/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5) - search for a term, constrained by SNOMED ECL expression
 * [/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true) - expand SNOMED ECL expression
 
+**WARNING**
+
+The HTTP API returns either data formatted as JSON or EDN. Identifiers, such as concept or description identifiers, 
+in SNOMED CT are [64-bit positive integers](https://confluence.ihtsdotools.org/display/DOCRELFMT/6+SNOMED+CT+Identifiers).
+The JSON specification does not limit the size of numeric types, but some implementations struggle to properly manage
+very large numbers and can silently truncate numbers. Most implementations have no such difficulty; if your client
+library or platform does not properly handle large numbers in JSON, there is usually a way to configure your parser
+to work correctly. For example, in JavaScript, you can use a [reviver parameter](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#using_the_reviver_parameter).
+
+Hermes could offer a per-server, or per-request configuration to stringify identifiers when output to JSON to help
+broken client implementations. If this applies to you, please join the [discussion](https://github.com/wardle/hermes/issues/50).
+
 ##### Get a single concept 
 
 ```shell
