@@ -24,7 +24,8 @@
 (defn compile-java [_]
   (b/javac {:src-dirs  ["src/java"]
             :class-dir class-dir
-            :basis     jar-basis}))
+            :basis     jar-basis
+            :javac-opts ["--release" "11"]}))
 
 (defn jar [_]
   (clean nil)
