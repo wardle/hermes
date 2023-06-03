@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Explicitly define Java 11 as the compilation target for Java source code files, as otherwise whatever is installed on build server is used.
+
 ## [1.2.1204] - 2023-05-29
 
 * Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result 
