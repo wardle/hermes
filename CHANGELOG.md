@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.2.1208] - 2023-06-03
 
 * Explicitly define Java 11 as the compilation target for Java source code files, as otherwise whatever is installed on build server is used.
 
