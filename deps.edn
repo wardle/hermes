@@ -35,15 +35,15 @@
                  org.clojure/data.json          {:mvn/version "2.4.0"}
                  expound/expound                {:mvn/version "0.9.0"}
                  ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
-                 io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
-                 io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}}
+                 io.pedestal/pedestal.service   {:mvn/version "0.6.0"}
+                 io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}}
    :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
 
   :dev
   {:extra-paths ["cmd" "test"]
    :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.0.219"}
-                 io.pedestal/pedestal.service     {:mvn/version "0.5.10"}
-                 io.pedestal/pedestal.jetty       {:mvn/version "0.5.10"}
+                 io.pedestal/pedestal.service     {:mvn/version "0.6.0"}
+                 io.pedestal/pedestal.jetty       {:mvn/version "0.6.0"}
                  org.clojure/test.check           {:mvn/version "1.1.1"}
                  criterium/criterium              {:mvn/version "0.4.6"}
                  com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
@@ -58,8 +58,8 @@
                                                  :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
                  ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
                  criterium/criterium            {:mvn/version "0.4.6"}
-                 io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
-                 io.pedestal/pedestal.service   {:mvn/version "0.5.10"}}
+                 io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}
+                 io.pedestal/pedestal.service   {:mvn/version "0.6.0"}}
    :main-opts   ["-m" "cognitect.test-runner"]
    :exec-fn     cognitect.test-runner.api/test}
 
