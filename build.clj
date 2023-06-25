@@ -21,16 +21,9 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(defn compile-java [_]
-  (b/javac {:src-dirs  ["src/java"]
-            :class-dir class-dir
-            :basis     jar-basis
-            :javac-opts ["--release" "11"]}))
-
 (defn jar [_]
   (clean nil)
   (println "Building" jar-file)
-  (compile-java nil)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
                 :version   version
@@ -76,7 +69,6 @@
                :target-dir class-dir})
   (b/copy-file {:src    "cmd/logback.xml"
                 :target (str class-dir "/logback.xml")})
-  (compile-java nil)
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src/clj" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]

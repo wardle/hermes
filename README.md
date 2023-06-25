@@ -118,7 +118,6 @@ Then clone the repository, change directory and run:
 ```shell
 git clone https://github.com/wardle/hermes
 cd hermes
-clj -T:build compile-java
 clj -M:run
 ```
 
