@@ -34,16 +34,13 @@ jobs:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
-      # Adapt to aliase you need
+      # Adapt to aliases you need
       - run: clojure -P -M:test
 
       - save_cache:
           paths:
             - ~/.m2
           key: v1-dependencies-{{ checksum "deps.edn" }}
-
-      # compile java source code
-      - run: clojure -T:build compile-java
 
       # run compilation checks
       - run: clojure -M:dev:check
