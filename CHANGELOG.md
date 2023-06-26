@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1218] - 2023-06-26
+
+* Fix build of library jar
+
 ## [1.2.1214] - 2023-06-25
 
 * Unmerge Java source files and resume using hermes-api as an internal dependency
