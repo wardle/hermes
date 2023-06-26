@@ -28,12 +28,12 @@
                 :lib       lib
                 :version   version
                 :basis     jar-basis
-                :src-dirs  ["src/clj"]
+                :src-dirs  ["src"]
                 :scm       {:url                 "https://github.com/wardle/hermes"
                             :tag                 (str "v" version)
                             :connection          "scm:git:git://github.com/wardle/hermes.git"
                             :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}})
-  (b/copy-dir {:src-dirs   ["src/clj" "resources"]
+  (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
           :jar-file  jar-file}))
@@ -70,7 +70,7 @@
   (b/copy-file {:src    "cmd/logback.xml"
                 :target (str class-dir "/logback.xml")})
   (b/compile-clj {:basis        uber-basis
-                  :src-dirs     ["src/clj" "cmd"]
+                  :src-dirs     ["src" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]
                   :compile-opts {:elide-meta     [:doc :added]
                                  :direct-linking true}
