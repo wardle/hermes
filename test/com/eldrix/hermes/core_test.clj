@@ -70,7 +70,7 @@
         all-children (hermes/all-children *svc* 24700007)
         all-descriptions (set (mapcat #(hermes/descriptions *svc* %) all-children))]
     (is (empty? (set/difference synonyms all-descriptions)))
-    (is #{"Secondary progressive multiple sclerosis"} (map :term synonyms))))
+    (is (seq (filter #{"Secondary progressive multiple sclerosis"} (map :term synonyms))))))
 
 (deftest ^:live test-search
   (is (contains? (set (map :conceptId (hermes/search *svc* {:s "MND"}))) 37340000) "Search for MND should find motor neurone disease")
