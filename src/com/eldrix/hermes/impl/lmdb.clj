@@ -544,6 +544,14 @@
                           [component-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 8)))))
 
+(defn component-in-refset?
+  "Is the component in the reference set specified?"
+  [^LmdbStore store component-id refset-id]
+  (some true? (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
+                                 [component-id refset-id 0 0]
+                                 [component-id refset-id -1 -1]
+                                 (fn [_] true))))
+
 (defn stream-all-concepts
   "Streams all concepts to the channel specified, and, by default, closes the
   channel when done, unless specified."

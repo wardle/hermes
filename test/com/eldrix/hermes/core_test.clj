@@ -86,6 +86,21 @@
     (is (= 80146002 (get-in results [2 :conceptId])))
     (is (= "Appendectomy" (get-in results [2 :term])))))
 
+(deftest ^:live test-localised-synonyms
+  (let [en-GB (hermes/match-locale *svc* "en-GB")
+        en-US (hermes/match-locale *svc* "en-US")
+        r1 (hermes/synonyms *svc* 80146002)
+        r2 (hermes/synonyms *svc* 80146002 en-GB)
+        r3 (hermes/synonyms *svc* 80146002 en-US)]
+    (is (set/subset? (set r2) (set r1)))
+    (is (set/subset? (set r3) (set r1)))
+    (is (not= r2 r3))
+    (is (seq (filter #{"Appendectomy"} (map :term r2))) "Appendectomy should be an acceptable term for en-GB locale")
+    (is (seq (filter #{"Appendicectomy"} (map :term r2))) "Appendicectomy should be a preferred term for en-GB locale")
+    (is (seq (filter #{"Appendectomy"} (map :term r3))) "Appendectomy should be a preferred term for en-US locale")))
+
+
+
 (deftest ^:live test-with-historical
   (is (:active (hermes/concept *svc* 24700007)))
   (is (not (:active (hermes/concept *svc* 586591000000100))))

@@ -35,6 +35,20 @@
     (is (= "Appendectomy" (get-in result [:>/en-US :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
     (is (= "Appendicectomy" (get-in result [:>/en-GB :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
+(deftest ^:live test-get-synonyms
+  (let [result (p.eql/process *registry*
+                              {:info.snomed.Concept/id 80146002}
+                              [{:>/en-US [{(list :info.snomed.Concept/synonyms {:accept-language "en-US"})
+                                           [:info.snomed.Description/term]}]}
+                               {:>/en-GB [{(list :info.snomed.Concept/synonyms {:accept-language "en-GB"})
+                                           [:info.snomed.Description/term]}]}])
+        en-us-synonyms (map :info.snomed.Description/term (get-in result [:>/en-US :info.snomed.Concept/synonyms]))
+        en-gb-synonyms (map :info.snomed.Description/term (get-in result [:>/en-GB :info.snomed.Concept/synonyms]))]
+    (is (seq (filter #{"Appendectomy"} en-us-synonyms)))
+    (is (seq (filter #{"Appendectomy"} en-gb-synonyms)))    ;; appendectomy is fine for US and GB
+    (is (empty? (filter #{"Appendicectomy"} en-us-synonyms))) ;; but appendicectomy is only fine for GB
+    (is (seq (filter #{"Appendicectomy"} en-gb-synonyms)))))
+
 (deftest ^:live test-concept-relationships
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 24700007}

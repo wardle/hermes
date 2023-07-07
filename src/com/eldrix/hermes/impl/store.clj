@@ -300,6 +300,27 @@
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
+(defn component-in-refsets?
+  "Is the given component a member of any of the reference sets specified?"
+  [store component-id refset-ids]
+  (when-let [refset-id (first refset-ids)]
+    (if (kv/component-in-refset? store component-id refset-id)
+      true
+      (recur store component-id (rest refset-ids)))))
+
+(s/fdef language-synonyms
+  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :ret (s/coll-of :info.snomed/Description))
+(defn language-synonyms
+  "Return synonyms for the concept that are active and present in the language
+  reference sets specified. This means that they are either preferred or
+  acceptable in those languages."
+  [store concept-id language-refset-ids]
+  (filter #(and (:active %)
+                (= snomed/Synonym (:typeId %))
+                (component-in-refsets? store (:id %) language-refset-ids))
+          (kv/concept-descriptions store concept-id)))
+
 (s/fdef preferred-description
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
   :ret (s/nilable :info.snomed/Description))

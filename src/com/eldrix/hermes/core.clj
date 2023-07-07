@@ -133,12 +133,16 @@
   (store/concept-descriptions (.-store svc) concept-id))
 
 (s/fdef synonyms
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
 (defn synonyms
-  "Returns a sequence of synonyms for the given concept."
-  [^Svc svc concept-id]
-  (->> (descriptions svc concept-id)
-       (filter #(= snomed/Synonym (:typeId %)))))
+  "Returns a sequence of synonyms for the given concept. If language-refset-ids
+  is provided, then only synonyms that are preferred or acceptable in those
+  reference sets are returned."
+  ([^Svc svc concept-id]
+   (->> (descriptions svc concept-id)
+        (filter #(= snomed/Synonym (:typeId %)))))
+  ([^Svc svc concept-id language-refset-ids]
+   (store/language-synonyms (.-store svc) concept-id language-refset-ids)))
 
 (s/fdef concrete-values
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))

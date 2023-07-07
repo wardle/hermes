@@ -129,11 +129,17 @@
   {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/descriptions svc id))})
 
 (pco/defresolver concept-synonyms
-  "Returns descriptions of type 'synonym' for a given concept"
+  "Returns descriptions of type 'synonym' for a given concept.
+  If an 'accept-language' parameter is given, that will be used to limit to
+  those that are preferred, or acceptable, in the language(s) specified."
   [{svc :com.eldrix/hermes, :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/synonyms description-properties}]}
-  {:info.snomed.Concept/synonyms (map (partial record->map "info.snomed.Description") (hermes/synonyms svc id))})
+  (let [lang-refset-ids (seq (some->> (get (pco/params env) :accept-language) (hermes/match-locale svc)))]
+    {:info.snomed.Concept/synonyms
+     (mapv (partial record->map "info.snomed.Description")
+          (if lang-refset-ids (hermes/synonyms svc id lang-refset-ids)
+                              (hermes/synonyms svc id)))}))
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
