@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.2.1244] - 2023-07-07
+
+* Add language preferences to `synonyms` in core (Clojure), graph (Pathom) and Java APIs 
+* For graph API, expect service to be under key `:com.eldrix/hermes` in environment 
+
 ## [1.2.1218] - 2023-06-26
 
 * Fix build of library jar
