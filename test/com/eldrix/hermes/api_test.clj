@@ -34,6 +34,11 @@
     (is (not (some expected-gb en-us)))
     (is (not (some expected-us en-gb)))))
 
+(deftest ^:live synonyms
+  (let [lang-refset-ids (.matchLocale *hermes* "en-US")
+        en-us (.synonyms *hermes* 80146002 lang-refset-ids)]
+    (is (some #{"Appendectomy"} en-us))
+    (is (empty? (filter #{"Appendicectomy"} en-us)))))
 
 
 (deftest ^:live concrete-values
