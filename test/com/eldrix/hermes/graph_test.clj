@@ -16,7 +16,7 @@
   (with-open [svc (hermes/open "snomed.db")]
     (binding [*registry* (-> {:com.wsscode.pathom3.error/lenient-mode? true}
                              (pci/register graph/all-resolvers)
-                             (assoc ::graph/svc svc))]
+                             (assoc :com.eldrix/hermes svc))]
       (f))))
 
 (use-fixtures :once live-test-fixture)
@@ -139,14 +139,14 @@
                                                  {:info.snomed.Concept/preferredDescription
                                                   [:info.snomed.Description/term]}]}]
         process (fn [concept-id] (p.eql/process *registry* {:info.snomed.Concept/id concept-id} query))
-        svc (::graph/svc *registry*)]
+        svc (:com.eldrix/hermes *registry*)]
     (run! (fn [{refset-id :refset-id k :key to-many? :to-many?}]
             (testing (:term (hermes/preferred-synonym svc refset-id))
               (test-historical-refset svc process refset-id k to-many?)))
           historical-tests)))
 
 (deftest ^:live test-ctv3-crossmap
-  (when (contains? (hermes/installed-reference-sets (::graph/svc *registry*)) 900000000000497000)
+  (when (contains? (hermes/installed-reference-sets (:com.eldrix/hermes *registry*)) 900000000000497000)
     (let [ms (p.eql/process *registry*
                             {:info.read/ctv3 "F20.."}
                             [:info.snomed.Concept/id
@@ -156,7 +156,7 @@
 
 (deftest ^:live test-refsets
   (testing "refset ids and items"
-    (let [svc (::graph/svc *registry*)
+    (let [svc (:com.eldrix/hermes *registry*)
           refset-items (hermes/component-refset-items svc 24700007)
           refset-ids (hermes/component-refset-ids svc 24700007)
           ms (p.eql/process *registry*
@@ -210,5 +210,5 @@
 (comment
   (def ^:dynamic *registry* (-> {:com.wsscode.pathom3.error/lenient-mode? true}
                                 (pci/register graph/all-resolvers)
-                                (assoc ::graph/svc (hermes/open "snomed.db"))))
+                                (assoc :com.eldrix/hermes (hermes/open "snomed.db"))))
   (run-tests))

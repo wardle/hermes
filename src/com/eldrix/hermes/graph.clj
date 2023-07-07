@@ -75,24 +75,24 @@
 
 (pco/defresolver concept-by-id
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output concept-properties}
   (record->map "info.snomed.Concept" (hermes/concept svc id)))
 
 (pco/defresolver description-by-id
   "Returns a description by identifier; results namespaced to
   `:info.snomed.Description/"
-  [{::keys [svc]} {:info.snomed.Description/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Description/keys [id]}]
   {::pco/output description-properties}
   (record->map "info.snomed.Description" (hermes/description svc id)))
 
 (pco/defresolver relationship-by-id
-  [{::keys [svc]} {:info.snomed.Relationship/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Relationship/keys [id]}]
   {::pco/output relationship-properties}
   (record->map "info.snomed.Relationship" (hermes/relationship svc id)))
 
 (pco/defresolver refset-item-by-id
-  [{::keys [svc]} {:info.snomed.RefsetItem/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.RefsetItem/keys [id]}]
   {::pco/output refset-item-properties}
   (record->map "info.snomed.RefsetItem" (hermes/refset-item svc id)))
 
@@ -123,14 +123,14 @@
 
 (pco/defresolver concept-descriptions
   "Return the descriptions for a given concept."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/descriptions description-properties}]}
   {:info.snomed.Concept/descriptions (map (partial record->map "info.snomed.Description") (hermes/descriptions svc id))})
 
 (pco/defresolver concept-synonyms
   "Returns descriptions of type 'synonym' for a given concept"
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes, :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/synonyms description-properties}]}
   {:info.snomed.Concept/synonyms (map (partial record->map "info.snomed.Description") (hermes/synonyms svc id))})
@@ -153,7 +153,7 @@
      '(:info.snomed.Concept/preferred-description {:accept-language \"en-GB\"})
      {:info.snomed.Concept/descriptions
       [:info.snomed.Description/active :info.snomed.Description/term]}])"
-  [{::keys [svc] :as env} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/preferredDescription
                   description-properties}]}
@@ -161,7 +161,7 @@
     {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/preferred-synonym svc id lang))}))
 
 (pco/defresolver fully-specified-name
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/fullySpecifiedName description-properties}]}
   {:info.snomed.Concept/fullySpecifiedName (record->map "info.snomed.Description" (hermes/fully-specified-name svc id))})
 
@@ -186,14 +186,14 @@
 
 (pco/defresolver concept-refset-ids
   "Returns a concept's reference set identifiers."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [:info.snomed.Concept/refsetIds]}
   {:info.snomed.Concept/refsetIds (set (hermes/component-refset-ids svc id))})
 
 (pco/defresolver concept-refset-items
   "Returns the refset items for a concept."
-  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
+  [{svc :com.eldrix/hermes :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [{:info.snomed.Concept/refsetItems refset-item-properties}]}
   {:info.snomed.Concept/refsetItems (map #(record->map "info.snomed.RefsetItem" %)
                                          (if-let [refset-id (:refsetId (pco/params env))]
@@ -272,7 +272,7 @@
   {:info.snomed.RefsetItem/value {:info.snomed.Concept/id valueId}})
 
 (pco/defresolver concept-historical-associations
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/historicalAssociations
                   [{:info.snomed.Concept/id [:info.snomed.Concept/id]}]}]}
   {:info.snomed.Concept/historicalAssociations
@@ -283,7 +283,7 @@
 
 (pco/defresolver concept-replaced-by
   "Returns the single concept that this concept has been replaced by."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/replacedBy [:info.snomed.Concept/id]}]}
   (let [replaced-by (->> (hermes/component-refset-items svc id snomed/ReplacedByReferenceSet)
                          (filter :active)
@@ -294,14 +294,14 @@
 
 (pco/defresolver concept-moved-to-namespace
   "Returns the namespace to which this concept moved."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/movedToNamespace [:info.snomed.Concept/id]}]}
   (let [replacement (first (filter :active (hermes/component-refset-items svc id snomed/MovedToReferenceSet)))]
     {:info.snomed.Concept/movedToNamespace (when replacement {:info.snomed.Concept/id (:targetComponentId replacement)})}))
 
 (pco/defresolver concept-same-as
   "Returns multiple concepts that this concept is now thought to the same as."
-  [{::keys [svc]} {concept-id :info.snomed.Concept/id}]
+  [{svc :com.eldrix/hermes} {concept-id :info.snomed.Concept/id}]
   {::pco/input  [:info.snomed.Concept/id]
    ::pco/output [{:info.snomed.Concept/sameAs [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/sameAs
@@ -312,7 +312,7 @@
 
 (pco/defresolver concept-possibly-equivalent
   "Returns multiple concepts to which this concept might be possibly equivalent."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/possiblyEquivalentTo [:info.snomed.Concept/id]}]}
   {:info.snomed.Concept/possiblyEquivalentTo
    (->> (hermes/component-refset-items svc id snomed/PossiblyEquivalentToReferenceSet)
@@ -332,7 +332,7 @@
   "Returns the concept's relationships. Accepts a parameter :type, specifying the
   type of relationship. If :type is omitted, all types of relationship will be
   returned."
-  [{::keys [svc] :as env} {concept-id :info.snomed.Concept/id}]
+  [{svc :com.eldrix/hermes :as env} {concept-id :info.snomed.Concept/id}]
   {::pco/output [:info.snomed.Concept/parentRelationshipIds
                  :info.snomed.Concept/directParentRelationshipIds]}
   (if-let [rel-type (:type (pco/params env))]
@@ -343,13 +343,13 @@
 
 (pco/defresolver readctv3-concept
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
-  [{::keys [svc]} {:info.read/keys [ctv3]}]
+  [{svc :com.eldrix/hermes} {:info.read/keys [ctv3]}]
   {::pco/output [:info.snomed.Concept/id]}
   {:info.snomed.Concept/id (first (hermes/member-field svc 900000000000497000 "mapTarget" ctv3))})
 
 (pco/defresolver concept-readctv3
   "Each Read CTV3 code has a direct one-to-one map to a SNOMED identifier."
-  [{::keys [svc]} {:info.snomed.Concept/keys [id]}]
+  [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [:info.read/ctv3]}
   {:info.read/ctv3 (:mapTarget (first (hermes/component-refset-items svc id 900000000000497000)))})
 
@@ -363,7 +363,7 @@
                 :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}}))))
 
 (pco/defresolver search-resolver
-  [{::keys [svc] :as env} _]
+  [{svc :com.eldrix/hermes :as env} _]
   {::pco/output [{:info.snomed.Search/search
                   [:info.snomed.Description/id
                    :info.snomed.Concept/id
@@ -381,7 +381,7 @@
     |                        *unsorted* results).
     |- :remove-duplicates? : remove consecutive duplicates by concept id and
                              term."
-  [{::keys [svc]} params]
+  [{svc :com.eldrix/hermes} params]
   {::pco/op-name 'info.snomed.Search/search
    ::pco/params  [:s :constraint :max-hits]
    ::pco/output  [:info.snomed.Description/id
@@ -391,7 +391,7 @@
   (perform-search svc params))
 
 (pco/defresolver installed-refsets
-  [{::keys [svc]} _]
+  [{svc :com.eldrix/hermes} _]
   {::pco/output [{:info.snomed/installedReferenceSets [:info.snomed.Concept/id]}]}
   {:info.snomed/installedReferenceSets (mapv #(hash-map :info.snomed.Concept/id %) (hermes/installed-reference-sets svc))})
 
@@ -448,14 +448,14 @@
   (map (partial record->map "info.snomed.Description") (hermes/descriptions svc 24700007))
 
   concept-by-id
-  (concept-by-id {::svc svc} {:info.snomed.Concept/id 24700007})
-  (concept-descriptions {::svc svc} {:info.snomed.Concept/id 24700007})
-  (preferred-description {::svc svc} {:info.snomed.Concept/id 24700007})
+  (concept-by-id {:com.eldrix/hermes svc} {:info.snomed.Concept/id 24700007})
+  (concept-descriptions {:com.eldrix/hermes svc} {:info.snomed.Concept/id 24700007})
+  (preferred-description {:com.eldrix/hermes svc} {:info.snomed.Concept/id 24700007})
 
-  (concept-replaced-by {::svc svc} {:info.snomed.Concept/id 100005})
+  (concept-replaced-by {:com.eldrix/hermes svc} {:info.snomed.Concept/id 100005})
 
   (def registry (-> (pci/register all-resolvers)
-                    (assoc ::svc svc)))
+                    (assoc :com.eldrix/hermes svc)))
   (require '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'hermes})
 
