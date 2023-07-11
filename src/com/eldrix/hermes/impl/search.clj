@@ -134,7 +134,7 @@
     (doseq [{typeId :typeId, ^String v :value} (get-in ed [:concept :concreteValues])]
       (let [k (str "v" typeId)]
         (case (.charAt v 0)
-          \# (.add doc (DoubleField. k ^double (Double/parseDouble (subs v 1)))) ;; parse numbers into double
+          \# (.add doc (DoubleField. k ^double (Double/parseDouble (subs v 1)) Field$Store/NO)) ;; parse numbers into double
           \" (.add doc (StringField. k ^String (subs v 1 (unchecked-dec (.length v))) Field$Store/NO)) ;; unwrap string from quotes for search index
           (.add doc (StringField. k v Field$Store/NO)))))  ;; store booleans as strings
     (doseq [preferred-in (:preferredIn ed)]
