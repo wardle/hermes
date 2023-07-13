@@ -162,7 +162,7 @@
           usa (store/preferred-synonym store 80146002 [900000000000509007])]
       (is (= "Appendicectomy" (:term gb)))
       (is (= "Appendectomy" (:term usa))))
-    (let [lang-match-fn (lang/match-fn store)]
+    (let [lang-match-fn (lang/make-match-fn store nil)]
       (is (= "Appendicectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
       (is (= "Appendectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
 

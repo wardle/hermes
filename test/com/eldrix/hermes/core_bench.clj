@@ -19,10 +19,9 @@
     (hermes/extended-concept *svc* 24700007)))
 
 (deftest ^:benchmark bench-make-extended-descriptions
-  (let [lang-refset-ids ((.-localeMatchFn *svc*) "en-GB")]
-    (println "\n*** Benchmarking search/make-extended-descriptions")
-    (quick-bench
-      (search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/concept *svc* 24700007)))))
+  (println "\n*** Benchmarking search/make-extended-descriptions")
+  (quick-bench
+    (search/make-extended-descriptions (.-store *svc*) (hermes/concept *svc* 24700007))))
 
 (deftest ^:benchmark bench-all-parents
   (println "\n*** Benchmarking hermes/all-parents")
@@ -32,7 +31,6 @@
 (comment
   (run-tests)
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
-  (def lang-refset-ids ((.-localeMatchFn *svc*) "en-GB"))
   (crit/quick-bench
-    (search/make-extended-descriptions (.-store *svc*) lang-refset-ids (hermes/concept *svc* 24700007))))
+    (search/make-extended-descriptions (.-store *svc*) (hermes/concept *svc* 24700007))))
 

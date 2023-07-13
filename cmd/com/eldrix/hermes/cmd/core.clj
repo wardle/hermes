@@ -11,7 +11,8 @@
     [com.eldrix.hermes.download :as download]
     [com.eldrix.hermes.importer :as importer]
     [expound.alpha :as expound])
-  (:import (java.net ConnectException)))
+  (:import (java.net ConnectException)
+           (java.util Locale)))
 
 (defn- log-module-dependency-problems [svc]
   (let [problem-deps (seq (hermes/module-dependency-problems svc))]
@@ -54,8 +55,8 @@
     (download/print-providers)
     (install (assoc opts :release-date "list") [])))
 
-(defn build-index [{:keys [db locale]} _]
-  (if (str/blank? locale) (hermes/index db) (hermes/index db locale))
+(defn build-index [{:keys [db]} _]
+  (hermes/index db)
   (with-open [svc (hermes/open db {:quiet true})]
     (log-module-dependency-problems svc)))
 
@@ -69,8 +70,9 @@
       :json (json/pprint st)
       (clojure.pprint/pprint st))))
 
-(defn serve [{:keys [db _port _bind-address allowed-origin] :as params} _]
-  (let [svc (hermes/open db)
+(defn serve [{:keys [db _port _bind-address allowed-origin locale] :as params} _]
+  (let [default-locale (or locale (.toLanguageTag (Locale/getDefault)))
+        svc (hermes/open db {:default-locale default-locale})
         params' (cond (= ["*"] allowed-origin) (assoc params :allowed-origins (constantly true))
                       (seq allowed-origin) (assoc params :allowed-origins allowed-origin)
                       :else params)]
@@ -78,7 +80,8 @@
                         (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
                         (update-keys keyword)))
     (log-module-dependency-problems svc)
-    (log/info "starting terminology server " (dissoc params' :allowed-origin))
+    (log/info "starting terminology server "
+              (-> params' (dissoc :allowed-origin :locale) (assoc :default-locale default-locale)))
     (server/start-server svc params')))
 
 (defn usage

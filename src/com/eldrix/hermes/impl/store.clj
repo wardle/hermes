@@ -387,8 +387,10 @@
           :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
                             :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
   :ret (s/nilable :info.snomed/Description))
-(defn fully-specified-name
-  "Return the fully specified name for the concept specified. If no language preferences are provided the first
+(defn ^:deprecated fully-specified-name
+  "DEPRECATED: Use [[preferred-fully-specified-name]] instead.
+
+  Return the fully specified name for the concept specified. If no language preferences are provided the first
   description of type FSN will be returned. If language preferences are provided, but there is no
   match *and* `fallback?` is true, then the first description of type FSN will be returned."
   ([store concept-id]

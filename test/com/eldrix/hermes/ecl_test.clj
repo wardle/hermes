@@ -199,8 +199,9 @@
                (every? #(> % 1)))))))
 
 (deftest ^:live test-term-filter
-  (let [r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
-        r2 (set (hermes/search *svc* {:s "heart att" :constraint "<  64572001 |Disease| "}))]
+  (let [langs (hermes/match-locale *svc*)
+        r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
+        r2 (set (hermes/search *svc* {:s "heart att" :language-refset-ids langs :constraint "<  64572001 |Disease| "}))]
     (is (= r1 r2))))
 
 (defn some-concrete-value?

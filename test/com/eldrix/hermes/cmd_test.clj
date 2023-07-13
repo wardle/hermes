@@ -1,7 +1,8 @@
 (ns com.eldrix.hermes.cmd-test
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
-            [com.eldrix.hermes.cmd.cli :as cli]))
+            [com.eldrix.hermes.cmd.cli :as cli])
+  (:import (java.util Locale)))
 
 (def cli-tests
   [{:s    "Testing legacy download command line arguments"
@@ -51,14 +52,7 @@
     :args ["--db" "snomed.db" "index"]
     :test (fn [{:keys [cmds options]}]
             (is (= cmds ["index"]))
-            (is (= (:db options) "snomed.db"))
-            (is (not (:locale options))))}
-   {:s    "Testing indexing with locale"
-    :args ["index" "--db=snomed.db" "--locale" "en-GB,en-US"]
-    :test (fn [{:keys [cmds options]}]
-            (is (= cmds ["index"]))
-            (is (= (:db options) "snomed.db"))
-            (is (= (:locale options) "en-GB,en-US")))}
+            (is (= (:db options) "snomed.db")))}
    {:s    "Test status with missing database"
     :args ["status"]
     :test (fn [{:keys [errors]}]

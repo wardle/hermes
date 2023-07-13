@@ -78,13 +78,15 @@
   (is (thrown? Exception (hermes/search *svc* {:s "huntington" :max-hits "abc"}))))
 
 (deftest ^:live test-search-concept-ids
-  (let [results (vec (hermes/search-concept-ids *svc* {:language-range "en-US"} [24700007 37340000 80146002]))]
-    (is (= 24700007 (get-in results [0 :conceptId])))
-    (is (= "Multiple sclerosis" (get-in results [0 :term])))
-    (is (= 37340000 (get-in results [1 :conceptId])))
-    (is (= "Motor neuron disease" (get-in results [1 :term])))
-    (is (= 80146002 (get-in results [2 :conceptId])))
-    (is (= "Appendectomy" (get-in results [2 :term])))))
+  (let [r1 (vec (hermes/search-concept-ids *svc* {:accept-language "en-US"} [24700007 37340000 80146002]))
+        r2 (vec (hermes/search-concept-ids *svc* {:accept-language "en-GB"} [24700007 37340000 80146002]))]
+    (is (= 24700007 (get-in r1 [0 :conceptId]) (get-in r2 [0 :conceptId])))
+    (is (= "Multiple sclerosis" (get-in r1 [0 :term]) (get-in r2 [0 :term])))
+    (is (= 37340000 (get-in r1 [1 :conceptId]) (get-in r2 [1 :conceptId])))
+    (is (= "Motor neuron disease" (get-in r1 [1 :term]) (get-in r2 [1 :term])))
+    (is (= 80146002 (get-in r1 [2 :conceptId]) (get-in r2 [2 :conceptId])))
+    (is (= "Appendectomy" (get-in r1 [2 :term])))
+    (is (= "Appendicectomy" (get-in r2 [2 :term])))))
 
 (deftest ^:live test-localised-synonyms
   (let [en-GB (hermes/match-locale *svc* "en-GB")

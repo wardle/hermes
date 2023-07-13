@@ -37,4 +37,4 @@
   (with-open [svc (hermes/open "snomed.db")]
     (let [q (search/q-descendantOrSelfOf 24700007)]
       (is (= (search/do-query-for-concept-ids (:searcher svc) q)
-             (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q)))))))
+             (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q nil)))))))

@@ -361,7 +361,7 @@
 
 (s/fdef perform-search :args (s/cat :hermes/svc ::hermes/svc :params ::hermes/search-params))
 (defn perform-search [svc params]
-  (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits :remove-duplicates?]))
+  (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits :remove-duplicates? :accept-language :language-refset-ids]))
        (mapv (fn [{:keys [id conceptId term preferredTerm]}]
                {:info.snomed.Description/id               id
                 :info.snomed.Concept/id                   conceptId

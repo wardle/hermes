@@ -2,7 +2,8 @@
   (:require [clojure.core.match :as match]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.tools.cli :as cli]))
+            [clojure.tools.cli :as cli])
+  (:import (java.util Locale)))
 
 
 ;; Specific options relating to automatic import from a well-known distribution
@@ -51,7 +52,8 @@
    :allowed-origins [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
    :allowed-origin  [nil "--allowed-origin \"*\" or ORIGIN" "Set CORS policy, with \"*\" or hostname"
                      :multi true :default [] :update-fn conj]
-   :locale          [nil "--locale LOCALE" "Locale to use, if different from system"]
+   :locale          [nil "--locale LOCALE" "Set default / fallback locale"
+                     :default (.toLanguageTag (Locale/getDefault))]
    :format          [nil "--format FMT" "Format for status output ('json' or 'edn')"
                      :parse-fn keyword :validate [#{:json :edn} "Format must be 'json' or 'edn'"]]
    :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
@@ -135,7 +137,7 @@
    {:cmd  "install" :desc "Download and install specified distribution(s)"
     :opts #(make-distribution-options {:db? true} %)}
    {:cmd  "index" :desc "Build search indices"
-    :opts [(option :db db-mandatory) (option :locale) (option :help)]}
+    :opts [(option :db db-mandatory) (option :help)]}
    {:cmd  "compact" :desc "Compact database"
     :opts [(option :db db-mandatory) (option :help)]}
    {:cmd  "status" :desc "Display status information"

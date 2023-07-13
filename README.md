@@ -328,12 +328,10 @@ sets.
 The core SNOMED API relating to concepts and their meaning is not affected
 by issues of locale. Locale is used to derive the synonyms for any given
 concept. There should be a single preferred synonym for every concept in a
-given language reference set.
+given language reference set. 
 
-When you build a database, the search index caches the preferred synonym using
-the locale specified during index creation. If no locale is specified, then
-the system default locale will be used. In general, you should specify a
-locale that will match the distribution you are importing.
+When you build a database, the search index caches the preferred synonyms using
+the installed locales.
 
 For example, when you are building your search index, you can use:
 

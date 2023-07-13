@@ -95,16 +95,26 @@
   [{a-concept-id :conceptId a-term :term} {b-concept-id :conceptId b-term :term}]
   (and (= a-concept-id b-concept-id) (= a-term b-term)))
 
+(defn preferred-synonyms-by-refset-id
+  "Given a sequence of descriptions, returns a map of language reference set ids
+  to the corresponding preferred synonym for that language reference set.
+  Parameters:
+  - descriptions - a sequence of Descriptions, each annotated with :preferredIn
+  listing the reference set ids to which that description is preferred."
+  [descriptions]
+  (reduce (fn [acc v]
+            (apply merge acc (map #(hash-map % (:term v)) (:preferredIn v))))
+          {}
+          (filter snomed/synonym? descriptions)))
+
 (defn make-extended-descriptions
-  [store language-refset-ids concept]
+  [store concept]
   (let [ec (store/make-extended-concept store concept)
-        ec' (dissoc ec :descriptions)
-        preferred (store/preferred-synonym store (:id concept) language-refset-ids)]
-    (when-not preferred
-      (log/warn "could not determine preferred synonym for " (:id concept) " using refsets: " language-refset-ids))
+        preferred (preferred-synonyms-by-refset-id (:descriptions ec))
+        ec' (dissoc ec :descriptions)]
     ;; turn concept inside out to focus on description instead
     (map #(assoc % :concept (merge (dissoc ec' :concept) (:concept ec'))
-                   :preferred-term (:term preferred))
+                   :preferredSynonyms preferred)
          (:descriptions ec))))
 
 (defn extended-description->document
@@ -120,25 +130,32 @@
               (.add (LongPoint. "description-id" (long-array [(:id ed)]))) ;; for indexing and search
               (.add (StoredField. "id" ^long (:id ed)))     ;; stored field of same
               (.add (StoredField. "concept-id" ^long (get-in ed [:concept :id])))
-              (.add (LongPoint. "concept-id" (long-array [(get-in ed [:concept :id])])))
-              (.add (StoredField. "preferred-term" (str (:preferred-term ed)))))]
+              (.add (LongPoint. "concept-id" (long-array [(get-in ed [:concept :id])]))))]
+    ;; store preferred synonyms for every description in a field keyed by reference set identifier
+    (doseq [[refset-id term] (:preferredSynonyms ed)]
+      (.add doc (StoredField. (str refset-id) ^String term)))
+    ;; index transitive parent relationships
     (doseq [[rel concept-ids] (get-in ed [:concept :parentRelationships])]
       (let [relationship (str rel)]                         ;; encode parent relationships as relationship type concept id
         (doseq [concept-id concept-ids]                     ;; and use a transitive closure table for the defining relationship
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
+    ;; index proximal parent relationships
     (doseq [[rel concept-ids] (get-in ed [:concept :directParentRelationships])]
       (.add doc (IntPoint. (str "c" rel) (int-array [(count concept-ids)]))) ;; encode count of direct parent relationships by type as ("c" + relationship type = count)
       (let [relationship (str "d" rel)]                     ;; encode direct parent relationships as ("d" + relationship type = concept id)
         (doseq [concept-id concept-ids]
           (.add doc (LongPoint. relationship (long-array [concept-id]))))))
+    ;; index and store concrete values
     (doseq [{typeId :typeId, ^String v :value} (get-in ed [:concept :concreteValues])]
       (let [k (str "v" typeId)]
         (case (.charAt v 0)
           \# (.add doc (DoubleField. k ^double (Double/parseDouble (subs v 1)) Field$Store/NO)) ;; parse numbers into double
           \" (.add doc (StringField. k ^String (subs v 1 (unchecked-dec (.length v))) Field$Store/NO)) ;; unwrap string from quotes for search index
-          (.add doc (StringField. k v Field$Store/NO)))))  ;; store booleans as strings
+          (.add doc (StringField. k v Field$Store/NO)))))   ;; index booleans as strings
+    ;; index reference sets in which this description is preferred
     (doseq [preferred-in (:preferredIn ed)]
       (.add doc (LongPoint. "preferred-in" (long-array [preferred-in]))))
+    ;; index reference sets in which this description is acceptable
     (doseq [acceptable-in (:acceptableIn ed)]
       (.add doc (LongPoint. "acceptable-in" (long-array [acceptable-in]))))
     (doseq [refset (get-in ed [:concept :refsets])]
@@ -148,8 +165,8 @@
     doc))
 
 (defn concept->documents
-  [store language-refset-ids concept]
-  (->> (make-extended-descriptions store language-refset-ids concept)
+  [store concept]
+  (->> (make-extended-descriptions store concept)
        (map extended-description->document)))
 
 (defn open-index-writer
@@ -167,26 +184,18 @@
 
 (defn build-search-index
   "Build a search index using the SNOMED CT store at `store-filename`."
-  [store-filename search-filename language-priority-list]
+  [store-filename search-filename]
   (let [nthreads (.availableProcessors (Runtime/getRuntime))
         ch (a/chan 50)]
     (with-open [store (store/open-store store-filename)
                 writer (open-index-writer search-filename)]
-      (let [langs (lang/match store language-priority-list)
-            langs' (if (seq langs)
-                     langs
-                     (do (log/warn "No language refset for any locale in requested priority list" {:priority-list language-priority-list :store-filename store-filename})
-                         (log/warn "Falling back to default of 'en-US'")
-                         (lang/match store "en-US")))]
-        (when-not (seq langs') (throw (ex-info "No language refset for any locale listed in priority list"
-                                               {:priority-list language-priority-list :store-filename store-filename})))
-        (a/thread (store/stream-all-concepts store ch))     ;; start streaming all concepts
-        (a/<!! (a/pipeline
-                 nthreads                                   ;; Parallelism factor
-                 (doto (a/chan) (a/close!))
-                 (comp (map #(concept->documents store langs' %))
-                       (map #(.addDocuments writer %)))
-                 ch true (fn ex-handler [ex] (log/error ex) (a/close! ch) nil))))
+      (a/thread (store/stream-all-concepts store ch))       ;; start streaming all concepts
+      (a/<!! (a/pipeline
+               nthreads                                     ;; Parallelism factor
+               (doto (a/chan) (a/close!))
+               (comp (map #(concept->documents store %))
+                     (map #(.addDocuments writer %)))
+               ch true (fn ex-handler [ex] (log/error ex) (a/close! ch) nil)))
       (.forceMerge writer 1))))
 
 (defn- make-token-query
@@ -284,17 +293,28 @@
               BooleanClause$Occur/FILTER)))
     (.build query)))
 
-(defn doc->result [^Document doc]
+(defn doc->preferred-term
+  "Given a Lucene document and a sequence of language reference set identifiers,
+  return the first matching preferred term."
+  [^Document doc language-refset-ids]
+  (when-let [refset-id (first language-refset-ids)]
+    (if-let [term (.get doc (str refset-id))]
+      term
+      (recur doc (rest language-refset-ids)))))
+
+(defn doc->result
+  "Returns a search result from a Lucene document."
+  [^Document doc language-refset-ids]
   (snomed/->Result (.numericValue (.getField doc "id"))
                    (.numericValue (.getField doc "concept-id"))
                    (.get doc "term")
-                   (.get doc "preferred-term")))
+                   (doc->preferred-term doc language-refset-ids)))
 
 (defn xf-doc-id->-result
   "Returns a transducer that maps a Lucene document id into a search result."
-  [^IndexSearcher searcher]
+  [^IndexSearcher searcher language-refset-ids]
   (let [stored-fields (.storedFields searcher)]
-    (map (fn [^long doc-id] (doc->result (.document stored-fields doc-id))))))
+    (map (fn [^long doc-id] (doc->result (.document stored-fields doc-id) language-refset-ids)))))
 
 (defn xf-doc-id->concept-id
   "Returns a transducer that maps a Lucene document id into a concept identifier."
@@ -311,14 +331,14 @@
 (defn do-query-for-results
   "Perform a search using query 'q' returning results as a sequence of Result
 items."
-  ([^IndexSearcher searcher ^Query q]
+  ([^IndexSearcher searcher ^Query q language-refset-ids]
    (let [stored-fields (.storedFields searcher)]
      (->> (lucene/search-all searcher q)
-          (map #(doc->result (.document stored-fields %))))))
-  ([^IndexSearcher searcher ^Query q max-hits]
+          (map #(doc->result (.document stored-fields %) language-refset-ids)))))
+  ([^IndexSearcher searcher ^Query q language-refset-ids max-hits]
    (let [stored-fields (.storedFields searcher)]
      (->> (seq (.-scoreDocs (.search searcher q (int max-hits))))
-          (map #(doc->result (.document stored-fields (.-doc ^ScoreDoc %))))))))
+          (map #(doc->result (.document stored-fields (.-doc ^ScoreDoc %)) language-refset-ids))))))
 
 (defn do-query-for-concept-ids
   "Perform the query, returning results as a set of concept identifiers"
@@ -344,6 +364,7 @@ items."
   | :s                      | search string to use                              |
   | :max-hits               | maximum hits (if omitted returns unlimited but    |
   |                         | *unsorted* results)                               |
+  | :language-refset-ids    | ordered priority list of reference set ids        |
   | :fuzzy                  | fuzziness (0-2, default 0)                        |
   | :fallback-fuzzy         | if no results, try fuzzy search (0-2, default 0). |
   | :query                  | additional ^Query to apply                        |
@@ -362,13 +383,13 @@ items."
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
   ```
   A FSN is a fully-specified name and should generally be left out of search."
-  [^IndexSearcher searcher {:keys [max-hits fuzzy fallback-fuzzy remove-duplicates?] :as params}]
+  [^IndexSearcher searcher {:keys [max-hits language-refset-ids fuzzy fallback-fuzzy remove-duplicates?] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
         q3 (boost-length-query q2)
         results (if max-hits
-                  (do-query-for-results searcher q3 (int max-hits))
-                  (do-query-for-results searcher q3))]
+                  (do-query-for-results searcher q3 language-refset-ids (int max-hits))
+                  (do-query-for-results searcher q3 language-refset-ids))]
     (if (seq results)
       (if remove-duplicates?
         (remove-duplicates duplicate-result? results)
@@ -568,7 +589,7 @@ items."
       (and (zero? minimum) (zero? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field 1 Integer/MAX_VALUE))
 
-      (and (zero? minimum) (= Integer/MAX_VALUE maximum)) ;;A cardinality of [0..*] should therefore never be used as this indicates that the given attribute is not being constrained in any way, and is therefore a redundant part of the expression constraint.
+      (and (zero? minimum) (= Integer/MAX_VALUE maximum))   ;;A cardinality of [0..*] should therefore never be used as this indicates that the given attribute is not being constrained in any way, and is therefore a redundant part of the expression constraint.
       (MatchAllDocsQuery.)
 
       (and (zero? minimum) (pos? maximum))
@@ -640,15 +661,15 @@ items."
          (map #(select-keys % [:conceptId :term])))))
 
 (comment
-  (build-search-index "snomed.db/store.db" "snomed.db/search.db" "en-GB")
-
+  (build-search-index "snomed.db/store.db" "snomed.db/search.db")
+  (def en-GB [999001261000000100])
   (def reader (open-index-reader "snomed.db/search.db"))
   (def searcher (IndexSearcher. reader))
   (do-search searcher {:s "abdom p" :properties {snomed/IsA 404684003}})
   (count (do-search searcher {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
-  (do-query-for-results searcher (make-search-query {:properties {snomed/IsA 24700007} :inactive-concepts? true}))
+  (do-query-for-results searcher (make-search-query {:properties {snomed/IsA 24700007} :inactive-concepts? true}) en-GB)
   (q-or [(make-search-query {:inactive-concepts? true})])
   (do-query-for-concept-ids searcher (q-or [(make-search-query {:inactive-concepts? true})]))
   (.clauses (make-search-query {:inactive-concepts? true}))
   (do-search searcher {:s "bendroflumethiatide" :fuzzy 3})
-  (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0)))
+  (do-query-for-results searcher (q-attribute-count snomed/HasActiveIngredient 0 0) en-GB))

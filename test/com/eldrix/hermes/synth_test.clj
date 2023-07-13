@@ -109,7 +109,7 @@
     (write-components release-path "der2_cciRefset_RefsetDescriptorUKEDSnapshot_GB_20220316.txt" refset-descriptors)
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
-    (hermes/index (str db-path) "en-GB")
+    (hermes/index (str db-path))
     (with-open [svc (hermes/open (str db-path))]
       (let [status (hermes/status* svc {:counts? true})
             ch (a/chan 1 (partition-all 500))]

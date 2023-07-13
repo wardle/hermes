@@ -44,7 +44,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version "lmdb/15"
+  {:version "lmdb/16"
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
@@ -59,17 +59,21 @@
 (s/def ::fuzzy (s/int-in 0 3))
 (s/def ::fallback-fuzzy (s/int-in 0 3))
 (s/def ::query #(instance? Query %))
+(s/def ::accept-language string?)
+(s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
 (s/def ::remove-duplicates? boolean?)
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
-(s/def ::search-params (s/keys :req-un [(or ::s ::constraint)]
-                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
-                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
-                                        ::remove-duplicates? ::properties ::concept-refsets]))
 
+(s/def ::search-params
+  (s/keys :req-un [(or ::s ::constraint)]
+          :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+                   ::accept-language ::language-refset-ids
+                   ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                   ::remove-duplicates? ::properties ::concept-refsets]))
 
 (definterface ^:deprecated Service)                         ;; for backwards compatibility in case a client referenced the old concrete deftype
 
@@ -440,14 +444,25 @@
 
 
 (s/fdef match-locale
-  :args (s/cat :svc ::svc :language-range (s/? ::non-blank-string)))
+  :args (s/cat :svc ::svc :language-range (s/? (s/nilable ::non-blank-string)) :fallback? (s/? boolean?)))
 (defn match-locale
   "Return an ordered sequence of refset ids that are the best match for the
-  required language range. `language-range` should be a single string containing
-  a list of comma-separated language ranges or a list of language ranges in the
-  form of the \"Accept-Language \" header defined in RFC3066."
-  [^Svc svc language-range]
-  ((.-localeMatchFn svc) language-range))
+  required language range, or the database default.
+
+  `language-range` should be a single string containing a list of
+  comma-separated language ranges or a list of language ranges in the form of
+  the \"Accept-Language \" header defined in RFC3066.
+
+  If the installed language reference sets are not matched by any of the
+  languages in the list, and `fallback?` is true, then the database default
+  locale will be used. With no fallback, no reference set identifiers will be
+  returned, which may mean that locale-specific functions may return nil."
+  ([^Svc svc]
+   ((.-localeMatchFn svc) nil true))
+  ([^Svc svc language-range]
+   ((.-localeMatchFn svc) language-range))
+  ([^Svc svc language-range fallback?]
+   ((.-localeMatchFn svc) language-range fallback?)))
 
 (s/fdef preferred-synonym*
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id)))
@@ -472,21 +487,26 @@
   - `concept-id`     : concept identifier
   - `language-range` : a single string containing a list of comma-separated
                      language ranges or a list of language ranges in the form of
-                     the \"Accept-Language \" header defined in RFC3066."
+                     the \"Accept-Language \" header defined in RFC3066.
+  - `fallback?`      : whether to fall back to database default language.
+
+  When `fallback?` is true, there will *always* be a result for every concept."
   ([^Svc svc concept-id]
-   (preferred-synonym svc concept-id (.toLanguageTag (Locale/getDefault))))
+   (preferred-synonym* svc concept-id (match-locale svc nil true)))
   ([^Svc svc concept-id language-range]
-   (preferred-synonym* svc concept-id (match-locale svc language-range))))
+   (preferred-synonym* svc concept-id (match-locale svc language-range false)))
+  ([^Svc svc concept-id language-range fallback?]
+   (preferred-synonym* svc concept-id (match-locale svc language-range fallback?))))
 
 (s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
 (defn fully-specified-name
   "Return the fully specified name for the concept specified. If no language
-  preferences are provided the system default locale will be used."
+  preferences are provided the database default locale will be used."
   ([^Svc svc concept-id]
-   (fully-specified-name svc concept-id (.toLanguageTag (Locale/getDefault))))
+   (fully-specified-name svc concept-id nil))
   ([^Svc svc concept-id language-range]
-   (store/fully-specified-name (.-store svc) concept-id (match-locale svc language-range) false)))
+   (store/preferred-fully-specified-name (.-store svc) concept-id (match-locale svc language-range true))))
 
 (defn release-information
   "Returns descriptions representing the installed distributions.
@@ -532,6 +552,8 @@
   | `:fuzzy`              | fuzziness (0-2, default 0)                        |
   | `:fallback-fuzzy`     | if no results, try fuzzy search (0-2, default 0). |
   | `:remove-duplicates?` | remove duplicate results (default, false)         |
+  | `:accept-language`    | locales for preferred synonyms in results          |
+  | `:language-refset-ids | languages for preferred synonyms in results       |
 
   If `max-hits` is omitted, search will return unlimited *unsorted* results.
 
@@ -560,69 +582,77 @@
   identifier or vector of identifiers to limit search.
   For example
   ```
-   (do-search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
+   (search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
   ```
   However, concrete values are not supported, so to search using concrete values
   use a SNOMED ECL constraint instead.
 
   A FSN is a fully-specified name and should generally be left out of search."
-  [^Svc svc params]
-  (if-let [constraint (:constraint params)]
-    (search/do-search (.-searcher svc) (assoc params :query (ecl/parse svc constraint)))
-    (search/do-search (.-searcher svc) params)))
+  [^Svc svc {:keys [constraint accept-language language-refset-ids] :as params}]
+  [params]
+  (search/do-search
+    (.-searcher svc)
+    (cond-> params
+            constraint ;; if there is a constraint, parse
+            (assoc :query (ecl/parse svc constraint))
+            (and accept-language (empty? language-refset-ids)) ;; parse accept language if specified
+            (assoc :language-refset-ids (match-locale svc accept-language true))
+            (and (str/blank? accept-language) (empty? language-refset-ids))
+            (assoc :language-refset-ids (match-locale svc)))))
 
 (defn- concept-id->result
   [^Svc svc concept-id language-refset-ids]
   (when-let [ps (preferred-synonym* svc concept-id language-refset-ids)]
     (snomed/->Result (.-id ps) concept-id (.-term ps) (.-term ps))))
 
-(s/def ::language-range string?)
-(s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
 (s/fdef search-concept-ids
-  :args (s/cat :svc ::svc :options (s/keys :opt-un [::language-range ::language-refset-ids]) :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc :options (s/keys :opt-un [::accept-language ::language-refset-ids]) :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
 (defn search-concept-ids
   "Return search results containing the preferred descriptions of the concepts
   specified. Returns a transducer if no concept ids are specified. If a
   preferred description cannot be found for the locale specified, `nil` will be
-  returned in the results.
+  returned in the results unless `fallback?` is true, in which case the default
+  fallback locale will be used.
 
   Parameters:
   |- svc            : service
   |- options        : a map
   |  |- :language-refset-ids
   |  |      A collection of reference set ids for the preferred language(s).
-  |- |- :language-range
+  |- |- :accept-language
   |  |      A single string containing a list of comma-separated language ranges
   |  |      or a list of language ranges in the form of the \"Accept-Language\"
   |  |      header as per RFC3066
+  |  |- :fallback? (default true)
+  |  |      Fallback to database default fallback locale if explicit language
+  |  |      preference not available in installed reference sets
   |- concept-ids    : a collection of concept identifiers.
 
-  The system default locale will be used if both `language-range` and
-  `language-refset-ids` are omitted."
+  For backwards compatibilty, `:language-range` can be used instead of
+  `:accept-language`."
   ([^Svc svc]
    (search-concept-ids svc {}))
-  ([^Svc svc {:keys [language-refset-ids language-range]}]
-   (let [refset-ids (or language-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault)))))]
+  ([^Svc svc {:keys [language-refset-ids accept-language language-range fallback?] :or {fallback? true}}]
+   (let [refset-ids (or language-refset-ids (match-locale svc (or accept-language language-range) fallback?))]
      (map #(concept-id->result svc % refset-ids))))
-  ([^Svc svc {:keys [language-refset-ids language-range ]} concept-ids]
-   (let [refset-ids (or language-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault)))))]
+  ([^Svc svc {:keys [language-refset-ids accept-language language-range fallback?] :or {fallback? true}} concept-ids]
+   (let [refset-ids (or language-refset-ids (match-locale svc (or accept-language language-range) fallback?))]
      (map #(concept-id->result svc % refset-ids) concept-ids))))
 
 (s/fdef expand-ecl
   :args (s/cat :svc ::svc :ecl ::non-blank-string :max-hits (s/? int?))
   :ret (s/coll-of ::result))
 (defn expand-ecl
-  "Expand an ECL expression. This is a low-level operation returning a collection
-  of result items. Results are ordered iff max-hits is specified.
-  Also see [[expand-ecl*]]."
+  "Expand an ECL expression. Results are ordered iff max-hits is specified.
+  It's usually more appropriate to use [[expand-ecl*]]."
   ([^Svc svc ecl]
    (let [q1 (ecl/parse svc ecl)
          q2 (search/q-synonym)]
-     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]))))
+     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) (match-locale svc))))
   ([^Svc svc ecl max-hits]
    (let [q1 (ecl/parse svc ecl)
          q2 (search/q-synonym)]
-     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) max-hits))))
+     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) (match-locale svc) max-hits))))
 
 (s/fdef expand-ecl*
   :args (s/cat :svc ::svc :ecl ::non-blank-string :language-refset-ids (s/coll-of :info.snomed.Concept/id))
@@ -636,7 +666,7 @@
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-synonym)
         q3 (search/q-acceptabilityAny :preferred-in language-refset-ids)]
-    (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]))))
+    (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]) nil)))
 
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
@@ -681,7 +711,7 @@
         historic-concept-ids (into #{} (mapcat #(source-historical svc %)) base-concept-ids)
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-and [(search/q-or [base-query historic-query]) (search/q-synonym)])]
-    (search/do-query-for-results (.-searcher svc) query)))
+    (search/do-query-for-results (.-searcher svc) query (match-locale svc))))
 
 (s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
@@ -1093,7 +1123,9 @@
 (defn pprint-properties
   "Pretty print properties. Keys and values can be formatted using `fmt` or
   separately using `key-fmt` and `value-fmt`. `language-range` should be a
-  language range such as \"en-GB\".
+  language range such as \"en-GB\". If `language-range` is omitted, or does not
+  match any installed reference sets, the database default language range will
+  be used instead.
 
   Valid formats are:
 
@@ -1124,7 +1156,7 @@
   ```
   "
   [svc props {:keys [key-fmt value-fmt fmt language-range]}]
-  (let [lang-refset-ids (match-locale svc (or language-range (.toLanguageTag (Locale/getDefault))))
+  (let [lang-refset-ids (match-locale svc language-range true)
         ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
         make-fmt (fn [fmt] (fn [v]
                              (if-not (number? v)
@@ -1190,20 +1222,35 @@
 
 (defn open
   "Open a (read-only) SNOMED service from `root`, which should be anything
-  coercible to a `java.io.File`"
+  coercible to a `java.io.File`. Use `default-locale` to set the default
+  fallback locale for functions taking language preferences called without
+  explicit priority lists, or when installed language reference sets don't
+  support a requested language range."
   (^Closeable [root] (open root {}))
-  (^Closeable [root {:keys [quiet] :or {quiet false}}]
+  (^Closeable [root {:keys [quiet default-locale] :or {quiet false}}]
    (let [manifest (open-manifest root)
          st (store/open-store (io/file root (:store manifest)))
          index-reader (search/open-index-reader (io/file root (:search manifest)))
          member-reader (members/open-index-reader (io/file root (:members manifest)))
+         ;; use chosen locale, or system default, to determine a fallback priority language priority list
+         fallback-locale (or default-locale (.toLanguageTag (Locale/getDefault)))
          svc {:store          st
               :indexReader    index-reader
               :searcher       (IndexSearcher. index-reader)
               :memberReader   member-reader
               :memberSearcher (IndexSearcher. member-reader)
-              :localeMatchFn  (lang/match-fn st)}]
-     (when-not quiet (log/info "opening hermes terminology service " root (assoc manifest :releases (map :term (store/release-information st)))))
+              :localeMatchFn  (lang/make-match-fn st fallback-locale)}]
+     ;; check that we can support the chosen default (fallback) locale; if not -> fail fast
+     (when-not (seq (lang/match st fallback-locale))
+       (log/error "No language reference set installed matching requested locale."
+                  {:requested fallback-locale :available (lang/installed-locales st)})
+       (throw (ex-info "No language reference set installed matching requested locale."
+                       {:requested fallback-locale, :installed (lang/installed-locales st)})))
+     ;; report configuration when appropriate
+     (when-not quiet (log/info "opening hermes terminology service " root
+                               (assoc manifest :releases (map :term (store/release-information st))
+                                               :default-locale fallback-locale
+                                               :installed-locales (lang/installed-locales st))))
      (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
 
 (defn close [^Closeable svc]
@@ -1276,24 +1323,25 @@
       (store/compact st))
     (log/info "Compacting database... complete")))
 
+
+(s/fdef index
+  :args (s/cat :root any?))
 (defn index
   "Build component  and search indices for the database in directory 'root'
   specified."
-  ([root] (index root (.toLanguageTag (Locale/getDefault))))
-  ([root language-priority-list]
-   (let [manifest (open-manifest root false)
-         store-filename (io/file root (:store manifest))
-         search-filename (io/file root (:search manifest))
-         members-filename (io/file root (:members manifest))]
-     (log/info "Indexing..." {:root root})
-     (log/info "Building component index")
-     (with-open [st (store/open-store store-filename {:read-only? false})]
-       (store/index st))
-     (log/info "Building search index" {:languages language-priority-list})
-     (search/build-search-index store-filename search-filename language-priority-list)
-     (log/info "Building members index")
-     (members/build-members-index store-filename members-filename)
-     (log/info "Indexing... complete"))))
+  [root]
+  (let [manifest (open-manifest root false)
+        store-filename (io/file root (:store manifest))
+        search-filename (io/file root (:search manifest))
+        members-filename (io/file root (:members manifest))]
+    (log/info "Indexing..." {:root root})
+    (log/info "Building component index")
+    (with-open [st (store/open-store store-filename {:read-only? false})]
+      (store/index st))
+    (search/build-search-index store-filename search-filename)
+    (log/info "Building members index")
+    (members/build-members-index store-filename members-filename)
+    (log/info "Indexing... complete")))
 
 (def ^:deprecated build-search-indices
   "DEPRECATED: Use [[index]] instead"
@@ -1323,11 +1371,8 @@
   - `:installed-refsets?` : whether to include installed reference sets"
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
   (merge
-    {:releases
-     (map :term (release-information svc))}
-    {:locales
-     (->> (keys (lang/installed-language-reference-sets (.-store svc)))
-          (map #(.toLanguageTag ^Locale %)))}
+    {:releases (map :term (release-information svc))
+     :locales  (lang/installed-locales (.-store svc))}
     (when counts?
       {:components (-> (store/status (.-store svc))
                        (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
@@ -1367,10 +1412,9 @@
   "Create a terminology service combining both store and search functionality
   in a single step. It would be unusual to use this; usually each step would be
   performed interactively by an end-user."
-  ([root import-from] (create-service root import-from))
-  ([root import-from locale-preference-string]
+  ([root import-from]
    (import-snomed root import-from)
-   (index root locale-preference-string)
+   (index root)
    (compact root)))
 
 (comment

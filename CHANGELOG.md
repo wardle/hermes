@@ -2,6 +2,19 @@
 
 This log documents significant changes for each release.
 
+## [1.3.xxxx] - not yet released
+
+* Change to search index structure (Lucene) to better handle runtime, dynamic 
+  results based on requested locale. This version (lmdb/16) is therefore 
+  incompatible with databases created by previous versions. Hermes always
+  permitted getting a preferred term given localisation preferences, but the
+  search index, for convenience, cached a preferred term at the time of index
+  creation. v1.3 series caches all preferred terms so that search can return
+  locale-specific results.
+* Remove --locale as an option during index creation given now unnecessary
+* Add options `:accept-language` `:language-refset-ids` to core search API
+
+
 ## [1.2.1244] - 2023-07-07
 
 * Add language preferences to `synonyms` in core (Clojure), graph (Pathom) and Java APIs 
