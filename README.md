@@ -333,32 +333,6 @@ given language reference set.
 When you build a database, the search index caches the preferred synonyms using
 the installed locales.
 
-For example, when you are building your search index, you can use:
-
-```shell
-java -jar hermes.jar --db snomed.db --locale en-GB index  
-```
-or 
-```shell
-clj -M:run --db snomed.db --locale en-GB index  
-```
-
-You can specify the requested locale using IETF BCP 47, or by using a special
-SNOMED CT defined locale that includes the identifier of the language reference
-set you wish to use. I have added BCP 47 matching as an extension in hermes
-as the burden of managing which reference sets to use is left to the client
-in the SNOMED standard. Hermes tries to provide a set of sane defaults.
-
-Note: the mapping of BCP 47 codes to a language reference set, or set of
-language reference sets, is easily modified. If your locale is currently
-unsupported, please raise an issue and it can be added easily. The current
-map can be found in [impl/language.clj](src/com/eldrix/hermes/impl/language.clj).
-
-Such mapping is simply an extension for convenience and may not be necessary for
-you. You can *always* get the preferred synonym given a specific set of language
-reference sets but I find it easier to simply use 'en-GB' and let hermes do the
-work for me.
-
 ### Can I get support?
 
 Yes. Raise an issue, or more formal support options are available on request,
@@ -830,20 +804,20 @@ Usage: hermes [options] serve
 Start a terminology server
 
 Options:
-  -d, --db PATH                               Path to database directory
-  -p, --port PORT                       8080  Port number
-  -a, --bind-address BIND_ADDRESS             Address to bind
-      --allowed-origins "*" or ORIGINS        Set CORS policy, with "*" or comma-delimited hostnames
-      --allowed-origin "*" or ORIGIN    []    Set CORS policy, with "*" or hostname. ]
-      --locale LOCALE                         Locale to use, if different from system
+      --allowed-origin "*" or ORIGIN    []     Set CORS policy, with "*" or hostname
+      --allowed-origins "*" or ORIGINS         Set CORS policy, with "*" or comma-delimited hostnames
+  -a, --bind-address BIND_ADDRESS              Address to bind
+  -d, --db PATH                                Path to database directory
   -h, --help
+      --locale LOCALE                   en-GB  Set default / fallback locale
+  -p, --port PORT                       8080   Port number
 ```
 
 * `--bind-address` is optional. You may want to use `--bind-address 0.0.0.0`
 * `--allowed-origins` is optional. You could use `--allowed-origins "*"` or `--allowed-origins example.com,example.net`
 * `--allowed-origin example.com --allowed-origin example.net` is equivalent to `--allowed-origins example.com,example.net`.
 * `--allowed-origin "*"` is equivalent to `--allowed-origins "*"`
-* `--locale` sets the default locale. This is used in building your search index and as a default if clients do not specify their preference. e.g. `--locale=en-GB`
+* `--locale` sets the default locale. This is used as a default if clients do not specify their preference. e.g. `--locale=en-GB`
 
 #### 7. Run a HL7 FHIR terminology web service
 
