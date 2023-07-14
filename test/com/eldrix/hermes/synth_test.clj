@@ -110,7 +110,7 @@
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
     (hermes/index (str db-path))
-    (with-open [svc (hermes/open (str db-path))]
+    (with-open [svc (hermes/open (str db-path) {:default-locale "en-GB"})]
       (let [status (hermes/status* svc {:counts? true})
             ch (a/chan 1 (partition-all 500))]
         (a/thread (hermes/stream-all-concepts svc ch))
