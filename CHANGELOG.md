@@ -26,7 +26,7 @@ This log documents significant changes for each release.
 ## [1.2.1214] - 2023-06-25
 
 * Unmerge Java source files and resume using hermes-api as an internal dependency
-* Upgraded dependencies, include Lucene 9.7.0 and Pedestal 0.6.0, bringing performance benefits, particularly on modern Java.
+* Upgrade dependencies, include Lucene 9.7.0 and Pedestal 0.6.0, with performance benefits, particularly on modern Java.
 
 ## [1.2.1208] - 2023-06-03
 
