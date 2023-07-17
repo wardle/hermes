@@ -100,7 +100,7 @@
    :exec-args {:cluster-depth 3}}
 
   :lint/kondo
-  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.05.26"}}
+  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.07.13"}}
    :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "--lint" "cmd" "--lint" "test"]}
 
   :lint/eastwood
