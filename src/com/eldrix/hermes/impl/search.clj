@@ -20,7 +20,6 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
