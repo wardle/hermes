@@ -233,6 +233,5 @@
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
-  (require '[com.eldrix.hermes.impl.ecl :as ecl])
   (ecl/parse *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}")
   (run-tests))
