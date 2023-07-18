@@ -224,9 +224,11 @@
   {:name  ::get-search
    :enter (fn [{::keys [svc] :as ctx}]
             (let [params (parse-search-params (get-in ctx [:request :params]))
-                  max-hits (or (:max-hits params) 500)]
+                  max-hits (or (:max-hits params) 500)
+                  langs (get-in ctx [:request :headers "accept-language"])
+                  params' (if langs (assoc params :accept-language langs) params)]
               (if (< 0 max-hits 10000)
-                (assoc ctx :result (or (hermes/search svc (assoc params :max-hits max-hits)) []))
+                (assoc ctx :result (or (hermes/search svc (assoc params' :max-hits max-hits)) []))
                 (assoc ctx :response {:status 400 :body {:error (str "invalid parameter: maxHits")}}))))})
 
 (def get-expand
