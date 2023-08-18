@@ -35,7 +35,7 @@ jobs:
         run:  clojure -M:dev:check
 
       - name: Linting
-        run: clojure -M:lint/kondo
+        run: clojure -M:dev:lint/kondo
 
       - name: Clojure tests
         run: clojure -M:test -e :live
