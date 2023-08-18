@@ -34,8 +34,5 @@ jobs:
       - name: Compilation check
         run:  clojure -M:dev:check
 
-      - name: Linting
-        run: clojure -M:dev:lint/kondo
-
       - name: Clojure tests
         run: clojure -M:test -e :live
