@@ -89,26 +89,26 @@
     (let [root-path (.toPath f')
           core-f (.toFile (.resolve root-path "core.db"))
           refsets-f (.toFile (.resolve root-path "refsets.db"))
-          core-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
-                       (.setMapSize map-size) (.setMaxDbs 9)
-                       (.open core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
-          refsets-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
-                          (.setMapSize map-size) (.setMaxDbs 2)
-                          (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
+          ^Env core-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
+                            (.setMapSize map-size) (.setMaxDbs 9)
+                            (.open core-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
+          ^Env refsets-env (-> (Env/create ByteBufProxy/PROXY_NETTY)
+                               (.setMapSize map-size) (.setMaxDbs 2)
+                               (.open refsets-f (into-array EnvFlags (if read-only? ro-env-flags rw-env-flags))))
           base-flags (make-dbi-flags read-only?)
           ;; core env
-          concepts (.openDbi ^Env core-env "c" base-flags)
-          conceptDescriptions (.openDbi ^Env core-env "d" base-flags)
-          relationships (.openDbi ^Env core-env "r" base-flags)
-          concreteValues (.openDbi ^Env core-env "cv" base-flags)
-          descriptionConcept (.openDbi ^Env core-env "dc" base-flags)
-          conceptParentRelationships (.openDbi ^Env core-env "cpr" base-flags)
-          conceptChildRelationships (.openDbi ^Env core-env "ccr" base-flags)
-          componentRefsets (.openDbi ^Env core-env "cr" base-flags)
-          associations (.openDbi ^Env core-env "a" base-flags)
+          concepts (.openDbi core-env "c" base-flags)
+          conceptDescriptions (.openDbi core-env "d" base-flags)
+          relationships (.openDbi core-env "r" base-flags)
+          concreteValues (.openDbi core-env "cv" base-flags)
+          descriptionConcept (.openDbi core-env "dc" base-flags)
+          conceptParentRelationships (.openDbi core-env "cpr" base-flags)
+          conceptChildRelationships (.openDbi core-env "ccr" base-flags)
+          componentRefsets (.openDbi core-env "cr" base-flags)
+          associations (.openDbi core-env "a" base-flags)
           ;; refsets env
-          refsetItems (.openDbi ^Env refsets-env "rs" base-flags)
-          refsetFieldNames (.openDbi ^Env refsets-env "rs-n" base-flags)]
+          refsetItems (.openDbi refsets-env "rs" base-flags)
+          refsetFieldNames (.openDbi refsets-env "rs-n" base-flags)]
       (->LmdbStore root-path
                    core-env
                    concepts conceptDescriptions relationships concreteValues
@@ -124,7 +124,7 @@
 
 (defn compact
   [^LmdbStore store]
-  (let [path ^Path (.-rootPath store)
+  (let [^Path path (.-rootPath store)
         core (.resolve path "core.db")
         core' (.resolve path "core2.db")
         refsets (.resolve path "refsets.db")
@@ -154,7 +154,7 @@
   "Each concept is stored as an entity in the 'concepts' db keyed by identifier."
   [^LmdbStore store concepts]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [db ^Dbi (.-concepts store)
+    (let [^Dbi db (.-concepts store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try (doseq [^Concept concept concepts]
@@ -174,8 +174,8 @@
   keyed by description-id--concept-id."
   [^LmdbStore store descriptions]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [db ^Dbi (.-conceptDescriptions store)             ;; concept-id - description-id = description
-          idx ^Dbi (.-descriptionConcept store)             ;; description-id - concept-id = nil
+    (let [^Dbi db (.-conceptDescriptions store)             ;; concept-id - description-id = description
+          ^Dbi idx (.-descriptionConcept store)             ;; description-id - concept-id = nil
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)
           idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
@@ -196,7 +196,7 @@
   by a relationship-id."
   [^LmdbStore store relationships]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [db ^Dbi (.-relationships store)
+    (let [^Dbi db (.-relationships store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8) ;; relationship id
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64)] ;; relationship entity
       (try (doseq [^Relationship relationship relationships]
@@ -214,7 +214,7 @@
   previously stored concrete values are deleted."
   [^LmdbStore store concrete-values]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [db ^Dbi (.-concreteValues store)
+    (let [^Dbi db (.-concreteValues store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; conceptId-relationshipId  (compound key)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
       (try (doseq [^ConcreteValue cv concrete-values]
@@ -231,9 +231,9 @@
 (defn drop-relationships-index
   "Deletes all indices relating to relationships."
   [^LmdbStore store]
-  (with-open [txn ^Txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [parent-idx ^Dbi (.-conceptParentRelationships store)
-          child-idx ^Dbi (.-conceptChildRelationships store)]
+  (with-open [^Txn txn (.txnWrite ^Env (.-coreEnv store))]
+    (let [^Dbi parent-idx (.-conceptParentRelationships store)
+          ^Dbi child-idx (.-conceptChildRelationships store)]
       (.drop parent-idx txn)
       (.drop child-idx txn))
     (.commit txn)))
@@ -243,18 +243,18 @@
   Each *active* relationship is referenced in the 'conceptParentRelationships'
   and 'conceptChildRelationships' indices."
   [^LmdbStore store]
-  (with-open [write-txn ^Txn (.txnWrite ^Env (.-coreEnv store))
-              read-txn ^Txn (.txnRead ^Env (.-coreEnv store))
+  (with-open [^Txn write-txn (.txnWrite ^Env (.-coreEnv store))
+              ^Txn read-txn (.txnRead ^Env (.-coreEnv store))
               cursor (.openCursor ^Dbi (.-relationships store) read-txn)]
-    (let [parent-idx ^Dbi (.-conceptParentRelationships store)
-          child-idx ^Dbi (.-conceptChildRelationships store)
+    (let [^Dbi parent-idx (.-conceptParentRelationships store)
+          ^Dbi child-idx (.-conceptChildRelationships store)
           parent-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; sourceId -- typeId -- group -- destinationId
           child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
           idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)] ;; empty value
       (try
         (loop [continue? (.first cursor)]
           (when continue?
-            (let [relationship ^Relationship (ser/read-relationship (.val cursor))]
+            (let [^Relationship relationship (ser/read-relationship (.val cursor))]
               (when (.-active relationship)
                 (doto parent-idx-key .clear (.writeLong (.-sourceId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-destinationId relationship)))
                 (doto child-idx-key .clear (.writeLong (.-destinationId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-sourceId relationship)))
@@ -268,7 +268,7 @@
 (defn- write-refset-headings
   [^LmdbStore store ^Txn txn refset-id headings]
   (when refset-id
-    (let [headings-db ^Dbi (.-refsetFieldNames store)
+    (let [^Dbi headings-db (.-refsetFieldNames store)
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try (.writeLong kb refset-id)
@@ -285,7 +285,7 @@
   - refsetFieldNames  : refset-id -- field-names (an array of strings)"
   [^LmdbStore store headings items]
   (with-open [refsets-txn (.txnWrite ^Env (.-refsetsEnv store))]
-    (let [items-db ^Dbi (.-refsetItems store)
+    (let [^Dbi items-db (.-refsetItems store)
           item-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; a UUID - 16 bytes
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try
@@ -307,9 +307,9 @@
 (defn drop-refset-indices
   "Delete all indices relating to reference set items."
   [^LmdbStore store]
-  (with-open [txn ^Txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [components-db ^Dbi (.-componentRefsets store)
-          assocs-db ^Dbi (.-associations store)]
+  (with-open [^Txn txn (.txnWrite ^Env (.-coreEnv store))]
+    (let [^Dbi components-db (.-componentRefsets store)
+          ^Dbi assocs-db (.-associations store)]
       (.drop components-db txn)
       (.drop assocs-db txn))
     (.commit txn)))
@@ -320,11 +320,11 @@
   - componentRefsets  : referencedComponentId -- refsetId -- msb -- lsb
   - associations      : targetComponentId -- refsetId -- referencedComponentId - msb - lsb"
   [^LmdbStore store]
-  (with-open [write-txn ^Txn (.txnWrite ^Env (.-coreEnv store))
-              read-txn ^Txn (.txnRead ^Env (.-refsetsEnv store))
+  (with-open [^Txn write-txn (.txnWrite ^Env (.-coreEnv store))
+              ^Txn read-txn (.txnRead ^Env (.-refsetsEnv store))
               cursor (.openCursor ^Dbi (.-refsetItems store) read-txn)]
-    (let [components-db ^Dbi (.-componentRefsets store)
-          assocs-db ^Dbi (.-associations store)
+    (let [^Dbi components-db (.-componentRefsets store)
+          ^Dbi assocs-db (.-associations store)
           component-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; referencedComponentId -- refsetId -- msb -- lsb
           assoc-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
           idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
@@ -352,7 +352,7 @@
   ([^Env env ^Dbi dbi ch read-fn]
    (stream-all env dbi ch read-fn true))
   ([^Env env ^Dbi dbi ch read-fn close?]
-   (with-open [txn ^Txn (.txnRead ^Env env)
+   (with-open [^Txn txn (.txnRead ^Env env)
                cursor (.openCursor ^Dbi dbi txn)]
      (loop [continue? (.first cursor)]
        (if continue?
@@ -388,7 +388,7 @@
        (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
                    cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
          (when (.get cursor kb GetOp/MDB_SET_RANGE)         ;; put cursor on first entry with this description identifier
-           (let [kb' ^ByteBuf (.key cursor)
+           (let [^ByteBuf kb' (.key cursor)
                  did (.readLong kb')
                  concept-id (.readLong kb')]
              (when (= description-id did)
@@ -436,7 +436,7 @@
   (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
-      (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
+      (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
                   cursor (.openCursor ^Dbi (.-conceptDescriptions store) txn)]
         (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
           (loop [results (transient []) continue? true]
@@ -458,7 +458,7 @@
   (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
-      (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
+      (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
                   cursor (.openCursor ^Dbi (.-concreteValues store) txn)]
         (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
           (loop [results (transient []) continue? true]
@@ -584,7 +584,7 @@
   reference set items, thus ensuring we have a list that contains only
   reference sets with members."
   [^LmdbStore store]
-  (with-open [txn ^Txn (.txnRead ^Env (.-refsetsEnv store))
+  (with-open [^Txn txn (.txnRead ^Env (.-refsetsEnv store))
               cursor (.openCursor ^Dbi (.-refsetFieldNames store) txn)]
     (loop [results (transient #{})
            continue? (.first cursor)]
