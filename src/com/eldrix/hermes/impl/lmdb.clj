@@ -18,7 +18,6 @@
   (:require [clojure.core.async :as a]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
             [com.eldrix.hermes.impl.ser :as ser])
   (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
            (java.nio.file.attribute FileAttribute)
