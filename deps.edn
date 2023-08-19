@@ -3,7 +3,7 @@
 
  :deps
  {org.clojure/clojure                      {:mvn/version "1.11.1"}
-  org.clojure/core.async                   {:mvn/version "1.6.673"}
+  org.clojure/core.async                   {:mvn/version "1.6.681"}
   org.clojure/core.match                   {:mvn/version "1.0.1"}
   org.clojure/data.xml                     {:mvn/version "0.2.0-alpha8"}
   org.clojure/data.zip                     {:mvn/version "1.0.0"}
@@ -12,7 +12,7 @@
   com.eldrix/trud                          {:mvn/version "1.0.104"}
   hato/hato                                {:mvn/version "0.9.0"}
   instaparse/instaparse                    {:mvn/version "1.4.12"}
-  io.netty/netty-buffer                    {:mvn/version "4.1.94.Final"}
+  io.netty/netty-buffer                    {:mvn/version "4.1.96.Final"}
   org.apache.lucene/lucene-core            {:mvn/version "9.7.0"}
   org.apache.lucene/lucene-queries         {:mvn/version "9.7.0"}
   org.apache.lucene/lucene-backward-codecs {:mvn/version "9.7.0"}
@@ -30,7 +30,7 @@
    :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.0.219"}
                  org.clojure/data.json          {:mvn/version "2.4.0"}
                  expound/expound                {:mvn/version "0.9.0"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
                  io.pedestal/pedestal.service   {:mvn/version "0.6.0"}
                  io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}}
    :main-opts   ["-m" "com.eldrix.hermes.cmd.core"]}
@@ -52,7 +52,7 @@
                  com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
                  com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                  :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
                  criterium/criterium            {:mvn/version "0.4.6"}
                  io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}
                  io.pedestal/pedestal.service   {:mvn/version "0.6.0"}}
@@ -62,7 +62,7 @@
   :test/cloverage
   {:extra-paths ["test"]
    :extra-deps  {cloverage/cloverage            {:mvn/version "1.2.4"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
                  org.clojure/test.check         {:mvn/version "1.1.1"}}
    :main-opts   ["-m" "cloverage.coverage" "-p" "src/clj" "-s" "test"]
    :exec-fn     cloverage.coverage/run-project
