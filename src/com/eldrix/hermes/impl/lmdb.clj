@@ -406,7 +406,25 @@
            (ser/read-description rb))
          (finally (.release kb)))))))
 
-(defn map-keys-in-range
+(defn map-keys-in-range*
+  "Returns a vector consisting of the result of applying f to the keys in the
+  inclusive range between start-key and end-key. 'f' is called with a ByteBuf
+  representing a key within the range."
+  [^Env env ^Dbi dbi ^ByteBuf start-kb ^ByteBuf end-kb f]
+  (with-open [^Txn txn (.txnRead env)
+              cursor (.openCursor dbi txn)]
+    (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
+      (loop [results (transient []), continue? true]
+        (let [^ByteBuf kb (.key cursor)]
+          (if (and continue? (>= (.compareTo kb start-kb) 0) (>= (.compareTo end-kb kb) 0))
+            (recur (conj! results (f kb)) (.next cursor))
+            (persistent! results)))))))
+
+(defmacro write-longs
+  [buf longs]
+  (cons 'do (for [i longs] `(.writeLong ~buf ~i))))
+
+(defmacro map-keys-in-range
   "Returns a vector consisting of the result of applying f to the keys in the
   inclusive range between start-key and end-key. 'f' is called with a ByteBuf
   representing a key within the range.
@@ -414,21 +432,17 @@
   such,minimum long is 0 and maximum long is -1 (FFFF...) and not Long/MIN_VALUE
    and Long/MAX_VALUE as might be expected."
   [^Env env ^Dbi dbi start-key end-key f]
-  (let [n (* 8 (count start-key))
-        start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) n)
-        end-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) n)]
-    (try
-      (doseq [k start-key] (.writeLong start-kb k))
-      (doseq [k end-key] (.writeLong end-kb k))
-      (with-open [txn ^Txn (.txnRead env)
-                  cursor (.openCursor dbi txn)]
-        (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
-          (loop [results (transient []) continue? true]
-            (let [kb ^ByteBuf (.key cursor)]
-              (if (and continue? (>= (.compareTo kb start-kb) 0) (>= (.compareTo end-kb kb) 0))
-                (recur (conj! results (f kb)) (.next cursor))
-                (persistent! results))))))
-      (finally (.release start-kb) (.release end-kb)))))
+  (assert (vector? start-key) "start-key must be a vector")
+  (assert (vector? end-key) "end-key must be a vector")
+  (assert (= (count start-key) (count end-key)) "start-key and end-key must be same length")
+  (let [n (* 8 (count start-key))]
+    `(let [start-kb# (.directBuffer (PooledByteBufAllocator/DEFAULT) ~n)
+           end-kb# (.directBuffer (PooledByteBufAllocator/DEFAULT) ~n)]
+       (try
+         (write-longs start-kb# ~start-key)
+         (write-longs end-kb# ~end-key)
+         (map-keys-in-range* ~env ~dbi start-kb# end-kb# ~f)
+         (finally (.release start-kb#) (.release end-kb#))))))
 
 (defn concept-descriptions
   "Returns a vector of descriptions for the given concept."
