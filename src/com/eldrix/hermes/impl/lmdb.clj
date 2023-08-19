@@ -420,8 +420,8 @@
             (persistent! results)))))))
 
 (defmacro write-longs
-  [buf longs]
-  (cons 'do (for [i longs] `(.writeLong ~buf ~i))))
+  [buf xs]
+  (cons 'do (for [x xs] `(.writeLong ~buf ~x))))
 
 (defmacro map-keys-in-range
   "Returns a vector consisting of the result of applying f to the keys in the
