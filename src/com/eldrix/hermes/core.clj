@@ -1338,6 +1338,7 @@
     (log/info "Building component index")
     (with-open [st (store/open-store store-filename {:read-only? false})]
       (store/index st))
+    (log/info "Building search index")
     (search/build-search-index store-filename search-filename)
     (log/info "Building members index")
     (members/build-members-index store-filename members-filename)
