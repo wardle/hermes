@@ -36,7 +36,8 @@
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
-  (:import (java.util Locale$LanguageRange Locale)))
+  (:import (java.text Normalizer Normalizer$Form)
+           (java.util Locale$LanguageRange Locale)))
 
 (def language-reference-sets
   "Defines a mapping between ISO language tags and the language reference sets
@@ -79,7 +80,20 @@
    "sv-se" [46011000052107]                                 ;; |Swedish language reference set|
    "zh"    [722128001]})                                    ;; |Chinese language reference set|
 
-
+(def language-refset-id->language
+  "Given a language reference id, return the language tag.
+  For example
+  ```
+  (language-refset-id->language 722131000)
+  => \"fr\"
+  ```."
+  (reduce-kv (fn [acc k refset-ids]
+               (let [lang (.getLanguage (Locale/forLanguageTag k))]
+                 (loop [acc acc, refset-ids refset-ids]
+                   (if-let [refset-id (first refset-ids)]
+                     (recur (assoc acc refset-id lang) (next refset-ids))
+                     acc))))
+             {} language-reference-sets))
 
 (def dialect-language-reference-sets
   "These use non-standard locales that cannot be used with the conventional
@@ -165,7 +179,7 @@
    (if-let [specific-refset-id (parse-accept-language-refset-id language-priority-list)]
      (let [installed-refsets (-> installed vals flatten set)]
        (filter installed-refsets [specific-refset-id]))
-     (let [locales (keys installed) ;; installed locales
+     (let [locales (keys installed)                         ;; installed locales
            priority-list (try (Locale$LanguageRange/parse language-priority-list) (catch Exception _ []))
            filtered (Locale/filter priority-list (or locales '()))]
        (mapcat #(get installed %) filtered))))
@@ -223,4 +237,66 @@
   (parse-accept-language-refset-id "en-gb-x-999001261000000100")
   (parse-accept-language-refset-id "zh-yue-HK-x-999001261000000100")
   (parse-accept-language-refset-id "fr-x-999001261000000102"))
+
+
+;; Normalisation / text folding
+;; Snowstorm uses Lucene's ASCIIFoldingFilter but excludes some chars manually
+;; on a per-language basis.
+;; See https://github.com/IHTSDO/snowstorm/blob/5303ee10a1320f4febe992f460cb903ad6700494/src/main/java/org/snomed/snowstorm/core/util/DescriptionHelper.java#L75
+
+(defn ^:private normalize-nfkd [s]
+  (Normalizer/normalize s Normalizer$Form/NFKD))
+
+(defn ^:private normalize-nfkc [s]
+  (Normalizer/normalize s Normalizer$Form/NFKC))
+
+(defn ^:private make-fold
+  "Returns a fold fn that removes diacritics with optional excluded characters."
+  ([]
+   (fn [s]
+     (.replaceAll (.matcher #"\p{M}" (normalize-nfkd s)) "")))
+  ([excluded-chars]
+   (fn [s]
+     (let [exclude (set excluded-chars)
+           s (->> (seq (normalize-nfkc s))
+                  (map #(if (.contains exclude %) % (normalize-nfkd (str %))))
+                  (apply str))]
+       (.replaceAll (.matcher #"\p{M}" s) "")))))
+
+(def ^:private folding-rules
+  [{:lang "da" :exclude "æøå"}                              ;; Danish
+   {:lang "fi" :exclude "åäö"}                              ;; Finnish}
+   {:lang "fr" :exclude nil}                                ;; French
+   {:lang "no" :exclude "æøå"}                              ;; Norwegian
+   {:lang "es" :exclude nil}                                ;; Spanish
+   {:lang "en" :exclude nil}                                ;; English
+   {:lang "sv" :exclude "åäö"}])                            ;; Swedish
+
+(def ^:private fold-by-lang
+  "A map of language code to fold function."
+  (reduce (fn [acc {:keys [lang exclude]}]
+            (assoc acc lang (if exclude (make-fold exclude) (make-fold))))
+          {} folding-rules))
+
+(def ^:private fold-by-refset-id
+  "A map of language refset id to fold function"
+  (reduce-kv (fn [acc k v]
+               (assoc acc k (fold-by-lang v))) {} language-refset-id->language))
+
+(def ^:private fold-by-lang-or-refset-id
+  "Precomputed lookup for fold function by language (e.g. \"en\" or language
+  refset identifier."
+  (merge fold-by-lang fold-by-refset-id))
+
+(defn fold
+  "Fold (normalize) text according to the rules of a language.
+  - lang-or-refset-id : a language code (e.g. \"en\") or language refset id.
+  - s                 : string to normalize"
+  ^String [lang-or-refset-id s]
+  (let [f (or (get fold-by-lang-or-refset-id lang-or-refset-id) (make-fold))]
+    (f s)))
+
+(comment
+  (fold "es" "nódulo hepático")
+  (fold 450828004 "nódulo hepático"))
 
