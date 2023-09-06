@@ -257,7 +257,7 @@
      (.replaceAll (.matcher #"\p{M}" (normalize-nfkd s)) "")))
   ([excluded-chars]
    (fn [s]
-     (let [exclude (set excluded-chars)
+     (let [exclude (set (str excluded-chars (str/upper-case excluded-chars)))
            s (->> (seq (normalize-nfkc s))
                   (map #(if (.contains exclude %) % (normalize-nfkd (str %))))
                   (apply str))]
