@@ -44,7 +44,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version "lmdb/16"
+  {:version "lmdb/17"
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
@@ -61,6 +61,7 @@
 (s/def ::query #(instance? Query %))
 (s/def ::accept-language string?)
 (s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
+(s/def ::fold (s/or :bool boolean? :lang string?))
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
@@ -71,7 +72,7 @@
 (s/def ::search-params
   (s/keys :req-un [(or ::s ::constraint)]
           :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
-                   ::accept-language ::language-refset-ids
+                   ::accept-language ::language-refset-ids ::fold
                    ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
                    ::remove-duplicates? ::properties ::concept-refsets]))
 
@@ -534,6 +535,18 @@
 (defn parse-expression [^Svc _svc s]
   (scg/parse s))
 
+
+(defn ^:private make-search-params
+  [^Svc svc {:keys [s fold constraint accept-language language-refset-ids] :as params}]
+  (let [lang-refset-ids (or (seq language-refset-ids)
+                            (when accept-language (match-locale svc accept-language true))
+                            (match-locale svc))]
+    (cond-> (assoc params :language-refset-ids lang-refset-ids)
+            fold
+            (assoc :s* (lang/fold (if (string? fold) fold (first lang-refset-ids)) s))
+            constraint                                      ;; if there is a constraint, parse
+            (assoc :query (ecl/parse svc constraint)))))
+
 (s/fdef search
   :args (s/cat :svc ::svc :params ::search-params)
   :ret (s/coll-of ::result))
@@ -546,13 +559,14 @@
 
   | keyword               | description                                       |
   |-----------------------|---------------------------------------------------|
-  | `:s`                  | search string to use                              |
+  | `:s`                  | search string                                     |
   | `:max-hits`           | maximum hits (see note below)                     |
   | `:constraint`         | SNOMED ECL constraint                             |
   | `:fuzzy`              | fuzziness (0-2, default 0)                        |
   | `:fallback-fuzzy`     | if no results, try fuzzy search (0-2, default 0). |
   | `:remove-duplicates?` | remove duplicate results (default, false)         |
-  | `:accept-language`    | locales for preferred synonyms in results          |
+  | `:fold`               | fold term / use folded index? (bool/country code) |
+  | `:accept-language`    | locales for preferred synonyms in results         |
   | `:language-refset-ids | languages for preferred synonyms in results       |
 
   If `max-hits` is omitted, search will return unlimited *unsorted* results.
@@ -562,6 +576,11 @@
    (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
   ```
   For autocompletion, it is recommended to use `fuzzy=0`, and `fallback-fuzzy=2`.
+
+  If `fold` is true, the search term will be normalised according to the
+  language preferences (accept-language or language-refset-ids) and the folded
+  index will be used in addition to the raw term index. To use an explicit
+  folding strategy, `fold` may also be a country code (e.g. \"sv\").
 
   There are some lower-level search parameters available, but it is usually
   more appropriate to use a SNOMED ECL constraint instead of these.
@@ -588,17 +607,8 @@
   use a SNOMED ECL constraint instead.
 
   A FSN is a fully-specified name and should generally be left out of search."
-  [^Svc svc {:keys [constraint accept-language language-refset-ids] :as params}]
-  [params]
-  (search/do-search
-    (.-searcher svc)
-    (cond-> params
-            constraint ;; if there is a constraint, parse
-            (assoc :query (ecl/parse svc constraint))
-            (and accept-language (empty? language-refset-ids)) ;; parse accept language if specified
-            (assoc :language-refset-ids (match-locale svc accept-language true))
-            (and (str/blank? accept-language) (empty? language-refset-ids))
-            (assoc :language-refset-ids (match-locale svc)))))
+  [^Svc svc params]
+  (search/do-search (.-searcher svc) (make-search-params svc params)))
 
 (defn- concept-id->result
   [^Svc svc concept-id language-refset-ids]
@@ -1338,6 +1348,7 @@
     (log/info "Building component index")
     (with-open [st (store/open-store store-filename {:read-only? false})]
       (store/index st))
+    (log/info "Building search index")
     (search/build-search-index store-filename search-filename)
     (log/info "Building members index")
     (members/build-members-index store-filename members-filename)

@@ -2,7 +2,8 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest testing is use-fixtures]]
             [com.eldrix.hermes.core :as hermes]))
 
 (stest/instrument)
@@ -116,6 +117,24 @@
 
 (deftest ^:live test-module-dependencies
   (is (every? :valid (hermes/module-dependencies *svc*))))
+
+(deftest ^:live test-term-folding
+  (testing "Search parameters"
+    (is (= "hjarta" (:s* (#'hermes/make-search-params *svc* {:s "hjärta" :fold "en"})))
+        "In English, a search against the folded index should fold ä")
+    (is (= "hjärta" (:s* (#'hermes/make-search-params *svc* {:s "hjärta" :fold "sv"})))
+        "In Swedish, a search against rhe folded index should not fold ä"))
+  (testing "Search results"
+    (let [no-fold-results (map :term (hermes/search *svc* {:s "Sjögren" :fold false :max-hits 50}))
+          fold-results (map :term (hermes/search *svc* {:s "Sjögren" :fold true :max-hits 50}))]
+      (is (every? #(str/includes? % "Sjögren") no-fold-results)
+          "With no folding, every result should include terms with diacritics")
+      (is (not (some #(str/includes? % "Sjogren") no-fold-results))
+          "With no folding, no result should include a term without diacritics")
+      (is (every? #(or (str/includes? % "Sjögren") (str/includes? % "Sjogren")) fold-results)
+          "With folding enabled, terms without diacritics should be returned as well")
+      (is (some #(str/includes? % "Sjogren") fold-results))
+      (is (some #(str/includes? % "Sjögren") fold-results)))))
 
 #_(deftest ^:live test-historical-assumptions
     (let [counts (#'hermes/historical-association-counts *svc*)]
