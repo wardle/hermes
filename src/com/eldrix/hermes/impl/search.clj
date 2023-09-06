@@ -20,6 +20,7 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
@@ -121,6 +122,7 @@
   [ed]
   (let [doc (doto (Document.)
               (.add (TextField. "term" (:term ed) Field$Store/YES))
+              (.add (TextField. "nterm" (lang/fold (:languageCode ed) (:term ed)) Field$Store/NO))
               (.add (DoubleDocValuesField. "length-boost" (/ 1.0 (Math/sqrt (count (:term ed)))))) ;; add a penalty for longer terms
               (.add (LongPoint. "module-id" (long-array [(:moduleId ed)])))
               (.add (StringField. "concept-active" (str (get-in ed [:concept :active])) Field$Store/NO))
@@ -198,8 +200,8 @@
       (.forceMerge writer 1))))
 
 (defn- make-token-query
-  [^String token fuzzy]
-  (let [term (Term. "term" token)
+  [^String field-name ^String token fuzzy]
+  (let [term (Term. field-name token)
         tq (TermQuery. term)
         builder (BooleanQuery$Builder.)]
     (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
@@ -222,11 +224,11 @@
             (recur (.incrementToken tokenStream) (conj result term))))))))
 
 (defn- make-tokens-query
-  ([s] (make-tokens-query s 0))
-  ([s fuzzy]
+  (^BooleanQuery [field-name s] (make-tokens-query field-name s 0))
+  (^BooleanQuery [field-name s fuzzy]
    (with-open [analyzer (StandardAnalyzer.)]
      (when s
-       (let [qs (map #(make-token-query % fuzzy) (tokenize analyzer "term" s))]
+       (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
          (if (> (count qs) 1)
            (let [builder (BooleanQuery$Builder.)]
              (doseq [q qs]
@@ -268,17 +270,25 @@
 
 (defn- make-search-query
   ^Query
-  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? concept-refsets properties]
-    :or   {show-fsn? false inactive-concepts? false inactive-descriptions? true}}]
+  [{:keys [s s* fuzzy show-fsn? inactive-concepts? inactive-descriptions? concept-refsets properties]
+    :or   {show-fsn? false, inactive-concepts? false, inactive-descriptions? true}}]
   (let [query (cond-> (BooleanQuery$Builder.)
-                      s
-                      (.add (make-tokens-query s fuzzy) BooleanClause$Occur/MUST)
+                      (and s s*)
+                      (doto (.add (make-tokens-query "term" s fuzzy) BooleanClause$Occur/SHOULD)
+                            (.add (make-tokens-query "nterm" s* fuzzy) BooleanClause$Occur/SHOULD)
+                            (.setMinimumNumberShouldMatch 1))
+
+                      (and s (not s*))
+                      (.add (make-tokens-query "term" s fuzzy) BooleanClause$Occur/MUST)
+
+                      (and s* (not s))
+                      (.add (make-tokens-query "nterm" s* fuzzy) BooleanClause$Occur/MUST)
 
                       (not inactive-concepts?)
-                      (.add (TermQuery. (Term. "concept-active" "true")) BooleanClause$Occur/FILTER)
+                      (.add (q-concept-active true) BooleanClause$Occur/FILTER)
 
                       (not inactive-descriptions?)
-                      (.add (TermQuery. (Term. "description-active" "true")) BooleanClause$Occur/FILTER)
+                      (.add (q-description-active true) BooleanClause$Occur/FILTER)
 
                       (not show-fsn?)
                       (.add (q-fsn) BooleanClause$Occur/MUST_NOT)
@@ -309,7 +319,7 @@
                    (.get doc "term")
                    (doc->preferred-term doc language-refset-ids)))
 
-(defn xf-doc-id->-result
+(defn xf-doc-id->result
   "Returns a transducer that maps a Lucene document id into a search result."
   [^IndexSearcher searcher language-refset-ids]
   (let [stored-fields (.storedFields searcher)]
@@ -360,7 +370,8 @@ items."
 
   | keyword                 | description (default)                             |
   |---------------------    |---------------------------------------------------|
-  | :s                      | search string to use                              |
+  | :s                      | search string to use for term                     |
+  | :s*                     | search string to use for normalised term          |
   | :max-hits               | maximum hits (if omitted returns unlimited but    |
   |                         | *unsorted* results)                               |
   | :language-refset-ids    | ordered priority list of reference set ids        |
@@ -381,7 +392,10 @@ items."
   ```
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
   ```
-  A FSN is a fully-specified name and should generally be left out of search."
+  A FSN is a fully-specified name and should generally be left out of search.
+
+  Normalization relates to text folding, in which characters with diacritics
+  that do not alter semantics are normalized. "
   [^IndexSearcher searcher {:keys [max-hits language-refset-ids fuzzy fallback-fuzzy remove-duplicates?] :as params}]
   (let [q1 (make-search-query params)
         q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
@@ -594,7 +608,8 @@ items."
       (and (zero? minimum) (pos? maximum))
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field (int (inc maximum)) Integer/MAX_VALUE)))))
 
-(defn q-term [s] (make-tokens-query s))
+(defn q-term [s]
+  (make-tokens-query "term" s))
 
 (defn q-wildcard [s]
   (WildcardQuery. (Term. "term" ^String s)))
