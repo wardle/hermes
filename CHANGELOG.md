@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.3.xxxx] - not yet released
+## [1.3.1262] - 2023-09-07
 
 * Use 'Accept-Language' header in HTTP server to select preferred terms
 * Better logging during indexing
