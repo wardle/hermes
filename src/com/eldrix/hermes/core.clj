@@ -1258,9 +1258,9 @@
        (throw (ex-info "No language reference set installed matching requested locale."
                        {:requested fallback-locale, :installed (lang/installed-locales st)})))
      ;; report any warnings
-     (when (= 0 (.docCount (.collectionStatistics index-searcher "nterm")))
-       (log/warn "This index does not support search against normalized (folded) terms (e.g. removal of diacritic characters")
-       (log/warn "If you need search using folded terms, please re-index this database"))
+     (when-not (.collectionStatistics index-searcher "nterm") ;; TODO: remove on next version bump
+       (log/warn "index does not support search against normalized (folded) terms (ie terms with diacritic characters removed)")
+       (log/warn "if search using folded terms required, please re-index this database"))
      ;; report configuration when appropriate
      (when-not quiet (log/info "opening hermes terminology service " root
                                (assoc manifest :releases (map :term (store/release-information st))

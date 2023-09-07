@@ -2,6 +2,22 @@
 
 This log documents significant changes for each release.
 
+## [1.3.xxxx] - not yet released
+
+* Use 'Accept-Language' header in HTTP server to select preferred terms
+* Better logging during indexing
+* Fail fast rather than trying to continue when there is a critical error during
+import (e.g. running out of disk space)
+* Add term folding / normalization to improve search in content with diacritics (Fixes #50)
+
+This version updates the index to add a search field for normalized (folded) text, particularly
+helpful in international deployments in which release centres do not include synonyms
+with and without non-semantically meaningful diacritics. This does not break 
+compatibility with older indexes, but search using the folded index will obviously
+not work with indexes created by prior versions; as such, this release will 
+show a warning to say that index is missing. This can be safely ignored if you do
+not need search against a folded index.
+
 ## [1.3.1232] - 2023-07-14
 
 * Change to search index structure to better handle runtime, dynamic results  
