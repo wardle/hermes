@@ -44,7 +44,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version "lmdb/17"
+  {:version "lmdb/16"
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
@@ -1242,11 +1242,12 @@
          st (store/open-store (io/file root (:store manifest)))
          index-reader (search/open-index-reader (io/file root (:search manifest)))
          member-reader (members/open-index-reader (io/file root (:members manifest)))
+         index-searcher (IndexSearcher. index-reader)
          ;; use chosen locale, or system default, to determine a fallback priority language priority list
          fallback-locale (or default-locale (.toLanguageTag (Locale/getDefault)))
          svc {:store          st
               :indexReader    index-reader
-              :searcher       (IndexSearcher. index-reader)
+              :searcher       index-searcher
               :memberReader   member-reader
               :memberSearcher (IndexSearcher. member-reader)
               :localeMatchFn  (lang/make-match-fn st fallback-locale)}]
@@ -1256,6 +1257,10 @@
                   {:requested fallback-locale :available (lang/installed-locales st)})
        (throw (ex-info "No language reference set installed matching requested locale."
                        {:requested fallback-locale, :installed (lang/installed-locales st)})))
+     ;; report any warnings
+     (when (= 0 (.docCount (.collectionStatistics index-searcher "nterm")))
+       (log/warn "This index does not support search against normalized (folded) terms (e.g. removal of diacritic characters")
+       (log/warn "If you need search using folded terms, please re-index this database"))
      ;; report configuration when appropriate
      (when-not quiet (log/info "opening hermes terminology service " root
                                (assoc manifest :releases (map :term (store/release-information st))
