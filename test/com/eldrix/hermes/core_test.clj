@@ -120,9 +120,9 @@
 
 (deftest ^:live test-term-folding
   (testing "Search parameters"
-    (is (= "hjarta" (:s* (#'hermes/make-search-params *svc* {:s "hjärta" :accept-language "en"})))
+    (is (= "hjarta" (:s (#'hermes/make-search-params *svc* {:s "hjärta" :accept-language "en"})))
         "In English, a search against the folded index should fold ä")
-    (is (= "hjärta" (:s* (#'hermes/make-search-params *svc* {:s "hjärta" :language-refset-ids [46011000052107]})))
+    (is (= "hjärta" (:s (#'hermes/make-search-params *svc* {:s "hjärta" :language-refset-ids [46011000052107]})))
         "In Swedish, a search against the folded index should not fold ä")))
 
 #_(deftest ^:live test-historical-assumptions
