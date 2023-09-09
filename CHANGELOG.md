@@ -4,7 +4,7 @@ This log documents significant changes for each release.
 
 ## [1.4.1265] - 2023-09-09
 
-* Always use normalized search and normalized index
+* Always use normalized search and normalized index (Fixes #56)
 
 This version breaks compatibility with previously indexed databases.
 
@@ -14,7 +14,7 @@ This version breaks compatibility with previously indexed databases.
 * Better logging during indexing
 * Fail fast rather than trying to continue when there is a critical error during
 import (e.g. running out of disk space)
-* Add term folding / normalization to improve search in content with diacritics (Fixes #50)
+* Add term folding / normalization to improve search in content with diacritics (Fixes #55)
 
 This version updates the index to add a search field for normalized (folded) text, particularly
 helpful in international deployments in which release centres do not include synonyms
