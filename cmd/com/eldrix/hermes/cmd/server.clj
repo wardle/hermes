@@ -204,10 +204,9 @@
               (assoc ctx :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))})
 
 (defn parse-search-params
-  [{:keys [s fold maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
+  [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
   (cond-> {}
           s (assoc :s s)
-          fold (assoc :fold (parse-flag fold))
           constraint (assoc :constraint constraint)
           ecl (assoc :constraint ecl)
           maxHits (assoc :max-hits (Long/parseLong maxHits))

@@ -44,7 +44,7 @@
 
 (def ^:private expected-manifest
   "Defines the current expected manifest."
-  {:version "lmdb/16"
+  {:version "lmdb/18"
    :store   "store.db"
    :search  "search.db"
    :members "members.db"})
@@ -537,15 +537,15 @@
 
 
 (defn ^:private make-search-params
-  [^Svc svc {:keys [s fold constraint accept-language language-refset-ids] :as params}]
+  [^Svc svc {:keys [s constraint accept-language language-refset-ids] :as params}]
   (let [lang-refset-ids (or (seq language-refset-ids)
                             (when accept-language (match-locale svc accept-language true))
                             (match-locale svc))]
     (cond-> (assoc params :language-refset-ids lang-refset-ids)
-            fold
-            (assoc :s* (lang/fold (if (string? fold) fold (first lang-refset-ids)) s))
-            constraint                                      ;; if there is a constraint, parse
-            (assoc :query (ecl/parse svc constraint)))))
+            ;; if there is a string, normalize it
+            s (update :s #(lang/fold (first lang-refset-ids) %))
+            ;; if there is a constraint, parse it into a Lucene query
+            constraint (assoc :query (ecl/parse svc constraint)))))
 
 (s/fdef search
   :args (s/cat :svc ::svc :params ::search-params)
@@ -565,7 +565,6 @@
   | `:fuzzy`              | fuzziness (0-2, default 0)                        |
   | `:fallback-fuzzy`     | if no results, try fuzzy search (0-2, default 0). |
   | `:remove-duplicates?` | remove duplicate results (default, false)         |
-  | `:fold`               | fold term / use folded index? (bool/country code) |
   | `:accept-language`    | locales for preferred synonyms in results         |
   | `:language-refset-ids | languages for preferred synonyms in results       |
 
@@ -576,11 +575,6 @@
    (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
   ```
   For autocompletion, it is recommended to use `fuzzy=0`, and `fallback-fuzzy=2`.
-
-  If `fold` is true, the search term will be normalised according to the
-  language preferences (accept-language or language-refset-ids) and the folded
-  index will be used in addition to the raw term index. To use an explicit
-  folding strategy, `fold` may also be a country code (e.g. \"sv\").
 
   There are some lower-level search parameters available, but it is usually
   more appropriate to use a SNOMED ECL constraint instead of these.
@@ -1501,4 +1495,21 @@
   (require '[criterium.core :as crit])
   (crit/bench (extended-concept svc 24700007))
   (crit/bench (search svc {:s "multiple sclerosis"})))
+
+(defn ^:private analyse-diacritics
+  [svc]
+  (let [ch (a/chan 1 (filter :active))]
+    (a/thread (stream-all-concepts svc ch))
+    (loop [n-concepts 0, missing 0, results []]
+      (if-let [concept (a/<!! ch)]
+        (let [s1 (set (map :term (synonyms svc (:id concept))))
+              s2 (set (map #(lang/fold "en" %) s1))
+              diff (set/difference s2 s1)
+              diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id concept)])
+                                 (are-any? svc [(:id concept)] (set (map :conceptId (search svc {:s %}))) )) diff)]
+          (recur (if (seq diff) (inc n-concepts) n-concepts)
+                 (+ missing (count diff'))
+                 (if (seq diff') (conj results {:concept-id (:id concept) :missing diff'}) results)))
+        {:n-concepts n-concepts :missing missing :results results}))))
+
 

@@ -1275,7 +1275,6 @@ such as 'Wegener's Granulomatosis' will be suprised that their search fails to r
 Search parameters:
 
 * `s` - the text to search
-* `fold` - whether to normalize (fold) the search text and to use folded index (default, `false`)
 * `constraint` - an ECL expression to constrain the search; I never use search without this
 * `maxHits` - maximum number of hits
 * `inactiveConcepts` - whether to search inactive concepts (default, `false`)
