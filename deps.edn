@@ -42,14 +42,14 @@
                  io.pedestal/pedestal.jetty       {:mvn/version "0.6.0"}
                  org.clojure/test.check           {:mvn/version "1.1.1"}
                  criterium/criterium              {:mvn/version "0.4.6"}
-                 com.wsscode/pathom3              {:mvn/version "2023.01.31-alpha"}
+                 com.wsscode/pathom3              {:mvn/version "2023.08.22-alpha"}
                  com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
                  io.github.nubank/morse           {:git/tag "v2023.04.30.01" :git/sha "d99b09c"}}}
 
   :test
   {:extra-paths ["cmd" "test" "test/resources"]
    :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
-                 com.wsscode/pathom3            {:mvn/version "2023.01.31-alpha"}
+                 com.wsscode/pathom3            {:mvn/version "2023.08.22-alpha"}
                  com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                  :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
                  ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
@@ -75,7 +75,7 @@
                  com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                             :sha     "7284cda41fb9edc0f3bc6b6185cfb7138fc8a023"}
                  criterium/criterium       {:mvn/version "0.4.6"}
-                 com.wsscode/pathom3       {:mvn/version "2023.01.31-alpha"}}
+                 com.wsscode/pathom3       {:mvn/version "2023.08.22-alpha"}}
    :main-opts   ["-m" "cognitect.test-runner" "-r" ".*bench$"]
    :exec-fn     cognitect.test-runner.api/test
    :exec-args   {:patterns [".*-bench$"]}}
@@ -100,7 +100,7 @@
    :exec-args {:cluster-depth 3}}
 
   :lint/kondo
-  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.07.13"}}
+  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.09.07"}}
    :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "--lint" "cmd" "--lint" "test"]}
 
   :lint/eastwood
