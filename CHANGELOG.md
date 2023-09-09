@@ -6,8 +6,7 @@ This log documents significant changes for each release.
 
 * Always use normalized search and normalized index
 
-This version breaks compatibility with previously indexed databases. Either 
-re-index or build a new database completely from latest release(s). 
+This version breaks compatibility with previously indexed databases.
 
 ## [1.3.1262] - 2023-09-07
 
