@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1265] - 2023-09-09
+
+* Always use normalized search and normalized index
+
+This version breaks compatibility with previously indexed databases. Either 
+re-index or build a new database completely from latest release(s). 
+
 ## [1.3.1262] - 2023-09-07
 
 * Use 'Accept-Language' header in HTTP server to select preferred terms
