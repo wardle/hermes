@@ -1497,15 +1497,15 @@
   (let [ch (a/chan 1 (filter :active))]
     (a/thread (stream-all-concepts svc ch))
     (loop [n-concepts 0, missing 0, results []]
-      (if-let [concept (a/<!! ch)]
-        (let [s1 (set (map :term (synonyms svc (:id concept))))
+      (if-let [c (a/<!! ch)]
+        (let [s1 (set (map :term (synonyms svc (:id c))))
               s2 (set (map #(lang/fold "en" %) s1))
               diff (set/difference s2 s1)
-              diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id concept)])
-                                 (are-any? svc [(:id concept)] (set (map :conceptId (search svc {:s %}))) )) diff)]
+              diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id c)])
+                                 (are-any? svc [(:id c)] (set (map :conceptId (search svc {:s %}))) )) diff)]
           (recur (if (seq diff) (inc n-concepts) n-concepts)
                  (+ missing (count diff'))
-                 (if (seq diff') (conj results {:concept-id (:id concept) :missing diff'}) results)))
+                 (if (seq diff') (conj results {:concept-id (:id c) :missing diff'}) results)))
         {:n-concepts n-concepts :missing missing :results results}))))
 
 
