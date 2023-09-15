@@ -128,7 +128,9 @@
         core' (.resolve path "core2.db")
         refsets (.resolve path "refsets.db")
         refsets' (.resolve path "refsets2.db")]
+    (Files/deleteIfExists core')
     (.copy ^Env (.-coreEnv store) (.toFile core') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
+    (Files/deleteIfExists refsets')
     (.copy ^Env (.-refsetsEnv store) (.toFile refsets') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
     (Files/move core' core (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))
     (Files/move refsets' refsets (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))))
