@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1275] - 2023-09-15
+
+* #58 In case of an aborted `compact`, delete intermediary files prior to another attempt.
+
 ## [1.4.1265] - 2023-09-09
 
 * Always use normalized search and normalized index (Fixes #56)
