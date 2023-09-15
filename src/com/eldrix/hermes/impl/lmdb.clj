@@ -121,7 +121,7 @@
   (^Closeable [f] (open-store f {}))
   (^Closeable [f opts] (open* f opts)))
 
-(defn compact
+(defn compact-and-close
   [^LmdbStore store]
   (let [^Path path (.-rootPath store)
         core (.resolve path "core.db")
@@ -132,6 +132,7 @@
     (.copy ^Env (.-coreEnv store) (.toFile core') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
     (Files/deleteIfExists refsets')
     (.copy ^Env (.-refsetsEnv store) (.toFile refsets') (into-array ^CopyFlags [CopyFlags/MDB_CP_COMPACT]))
+    (.close store)
     (Files/move core' core (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))
     (Files/move refsets' refsets (into-array CopyOption [StandardCopyOption/REPLACE_EXISTING StandardCopyOption/ATOMIC_MOVE]))))
 

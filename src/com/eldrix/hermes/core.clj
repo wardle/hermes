@@ -1324,10 +1324,9 @@
   [root]
   (let [manifest (open-manifest root false)]
     (log/info "Compacting database at " root "...")
-    (with-open [st (store/open-store (io/file root (:store manifest)) {:read-only? false})]
-      (store/compact st))
+    (let [st (store/open-store (io/file root (:store manifest)) {:read-only? false})]
+      (store/compact-and-close st))
     (log/info "Compacting database... complete")))
-
 
 (s/fdef index
   :args (s/cat :root any?))

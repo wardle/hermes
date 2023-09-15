@@ -43,7 +43,7 @@
 (def stream-all-concepts kv/stream-all-concepts)
 (def description kv/description)
 (def relationship kv/relationship)
-(def compact kv/compact)
+(def compact-and-close kv/compact-and-close)
 (def source-association-referenced-components kv/source-association-referenced-components)
 (def source-associations kv/source-associations)
 (defn open-store
