@@ -5,7 +5,7 @@ This log documents significant changes for each release.
 ## [1.4.1278] - 2023-09-15
 
 * #58 In case of an aborted `compact`, delete intermediary files prior to another attempt
-* #58 Close store after copying datafiles and before moving to new location during `compact`.
+* #58 Close store after copying datafiles and before moving to new location during `compact`
 
 ## [1.4.1265] - 2023-09-09
 
