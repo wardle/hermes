@@ -356,7 +356,7 @@
 ;; An extended concept is a denormalised representation of a single concept bringing together all useful data into one
 ;; convenient structure, that can then be cached and used for inference.
 (defrecord ExtendedConcept
-  [concept
+  [^Concept concept
    descriptions
    parentRelationships
    directParentRelationships
