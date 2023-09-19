@@ -80,6 +80,17 @@
    "sv-se" [46011000052107]                                 ;; |Swedish language reference set|
    "zh"    [722128001]})                                    ;; |Chinese language reference set|
 
+
+(def language-refset-id->locale
+  "Given a language reference set id, return the matching locale, if known."
+  (reduce-kv (fn [acc k refset-ids]
+               (let [locale (Locale/forLanguageTag k)]
+                 (loop [acc acc, refset-ids refset-ids]
+                   (if-let [refset-id (first refset-ids)]
+                     (recur (assoc acc refset-id locale) (next refset-ids))
+                     acc))))
+             {} language-reference-sets))
+
 (def language-refset-id->language
   "Given a language reference id, return the language tag.
   For example
