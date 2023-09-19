@@ -1503,7 +1503,7 @@
               s2 (set (map #(lang/fold "en" %) s1))
               diff (set/difference s2 s1)
               diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id c)])
-                                 (are-any? svc [(:id c)] (set (map :conceptId (search svc {:s %}))) )) diff)]
+                                 (are-any? svc [(:id c)] (set (map :conceptId (search svc {:s %}))))) diff)]
           (recur (if (seq diff) (inc n-concepts) n-concepts)
                  (+ missing (count diff'))
                  (if (seq diff') (conj results {:concept-id (:id c) :missing diff'}) results)))
