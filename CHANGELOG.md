@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.xxx] - not yet released
+
+* #59 Improve error reporting if installed reference sets do not support the requested, or default fallback locale
+
+
 ## [1.4.1278] - 2023-09-15
 
 * #58 In case of an aborted `compact`, delete intermediary files prior to another attempt
