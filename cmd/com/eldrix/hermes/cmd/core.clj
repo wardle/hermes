@@ -20,7 +20,14 @@
     (doseq [dep problem-deps]
       (log/warn "module dependency mismatch" dep))))
 
+(defn set-default-uncaught-exception-handler []
+  (Thread/setDefaultUncaughtExceptionHandler
+    (reify Thread$UncaughtExceptionHandler
+      (uncaughtException [_ thread ex]
+        (log/error ex "Uncaught exception on" (.getName thread))))))
+
 (defn import-from [{:keys [db]} args]
+  (set-default-uncaught-exception-handler)
   (let [dirs (if (zero? (count args)) ["."] args)]
     (hermes/import-snomed db dirs)))
 
@@ -132,14 +139,7 @@
     (f opts args)
     (exit 1 "ERROR: not implemented ")))
 
-(defn set-default-uncaught-exception-handler []
-  (Thread/setDefaultUncaughtExceptionHandler
-    (reify Thread$UncaughtExceptionHandler
-      (uncaughtException [_ thread ex]
-        (log/error ex "Uncaught exception on" (.getName thread))))))
-
 (defn -main [& args]
-  (set-default-uncaught-exception-handler)
   (let [{:keys [cmds options arguments summary errors warnings]} (cli/parse-cli args)]
     (doseq [warning warnings] (log/warn warning))
     (cond
