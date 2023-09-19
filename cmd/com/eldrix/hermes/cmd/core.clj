@@ -50,7 +50,7 @@
       (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
           (import-from opts [(.toString unzipped-path)])))
-      (catch ExceptionInfo e   ;; we only try to carry on iff there are specification errors on import
+      (catch ExceptionInfo e                                ;; we only try to carry on iff there are specification errors on import
         (let [exd (ex-data e)]
           (if (contains? exd :clojure.spec.alpha/problems)
             ((expound/custom-printer {:print-specs? false :theme :figwheel-theme}) exd)
@@ -110,7 +110,7 @@
         (str/join \newline)))
   ([options-summary cmds]
    (let [n (count cmds), cmds' (map cli/commands cmds)      ;; get information about each command requested
-         {cmd-usage :usage cmd :cmd desc :desc} (first cmds')]   ;; handle case of one command specially
+         {cmd-usage :usage cmd :cmd desc :desc} (first cmds')] ;; handle case of one command specially
      (->> [(str "Usage: hermes [options] " (if (= 1 n) (or cmd-usage cmd) (str/join " " cmds)))
            ""
            (if (= 1 n) desc (str/join \newline (map cli/format-command cmds')))
