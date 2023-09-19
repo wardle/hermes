@@ -366,7 +366,9 @@
   (store/history-profile (.-store svc) profile))
 
 (defn installed-reference-sets
-  "Return a set of identifiers representing installed reference sets."
+  "Return a set of identifiers representing installed reference sets.
+  Unlike simply using the SNOMED ontology to find all reference sets, this only
+  returns reference sets with at least one installed member item."
   [^Svc svc]
   (store/installed-reference-sets (.-store svc)))
 
