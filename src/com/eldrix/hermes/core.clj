@@ -544,10 +544,10 @@
                             (when accept-language (match-locale svc accept-language true))
                             (match-locale svc))]
     (cond-> (assoc params :language-refset-ids lang-refset-ids)
-            ;; if there is a string, normalize it
-            s (update :s #(lang/fold (first lang-refset-ids) %))
-            ;; if there is a constraint, parse it into a Lucene query
-            constraint (assoc :query (ecl/parse svc constraint)))))
+      ;; if there is a string, normalize it
+      s (update :s #(lang/fold (first lang-refset-ids) %))
+      ;; if there is a constraint, parse it into a Lucene query
+      constraint (assoc :query (ecl/parse svc constraint)))))
 
 (s/fdef search
   :args (s/cat :svc ::svc :params ::search-params)
