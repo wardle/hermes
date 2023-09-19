@@ -81,11 +81,11 @@
    :exec-args   {:patterns [".*-bench$"]}}
 
   :outdated
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.5.1109"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.6.1121"}}
    :main-opts  ["-m" "antq.core"]}
 
   :upgrade
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.5.1109"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.6.1121"}}
    :main-opts  ["-m" "antq.core" "--upgrade"]}
 
   :check
