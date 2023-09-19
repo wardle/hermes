@@ -1247,17 +1247,11 @@
               :memberReader   member-reader
               :memberSearcher (IndexSearcher. member-reader)
               :localeMatchFn  (lang/make-match-fn st fallback-locale)}]
-     ;; check that we can support the chosen default (fallback) locale; if not -> fail fast
-     (when-not (seq (lang/match st fallback-locale))
-       (log/error "No language reference set installed matching requested locale."
-                  {:requested fallback-locale :available (lang/installed-locales st)})
-       (throw (ex-info "No language reference set installed matching requested locale."
-                       {:requested fallback-locale, :installed (lang/installed-locales st)})))
      ;; report configuration when appropriate
      (when-not quiet (log/info "opening hermes terminology service " root
                                (assoc manifest :releases (map :term (store/release-information st))
                                                :default-locale fallback-locale
-                                               :installed-locales (lang/installed-locales st))))
+                                               :installed-locales (lang/available-locales st))))
      (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
 
 (defn close [^Closeable svc]
@@ -1379,7 +1373,7 @@
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
   (merge
     {:releases (map :term (release-information svc))
-     :locales  (lang/installed-locales (.-store svc))}
+     :locales  (lang/available-locales (.-store svc))}
     (when counts?
       {:components (-> (store/status (.-store svc))
                        (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
