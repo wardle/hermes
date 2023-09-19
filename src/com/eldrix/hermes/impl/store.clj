@@ -423,6 +423,13 @@
   (when-let [c (kv/concept store concept-id)]
     (make-extended-concept store c)))
 
+(defn installed-language-reference-sets
+  "Returns a set of identifiers representing installed language reference sets
+  with at least one installed member."
+  [store]
+  (set/intersection (all-children store snomed/LanguageTypeReferenceSet)
+                    (installed-reference-sets store)))
+
 (defn release-information
   "Returns descriptions representing the installed distributions.
   Ordering will be by date except that the description for the 'core' module
