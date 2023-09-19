@@ -2,10 +2,9 @@
 
 This log documents significant changes for each release.
 
-## [1.4.xxx] - not yet released
+## [1.4.1292] - 2023-09-19
 
 * #59 Improve error reporting if installed reference sets do not support the requested, or default fallback locale
-
 
 ## [1.4.1278] - 2023-09-15
 
