@@ -1099,6 +1099,12 @@
 (def Side 182353008)
 (def LateralisableReferenceSet 723264001)
 
+;; All reference sets are children of this concept
+(def ReferenceSet 900000000000455006)
+
+;; All language reference sets are children of this concept
+(def LanguageTypeReferenceSet 900000000000506000)
+
 ;; Historical associations - for inactive concepts
 (def HistoricalAssociationReferenceSet 900000000000522004)  ;; parent of all historical association reference sets
 (def PossiblyEquivalentToReferenceSet 900000000000523009)
