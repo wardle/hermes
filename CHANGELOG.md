@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.4.1296] - 2023-09-20
 
 * #60 When not explicitly set, derive database default fallback locale on the basis 
 of installed reference sets rather than the system default locale
