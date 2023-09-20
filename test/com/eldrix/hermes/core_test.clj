@@ -31,7 +31,7 @@
   (is (->> (hermes/reverse-map *svc* 447562003 "G35")
            (map :mapTarget)
            (every? #(.startsWith % "G35")))
-      "Reverse map prefix returns items with a map target not fulfulling original request ")
+      "Reverse map prefix returns items with a map target not fulfilling original request ")
   (is (->> (hermes/reverse-map-prefix *svc* 447562003 "I30")
            (map :mapTarget)
            (every? #(.startsWith % "I30")))
