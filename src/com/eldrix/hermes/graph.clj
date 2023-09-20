@@ -161,10 +161,10 @@
       [:info.snomed.Description/active :info.snomed.Description/term]}])"
   [{svc :com.eldrix/hermes :as env} {:info.snomed.Concept/keys [id]}]
   {::pco/input  [:info.snomed.Concept/id]
-   ::pco/output [{:info.snomed.Concept/preferredDescription
-                  description-properties}]}
-  (let [lang (or (get (pco/params env) :accept-language) (.toLanguageTag (Locale/getDefault)))]
-    {:info.snomed.Concept/preferredDescription (record->map "info.snomed.Description" (hermes/preferred-synonym svc id lang))}))
+   ::pco/output [{:info.snomed.Concept/preferredDescription description-properties}]}
+  {:info.snomed.Concept/preferredDescription
+   (record->map "info.snomed.Description" (hermes/preferred-synonym svc id (:accept-language (pco/params env)) true))})
+
 
 (pco/defresolver fully-specified-name
   [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]

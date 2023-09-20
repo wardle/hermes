@@ -24,8 +24,7 @@
             [io.pedestal.interceptor :as intc]
             [io.pedestal.interceptor.error :as intc-err])
   (:import (java.time.format DateTimeFormatter)
-           (java.time LocalDate)
-           (java.util Locale)))
+           (java.time LocalDate)))
 
 (set! *warn-on-reflection* true)
 
@@ -123,8 +122,8 @@
    :enter (fn [{::keys [svc] :as ctx}]
             (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
                   concept (hermes/extended-concept svc concept-id)
-                  langs (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
-                  preferred (hermes/preferred-synonym svc concept-id langs)]
+                  langs (get-in ctx [:request :headers "accept-language"])
+                  preferred (hermes/preferred-synonym svc concept-id langs true)]
               (assoc ctx :result (when concept (assoc concept :preferredDescription preferred)))))})
 
 (def get-historical
@@ -163,7 +162,7 @@
                   key-fmt (or (property-formats (get-in ctx [:request :params :key-format])) fmt)
                   value-fmt (or (property-formats (get-in ctx [:request :params :value-format])) fmt)
                   pretty (or key-fmt value-fmt)
-                  language-range (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
+                  language-range (get-in ctx [:request :headers "accept-language"])
                   result (hermes/properties svc concept-id {:expand expand?})]
               (assoc ctx :result                            ;; take care that if no result, is it because no props, or concept doesn't exist?
                          (if (seq result)                   ;; so if there's an empty result
@@ -174,8 +173,8 @@
   {:name  ::get-concept-preferred-description
    :enter (fn [{::keys [svc] :as ctx}]
             (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
-                  langs (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))
-                  ds (hermes/preferred-synonym svc concept-id langs)]
+                  langs (get-in ctx [:request :headers "accept-language"])
+                  ds (hermes/preferred-synonym svc concept-id langs true)]
               (assoc ctx :result ds)))})
 
 (def get-map-to
@@ -247,7 +246,7 @@
                 include-historic?
                 (assoc ctx :result (hermes/expand-ecl-historic svc ecl))
                 preferred?
-                (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (or (get-in ctx [:request :headers "accept-language"]) (.toLanguageTag (Locale/getDefault))))))]
+                (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (get-in ctx [:request :headers "accept-language"]) true)))]
                   (assoc ctx :result (hermes/expand-ecl* svc ecl refset-ids)))
                 :else
                 (assoc ctx :result (hermes/expand-ecl svc ecl)))))})

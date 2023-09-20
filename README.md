@@ -819,6 +819,8 @@ Options:
 * `--allowed-origin "*"` is equivalent to `--allowed-origins "*"`
 * `--locale` sets the default locale. This is used as a default if clients do not specify their preference. e.g. `--locale=en-GB`
 
+By default, the default locale will be determined by looking at which language reference sets are installed.
+
 #### 7. Run a HL7 FHIR terminology web service
 
 You can use [`hades`](https://github.com/wardle/hades) together with the 

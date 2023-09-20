@@ -476,7 +476,9 @@
   (store/preferred-synonym (.-store svc) concept-id language-refset-ids))
 
 (s/fdef preferred-synonym
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
+  :args (s/alt :binary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id)
+               :ternary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/nilable string?))
+               :quaternary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/nilable string?) :fallback? boolean?)))
 (defn preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
@@ -497,9 +499,10 @@
   ([^Svc svc concept-id]
    (preferred-synonym* svc concept-id (match-locale svc nil true)))
   ([^Svc svc concept-id language-range]
-   (preferred-synonym* svc concept-id (match-locale svc language-range false)))
+   (preferred-synonym svc concept-id language-range false))
   ([^Svc svc concept-id language-range fallback?]
-   (preferred-synonym* svc concept-id (match-locale svc language-range fallback?))))
+   (when-let [lang-refset-ids (seq (match-locale svc language-range fallback?))]
+     (preferred-synonym* svc concept-id lang-refset-ids))))
 
 (s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
@@ -540,9 +543,7 @@
 
 (defn ^:private make-search-params
   [^Svc svc {:keys [s constraint accept-language language-refset-ids] :as params}]
-  (let [lang-refset-ids (or (seq language-refset-ids)
-                            (when accept-language (match-locale svc accept-language true))
-                            (match-locale svc))]
+  (let [lang-refset-ids (or (seq language-refset-ids) (match-locale svc accept-language true))]
     (cond-> (assoc params :language-refset-ids lang-refset-ids)
       ;; if there is a string, normalize it
       s (update :s #(lang/fold (first lang-refset-ids) %))
@@ -1239,19 +1240,20 @@
          index-reader (search/open-index-reader (io/file root (:search manifest)))
          member-reader (members/open-index-reader (io/file root (:members manifest)))
          index-searcher (IndexSearcher. index-reader)
-         ;; use chosen locale, or system default, to determine a fallback priority language priority list
-         fallback-locale (or default-locale (.toLanguageTag (Locale/getDefault)))
+         locale-match-fn (lang/make-match-fn st default-locale)
          svc {:store          st
               :indexReader    index-reader
               :searcher       index-searcher
               :memberReader   member-reader
               :memberSearcher (IndexSearcher. member-reader)
-              :localeMatchFn  (lang/make-match-fn st fallback-locale)}]
+              :localeMatchFn  locale-match-fn}]
      ;; report configuration when appropriate
-     (when-not quiet (log/info "opening hermes terminology service " root
-                               (assoc manifest :releases (map :term (store/release-information st))
-                                               :default-locale fallback-locale
-                                               :installed-locales (lang/available-locales st))))
+     (when-not quiet
+       (let [lang-refset-ids (locale-match-fn)]
+         (log/info "opening hermes terminology service " root
+                   (assoc manifest :releases (map :term (store/release-information st))
+                                   :default-languages (map #(:term (store/preferred-synonym st % lang-refset-ids)) lang-refset-ids)
+                                   :installed-locales (lang/available-locales st)))))
      (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
 
 (defn close [^Closeable svc]

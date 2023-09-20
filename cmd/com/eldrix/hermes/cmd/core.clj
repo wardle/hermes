@@ -12,8 +12,7 @@
     [com.eldrix.hermes.importer :as importer]
     [expound.alpha :as expound])
   (:import (clojure.lang ExceptionInfo)
-           (java.net ConnectException)
-           (java.util Locale)))
+           (java.net ConnectException)))
 
 (defn- log-module-dependency-problems [svc]
   (let [problem-deps (seq (hermes/module-dependency-problems svc))]
@@ -83,8 +82,7 @@
       (clojure.pprint/pprint st))))
 
 (defn serve [{:keys [db _port _bind-address allowed-origin locale] :as params} _]
-  (let [default-locale (or locale (.toLanguageTag (Locale/getDefault)))
-        svc (hermes/open db {:default-locale default-locale})
+  (let [svc (hermes/open db {:default-locale locale})
         params' (cond (= ["*"] allowed-origin) (assoc params :allowed-origins (constantly true))
                       (seq allowed-origin) (assoc params :allowed-origins allowed-origin)
                       :else params)]
@@ -92,8 +90,7 @@
                         (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
                         (update-keys keyword)))
     (log-module-dependency-problems svc)
-    (log/info "starting terminology server "
-              (-> params' (dissoc :allowed-origin :locale) (assoc :default-locale default-locale)))
+    (log/info "starting terminology server " (dissoc params' :allowed-origin))
     (server/start-server svc params')))
 
 (defn usage

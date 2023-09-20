@@ -55,10 +55,12 @@
   different set of priorities for any specific locale if they know better
   than the defaults."
 
-  {"en-gb" [999000671000001103                              ;; UK dm+d
-            999000681000001101                              ;; UK drug extension
-            999001261000000100                              ;; NHS realm language (clinical part)
+  {"da-dk" [554461000005103]                                ;; Danish
+   "en-au" [32570271000036106]                              ;; Australian
+   "en-gb" [999001261000000100                              ;; NHS realm language (clinical part)
             999000691000001104                              ;; NHS realm language (pharmacy part)
+            999000671000001103                              ;; UK dm+d
+            999000681000001101                              ;; UK drug extension
             900000000000508004                              ;; Great Britain English language reference set
             999001251000000103]                             ;; United Kingdom Extension Great Britain English language reference set
    "en-us" [900000000000509007]
@@ -66,7 +68,7 @@
    "en-ie" [21000220103]                                    ;; |Irish language reference set|
    "en-nz" [271000210107]                                   ;; |New Zealand English language reference set|
    "es-es" [448879004]                                      ;; |Spanish language reference set|
-   "es-ar" [450828004]                                      ;;|Conjunto de referencias de lenguaje castellano para América Latina|
+   "es-ar" [450828004]                                      ;; |Conjunto de referencias de lenguaje castellano para América Latina|
    "es-uy" [5641000179103]                                  ;; |Conjunto de referencias de lenguaje castellano para Uruguay|
    "et-ee" [71000181105]                                    ;; |Estonian language reference set|
    "de-de" [722130004]                                      ;; |German language reference set|
@@ -74,7 +76,8 @@
    "fr-be" [21000172104]                                    ;; |Belgian French language reference set|
    "fr-ca" [20581000087109]                                 ;; |Canada French language reference set|
    "ja-ja" [722129009]                                      ;; | Japanese language reference set|
-   "nl-be" [31000172101]                                    ;;|Belgian Dutch language reference set|
+   "mi"    [291000210106]
+   "nl-be" [31000172101]                                    ;; |Belgian Dutch language reference set|
    "nl-nl" [31000146106]                                    ;; |Netherlands Dutch language reference set|
    "nb-no" [61000202103]                                    ;; |Norwegian Bokmål language reference set|
    "nn-no" [91000202106]                                    ;; |Norwegian Nynorsk language reference set|
@@ -138,17 +141,6 @@
 ;;;;
 ;;;;
 
-(defn- filter-language-reference-sets
-  "Filters the mapping from ISO language tags to refsets keeping only those
-  with installed reference sets."
-  [mapping installed]
-  (reduce-kv (fn [m k v]
-               (if-let [filtered (seq (filter installed v))]
-                 (assoc m (Locale/forLanguageTag k) filtered)
-                 (dissoc m k)))
-             {}
-             mapping))
-
 (defn parse-accept-language-refset-id
   "Parse an 'Accept-Language' header specifying a refset identifier.
   This header should be of the form 'en-x-12345678902'
@@ -162,27 +154,50 @@
                (verhoeff/valid? concept-id))
       (Long/parseLong concept-id))))
 
-(defn available-language-reference-sets
+(defn locale->installed-reference-set-ids
   "Return a map of recognized, installed language reference sets keyed by
   `Locale`.
   For example
   {#object[java.util.Locale 0x31e2875 \"en_GB\"] (999001261000000100 900000000000508004),
    #object[java.util.Locale 0x7d55b894 \"en_US\"] (900000000000509007)}"
   [store]
-  (let [installed-refsets (store/installed-reference-sets store)]
-    (filter-language-reference-sets language-reference-sets installed-refsets)))
+  (let [installed-refset-ids (store/installed-reference-sets store)]
+    (reduce-kv (fn [m k v]
+                 (if-let [filtered (seq (filter installed-refset-ids v))]
+                   (assoc m (Locale/forLanguageTag k) filtered)
+                   m)) {} language-reference-sets)))
+
+(defn ^:private locale-priority
+  "Returns a 'priority' score for a given locale. At the moment this simply
+  priorities everything above en-US, which is what is provided in the
+  International edition."
+  [^Locale locale]
+  (if (= Locale/US locale) 1 0))
 
 (defn available-locales
-  "Returns a sequence of recognised, installed locales."
+  "Returns a sequence of recognised, installed locales. Results are returned in
+  a meaningful order, in which locales that are defined in country-specific
+  extensions are listed before those from the International edition. "
   [store]
-  (->> (keys (available-language-reference-sets store))
-       (map #(.toLanguageTag ^Locale %))))
+  (let [installed-refset-ids (store/installed-reference-sets store)
+        installed-locales (reduce-kv
+                            (fn [acc k [refset-id & _]]     ;; we check that the FIRST reference set id is installed, rather than ANY in the list
+                              (if (installed-refset-ids refset-id)
+                                (conj acc (.toLanguageTag (Locale/forLanguageTag k)))
+                                acc)) [] language-reference-sets)]
+    (sort-by locale-priority installed-locales)))
+
+(defn default-fallback-locale
+  "Returns a string representing the 'best' fallback locale given what is
+  installed in the store, in the format of an Accept-Language header."
+  [store]
+  (str/join "," (available-locales store)))
 
 (defn- do-match
   "Performs a locale match given the installed locales, a language priority
   list and a fallback priority list. Returns a list of reference set ids.
   Parameters:
-  - available : a map of installed reference sets. See `available-language-reference-sets`
+  - available : a map of installed reference sets. See `locale->installed-reference-set-ids`
   - fallback-priority-list : priority list in case none in chosen list available
   - language-priority-list : an 'Accept-Language' string (e.g. \"en-GB,en\")
   - fallback? : if a match cannot be found, should fallback to fallback list?
@@ -209,49 +224,55 @@
   given a 'language-priority-list' such as \"fr,en-US\".
   Parameters:
   - store : a SNOMED store
-  - fallback-priority-list : default locale to use, e.g. \"en-GB\"
+  - fallback-priority-list : default locale to use, e.g. \"en-GB\". Can be nil.
 
-  Returns a function that takes a single string containing a list of comma-
-  separated language ranges or a list of language ranges in the form of the
-  \"Accept-Language \" header defined in RFC 2616. That function will return a
-  list of best-matched reference identifiers given those priorities. Optionally,
-  the returned function can take an additional parameter to choose whether to
-  fallback to the pre-configured fallback-priority-list should there be no match.
+  If `fallback-priority-list` is nil, a sensible fallback locale will be chosen
+  from what is installed in the store.
+
+  Returns a multi-arity function that returns a sequence of best-matched
+  reference set identifiers to be used in order of priority.
+  - [] : returns a set representing the database default locale.
+  - [priority-list] : returns a set best matching a priority list - which should
+  be a single string containing a list of comma-separated language ranges
+  or a list of language ranges in the form of the \"Accept-Language \" header
+  defined in RFC 2616. By default, does not fallback to database default.
+  - [priority-list fallback?] - as above, but if the preferences in the priority
+  list cannot be met, should the database default fallback be used?
 
   This closes over the installed reference sets at the time of function
   generation and so does not take into account changes made since
   it was generated.
 
-  Throws an exception if the default locale cannot be supported given the
-  available installed and recognised locales as per language reference sets."
+  Throws an exception if the specified fallback language range cannot be
+  supported, or if there is no recognised available locale installed at all."
   ([st fallback-priority-list]
-   (let [available (available-language-reference-sets st)
-         default-refset-ids (do-match available nil (or fallback-priority-list (.toLanguageTag (Locale/getDefault))))]
-     (when (empty? default-refset-ids)
+   (let [available (locale->installed-reference-set-ids st)
+         fallback (or fallback-priority-list (default-fallback-locale st))
+         fallback-refset-ids (do-match available nil fallback)]
+     (when (empty? fallback-refset-ids)
        (let [installed (store/installed-language-reference-sets st)
              err {:requested    fallback-priority-list      ;; what was requested
                   :available    (available-locales st)      ;; what is available (ie installed and recognized)
                   :unrecognized (remove language-refset-id->locale installed) ;; what is installed but not recognized
                   :installed    installed}]                 ;; what is installed
          (log/error "No language reference set installed matching requested fallback (default) locale." err)
-         (log/error "Explicitly choose a default locale or install additional distributions")
+         (log/error "Explicitly choose a different default locale or install additional distributions")
          (throw (ex-info "No language reference set installed matching requested fallback (default) locale." err))))
      (fn
        ([]
-        default-refset-ids)
+        fallback-refset-ids)
        ([language-priority-list]
-        (when (seq language-priority-list)
-          (do-match available fallback-priority-list language-priority-list)))
+        (do-match available fallback language-priority-list false))
        ([language-priority-list fallback?]
         (if (and (str/blank? language-priority-list) fallback?)
-          default-refset-ids
-          (do-match available fallback-priority-list language-priority-list)))))))
+          fallback-refset-ids
+          (do-match available fallback language-priority-list fallback?)))))))
 ;;(memoize (partial do-match (installed-language-reference-sets store) fallback-priority-list))))
 
 (defn match
   "Convenience method to match a language-priority-list to the installed
   language reference sets in the store specified.
-  Returns a sequence refset identifiers."
+  Returns a sequence of reference set identifiers."
   [store language-priority-list]
   ((make-match-fn store language-priority-list)))
 

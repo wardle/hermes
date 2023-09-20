@@ -52,8 +52,7 @@
    :allowed-origins [nil "--allowed-origins \"*\" or ORIGINS" "Set CORS policy, with \"*\" or comma-delimited hostnames"]
    :allowed-origin  [nil "--allowed-origin \"*\" or ORIGIN" "Set CORS policy, with \"*\" or hostname"
                      :multi true :default [] :update-fn conj]
-   :locale          [nil "--locale LOCALE" "Set default / fallback locale"
-                     :default (.toLanguageTag (Locale/getDefault))]
+   :locale          [nil "--locale LOCALE" "Set default / fallback locale"]
    :format          [nil "--format FMT" "Format for status output ('json' or 'edn')"
                      :parse-fn keyword :validate [#{:json :edn} "Format must be 'json' or 'edn'"]]
    :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
