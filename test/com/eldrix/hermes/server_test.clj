@@ -2,9 +2,8 @@
   (:require [clojure.data.json :as json]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is use-fixtures]]
-            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.cmd.server :as server]
-            [com.eldrix.hermes.cmd.server]
+            [com.eldrix.hermes.core :as hermes]
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.test :refer [response-for]]))
