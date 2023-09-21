@@ -35,7 +35,7 @@ jobs:
         run:  clojure -M:dev:check
 
       - name: Create TRUD cache directory
-        run: mkdir trudcache
+        run: mkdir download
 
       - name: Write out TRUD API key from secrets
         run: echo ${{ secrets.TRUD_API_KEY }} >> api-key.txt
@@ -45,18 +45,18 @@ jobs:
         uses: actions/cache@v3
         with:
             path: snomed.db
-            key: ${{ runner.os }}-uk-db
+            key: ${{ github.sha }}-uk-db
 
       - name: Install latest distributions for the UK
         if: steps.cache-db.outputs.cache-hit != 'true'
-        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical uk.nhs/sct-drug-ext --api-key api-key.txt --cache-dir trudcache
+        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical uk.nhs/sct-drug-ext --api-key api-key.txt --cache-dir download
 
       - name: Remove downloaded files
-        run: rm -rf trudcache
+        run: rm -rf download
 
-      - name: Index and compact database
+      - name: Index database
         if: steps.cache-db.outputs.cache-hit != 'true'
-        run: clojure -M:run --db snomed.db index compact
+        run: clojure -M:run --db snomed.db index
 
       - name: Print status report
         run: clojure -M:run --db snomed.db status
