@@ -1,0 +1,47 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: latest
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Install dependencies
+        run: clojure -P -M:test
+
+      - name: Compilation check
+        run:  clojure -M:dev:check
+
+      - name: Create TRUD cache directory
+        run: mkdir trudcache
+
+      - name: Write out TRUD API key from secrets
+        run: echo ${{ secrets.TRUD_API_KEY }} >> api-key.txt
+
+      - name: Install latest distributions for the UK
+        run: clojure -M:run --db snomed.db install index compact uk.nhs/sct-clinical uk.nhs/sct-drug-ext --api-key api-key.txt --cache-dir trudcache
+
+      - name: Clojure tests
+        run: clojure -M:test
