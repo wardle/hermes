@@ -45,11 +45,11 @@ jobs:
         uses: actions/cache@v3
         with:
             path: snomed.db
-            key: ${{ github.sha }}-uk-db
+            key: ${{ github.sha }}-uk-clinical-db
 
       - name: Install latest distributions for the UK
         if: steps.cache-db.outputs.cache-hit != 'true'
-        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical uk.nhs/sct-drug-ext --api-key api-key.txt --cache-dir download
+        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical --api-key api-key.txt --cache-dir download
 
       - name: Remove downloaded files
         run: rm -rf download
