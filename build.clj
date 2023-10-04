@@ -1,8 +1,10 @@
 (ns build
   (:refer-clojure :exclude [compile])
-  (:require [clojure.tools.build.api :as b]
+  (:require [clojure.string :as str]
+            [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as dd]
-            [borkdude.gh-release-artifact :as gh]))
+            [borkdude.gh-release-artifact :as gh])
+  (:import (java.time LocalDate)))
 
 (def lib 'com.eldrix/hermes)
 (def version (format "1.4.%s" (b/git-count-revs nil)))
@@ -18,10 +20,30 @@
              :file   uber-file
              :sha256 true})
 
+(def citation
+  (str/join "\n"
+            ["cff-version: 1.2.0"
+             "message: \"If you use this software, please cite it as below.\""
+             "authors:"
+             "- family-names: \"Wardle\""
+             "  given-names: \"Mark\""
+             "  orcid: \"https://orcid.org/0000-0002-4543-7068\""
+             "title: \"Hermes\""
+             (str "version: " version)
+             "doi: 10.5281/zenodo.5504046"
+             (str "date-released: " (LocalDate/now))
+             "url: \"https://github.com/wardle/hermes\""]))
+
+
+
 (defn clean [_]
   (b/delete {:path "target"}))
 
+(defn update-citation [_]
+  (spit "CITATION.cff" citation))
+
 (defn jar [_]
+  (update-citation nil)
   (clean nil)
   (println "Building" jar-file)
   (b/write-pom {:class-dir class-dir
@@ -64,6 +86,7 @@
   "Build an executable uberjar file for HTTP server and CLI tooling."
   [{:keys [out] :or {out uber-file}}]
   (println "Building uberjar:" out)
+  (update-citation nil)
   (clean nil)
   (b/copy-dir {:src-dirs   ["resources"]
                :target-dir class-dir})
