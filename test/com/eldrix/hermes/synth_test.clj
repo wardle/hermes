@@ -62,10 +62,9 @@
 
 (deftest test-bad-import
   (let [{:keys [release-path]} *paths*
-        refsets (gen/sample (rf2/gen-language-refset))
-        different-extended-fields? (not (apply = (->> refsets (map :fields) (map count))))]
-    (testing "Generated malformed reference set"
-      (is different-extended-fields? "Generated reference sets must have same number of extension fields"))
+        ;; generate reference set items with fields not in the specification
+        ;; if this were named der2_ciiiRefset_LanguageSnapshot... then it would work
+        refsets (gen/sample (rf2/gen-language-refset {:fields [1 2 3]}))]
     (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" refsets)
     (testing "Import of malformed reference set should throw an exception"
       (is (thrown? Throwable (let [ch (importer/load-snomed (str release-path))]
