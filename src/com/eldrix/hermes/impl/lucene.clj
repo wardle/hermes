@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
            (org.apache.lucene.search CollectionTerminatedException IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
-                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector ScoreMode)))
+                                     MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector Scorable ScoreMode)))
 
 (set! *warn-on-reflection* true)
 
@@ -13,8 +13,8 @@
   (getLeafCollector [_ ctx]
     (let [base-id (.-docBase ctx)]
       (reify LeafCollector
-        (setScorer [_ _scorer])                             ;; NOP
-        (collect [_ doc-id]
+        (^void setScorer [_ ^Scorable _scorer])                             ;; NOP
+        (^void collect [_ ^int doc-id]
           (.add coll (+ base-id doc-id))))))
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
 
@@ -23,8 +23,8 @@
   (getLeafCollector [_ ctx]
     (let [base-id (.-docBase ctx)]
       (reify LeafCollector
-        (setScorer [_ _scorer])                             ;; NOP
-        (collect [_ doc-id]
+        (^void setScorer [_ ^Scorable _scorer])                             ;; NOP
+        (^void collect [_ ^int doc-id]
           (when-not (a/>!! ch (+ base-id doc-id))           ;; put the document on the channel, but if channel closed...
             (throw (CollectionTerminatedException.)))))))   ;; ... then prematurely terminate collection of the current leaf
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
