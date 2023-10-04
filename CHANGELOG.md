@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.xxxx] - Not yet released
+
+* Upgrade to Apache Lucene 9.8
+* Automatically generate CITATION.cff file for GitHub during build
+
 ## [1.4.1296] - 2023-09-20
 
 * #60 When not explicitly set, derive database default fallback locale on the basis 
