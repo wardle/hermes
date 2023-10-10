@@ -2,10 +2,11 @@
 
 This log documents significant changes for each release.
 
-## [1.4.xxxx] - Not yet released
+## [1.4.1312] - 2023-10-10
 
 * Upgrade to Apache Lucene 9.8
 * Automatically generate CITATION.cff file for GitHub during build
+* Generated artifacts such as library jar now include improved metadata (pom.xml)
 
 ## [1.4.1296] - 2023-09-20
 
