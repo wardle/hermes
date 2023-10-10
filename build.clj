@@ -10,8 +10,7 @@
 (def version (format "1.4.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def jar-basis (b/create-basis {:project "deps.edn"}))
-(def uber-basis (b/create-basis {:project "deps.edn"
-                                 :aliases [:run]}))
+(def uber-basis (b/create-basis {:project "deps.edn", :aliases [:run]}))
 (def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
 (def uber-file (format "target/%s-%s.jar" (name lib) version))
 (def github {:org    "wardle"
