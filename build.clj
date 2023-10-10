@@ -13,11 +13,6 @@
 (def uber-basis (b/create-basis {:project "deps.edn", :aliases [:run]}))
 (def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
 (def uber-file (format "target/%s-%s.jar" (name lib) version))
-(def github {:org    "wardle"
-             :repo   "hermes"
-             :tag    (str "v" version)
-             :file   uber-file
-             :sha256 true})
 
 (def citation
   (str/join "\n"
@@ -32,8 +27,6 @@
              "doi: 10.5281/zenodo.5504046"
              (str "date-released: " (LocalDate/now))
              "url: \"https://github.com/wardle/hermes\""]))
-
-
 
 (defn clean [_]
   (b/delete {:path "target"}))
@@ -53,7 +46,18 @@
                 :scm       {:url                 "https://github.com/wardle/hermes"
                             :tag                 (str "v" version)
                             :connection          "scm:git:git://github.com/wardle/hermes.git"
-                            :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}})
+                            :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}
+                :pom-data  [[:description
+                             "A library and microservice implementing the health and care terminology SNOMED CT with support for cross-maps, inference, fast full-text search, autocompletion, compositional grammar and the expression constraint language."]
+                            [:developers
+                             [:developer
+                              [:id "wardle"] [:name "Mark Wardle"] [:email "mark@wardle.org"] [:url "https://wardle.org"]]]
+                            [:organization [:name "Eldrix Ltd"]]
+                            [:licenses
+                             [:license
+                              [:name "The Apache Software License, Version 2.0"]
+                              [:url "http://www.apache.org/licenses/LICENSE-2.0.txt"]
+                              [:distribution "repo"]]]]})
   (b/copy-dir {:src-dirs   ["src" "resources"]
                :target-dir class-dir})
   (b/jar {:class-dir class-dir
@@ -69,7 +73,6 @@
               :class-dir class-dir
               :version   version
               :jar-file  jar-file}))
-
 
 (defn deploy
   "Deploy library to clojars.
@@ -109,4 +112,8 @@
   [_]
   (uber nil)
   (println "Deploying release to GitHub")
-  (gh/release-artifact github))
+  (gh/release-artifact {:org    "wardle"
+                        :repo   "hermes"
+                        :tag    (str "v" version)
+                        :file   uber-file
+                        :sha256 true}))
