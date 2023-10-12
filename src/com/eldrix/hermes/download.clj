@@ -1,17 +1,25 @@
+; Copyright (c) 2020-2023 Mark Wardle and Eldrix Ltd
+;
+; This program and the accompanying materials are made available under the
+; terms of the Eclipse Public License 2.0 which is available at
+; http://www.eclipse.org/legal/epl-2.0.
+;
+; SPDX-License-Identifier: EPL-2.0
+;;;;
 (ns com.eldrix.hermes.download
-  (:require [clojure.data.json :as json]
-            [clojure.java.io :as io]
-            [clojure.pprint :as pp]
-            [clojure.spec.alpha :as s]
-            [clojure.string :as str]
-            [clojure.tools.logging.readable :as log]
-            [com.eldrix.trud.core :as trud]
-            [hato.client :as hc])
-  (:import (java.io FileNotFoundException)
-           (java.nio.file Files Path)
-           (java.nio.file.attribute FileAttribute)
-           (java.time LocalDate)
-           (java.time.format DateTimeParseException)))
+ (:require [clojure.data.json :as json]
+           [clojure.java.io :as io]
+           [clojure.pprint :as pp]
+           [clojure.spec.alpha :as s]
+           [clojure.string :as str]
+           [clojure.tools.logging.readable :as log]
+           [com.eldrix.trud.core :as trud]
+           [hato.client :as hc])
+ (:import (java.io FileNotFoundException)
+          (java.nio.file Files Path)
+          (java.nio.file.attribute FileAttribute)
+          (java.time LocalDate)
+          (java.time.format DateTimeParseException)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)

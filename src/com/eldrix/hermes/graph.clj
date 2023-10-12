@@ -1,3 +1,11 @@
+; Copyright (c) 2020-2023 Mark Wardle and Eldrix Ltd
+;
+; This program and the accompanying materials are made available under the
+; terms of the Eclipse Public License 2.0 which is available at
+; http://www.eclipse.org/legal/epl-2.0.
+;
+; SPDX-License-Identifier: EPL-2.0
+;;;;
 (ns ^:no-doc com.eldrix.hermes.graph
   "Provides a graph API around SNOMED CT structures.
   To use this namespace, you will need to ensure you 'require' the pathom3
