@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1320] - 2023-10-12
+
+* Eclipse Public License v2.0
+* Include license in build products
+* Add support for automatically installing the new UK 'monolith' edition
+
 ## [1.4.1312] - 2023-10-10
 
 * Upgrade to Apache Lucene 9.8

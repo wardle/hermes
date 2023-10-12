@@ -597,6 +597,8 @@ and imported to the file-based database `snomed.db`.
 | uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
 | uk.nhs/sct-monolith     | UK SNOMED CT monolith edition: includes everything |
 
+At the time of writing, the UK monolith edition is labelled as `Draft for Trial Use`.
+
 Each distribution might require custom configuration options. 
 
 For example, the UK releases use the NHS Digital TRUD API, and so you need to
