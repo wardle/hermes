@@ -595,6 +595,7 @@ and imported to the file-based database `snomed.db`.
 |-------------------------|----------------------------------------------------|
 | uk.nhs/sct-clinical     | UK SNOMED CT clinical - incl international release |
 | uk.nhs/sct-drug-ext     | UK SNOMED CT drug extension - incl dm+d            |
+| uk.nhs/sct-monolith     | UK SNOMED CT monolith edition: includes everything |
 
 Each distribution might require custom configuration options. 
 
@@ -608,8 +609,7 @@ For example, these commands will download, cache and install the International
 release, the UK clinical edition and the UK drug extension:
 
 ```shell
-clj -M:run --db snomed.db install uk.nhs/sct-clinical --api-key=trud-api-key.txt --cache-dir=/tmp/trud
-clj -M:run --db snomed.db install uk.nhs/sct-drug-ext --api-key=trud-api-key.txt --cache-dir=/tmp/trud
+clj -M:run --db snomed.db install uk.nhs/sct-monolith --api-key=trud-api-key.txt --cache-dir=/tmp/trud
 ```
 
 `hermes` will tell you what configuration parameters are required:
