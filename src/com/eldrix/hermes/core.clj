@@ -1283,7 +1283,7 @@
       (log/info "license: " (or (:licenceStatement dist) (:error dist))))
     (when (pos? n-modules)
       (log/info n-modules "modules listed in distribution metadata")
-      (doseq [module-name module-names]
+      (doseq [module-name (sort-by str/lower-case module-names)]
         (log/info "module:" module-name)))))
 
 (def ^:private core-components
