@@ -66,8 +66,12 @@
     :rc   "UK"
     :f    (fn [params] (:archiveFilePath (download-from-trud 105 params)))
     :spec ::uk-trud
-    :desc "UK drug extension"}])
-
+    :desc "UK drug extension"}
+   {:id   "uk.nhs/sct-monolith"
+    :rc   "UK"
+    :f    (fn [params] (:archiveFilePath (download-from-trud 1799 params)))
+    :spec ::uk-trud
+    :desc "UK monolith edition"}])
 
 (def mlds-base-url "https://mlds.ihtsdotools.org")
 
