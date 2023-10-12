@@ -58,10 +58,9 @@
                               [:name "Eclipse Public License v2.0"]
                               [:url "https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html"]
                               [:distribution "repo"]]]]})
-  (b/copy-dir {:src-dirs   ["src" "resources"]
-               :target-dir class-dir})
-  (b/jar {:class-dir class-dir
-          :jar-file  jar-file}))
+  (b/copy-dir {:src-dirs ["src" "resources"], :target-dir class-dir})
+  (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "META-INF" "LICENSE"])})
+  (b/jar {:class-dir class-dir, :jar-file jar-file}))
 
 (defn install
   "Installs pom and library jar in local maven repository"
@@ -80,20 +79,17 @@
   [_]
   (println "Deploying" jar-file)
   (jar nil)
-  (dd/deploy {:installer :remote
-              :artifact  jar-file
-              :pom-file  (b/pom-path {:lib       lib
-                                      :class-dir class-dir})}))
+  (dd/deploy {:installer :remote, :artifact  jar-file
+              :pom-file  (b/pom-path {:lib lib, :class-dir class-dir})}))
 (defn uber
   "Build an executable uberjar file for HTTP server and CLI tooling."
   [{:keys [out] :or {out uber-file}}]
   (println "Building uberjar:" out)
   (update-citation nil)
   (clean nil)
-  (b/copy-dir {:src-dirs   ["resources"]
-               :target-dir class-dir})
-  (b/copy-file {:src    "cmd/logback.xml"
-                :target (str class-dir "/logback.xml")})
+  (b/copy-dir {:src-dirs ["resources"], :target-dir class-dir})
+  (b/copy-file {:src "cmd/logback.xml", :target (str class-dir "/logback.xml")})
+  (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "LICENSE"])})
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]
