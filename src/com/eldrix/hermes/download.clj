@@ -7,19 +7,19 @@
 ; SPDX-License-Identifier: EPL-2.0
 ;;;;
 (ns com.eldrix.hermes.download
- (:require [clojure.data.json :as json]
-           [clojure.java.io :as io]
-           [clojure.pprint :as pp]
-           [clojure.spec.alpha :as s]
-           [clojure.string :as str]
-           [clojure.tools.logging.readable :as log]
-           [com.eldrix.trud.core :as trud]
-           [hato.client :as hc])
- (:import (java.io FileNotFoundException)
-          (java.nio.file Files Path)
-          (java.nio.file.attribute FileAttribute)
-          (java.time LocalDate)
-          (java.time.format DateTimeParseException)))
+  (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
+            [clojure.pprint :as pp]
+            [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.trud.core :as trud]
+            [hato.client :as hc])
+  (:import (java.io FileNotFoundException)
+           (java.nio.file Files Path)
+           (java.nio.file.attribute FileAttribute)
+           (java.time LocalDate)
+           (java.time.format DateTimeParseException)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
@@ -53,7 +53,7 @@
           (assoc release :archiveFilePath (trud/download-release cache-dir release))))
       (trud/get-latest {:api-key   trud-key
                         :cache-dir cache-dir
-                        :progress progress}
+                        :progress  progress}
                        item-identifier))))
 
 (def trud-distributions
@@ -117,12 +117,12 @@
   (let [password (try (some-> (slurp (io/file password-file)) str/trim-newline)
                       (catch FileNotFoundException e (log/error "password file not found") (throw e)))
         target (Files/createTempFile label "" (make-array FileAttribute 0))
-        opts (assoc http-opts :basic-auth  {:user username :pass password})
+        opts (assoc http-opts :basic-auth {:user username :pass password})
         {:keys [status body error]} (hc/get (str mlds-base-url url) opts)]
     (cond
       (= 401 status)
       (log/error "invalid credentials. check username and password")
-      (= 500 status) ;; unfortunately, if the user is not authorised, the MLDS server returns 500 with JSON data
+      (= 500 status)                                        ;; unfortunately, if the user is not authorised, the MLDS server returns 500 with JSON data
       (let [body' (json/read-str (slurp body))]
         (throw (ex-info (str "Unable to download: " (get body' "message")) {:url url :status status :body body'})))
       (or (not= 200 status) error)
