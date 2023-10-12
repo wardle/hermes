@@ -76,6 +76,7 @@ supports search and autocompletion using the $expand operation.
     - [Map a concept into a reference set](#map-a-concept-into-a-reference-set)
   - [C. Embed into another application as a JVM library](#c-embed-into-another-application)
   - [D. Development notes](#d-development)
+  - [E. Backwards compatibility and versioning](#e-backwards-compatibility-and-versioning)
 
 # Quickstart
 
@@ -1556,3 +1557,34 @@ You may need to add Clojars as a repository in your build tool. Here for maven:
 ### D. Development
 
 See [/doc/development](/doc/development.md) on how to develop, test, lint, deploy and release `hermes`. 
+
+### E. Backwards compatibility and versioning
+
+`Hermes` uses versions of form `major.minor.commit`
+
+`Hermes` builds a file-based database made up of a store and indices
+and each database is also versioned. `Hermes` of a specified major/minor
+version is compatible with databases created by the same major/minor version. 
+For example, a database was created with `Hermes v1.4.1265` can be read
+by `Hermes v1.4.1320`, but one created with `Hermes v1.3.1262` cannot
+
+If backwards compatibility can easily be preserved, the major/minor version is 
+kept the same. For example, when support for concrete values was added, this was 
+an additive change so that newer versions of `Hermes` would simply degrade
+gracefully, but throw a warning to say concrete values were not supported for 
+this database.
+
+On some occasions, compatibility is broken even when there is only a minor 
+change to database format to prevent user inconvenience, error or confusion. For
+example, in the change from 1.3 series to 1.4, the search index changed to use
+normalised (folded) text according to term locale. This was a small change
+and degradation could have occurred gracefully, but such a fallback would lead
+to varying behaviour depending on which database was used and potentially 
+confuse users. 
+
+In general therefore, the policy for versioning is to enforce exact version 
+matching for a given `Hermes` and database version with a bias towards bumping 
+versions when backwards compatibility or fallback modes of operation could 
+result in confusing or unexpected behaviour.
+
+*Mark*
