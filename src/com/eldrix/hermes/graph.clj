@@ -145,8 +145,8 @@
   (let [lang-refset-ids (seq (some->> (get (pco/params env) :accept-language) (hermes/match-locale svc)))]
     {:info.snomed.Concept/synonyms
      (mapv (partial record->map "info.snomed.Description")
-          (if lang-refset-ids (hermes/synonyms svc id lang-refset-ids)
-                              (hermes/synonyms svc id)))}))
+           (if lang-refset-ids (hermes/synonyms svc id lang-refset-ids)
+                               (hermes/synonyms svc id)))}))
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
