@@ -19,8 +19,7 @@
             [com.eldrix.hermes.snomed :as snomed]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql])
-  (:import (java.util Locale)))
+            [com.wsscode.pathom3.interface.eql :as p.eql]))
 
 (defn record->map
   "Turn a record into a namespaced map."

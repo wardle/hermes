@@ -2,7 +2,6 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [clojure.string :as str]
             [clojure.test :refer [deftest testing is use-fixtures]]
             [com.eldrix.hermes.core :as hermes]))
 

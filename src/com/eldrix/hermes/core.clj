@@ -29,7 +29,7 @@
   (:import (com.eldrix.hermes.snomed Result Description)
            (org.apache.lucene.index IndexReader)
            (org.apache.lucene.search IndexSearcher Query)
-           (java.util Locale UUID)
+           (java.util UUID)
            (java.time.format DateTimeFormatter)
            (java.time LocalDate LocalDateTime)
            (java.io Closeable)))

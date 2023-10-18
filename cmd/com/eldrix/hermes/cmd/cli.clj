@@ -2,8 +2,7 @@
   (:require [clojure.core.match :as match]
             [clojure.set :as set]
             [clojure.string :as str]
-            [clojure.tools.cli :as cli])
-  (:import (java.util Locale)))
+            [clojure.tools.cli :as cli]))
 
 
 ;; Specific options relating to automatic import from a well-known distribution
