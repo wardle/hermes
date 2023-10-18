@@ -340,7 +340,7 @@
    :info.snomed.Relationship/module             {:info.snomed.Concept/id moduleId}
    :info.snomed.Relationship/destination        {:info.snomed.Concept/id destinationId}
    :info.snomed.Relationship/characteristicType {:info.snomed.Concept/id characteristicTypeId}
-   :info.snomed.Relationship/modifierId         {:info.snomed.Concept/id modifierId}})
+   :info.snomed.Relationship/modifier           {:info.snomed.Concept/id modifierId}})
 
 (pco/defresolver concept-relationships
   "Returns the concept's relationships. Accepts a parameter :type, specifying the
