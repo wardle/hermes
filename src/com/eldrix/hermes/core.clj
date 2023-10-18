@@ -7,8 +7,7 @@
 ; SPDX-License-Identifier: EPL-2.0
 ;;;;
 (ns com.eldrix.hermes.core
-  "Provides a terminology service, wrapping the SNOMED store and
-  search implementations as a single unified service."
+  "A SNOMED CT terminology service."
   (:require [clojure.core.async :as a]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
