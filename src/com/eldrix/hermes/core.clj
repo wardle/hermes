@@ -477,7 +477,7 @@
   preferences specified.
 
   Use [[match-locale]] and then repeated calls to [[preferred-synonym*]] if
-  preferred synonyms of a number of concepts are required (e.g. in a map/reduce etc)
+  preferred synonyms of a number of concepts are required (e.g. in a map/reduce etc).
 
   Parameters:
 
