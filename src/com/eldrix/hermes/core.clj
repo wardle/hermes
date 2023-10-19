@@ -469,9 +469,9 @@
   (store/preferred-synonym (.-store svc) concept-id language-refset-ids))
 
 (s/fdef preferred-synonym
-  :args (s/alt :binary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id)
-               :ternary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/nilable string?))
-               :quaternary (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/nilable string?) :fallback? boolean?)))
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
+               :language-range (s/? (s/nilable string?))
+               :fallback? (s/? boolean?)))
 (defn preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
