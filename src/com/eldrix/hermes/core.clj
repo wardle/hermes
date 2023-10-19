@@ -606,7 +606,8 @@
     (snomed/->Result (.-id ps) concept-id (.-term ps) (.-term ps))))
 
 (s/fdef search-concept-ids
-  :args (s/cat :svc ::svc :options (s/keys :opt-un [::accept-language ::language-refset-ids]) :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc, :options (s/? (s/keys :opt-un [::accept-language ::language-refset-ids]))
+               :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
 (defn search-concept-ids
   "Return search results containing the preferred descriptions of the concepts
   specified. Returns a transducer if no concept ids are specified. If a
