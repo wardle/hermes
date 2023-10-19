@@ -37,7 +37,7 @@ jobs:
         run:  clojure -M:dev:check
 
       - name: Create TRUD cache directory
-        run: mkdir download
+        run: mkdir trud
 
       - name: Write out TRUD API key from secrets
         run: echo ${{ secrets.TRUD_API_KEY }} >> api-key.txt
@@ -51,10 +51,10 @@ jobs:
 
       - name: Install latest distributions for the UK
         if: steps.cache-db.outputs.cache-hit != 'true'
-        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical --api-key api-key.txt --cache-dir download
+        run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical --api-key api-key.txt --cache-dir trud
 
       - name: Remove downloaded files
-        run: rm -rf download
+        run: rm -rf trud
 
       - name: Index database
         if: steps.cache-db.outputs.cache-hit != 'true'
