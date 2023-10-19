@@ -641,7 +641,7 @@
      (map #(concept-id->result svc % refset-ids) concept-ids))))
 
 (s/fdef expand-ecl
-  :args (s/cat :svc ::svc :ecl ::non-blank-string :max-hits (s/? int?))
+  :args (s/cat :svc ::svc, :ecl ::non-blank-string, :max-hits (s/? int?))
   :ret (s/coll-of ::result))
 (defn expand-ecl
   "Expand an ECL expression. Results are ordered iff max-hits is specified.
@@ -689,8 +689,7 @@
   (ecl/valid? s))
 
 (s/fdef ecl-contains?
-  :args (s/cat :svc ::svc
-               :concept-ids (s/coll-of :info.snomed.Concept/id)
+  :args (s/cat :svc ::svc, :concept-ids (s/coll-of :info.snomed.Concept/id)
                :ecl ::non-blank-string))
 (defn ^:deprecated ecl-contains?
   "DEPRECATED: use [[intersect-ecl]] instead.
@@ -701,7 +700,7 @@
   (seq (intersect-ecl svc concept-ids ecl)))
 
 (s/fdef expand-ecl-historic
-  :args (s/cat :svc ::svc :ecl ::non-blank-string)
+  :args (s/cat :svc ::svc, :ecl ::non-blank-string)
   :ret (s/coll-of ::result))
 (defn expand-ecl-historic
   "Expand an ECL expression and include historic associations of the results,
@@ -714,7 +713,8 @@
         query (search/q-and [(search/q-or [base-query historic-query]) (search/q-synonym)])]
     (search/do-query-for-results (.-searcher svc) query (match-locale svc))))
 
-(s/def ::transitive-synonym-params (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
+(s/def ::transitive-synonym-params
+  (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
 (s/fdef transitive-synonyms
   :args (s/cat :svc ::svc
