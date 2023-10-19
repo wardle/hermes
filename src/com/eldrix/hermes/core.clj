@@ -198,6 +198,9 @@
   [^Svc svc concept-id]
   (store/parent-relationships (.-store svc) concept-id))
 
+
+(s/fdef parent-relationships-expanded
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
 (defn parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets and their transitive closure tables. This
@@ -365,6 +368,8 @@
   [^Svc svc]
   (store/installed-reference-sets (.-store svc)))
 
+(s/fdef member-field
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :s ::non-blank-string))
 (defn member-field
   "Returns a set of referenced component identifiers that are members of the
   given reference set with a matching value 's' for the 'field' specified.
@@ -377,6 +382,8 @@
                   (members/q-and
                     [(members/q-refset-id refset-id) (members/q-term field s)])))
 
+(s/fdef member-field-prefix
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :prefix ::non-blank-string))
 (defn member-field-prefix
   "Return a set of referenced component identifiers that are members of the
   given reference set with a matching 'prefix' for the 'field' specified.
@@ -389,6 +396,8 @@
                   (members/q-and
                     [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
 
+(s/fdef member-field-wildcard
+  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :s ::non-blank-string))
 (defn member-field-wildcard
   "Return a set of referenced component identifiers that are members of the
   given reference set with a matching wildcard 'value' for the 'field'
