@@ -1121,6 +1121,14 @@
               {} (if expand (store/properties-expanded (.-store svc) concept-id)
                             (store/properties (.-store svc) concept-id)))))
 
+
+
+(s/def ::fmt #{:map-id-syn :vec-id-syn :str-id-syn :syn :id})
+(s/def ::key-fmt ::fmt)
+(s/def ::value-fmt ::fmt)
+(s/def ::language-range string?)
+(s/fdef pprint-properties
+  :args (s/cat :svc ::svc, :props map?, :opts (s/? (s/nilable (s/keys :opt-un [::key-fmt ::value-fmt ::fmt ::language-range])))))
 (defn pprint-properties
   "Pretty print properties. Keys and values can be formatted using `fmt` or
   separately using `key-fmt` and `value-fmt`. `language-range` should be a
@@ -1156,20 +1164,22 @@
       [1142136003 \"Has presentation strength denominator value\"] \"#1\"}}
   ```
   "
-  [svc props {:keys [key-fmt value-fmt fmt language-range]}]
-  (let [lang-refset-ids (match-locale svc language-range true)
-        ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
-        make-fmt (fn [fmt] (fn [v]
-                             (if-not (number? v)
-                               v
-                               (case fmt :id v, :syn (ps v)
-                                         :map-id-syn (hash-map v (ps v))
-                                         :vec-id-syn (vector v (ps v))
-                                         :str-id-syn (str v ":" (ps v))))))
-        key-fn (make-fmt (or key-fmt fmt :vec-id-syn))
-        val-fn (make-fmt (or value-fmt fmt :vec-id-syn))]
-    (update-vals props #(reduce-kv (fn [acc k v]
-                                     (assoc acc (key-fn k) (if (coll? v) (mapv val-fn v) (val-fn v)))) {} %))))
+  ([svc props]
+   (pprint-properties svc props {}))
+  ([svc props {:keys [key-fmt value-fmt fmt language-range]}]
+   (let [lang-refset-ids (match-locale svc language-range true)
+         ps (fn [concept-id] (:term (preferred-synonym* svc concept-id lang-refset-ids)))
+         make-fmt (fn [fmt] (fn [v]
+                              (if-not (number? v)
+                                v
+                                (case fmt :id v, :syn (ps v)
+                                          :map-id-syn (hash-map v (ps v))
+                                          :vec-id-syn (vector v (ps v))
+                                          :str-id-syn (str v ":" (ps v))))))
+         key-fn (make-fmt (or key-fmt fmt :vec-id-syn))
+         val-fn (make-fmt (or value-fmt fmt :vec-id-syn))]
+     (update-vals props #(reduce-kv (fn [acc k v]
+                                      (assoc acc (key-fn k) (if (coll? v) (mapv val-fn v) (val-fn v)))) {} %)))))
 
 
 (def ^:deprecated ^:no-doc get-concept "DEPRECATED. Use [[concept]] instead" concept)
