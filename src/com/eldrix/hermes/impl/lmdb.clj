@@ -69,8 +69,12 @@
     (.close ^Env coreEnv)
     (.close ^Env refsetsEnv)))
 
-(def ^:private rw-env-flags [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_WRITEMAP EnvFlags/MDB_NORDAHEAD EnvFlags/MDB_NOSYNC EnvFlags/MDB_NOMETASYNC])
-(def ^:private ro-env-flags [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_NOLOCK EnvFlags/MDB_RDONLY_ENV])
+(def ^:private rw-env-flags
+  [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_WRITEMAP EnvFlags/MDB_NORDAHEAD EnvFlags/MDB_NOSYNC EnvFlags/MDB_NOMETASYNC])
+
+(def ^:private ro-env-flags
+  [EnvFlags/MDB_NOSUBDIR EnvFlags/MDB_NOTLS EnvFlags/MDB_NOLOCK EnvFlags/MDB_RDONLY_ENV])
+
 (defn make-dbi-flags
   ^"[Lorg.lmdbjava.DbiFlags;" [read-only? & flags]
   (into-array DbiFlags (if read-only? flags (conj flags DbiFlags/MDB_CREATE))))
@@ -125,9 +129,12 @@
                    refsetItems refsetFieldNames))))
 
 (defn open-store
-  (^Closeable [] (open-store (.toFile (Files/createTempDirectory "hermes-lmdb-" (make-array FileAttribute 0))) {:read-only? false}))
-  (^Closeable [f] (open-store f {}))
-  (^Closeable [f opts] (open* f opts)))
+  (^Closeable []
+   (open-store (.toFile (Files/createTempDirectory "hermes-lmdb-" (make-array FileAttribute 0))) {:read-only? false}))
+  (^Closeable [f]
+   (open-store f {}))
+  (^Closeable [f opts]
+   (open* f opts)))
 
 (defn compact-and-close
   [^LmdbStore store]
