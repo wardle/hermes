@@ -498,7 +498,7 @@
      (preferred-synonym* svc concept-id lang-refset-ids))))
 
 (s/fdef fully-specified-name
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? ::non-blank-string)))
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? (s/nilable ::non-blank-string))))
 (defn fully-specified-name
   "Return the fully specified name for the concept specified. If no language
   preferences are provided the database default locale will be used."
