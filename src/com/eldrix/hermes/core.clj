@@ -629,7 +629,7 @@
   |  |      preference not available in installed reference sets
   |- concept-ids    : a collection of concept identifiers.
 
-  For backwards compatibilty, `:language-range` can be used instead of
+  For backwards compatibility, `:language-range` can be used instead of
   `:accept-language`."
   ([^Svc svc]
    (search-concept-ids svc {}))
