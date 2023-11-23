@@ -577,7 +577,7 @@
 
   Example: to search for neurologist as an occupation ('IS-A' '14679004')
   ```
-   (do-search searcher {:s \"neurologist\" :constraint \"<14679004\"})
+   (search svc {:s \"neurologist\" :constraint \"<14679004\"})
   ```
   For autocompletion, it is recommended to use `fuzzy=0`, and `fallback-fuzzy=2`.
 
@@ -600,7 +600,7 @@
   identifier or vector of identifiers to limit search.
   For example
   ```
-   (search searcher {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
+   (search svc {:s \"neurologist\" :properties {snomed/IsA [14679004]}})
   ```
   However, concrete values are not supported, so to search using concrete values
   use a SNOMED ECL constraint instead.
