@@ -2,6 +2,13 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1346] - 2023-11-29
+
+* Fix #61 - attribute values defined by a subexpression that returns no results should not result in invalid expression error
+* Bump to pedestal v0.6.2 - fixes CVE-2023-36478
+* Fix resolution of relationship modifier in the graph API
+* Improve documentation and functional specifications
+
 ## [1.4.1320] - 2023-10-12
 
 * Eclipse Public License v2.0
