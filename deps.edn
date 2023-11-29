@@ -21,7 +21,7 @@
  :aliases
  {:build
   {:deps       {io.github.clojure/tools.build          {:mvn/version "0.9.6"}
-                slipset/deps-deploy                    {:mvn/version "0.2.1"}
+                slipset/deps-deploy                    {:mvn/version "0.2.2"}
                 io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
    :ns-default build}
 
@@ -102,11 +102,11 @@
    :exec-args {:cluster-depth 3}}
 
   :lint/kondo
-  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.09.07"}}
+  {:extra-deps {clj-kondo/clj-kondo {:mvn/version "2023.10.20"}}
    :main-opts  ["-m" "clj-kondo.main" "--lint" "src" "--lint" "cmd" "--lint" "test"]}
 
   :lint/eastwood
-  {:extra-deps {jonase/eastwood {:mvn/version "1.4.0"}}
+  {:extra-deps {jonase/eastwood {:mvn/version "1.4.2"}}
    :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
   :lint/splint
