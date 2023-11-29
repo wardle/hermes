@@ -230,8 +230,8 @@
     (is (thrown? Exception (ecl/parse *svc* ecl)))))
 
 (deftest ^:live test-attributes
-  (let [ecl-1 "<<10363601000001109 : 127489000 = (<< (* {{ D term = \"alemtuzumab\"}}))"
-        ecl-2 "<<10363601000001109 : 127489000 = (<< (* {{ D term = \"zzzzzzzzzzz\"}}))" ;; should be empty resulr
+  (let [ecl-1 "<  19829001 |Disorder of lung| :   116676008 |Associated morphology|  = <<  79654002 |Edema|"
+        ecl-2 "<  19829001 |Disorder of lung| :   116676008 |Associated morphology|  = (<< (* {{ D term = \"zzzzzzzzzzz\"}}))" ;; should be empty resulr
         result-1 (seq (hermes/expand-ecl *svc* ecl-1))
         result-2 (seq (hermes/expand-ecl *svc* ecl-2))]
     (is result-1 "Expected results")
