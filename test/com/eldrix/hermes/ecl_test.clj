@@ -121,8 +121,6 @@
    {:ecl "<  404684003 |Clinical finding| :  116676008 |Associated morphology|  =\n         ((<<  56208002 |Ulcer|  AND <<  50960005 |Hemorrhage| ) MINUS <<  26036001 |Obstruction| )"}
    {:ecl "   <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  != <<  26036001 |Obstruction|"}])
 
-
-;; {:ecl ""}
 ;; {:ecl ""}
 ;; {:ecl ""}
 ;; {:ecl ""}
@@ -230,6 +228,14 @@
 (deftest ^:live test-query-for-refset-field
   (let [ecl " ^ [targetComponentId]  900000000000527005 |SAME AS association reference set|  {{ M referencedComponentId =  67415000 |Hay asthma|  }}"]
     (is (thrown? Exception (ecl/parse *svc* ecl)))))
+
+(deftest ^:live test-attributes
+  (let [ecl-1 "<<10363601000001109 : 127489000 = (<< (* {{ D term = \"alemtuzumab\"}}))"
+        ecl-2 "<<10363601000001109 : 127489000 = (<< (* {{ D term = \"zzzzzzzzzzz\"}}))" ;; should be empty resulr
+        result-1 (seq (hermes/expand-ecl *svc* ecl-1))
+        result-2 (seq (hermes/expand-ecl *svc* ecl-2))]
+    (is result-1 "Expected results")
+    (is (not result-2) "If attribute value matches nothing, should return empty")))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))

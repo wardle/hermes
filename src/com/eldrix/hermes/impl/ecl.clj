@@ -437,7 +437,8 @@
 
 (defn- make-attribute-query
   "Generate a nested query for the attributes specified, rewriting any
-  exclusion clauses in the parent nested context. "
+  exclusion clauses in the parent nested context. If the nested query returns
+  no results, then this takes care to return `q-match-none` rather than nil."
   [ctx query attribute-concept-ids]
   (let [[incl excl] (search/rewrite-query query)]
     (cond
@@ -449,6 +450,7 @@
       (let [excl' (realise-concept-ids ctx excl)]
         (search/q-not (search/q-or (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
                       (search/q-and (map #(search/q-attribute-in-set % excl') attribute-concept-ids))))
+
       ;; if we have inclusions and exclusions, realise the concepts
       (and incl excl)
       (let [incl' (realise-concept-ids ctx incl)
@@ -458,7 +460,8 @@
       ;; we only have inclusions?
       incl
       (let [incl' (realise-concept-ids ctx incl)]
-        (search/q-or (map #(search/q-attribute-in-set % incl') attribute-concept-ids)))
+        (or (search/q-or (map #(search/q-attribute-in-set % incl') attribute-concept-ids))
+            (search/q-match-none)))
 
       excl
       (let [excl' (realise-concept-ids ctx excl)]
@@ -860,7 +863,7 @@
         base-query (cond
                      ;; "*"
                      (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
-                     (search/q-match-all) ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
+                     (search/q-match-all)                   ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
 
                      ;; "<< *"
                      (and (= :descendantOrSelfOf constraint-operator) wildcard?) ;; "<< *" = all concepts
