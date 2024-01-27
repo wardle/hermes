@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1351] - 2024-01-27
+
+* Upgrade to lmdbjava 0.9.0 - includes embedded lmdb binaries for multiple architectures and operating systems
+* Upgrade to Apache Lucene 9.9.1
+
 ## [1.4.1346] - 2023-11-29
 
 * Fix #61 - attribute values defined by a subexpression that returns no results should not result in invalid expression error
@@ -22,7 +27,7 @@ This log documents significant changes for each release.
 * Generated artifacts such as library jar now include improved metadata (pom.xml)
 
 ## [1.4.1296] - 2023-09-20
-
+ 
 * #60 When not explicitly set, derive database default fallback locale on the basis 
 of installed reference sets rather than the system default locale
 
