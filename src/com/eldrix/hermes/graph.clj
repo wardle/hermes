@@ -117,7 +117,6 @@
     (uuid? id) {:info.snomed.RefsetItem/id id}
     (string? id) {:info.snomed.RefsetItem/id (parse-uuid id)}))
 
-
 (pco/defresolver concept-defined?
   "Is a concept fully defined?"
   [{:keys [:info.snomed.Concept/definitionStatusId]}]
@@ -145,8 +144,9 @@
   (let [lang-refset-ids (seq (some->> (get (pco/params env) :accept-language) (hermes/match-locale svc)))]
     {:info.snomed.Concept/synonyms
      (mapv (partial record->map "info.snomed.Description")
-           (if lang-refset-ids (hermes/synonyms svc id lang-refset-ids)
-                               (hermes/synonyms svc id)))}))
+           (if lang-refset-ids
+             (hermes/synonyms svc id lang-refset-ids)
+             (hermes/synonyms svc id)))}))
 
 (pco/defresolver concept-module
   "Return the module for a given concept."
@@ -171,7 +171,6 @@
    ::pco/output [{:info.snomed.Concept/preferredDescription description-properties}]}
   {:info.snomed.Concept/preferredDescription
    (record->map "info.snomed.Description" (hermes/preferred-synonym svc id (:accept-language (pco/params env)) true))})
-
 
 (pco/defresolver fully-specified-name
   [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
@@ -290,7 +289,7 @@
                   [{:info.snomed.Concept/id [:info.snomed.Concept/id]}]}]}
   {:info.snomed.Concept/historicalAssociations
    (reduce-kv (fn [m k v] (assoc m {:info.snomed.Concept/id k}
-                                   (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) v)))
+                                 (map #(hash-map :info.snomed.Concept/id (:targetComponentId %)) v)))
               {}
               (hermes/historical-associations svc id))})
 
@@ -472,7 +471,6 @@
   (require '[com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'hermes})
 
-
   (sort (map #(vector (:id %) (:term %))
              (map #(hermes/preferred-synonym svc % "en-GB") (hermes/installed-reference-sets svc))))
 
@@ -503,9 +501,9 @@
 
   (p.eql/process registry
                  [{'(info.snomed.Search/search
-                      {:s          "mult scl"
-                       :constraint "<404684003"
-                       :max-hits   10})
+                     {:s          "mult scl"
+                      :constraint "<404684003"
+                      :max-hits   10})
                    [:info.snomed.Concept/id
                     :info.snomed.Description/id
                     :info.snomed.Description/term
