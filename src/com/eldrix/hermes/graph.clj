@@ -410,7 +410,7 @@
 
 (def all-resolvers
   "SNOMED resolvers; each expects an environment that contains
-  a key :com.eldrix.hermes.graph/svc representing a SNOMED svc."
+  a key :com.eldrix/hermes representing a Hermes service."
   [concept-by-id
    description-by-id
    relationship-by-id
