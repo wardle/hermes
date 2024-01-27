@@ -78,7 +78,7 @@
    :info.snomed.RefsetItem/correlationId
    :info.snomed.RefsetItem/mapCategoryId
    :info.snomed.RefsetItem/valueId
-   :info.snomed.RefsetItem/owlExpression])
+   :info.snomed.RefsetItem/owlExeression])
 
 (pco/defresolver concept-by-id
   "Returns a concept by identifier; results namespaced to `:info.snomed.Concept/`"
