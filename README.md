@@ -1286,11 +1286,19 @@ Search parameters:
 * `inactiveDescriptions` - whether to search inactive descriptions (default, `true`)
 * `fuzzy` - whether to use fuzziness for search (default, `false`)
 * `fallbackFuzzy` - whether to retry using a fuzziness factor if initial search returns no results (default, `false`)
-* `removeDuplicates` - whether to remove results with the same conceptId and text (default, `false`)
+* `removeDuplicates` - whether to remove consecutive results with the same conceptId and text (default, `false`)
 
 For autocompletion, in a typical type-ahead user interface control, you might use `fallbackFuzzy=1` (or
 `fallbackFuzzy=true`) and `removeDuplicates=1` (or `removeDuplicates=true`).
 That will mean that if a user mistypes one or two characters, they should still get some sensible results.
+
+`removeDuplicates` is designed to create a better user experience when searching SNOMED CT. In general, during search,
+you will want to show to the user the multiple synonyms for a given concept. Recently however, and particularly if you
+are using multiple SNOMED CT distributions (e.g. both the UK clinical and drug extensions), then a single concept may
+have multiple synonyms with the same textual content. This can be disconcerting for end-users as it looks as if there
+are duplicates in the autocompletion list. Each, of course, has a different description id, but we do not show identifiers
+to end-users. To improve the user experience, I advise using `removeDuplicates` to remove consecutive results with the 
+same conceptId and text.
 
 Here I search for all UK medicinal products with the name amlodipine and populate my autocompletion control using the
 results:
