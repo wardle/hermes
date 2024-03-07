@@ -12,7 +12,6 @@
             [clojure.string :as str]
             [clojure.tools.cli :as cli]))
 
-
 ;; Specific options relating to automatic import from a well-known distribution
 
 (def uk-trud-opts
@@ -194,7 +193,6 @@
     (-> parsed
         (update :options dissoc :allowed-origins)
         (update-in [:options :allowed-origin] #(apply conj % (str/split (:allowed-origins options) #","))))))
-
 
 (defn opts-for-commands
   "Given a collection of command-line arguments, return sorted options."

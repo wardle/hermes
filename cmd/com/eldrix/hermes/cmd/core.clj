@@ -9,16 +9,16 @@
 (ns com.eldrix.hermes.cmd.core
   (:gen-class)
   (:require
-    [clojure.data.json :as json]
-    [clojure.pprint :as pp]
-    [clojure.string :as str]
-    [clojure.tools.logging.readable :as log]
-    [com.eldrix.hermes.cmd.cli :as cli]
-    [com.eldrix.hermes.cmd.server :as server]
-    [com.eldrix.hermes.core :as hermes]
-    [com.eldrix.hermes.download :as download]
-    [com.eldrix.hermes.importer :as importer]
-    [expound.alpha :as expound])
+   [clojure.data.json :as json]
+   [clojure.pprint :as pp]
+   [clojure.string :as str]
+   [clojure.tools.logging.readable :as log]
+   [com.eldrix.hermes.cmd.cli :as cli]
+   [com.eldrix.hermes.cmd.server :as server]
+   [com.eldrix.hermes.core :as hermes]
+   [com.eldrix.hermes.download :as download]
+   [com.eldrix.hermes.importer :as importer]
+   [expound.alpha :as expound])
   (:import (clojure.lang ExceptionInfo)
            (java.net ConnectException)))
 
@@ -29,9 +29,9 @@
 
 (defn set-default-uncaught-exception-handler []
   (Thread/setDefaultUncaughtExceptionHandler
-    (reify Thread$UncaughtExceptionHandler
-      (uncaughtException [_ thread ex]
-        (log/error ex "Uncaught exception on" (.getName thread))))))
+   (reify Thread$UncaughtExceptionHandler
+     (uncaughtException [_ thread ex]
+       (log/error ex "Uncaught exception on" (.getName thread))))))
 
 (defn import-from [{:keys [db]} args]
   (set-default-uncaught-exception-handler)
@@ -78,7 +78,6 @@
   (hermes/index db)
   (with-open [svc (hermes/open db {:quiet true})]
     (log-module-dependency-problems svc)))
-
 
 (defn compact [{:keys [db]} _]
   (hermes/compact db))

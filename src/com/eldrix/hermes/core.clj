@@ -69,16 +69,17 @@
                    ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
                    ::remove-duplicates? ::properties ::concept-refsets]))
 
-(definterface ^:deprecated Service)                         ;; for backwards compatibility in case a client referenced the old concrete deftype
+;; for backwards compatibility in case a client referenced the old concrete deftype
+(definterface ^:deprecated Service)
 
 (defrecord ^:private Svc
-  [^Closeable store
-   ^IndexReader indexReader
-   ^IndexSearcher searcher
-   ^IndexReader memberReader
-   ^IndexSearcher memberSearcher
-   localeMatchFn
-   mrcmDomainFn]
+           [^Closeable store
+            ^IndexReader indexReader
+            ^IndexSearcher searcher
+            ^IndexReader memberReader
+            ^IndexSearcher memberSearcher
+            localeMatchFn
+            mrcmDomainFn]
   Service
   Closeable
   (close [_]
@@ -197,7 +198,6 @@
   "Returns a map of the parent relationships keyed by type."
   [^Svc svc concept-id]
   (store/parent-relationships (.-store svc) concept-id))
-
 
 (s/fdef parent-relationships-expanded
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
@@ -380,7 +380,7 @@
   [^Svc svc refset-id field s]
   (members/search (.-memberSearcher svc)
                   (members/q-and
-                    [(members/q-refset-id refset-id) (members/q-term field s)])))
+                   [(members/q-refset-id refset-id) (members/q-term field s)])))
 
 (s/fdef member-field-prefix
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :prefix ::non-blank-string))
@@ -394,7 +394,7 @@
   [^Svc svc refset-id field prefix]
   (members/search (.-memberSearcher svc)
                   (members/q-and
-                    [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
+                   [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
 
 (s/fdef member-field-wildcard
   :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :s ::non-blank-string))
@@ -446,7 +446,6 @@
   (->> (member-field-prefix svc refset-id "mapTarget" prefix)
        (mapcat #(store/component-refset-items (.-store svc) % refset-id))
        (filter #(.startsWith ^String (:mapTarget %) prefix))))
-
 
 (s/fdef match-locale
   :args (s/cat :svc ::svc :language-range (s/? (s/nilable ::non-blank-string)) :fallback? (s/? boolean?)))
@@ -541,7 +540,6 @@
 
 (defn parse-expression [^Svc _svc s]
   (scg/parse s))
-
 
 (defn ^:private make-search-params
   [^Svc svc {:keys [s constraint accept-language language-refset-ids] :as params}]
@@ -759,7 +757,7 @@
   [^Svc svc refset-id & more]
   (members/search (.-memberSearcher svc)
                   (if more (members/q-refset-ids (into #{refset-id} more))
-                           (members/q-refset-id refset-id))))
+                      (members/q-refset-id refset-id))))
 
 (s/fdef map-into
   :args (s/cat :svc ::svc
@@ -878,7 +876,6 @@
                             :valid (and actual (or (.isEqual ^LocalDate actual targetEffectiveTime)
                                                    (.isAfter ^LocalDate actual targetEffectiveTime))))))))))
 
-
 (s/fdef module-dependencies
   :args (s/cat :svc ::svc))
 (defn module-dependencies
@@ -969,7 +966,6 @@
             (recur (if append? (inc i) i)
                    (if append? (assoc result (:id c) assocs) result))))))))
 
-
 (s/fdef paths-to-root
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn paths-to-root
@@ -1004,7 +1000,6 @@
   returns: `[6 664572001]`"
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
-
 
 (defn ^:private mrcm-refset-ids
   "Return a set of MRCM reference ids, optionally of the specified type."
@@ -1084,13 +1079,13 @@
   [svc concept-id group-id props only-concrete]
   (let [kw (if (zero? group-id) :attributeCardinality :attributeInGroupCardinality)]
     (reduce-kv
-      (fn [acc k v]
-        (assoc acc k
-                   (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
-                     (if (and ad
-                              (or (not only-concrete) (string? (first v)))
-                              (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
-                              (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
+     (fn [acc k v]
+       (assoc acc k
+              (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
+                (if (and ad
+                         (or (not only-concrete) (string? (first v)))
+                         (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
+                         (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
 (s/def ::expand boolean?)
 (s/fdef properties
@@ -1128,9 +1123,7 @@
    (reduce-kv (fn [acc group-id props]
                 (assoc acc group-id (-fix-property-values svc concept-id group-id props expand)))
               {} (if expand (store/properties-expanded (.-store svc) concept-id)
-                            (store/properties (.-store svc) concept-id)))))
-
-
+                     (store/properties (.-store svc) concept-id)))))
 
 (s/def ::fmt #{:map-id-syn :vec-id-syn :str-id-syn :syn :id})
 (s/def ::key-fmt ::fmt)
@@ -1182,14 +1175,13 @@
                               (if-not (number? v)
                                 v
                                 (case fmt :id v, :syn (ps v)
-                                          :map-id-syn (hash-map v (ps v))
-                                          :vec-id-syn (vector v (ps v))
-                                          :str-id-syn (str v ":" (ps v))))))
+                                      :map-id-syn (hash-map v (ps v))
+                                      :vec-id-syn (vector v (ps v))
+                                      :str-id-syn (str v ":" (ps v))))))
          key-fn (make-fmt (or key-fmt fmt :vec-id-syn))
          val-fn (make-fmt (or value-fmt fmt :vec-id-syn))]
      (update-vals props #(reduce-kv (fn [acc k v]
                                       (assoc acc (key-fn k) (if (coll? v) (mapv val-fn v) (val-fn v)))) {} %)))))
-
 
 (def ^:deprecated ^:no-doc get-concept "DEPRECATED. Use [[concept]] instead" concept)
 (def ^:deprecated ^:no-doc get-description "DEPRECATED. Use [[description]] instead." description)
@@ -1233,7 +1225,7 @@
          (throw (Exception. (str "error: unable to read manifest from " root))))
        create?
        (let [manifest (assoc expected-manifest
-                        :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
+                             :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
          (io/make-parents manifest-file)
          (spit manifest-file (pr-str manifest))
          manifest)
@@ -1265,8 +1257,8 @@
        (let [lang-refset-ids (locale-match-fn)]
          (log/info "opening hermes terminology service " root
                    (assoc manifest :releases (map :term (store/release-information st))
-                                   :default-languages (map #(:term (store/preferred-synonym st % lang-refset-ids)) lang-refset-ids)
-                                   :installed-locales (lang/available-locales st)))))
+                          :default-languages (map #(:term (store/preferred-synonym st % lang-refset-ids)) lang-refset-ids)
+                          :installed-locales (lang/available-locales st)))))
      (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
 
 (defn close [^Closeable svc]
@@ -1370,7 +1362,6 @@
 (defn ^:private safe-lower-case [s]
   (when s (str/lower-case s)))
 
-
 (defn status*
   "Return status information for the given service. Returns a map containing:
 
@@ -1387,22 +1378,22 @@
   - `:installed-refsets?` : whether to include installed reference sets"
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
   (merge
-    {:releases (map :term (release-information svc))
-     :locales  (lang/available-locales (.-store svc))}
-    (when counts?
-      {:components (-> (store/status (.-store svc))
-                       (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
-                       (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
-    (when modules?
-      {:modules (let [results (reduce (fn [acc {source :source}]
-                                        (assoc acc (:moduleId source) (str (:term (fully-specified-name svc (:moduleId source))) ": " (:version source))))
-                                      {} (module-dependencies svc))]
-                  (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
+   {:releases (map :term (release-information svc))
+    :locales  (lang/available-locales (.-store svc))}
+   (when counts?
+     {:components (-> (store/status (.-store svc))
+                      (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
+                      (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
+   (when modules?
+     {:modules (let [results (reduce (fn [acc {source :source}]
+                                       (assoc acc (:moduleId source) (str (:term (fully-specified-name svc (:moduleId source))) ": " (:version source))))
+                                     {} (module-dependencies svc))]
+                 (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
 
-    (when installed-refsets?
-      {:installed-refsets (let [results (->> (installed-reference-sets svc)
-                                             (reduce (fn [acc id] (assoc acc id (:term (fully-specified-name svc id)))) {}))]
-                            (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))
+   (when installed-refsets?
+     {:installed-refsets (let [results (->> (installed-reference-sets svc)
+                                            (reduce (fn [acc id] (assoc acc id (:term (fully-specified-name svc id)))) {}))]
+                           (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))
 
 (defn status
   "Return status information for the database at 'root' where `root` is
@@ -1432,6 +1423,22 @@
    (import-snomed root import-from)
    (index root)
    (compact root)))
+
+(defn ^:private analyse-diacritics
+  [^Svc svc]
+  (let [ch (a/chan 1 (filter :active))]
+    (a/thread (stream-all-concepts svc ch))
+    (loop [n-concepts 0, missing 0, results []]
+      (if-let [c (a/<!! ch)]
+        (let [s1 (set (map :term (synonyms svc (:id c))))
+              s2 (set (map #(lang/fold "en" %) s1))
+              diff (set/difference s2 s1)
+              diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id c)])
+                                 (are-any? svc [(:id c)] (set (map :conceptId (search svc {:s %}))))) diff)]
+          (recur (if (seq diff) (inc n-concepts) n-concepts)
+                 (+ missing (count diff'))
+                 (if (seq diff') (conj results {:concept-id (:id c) :missing diff'}) results)))
+        {:n-concepts n-concepts :missing missing :results results}))))
 
 (comment
   (require '[dev.nu.morse :as morse])
@@ -1467,7 +1474,6 @@
 
   (are-any? svc [24700007] [45454])
 
-
   (search svc {:constraint "<  64572001 |Disease|  {{ term = wild:\"cardi*opathy\"}}"})
   (search svc {:constraint "<24700007" :inactive-concepts? false})
   (search svc {:constraint "<24700007" :inactive-concepts? true})
@@ -1502,20 +1508,7 @@
   (crit/bench (extended-concept svc 24700007))
   (crit/bench (search svc {:s "multiple sclerosis"})))
 
-(defn ^:private analyse-diacritics
-  [svc]
-  (let [ch (a/chan 1 (filter :active))]
-    (a/thread (stream-all-concepts svc ch))
-    (loop [n-concepts 0, missing 0, results []]
-      (if-let [c (a/<!! ch)]
-        (let [s1 (set (map :term (synonyms svc (:id c))))
-              s2 (set (map #(lang/fold "en" %) s1))
-              diff (set/difference s2 s1)
-              diff' (remove #(or (are-any? svc (set (map :conceptId (search svc {:s %}))) [(:id c)])
-                                 (are-any? svc [(:id c)] (set (map :conceptId (search svc {:s %}))))) diff)]
-          (recur (if (seq diff) (inc n-concepts) n-concepts)
-                 (+ missing (count diff'))
-                 (if (seq diff') (conj results {:concept-id (:id c) :missing diff'}) results)))
-        {:n-concepts n-concepts :missing missing :results results}))))
 
-
+(comment
+  (def svc (open "snomed.db"))
+  (extended-concept svc 24700007))

@@ -88,19 +88,18 @@
 
 (def service-error-handler
   (intc-err/error-dispatch
-    [ctx err]
+   [ctx err]
 
-    [{:exception-type :java.lang.NumberFormatException}]
-    (assoc ctx :response {:status 400
-                          :body   {:error (str "invalid number: " (ex-message (:exception (ex-data err))))}})
+   [{:exception-type :java.lang.NumberFormatException}]
+   (assoc ctx :response {:status 400
+                         :body   {:error (str "invalid number: " (ex-message (:exception (ex-data err))))}})
 
-    [{:exception-type :clojure.lang.ExceptionInfo}]
-    (let [ex (:exception (ex-data err))]                    ;; unwrap error message
-      (assoc ctx :response {:status 400 :body (merge {:error (ex-message ex)} (ex-data ex))}))
+   [{:exception-type :clojure.lang.ExceptionInfo}]
+   (let [ex (:exception (ex-data err))]                    ;; unwrap error message
+     (assoc ctx :response {:status 400 :body (merge {:error (ex-message ex)} (ex-data ex))}))
 
-    :else
-    (assoc ctx :io.pedestal.interceptor.chain/error err)))
-
+   :else
+   (assoc ctx :io.pedestal.interceptor.chain/error err)))
 
 (defn parse-flag [s] (case s ("1" "true") true false))
 
@@ -158,9 +157,9 @@
                   language-range (get-in ctx [:request :headers "accept-language"])
                   result (hermes/properties svc concept-id {:expand expand?})]
               (assoc ctx :result                            ;; take care that if no result, is it because no props, or concept doesn't exist?
-                         (if (seq result)                   ;; so if there's an empty result
-                           (if pretty (hermes/pprint-properties svc result {:key-fmt key-fmt :value-fmt value-fmt :lang language-range}) result)
-                           (when (hermes/concept svc concept-id) result)))))}) ;; return 404 if concept doesn't exist
+                     (if (seq result)                   ;; so if there's an empty result
+                       (if pretty (hermes/pprint-properties svc result {:key-fmt key-fmt :value-fmt value-fmt :lang language-range}) result)
+                       (when (hermes/concept svc concept-id) result)))))}) ;; return 404 if concept doesn't exist
 
 (def get-concept-preferred-description
   {:name  ::get-concept-preferred-description
@@ -198,19 +197,19 @@
 (defn parse-search-params
   [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
   (cond-> {}
-          s (assoc :s s)
-          constraint (assoc :constraint constraint)
-          ecl (assoc :constraint ecl)
-          maxHits (assoc :max-hits (Long/parseLong maxHits))
-          (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
-          (coll? isA) (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
-          (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
-          (coll? refset) (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
-          fuzzy (assoc :fuzzy (if (parse-flag fuzzy) 2 0))
-          fallbackFuzzy (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
-          inactiveConcepts (assoc :inactive-concepts? (parse-flag inactiveConcepts))
-          inactiveDescriptions (assoc :inactive-descriptions? (parse-flag inactiveDescriptions))
-          removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))))
+    s (assoc :s s)
+    constraint (assoc :constraint constraint)
+    ecl (assoc :constraint ecl)
+    maxHits (assoc :max-hits (Long/parseLong maxHits))
+    (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
+    (coll? isA) (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
+    (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
+    (coll? refset) (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
+    fuzzy (assoc :fuzzy (if (parse-flag fuzzy) 2 0))
+    fallbackFuzzy (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
+    inactiveConcepts (assoc :inactive-concepts? (parse-flag inactiveConcepts))
+    inactiveDescriptions (assoc :inactive-descriptions? (parse-flag inactiveDescriptions))
+    removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))))
 
 (def get-search
   {:name  ::get-search
@@ -252,19 +251,19 @@
 (def common-routes [coerce-body content-neg-intc entity-render])
 (def routes
   (route/expand-routes
-    #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/properties" :get (conj common-routes get-concept-properties) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/refsets" :get (conj common-routes get-concept-reference-sets) :constraints {:concept-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to) :constraints {:concept-id #"[0-9]+" :refset-id #"[0-9]+"}]
-      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?) :constraints {:concept-id #"[0-9]+" :subsumer-id #"[0-9]+"}]
-      ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from) :constraints {:refset-id #"[0-9]+"}]
-      ["/v1/snomed/search" :get [coerce-body service-error-handler content-neg-intc entity-render get-search]]
-      ["/v1/snomed/expand" :get [coerce-body service-error-handler content-neg-intc entity-render get-expand]]
-      ["/v1/snomed/mrcm-domains" :get [coerce-body service-error-handler content-neg-intc entity-render get-mrcm-domains]]}))
+   #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/descriptions" :get (conj common-routes get-concept-descriptions) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/properties" :get (conj common-routes get-concept-properties) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/preferred" :get (conj common-routes get-concept-preferred-description) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/extended" :get (conj common-routes get-extended-concept) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/historical" :get (conj common-routes get-historical) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/refsets" :get (conj common-routes get-concept-reference-sets) :constraints {:concept-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to) :constraints {:concept-id #"[0-9]+" :refset-id #"[0-9]+"}]
+     ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?) :constraints {:concept-id #"[0-9]+" :subsumer-id #"[0-9]+"}]
+     ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from) :constraints {:refset-id #"[0-9]+"}]
+     ["/v1/snomed/search" :get [coerce-body service-error-handler content-neg-intc entity-render get-search]]
+     ["/v1/snomed/expand" :get [coerce-body service-error-handler content-neg-intc entity-render get-expand]]
+     ["/v1/snomed/mrcm-domains" :get [coerce-body service-error-handler content-neg-intc entity-render get-mrcm-domains]]}))
 
 (def service-map
   {::http/routes         routes
@@ -282,9 +281,9 @@
   - join?           : whether to join server thread or return"
   ([svc {:keys [port bind-address allowed-origins join?] :or {join? true}}]
    (let [cfg (cond-> {}
-                     port (assoc ::http/port port)
-                     bind-address (assoc ::http/host bind-address)
-                     allowed-origins (assoc ::http/allowed-origins allowed-origins))]
+               port (assoc ::http/port port)
+               bind-address (assoc ::http/host bind-address)
+               allowed-origins (assoc ::http/allowed-origins allowed-origins))]
      (-> (merge service-map cfg)
          (assoc ::http/join? join?)
          (http/default-interceptors)
