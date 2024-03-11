@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1362] - 2024-03-11
+
+* Fix #64 such that integrity always maintained during updates-in-place and re-indexing 
+* Upgrade to Apache Lucene 9.10.0
+
 ## [1.4.1351] - 2024-01-27
 
 * Upgrade to lmdbjava 0.9.0 - includes embedded lmdb binaries for multiple architectures and operating systems
