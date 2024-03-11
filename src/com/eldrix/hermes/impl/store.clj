@@ -267,7 +267,6 @@
          ds' (if include-inactive? ds (filter :active ds))]
      (filter #(= snomed/Synonym (:typeId %)) ds'))))
 
-
 (defn description-refsets
   "Get the refsets and language applicability for a description.
   
@@ -377,9 +376,9 @@
 
 (s/fdef fully-specified-name
   :args (s/alt
-          :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
-          :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
-                            :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
+         :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
+         :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
+                           :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
   :ret (s/nilable :info.snomed/Description))
 (defn ^:deprecated fully-specified-name
   "DEPRECATED: Use [[preferred-fully-specified-name]] instead.
@@ -474,7 +473,7 @@
   MovedFrom are included, but this is configurable. "
   ([st concept-ids]
    (with-historical st concept-ids
-                    (disj (all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
+     (disj (all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
   ([st concept-ids historical-refset-ids]
    (let [refset-ids (set historical-refset-ids)
          future-ids (map :targetComponentId (filter #(refset-ids (:refsetId %)) (mapcat #(kv/component-refset-items st %) concept-ids)))
@@ -516,9 +515,9 @@
         field-names (mapv keyword (subvec all-field-names 5))
         fields (subvec (snomed/->vec item) 5)]              ;; every reference set has 5 core attributes and then additional fields
     (merge
-      (zipmap field-names fields)
-      (when attr-ids? (zipmap attr-ids fields))
-      (dissoc item :fields))))
+     (zipmap field-names fields)
+     (when attr-ids? (zipmap attr-ids fields))
+     (dissoc item :fields))))
 
 (defn refset-counts
   "Returns a map of reference set counts keyed by type.
@@ -542,12 +541,12 @@
         results))))
 
 (defmulti write-batch
-          "Write a batch of SNOMED components to the store. Returns nil.
+  "Write a batch of SNOMED components to the store. Returns nil.
           Parameters:
           - store - SNOMED CT store implementation
           - batch - a map containing :type, :headings and :data keys.
           The implementation will be chosen via the :type of the batch."
-          (fn [_store batch] (:type batch)))
+  (fn [_store batch] (:type batch)))
 (defmethod write-batch :info.snomed/Concept [store {data :data}]
   (kv/write-concepts store data))
 (defmethod write-batch :info.snomed/Description [store {data :data}]

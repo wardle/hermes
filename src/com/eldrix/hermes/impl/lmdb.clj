@@ -42,25 +42,25 @@
 (s/def ::store any?)
 
 (deftype LmdbStore
-  [^Path rootPath
+         [^Path rootPath
    ;;;; core env
-   ^Env coreEnv
+          ^Env coreEnv
    ;; core stores - simple or compound keys and values
-   ^Dbi concepts                                            ;; conceptId = concept
-   ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
-   ^Dbi relationships                                       ;; relationshipId = relationship
-   ^Dbi concreteValues                                      ;; conceptId-relationshipId = concreteValue
+          ^Dbi concepts                                            ;; conceptId = concept
+          ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
+          ^Dbi relationships                                       ;; relationshipId = relationship
+          ^Dbi concreteValues                                      ;; conceptId-relationshipId = concreteValue
 
    ;; core indices - compound keys with empty values
-   ^Dbi descriptionConcept                                  ;; descriptionId - conceptId
-   ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
-   ^Dbi conceptChildRelationships                           ;; destinationId - typeId - group - sourceId
-   ^Dbi componentRefsets                                    ;; referencedComponentId - refsetId - msb - lsb
-   ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
+          ^Dbi descriptionConcept                                  ;; descriptionId - conceptId
+          ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
+          ^Dbi conceptChildRelationships                           ;; destinationId - typeId - group - sourceId
+          ^Dbi componentRefsets                                    ;; referencedComponentId - refsetId - msb - lsb
+          ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
    ;;;; refset env
-   ^Env refsetsEnv
-   ^Dbi refsetItems                                         ;; refset-item-id = refset-item
-   ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
+          ^Env refsetsEnv
+          ^Dbi refsetItems                                         ;; refset-item-id = refset-item
+          ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
   Closeable
   (close [_]
     (when-not (.isReadOnly coreEnv)
@@ -198,8 +198,14 @@
           idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
           idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
       (try (doseq [^Description description descriptions]
-             (doto kb .clear (.writeLong (.-conceptId description)) (.writeLong (.-id description)))
-             (doto idx-key .clear (.writeLong (.-id description)) (.writeLong (.-conceptId description)))
+             (doto kb
+               .clear
+               (.writeLong (.-conceptId description))
+               (.writeLong (.-id description)))
+             (doto idx-key
+               .clear
+               (.writeLong (.-id description))
+               (.writeLong (.-conceptId description)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime description))
                (.clear vb)
                (ser/write-description vb description)
@@ -217,7 +223,9 @@
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8) ;; relationship id
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64)] ;; relationship entity
       (try (doseq [^Relationship relationship relationships]
-             (doto kb .clear (.writeLong (.-id relationship)))
+             (doto kb
+               .clear
+               (.writeLong (.-id relationship)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime relationship)) ;; skip an 8 byte id (relationship-id) in the value
                (.clear vb)
                (ser/write-relationship vb relationship)
@@ -235,7 +243,10 @@
           kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; conceptId-relationshipId  (compound key)
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
       (try (doseq [^ConcreteValue cv concrete-values]
-             (doto kb .clear (.writeLong (.-sourceId cv)) (.writeLong (.-id cv)))
+             (doto kb
+               .clear
+               (.writeLong (.-sourceId cv))
+               (.writeLong (.-id cv)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime cv)) ;; skip an 8 byte id (relationship-id) in the value
                (if (:active cv)
                  (do (.clear vb)
@@ -265,8 +276,16 @@
           (when continue?
             (let [^Relationship relationship (ser/read-relationship (.val cursor))]
               (when (.-active relationship)
-                (doto parent-idx-key .clear (.writeLong (.-sourceId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-destinationId relationship)))
-                (doto child-idx-key .clear (.writeLong (.-destinationId relationship)) (.writeLong (.-typeId relationship)) (.writeLong (.-relationshipGroup relationship)) (.writeLong (.-sourceId relationship)))
+                (doto parent-idx-key .clear
+                      (.writeLong (.-sourceId relationship))
+                      (.writeLong (.-typeId relationship))
+                      (.writeLong (.-relationshipGroup relationship))
+                      (.writeLong (.-destinationId relationship)))
+                (doto child-idx-key .clear
+                      (.writeLong (.-destinationId relationship))
+                      (.writeLong (.-typeId relationship))
+                      (.writeLong (.-relationshipGroup relationship))
+                      (.writeLong (.-sourceId relationship)))
                 (.put parent-idx write-txn parent-idx-key idx-val put-flags)
                 (.put child-idx write-txn child-idx-key idx-val put-flags)))
             (.resetReaderIndex ^ByteBuf (.val cursor))      ;; reset position in value otherwise .next will throw an exception on second item
@@ -298,13 +317,16 @@
           item-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; a UUID - 16 bytes
           vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
       (try
-        (loop [items' items refset-ids #{}]
+        (loop [items' items, refset-ids #{}]
           (when-let [item (first items')]
             (when-not (contains? refset-ids (:refsetId item))
               (write-refset-headings store refsets-txn (:refsetId item) headings))
             (let [msb (.getMostSignificantBits ^UUID (:id item))
                   lsb (.getLeastSignificantBits ^UUID (:id item))]
-              (doto item-kb .clear (.writeLong msb) (.writeLong lsb))
+              (doto item-kb
+                .clear
+                (.writeLong msb)
+                (.writeLong lsb))
               (when (should-write-object? items-db refsets-txn item-kb 17 (:effectiveTime item)) ;; skip a 17 byte key (type-msb-lsb; type = 1 byte, msb = 8 bytes, lsb = 8 bytes)
                 (.clear vb)
                 (ser/write-refset-item vb item)
@@ -317,7 +339,8 @@
   "Iterates all active reference set items and rebuilds indices.
   Each *active* item is indexed:
   - componentRefsets  : referencedComponentId -- refsetId -- msb -- lsb
-  - associations      : targetComponentId -- refsetId -- referencedComponentId - msb - lsb"
+  - associations      : targetComponentId -- refsetId -- referencedComponentId - msb - lsb
+  We delete all indexes "
   [^LmdbStore store]
   (with-open [^Txn write-txn (.txnWrite ^Env (.-coreEnv store))
               ^Txn read-txn (.txnRead ^Env (.-refsetsEnv store))
@@ -337,10 +360,21 @@
                   lsb (.getLeastSignificantBits ^UUID (:id item))
                   target-id (:targetComponentId item)]
               (when (:active item)
-                (doto component-kb .clear (.writeLong (:referencedComponentId item)) (.writeLong (:refsetId item)) (.writeLong msb) (.writeLong lsb))
+                (doto component-kb
+                  .clear
+                  (.writeLong (:referencedComponentId item))
+                  (.writeLong (:refsetId item))
+                  (.writeLong msb)
+                  (.writeLong lsb))
                 (.put components-db write-txn component-kb idx-val put-flags)
                 (when target-id
-                  (doto assoc-kb .clear (.writeLong target-id) (.writeLong (:refsetId item)) (.writeLong (:referencedComponentId item)) (.writeLong msb) (.writeLong lsb))
+                  (doto assoc-kb
+                    .clear
+                    (.writeLong target-id)
+                    (.writeLong (:refsetId item))
+                    (.writeLong (:referencedComponentId item))
+                    (.writeLong msb)
+                    (.writeLong lsb))
                   (.put assocs-db write-txn assoc-kb idx-val put-flags))))
             (.resetReaderIndex ^ByteBuf (.val cursor))
             (recur (.next cursor))))
@@ -393,7 +427,10 @@
                  did (.readLong kb')
                  concept-id (.readLong kb')]
              (when (= description-id did)
-               (doto kb .clear (.writeLong concept-id) (.writeLong description-id))
+               (doto kb
+                 .clear
+                 (.writeLong concept-id)
+                 (.writeLong description-id))
                (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
                  (ser/read-description vb))))))
        (finally (.release kb)))))
@@ -630,7 +667,6 @@
                           [component-id refset-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 16)))))
 
-
 (defn status
   [^LmdbStore store]
   (with-open [^Txn core-txn (.txnRead ^Env (.-coreEnv store))
@@ -646,7 +682,6 @@
                        :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
                        :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
                        :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
-
 
 (defn- dbi-stat
   "Return internal statistics regarding a DBI. Total size is calculated from the
