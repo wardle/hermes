@@ -1,13 +1,15 @@
 (ns com.eldrix.hermes.store-test
-  (:require [clojure.set :as set]
-            [clojure.spec.gen.alpha :as gen]
-            [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [deftest is run-tests testing]]
-            [com.eldrix.hermes.gen :as hgen]
-            [com.eldrix.hermes.impl.language :as lang]
-            [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.rf2 :as rf2]
-            [com.eldrix.hermes.snomed :as snomed])
+  (:require
+   [clojure.core.async :as async]
+   [clojure.set :as set]
+   [clojure.spec.gen.alpha :as gen]
+   [clojure.spec.test.alpha :as stest]
+   [clojure.test :refer [deftest is run-tests testing]]
+   [com.eldrix.hermes.gen :as hgen]
+   [com.eldrix.hermes.impl.language :as lang]
+   [com.eldrix.hermes.impl.store :as store]
+   [com.eldrix.hermes.rf2 :as rf2]
+   [com.eldrix.hermes.snomed :as snomed])
   (:import (java.time LocalDate)))
 
 (stest/instrument)
@@ -79,7 +81,6 @@
       (store/index st)
       (is (= {116680003 #{213345000}} (store/parent-relationships st 1089261000000101))
           "Different relationships with same source, target and type identifiers should result in indices deterministically, not on basis of import order"))))
-
 
 (deftest write-simple-refsets-test
   (with-open [st (store/open-store)]
@@ -165,6 +166,27 @@
     (let [lang-match-fn (lang/make-match-fn store nil)]
       (is (= "Appendicectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-GB")))))
       (is (= "Appendectomy" (:term (store/preferred-synonym store 80146002 (lang-match-fn "en-US"))))))))
+
+(deftest update-in-place
+  (with-open [st (store/open-store)]
+    (let [refsets (gen/sample (rf2/gen-association-refset) 10000)
+          item (first (filter :active refsets))
+          status (atom :ok)]
+      (store/write-batch st {:type :info.snomed/AssociationRefset :data refsets})
+      (is (= #{} (store/component-refset-ids st (:referencedComponentId item))))
+      (store/index st)
+      (clojure.core.async/thread
+        (loop []
+          (when (= :ok @status)
+            (if (= #{(:refsetId item)} (store/component-refset-ids st (:referencedComponentId item)))
+              (recur)
+              (reset! status :inconsistent)))))
+      (loop [n 5]
+        (when (and (pos? n) (= :ok @status))
+          (store/index st)
+          (recur (dec n))))
+      (is (= :ok @status) "Data integrity not maintained during indexing")
+      (reset! status :done))))
 
 (comment
   (run-tests)
