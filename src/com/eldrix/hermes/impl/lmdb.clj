@@ -245,16 +245,6 @@
            (.commit txn)
            (finally (.release kb) (.release vb))))))
 
-(defn drop-relationships-index
-  "Deletes all indices relating to relationships."
-  [^LmdbStore store]
-  (with-open [^Txn txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [^Dbi parent-idx (.-conceptParentRelationships store)
-          ^Dbi child-idx (.-conceptChildRelationships store)]
-      (.drop parent-idx txn)
-      (.drop child-idx txn))
-    (.commit txn)))
-
 (defn index-relationships
   "Iterates all active relationships and rebuilds parent and child indices.
   Each *active* relationship is referenced in the 'conceptParentRelationships'
@@ -269,6 +259,8 @@
           child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
           idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)] ;; empty value
       (try
+        (.drop parent-idx write-txn) ;; delete all parent and child indices
+        (.drop child-idx write-txn)
         (loop [continue? (.first cursor)]
           (when continue?
             (let [^Relationship relationship (ser/read-relationship (.val cursor))]
@@ -321,16 +313,6 @@
         (.commit refsets-txn)
         (finally (.release item-kb) (.release vb))))))
 
-(defn drop-refset-indices
-  "Delete all indices relating to reference set items."
-  [^LmdbStore store]
-  (with-open [^Txn txn (.txnWrite ^Env (.-coreEnv store))]
-    (let [^Dbi components-db (.-componentRefsets store)
-          ^Dbi assocs-db (.-associations store)]
-      (.drop components-db txn)
-      (.drop assocs-db txn))
-    (.commit txn)))
-
 (defn index-refsets
   "Iterates all active reference set items and rebuilds indices.
   Each *active* item is indexed:
@@ -346,6 +328,8 @@
           assoc-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
           idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
       (try
+        (.drop components-db write-txn)   ;; delete all existing indices prior to re-indexing
+        (.drop assocs-db write-txn)
         (loop [continue? (.first cursor)]
           (when continue?
             (let [item (ser/read-refset-item (.val cursor))

@@ -582,8 +582,6 @@
       (write-batch-one-by-one store batch))))
 
 (defn index [store]
-  (kv/drop-relationships-index store)
-  (kv/drop-refset-indices store)
   (kv/index-relationships store)
   (kv/index-refsets store))
 
