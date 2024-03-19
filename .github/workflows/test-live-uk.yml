@@ -18,13 +18,13 @@ jobs:
           cli: latest
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
       - name: Cache Maven packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
@@ -44,7 +44,7 @@ jobs:
 
       - name: Cache database
         id: cache-db
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
             path: snomed.db
             key: ${{ github.sha }}-uk-clinical-db
