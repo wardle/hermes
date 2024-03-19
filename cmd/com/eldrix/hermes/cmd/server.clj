@@ -38,7 +38,7 @@
 
 (defn write-local-date [^LocalDate o ^Appendable out _options]
   (.append out \")
-  (.append out (.format (DateTimeFormatter/ISO_DATE) o))
+  (.append out (.format DateTimeFormatter/ISO_DATE o))
   (.append out \"))
 
 (extend LocalDate json/JSONWriter {:-write write-local-date})

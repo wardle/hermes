@@ -1225,7 +1225,7 @@
          (throw (Exception. (str "error: unable to read manifest from " root))))
        create?
        (let [manifest (assoc expected-manifest
-                             :created (.format (DateTimeFormatter/ISO_DATE_TIME) (LocalDateTime/now)))]
+                             :created (.format DateTimeFormatter/ISO_DATE_TIME (LocalDateTime/now)))]
          (io/make-parents manifest-file)
          (spit manifest-file (pr-str manifest))
          manifest)

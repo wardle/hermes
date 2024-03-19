@@ -44,12 +44,12 @@
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
-(defn parse-date ^LocalDate [^String s] (try (LocalDate/parse s (DateTimeFormatter/BASIC_ISO_DATE)) (catch DateTimeParseException _)))
+(defn parse-date ^LocalDate [^String s] (try (LocalDate/parse s DateTimeFormatter/BASIC_ISO_DATE) (catch DateTimeParseException _)))
 (defn parse-bool ^Boolean [^String s] (= "1" s))
 (defn unsafe-parse-uuid ^UUID [^String s] (UUID/fromString s))
 
 (defmulti unparse "Export data as per the SNOMED RF2 file format specification." type)
-(defmethod unparse LocalDate [v] (.format (DateTimeFormatter/BASIC_ISO_DATE) v))
+(defmethod unparse LocalDate [v] (.format DateTimeFormatter/BASIC_ISO_DATE v))
 (defmethod unparse Boolean [v] (if v "1" "0"))
 (defmethod unparse Long [v] (str v))
 (defmethod unparse Integer [v] (str v))
