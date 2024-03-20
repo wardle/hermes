@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1368] - 2024-03-20
+
+* Upgrade dependencies - Clojure 1.11.2 and miscellaneous libraries
+* Improve GitHub actions to run tests after every release automatically
+
 ## [1.4.1362] - 2024-03-11
 
 * Fix #64 such that integrity always maintained during updates-in-place and re-indexing 
