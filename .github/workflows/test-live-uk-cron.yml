@@ -1,8 +1,8 @@
-name: Test-uk-live
+name: Test-uk-live-cron
 
 on:
   schedule:
-    - cron: '0 14 * * 3'
+    - cron: '0 14 * * 3'    # Every Wednesday at 2pm
 
 jobs:
   build:
@@ -52,5 +52,5 @@ jobs:
       - name: Print status report
         run: clojure -M:run --db snomed.db status
 
-      - name: Clojure tests
+      - name: Run tests
         run: clojure -M:test
