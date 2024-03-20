@@ -2,7 +2,9 @@
   (:require [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is]]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.impl.search :as search]))
+            [com.eldrix.hermes.impl.lucene :as lucene]
+            [com.eldrix.hermes.impl.search :as search]
+            [criterium.core :as crit]))
 
 (def example-results-1
   [{:id            464271012
@@ -38,3 +40,18 @@
     (let [q (search/q-descendantOrSelfOf 24700007)]
       (is (= (search/do-query-for-concept-ids (:searcher svc) q)
              (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q nil)))))))
+
+(deftest ^:live search-parallel
+  (with-open [svc (hermes/open "snomed.db")]
+    (let [searcher (.-searcher svc)
+          q (search/q-descendantOf 138875005)]
+      (is (= (set (lucene/search-all searcher q))
+             (set (lucene/search-all* searcher q)))))))
+
+(comment
+  (def svc (hermes/open "snomed.db"))
+  (def searcher (.-searcher svc))
+  (def q (search/q-descendantOf 138875005))
+  (require '[criterium.core :as crit])
+  (crit/quick-bench (lucene/search-all searcher q))
+  (crit/quick-bench (lucene/search-all* searcher q)))
