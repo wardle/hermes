@@ -69,16 +69,8 @@
 (comment
   (def svc (hermes/open "snomed.db"))
   (def searcher (.-searcher svc))
-  (def q (search/q-descendantOf 138875005))   ;138875005
+  (def q (search/q-descendantOf 25700007))   ;138875005
   (require '[criterium.core :as crit])
-  (crit/quick-bench (lucene/search-all searcher q))
-  (crit/quick-bench (lucene/search-all* searcher q))
-  (require '[clojure.core.async :as async])
-  (def ch (async/chan))
-  (def results-sync (lucene/search-all searcher q))
-  (async/thread (lucene/stream-all searcher q ch))
-  
-  (count results-sync)
-  (count results-async)
-  (= (set results-sync) (set results-async)))
+  (crit/bench (lucene/search-all searcher q))
+  (crit/bench (lucene/search-all* searcher q)))
   
