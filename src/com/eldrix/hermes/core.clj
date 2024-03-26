@@ -111,10 +111,9 @@
 (s/fdef extended-concept
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
 (defn extended-concept
-  "Return an extended concept that includes the concept, its descriptions,
-  its relationships and its refset memberships. See
-  `com.eldrix.hermes.snomed/ExtendedConcept`:
-
+  "Return an extended concept that includes the concept, and related data 
+  such as descriptions, relationships, concrete values and reference set 
+  memberships. See `com.eldrix.hermes.snomed/ExtendedConcept`.
   - `:concept`             : the concept
   - `:descriptions`        : a sequence of `Description` items
   - `:parentRelationships` : a map of relationship type to a set of concept ids
