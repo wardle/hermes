@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.xxxx] - not yet released
+
+* Avoid deprecated methods in Lucene 9.10 series (e.g. use CollectorManager and not Collector) - preparing for Lucene 10 release
+* Upgrade dependencies 
+
 ## [1.4.1368] - 2024-03-20
 
 * Upgrade dependencies - Clojure 1.11.2 and miscellaneous libraries
