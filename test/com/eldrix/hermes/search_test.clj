@@ -1,7 +1,9 @@
 (ns com.eldrix.hermes.search-test
-  (:require [clojure.spec.gen.alpha :as gen]
+  (:require [clojure.core.async :as async]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is]]
             [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.search :as search]))
 
 (def example-results-1
@@ -38,3 +40,37 @@
     (let [q (search/q-descendantOrSelfOf 24700007)]
       (is (= (search/do-query-for-concept-ids (:searcher svc) q)
              (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q nil)))))))
+
+(defn ch->set
+  "Drain the clojure.core.async channel `ch` and return results as a set."
+  [ch] 
+  (loop [results (transient #{})]
+    (if-let [result (async/<!! ch)]
+      (recur (conj! results result))
+      (persistent! results))))
+
+(defn test-query [svc q]
+  (let [searcher (.-searcher svc)
+        ch1 (async/chan)
+        ch2 (async/chan)]
+      (async/thread (lucene/stream-all searcher q ch1))
+      (async/thread (lucene/stream-all* searcher q ch2))
+      (is (= (set (lucene/search-all searcher q))
+             (set (lucene/search-all* searcher q))
+             (ch->set ch1)
+             (ch->set ch2)) (str "Query returned different results" q))))
+
+(deftest ^:live search-parallel
+  (with-open [svc (hermes/open "snomed.db")]
+    (let [concept-ids (take 5000 (shuffle (#'hermes/get-n-concept-ids svc 1000000)))]
+      (doseq [concept-id concept-ids]
+        (test-query svc (search/q-descendantOf concept-id))))))
+
+(comment
+  (def svc (hermes/open "snomed.db"))
+  (def searcher (.-searcher svc))
+  (def q (search/q-descendantOf 25700007))   ;138875005
+  (require '[criterium.core :as crit])
+  (crit/bench (lucene/search-all searcher q))
+  (crit/bench (lucene/search-all* searcher q)))
+  

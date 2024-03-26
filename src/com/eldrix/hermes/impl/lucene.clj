@@ -9,7 +9,7 @@
 (ns ^:no-doc com.eldrix.hermes.impl.lucene
   (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
-           (org.apache.lucene.search CollectionTerminatedException IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
+           (org.apache.lucene.search CollectionTerminatedException CollectorManager IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
                                      MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector Scorable ScoreMode)))
 
 (set! *warn-on-reflection* true)
@@ -26,6 +26,16 @@
           (.add coll (+ base-id doc-id))))))
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
 
+;; A Lucene CollectorManager that can collect results in parallel and then
+;; create a lazy concatenation of the results once search is complete
+(deftype IntoSequenceCollectorManager []
+  CollectorManager
+  (newCollector [_]
+    (IntoArrayCollector. (ArrayList.)))
+  (reduce [_ collectors]
+    (mapcat #(.-coll ^IntoArrayCollector %) collectors)))
+
+;; A Lucene Collector that puts search results onto a core.async channel
 (deftype IntoChannelCollector [ch]
   Collector
   (getLeafCollector [_ ctx]
@@ -37,7 +47,16 @@
             (throw (CollectionTerminatedException.)))))))   ;; ... then prematurely terminate collection of the current leaf
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
 
-(defn search-all
+;; A Lucene CollectorManager that can collect results in parallel putting
+;; results onto a channel, optionally closing when done.
+(deftype IntoChannelCollectorManager [ch close?]
+  CollectorManager
+  (newCollector [_]
+    (IntoChannelCollector. ch))
+  (reduce [_ _]
+    (when close? (a/close! ch))))
+
+(defn ^:deprecated search-all*
   "Search a lucene index and return *all* results matching query specified.
   Results are returned as a sequence of Lucene document ids."
   [^IndexSearcher searcher ^Query q]
@@ -45,14 +64,24 @@
     (.search searcher q (IntoArrayCollector. coll))
     (seq coll)))
 
-(defn stream-all
+(defn search-all
+  [^IndexSearcher searcher ^Query q]
+  (.search searcher q (IntoSequenceCollectorManager.)))
+
+(defn ^:deprecated stream-all*
   "Search a lucene index and return *all* results on the channel specified.
   Results are returned as Lucene document ids."
   ([^IndexSearcher searcher ^Query q ch]
-   (stream-all searcher q ch true))
+   (stream-all* searcher q ch true))
   ([^IndexSearcher searcher ^Query q ch close?]
    (.search searcher q (IntoChannelCollector. ch))
    (when close? (a/close! ch))))
+
+(defn stream-all
+  ([^IndexSearcher searcher ^Query q ch]
+   (stream-all searcher q ch true))
+  ([^IndexSearcher searcher ^Query q ch close?]
+   (.search searcher q (IntoChannelCollectorManager. ch close?))))
 
 (defn- single-must-not-clause?
   "Checks that a boolean query isn't simply a single 'must-not' clause.
