@@ -6,6 +6,7 @@ This log documents significant changes for each release.
 
 * Avoid deprecated methods in Lucene 9.10 series (e.g. use CollectorManager and not Collector) - preparing for Lucene 10 release
 * Upgrade dependencies 
+* Add more comprehensive tests for arbitrarily large descriptions (see #66)  
 
 ## [1.4.1368] - 2024-03-20
 
