@@ -66,14 +66,13 @@
 ;;;; RF2 concept specification
 ;;;;
 (s/def :info.snomed.Concept/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Concept (snomed/identifier->type %)))
-                                           #(gen-concept-id)))
+                                 #(gen-concept-id)))
 (s/def :info.snomed.Concept/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Concept/active ::active)
 (s/def :info.snomed.Concept/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Concept/definitionStatusId #{snomed/Primitive snomed/Defined})
 (s/def :info.snomed/Concept (s/keys :req-un [:info.snomed.Concept/id :info.snomed.Concept/effectiveTime
                                              :info.snomed.Concept/active :info.snomed.Concept/moduleId :info.snomed.Concept/definitionStatusId]))
-
 
 (s/fdef gen-concept
   :args (s/cat :concept (s/? (s/keys :opt-un [:info.snomed.Concept/id
@@ -91,8 +90,9 @@
 ;;;; RF2 description specification.
 ;;;;
 
-(def ^:private gen-non-blank-string
-  "A generator for non blank strings."
+(defn ^:private gen-non-blank-string
+  "Create a generator for non blank strings."
+  []
   (s/gen (s/and string? (complement str/blank?))))
 
 (defn ^:private gen-string-of-length
@@ -100,20 +100,21 @@
   [min-len max-len]
   (gen/fmap str/join (gen/vector (gen/char-alphanumeric) min-len max-len)))
 
-(def ^:private gen-description-term
-  (gen/frequency [[18 gen-non-blank-string]
+(defn ^:private gen-description-term
+  []
+  (gen/frequency [[18 (gen-non-blank-string)]
                   [1 (gen-string-of-length 0 512)]
                   [1 (gen-string-of-length 512 4096)]]))
 
 (s/def :info.snomed.Description/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Description (snomed/identifier->type %)))
-                                               #(gen-description-id)))
+                                     #(gen-description-id)))
 (s/def :info.snomed.Description/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Description/active ::active)
 (s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/conceptId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/with-gen (s/and string? #(pos-int? (count %))) (fn [] gen-description-term)))
+(s/def :info.snomed.Description/term (s/with-gen (s/and string? #(pos-int? (count %))) gen-description-term))
 (s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/def :info.snomed/Description (s/keys :req-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime :info.snomed.Description/active
                                                  :info.snomed.Description/moduleId :info.snomed.Description/conceptId
@@ -135,18 +136,18 @@
 ;;;;
 
 (s/def :info.snomed.Relationship/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                                #(gen-relationship-id)))
+                                      #(gen-relationship-id)))
 (s/def :info.snomed.Relationship/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Relationship/active ::active)
 (s/def :info.snomed.Relationship/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/sourceId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/destinationId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/relationshipGroup (s/with-gen nat-int?
-                                                               #(s/gen (s/int-in 0 5))))
+                                                     #(s/gen (s/int-in 0 5))))
 (s/def :info.snomed.Relationship/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/modifierId (s/with-gen :info.snomed.Concept/id
-                                                        #(gen/return 900000000000451002)))
+                                              #(gen/return 900000000000451002)))
 (s/def :info.snomed/Relationship (s/keys :req-un [:info.snomed.Relationship/id :info.snomed.Relationship/effectiveTime
                                                   :info.snomed.Relationship/active :info.snomed.Relationship/moduleId
                                                   :info.snomed.Relationship/sourceId :info.snomed.Relationship/destinationId
@@ -169,9 +170,9 @@
   (gen/fmap (fn [rels]
               (map (fn [rel child]
                      (assoc rel :sourceId (:id child)
-                                :active true
-                                :destinationId parent-concept-id
-                                :typeId type-id)) rels child-concepts))
+                            :active true
+                            :destinationId parent-concept-id
+                            :typeId type-id)) rels child-concepts))
             (gen/vector (gen-relationship) (count child-concepts))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -180,18 +181,18 @@
 ;;;;
 
 (s/def :info.snomed.ConcreteValue/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                                 #(gen-relationship-id)))
+                                       #(gen-relationship-id)))
 (s/def :info.snomed.ConcreteValue/effectiveTime ::effectiveTime)
 (s/def :info.snomed.ConcreteValue/active ::active)
 (s/def :info.snomed.ConcreteValue/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/sourceId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/value string?)
 (s/def :info.snomed.ConcreteValue/relationshipGroup (s/with-gen nat-int?
-                                                                #(s/gen (s/int-in 0 5))))
+                                                      #(s/gen (s/int-in 0 5))))
 (s/def :info.snomed.ConcreteValue/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/modifierId (s/with-gen :info.snomed.Concept/id
-                                                         #(gen/return 900000000000451002)))
+                                               #(gen/return 900000000000451002)))
 (s/def :info.snomed/ConcreteValue (s/keys :req-un [:info.snomed.ConcreteValue/id :info.snomed.ConcreteValue/effectiveTime
                                                    :info.snomed.ConcreteValue/active :info.snomed.ConcreteValue/moduleId
                                                    :info.snomed.ConcreteValue/sourceId :info.snomed.ConcreteValue/value
@@ -202,8 +203,6 @@
   "A generator of SNOMED concrete value entities."
   ([] (gen/fmap snomed/map->ConcreteValue (s/gen :info.snomed/ConcreteValue)))
   ([rel] (gen/fmap #(merge % rel) (gen-concrete-value))))
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
@@ -219,7 +218,6 @@
 (s/def ::parentRelationships (s/nilable (s/map-of :info.snomed.Concept/id (s/coll-of :info.snomed.Concept/id :kind set?))))
 (s/def ::directParentRelationships (s/nilable (s/map-of :info.snomed.Concept/id (s/coll-of :info.snomed.Concept/id :kind set?))))
 (s/def ::refsets (s/nilable (s/coll-of :info.snomed.Concept/id :kind set?)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
@@ -271,8 +269,8 @@
                                            :integer integer?
                                            :string string?))
 (s/def :info.snomed.RefsetItem/fields (s/with-gen (s/coll-of :info.snomed.RefsetItem/field)
-                                                  #(gen/frequency [[6 (gen/return [])]
-                                                                   [4 (gen/vector (s/gen :info.snomed.RefsetItem/field) 1 4)]])))
+                                        #(gen/frequency [[6 (gen/return [])]
+                                                         [4 (gen/vector (s/gen :info.snomed.RefsetItem/field) 1 4)]])))
 
 (def ^:private field->pattern
   {:concept      \c
@@ -321,7 +319,6 @@
   "A generator of SNOMED SimpleRefset entities."
   ([] (gen/fmap snomed/map->SimpleRefsetItem (s/gen :info.snomed/SimpleRefset)))
   ([refset] (gen/fmap #(merge % refset) (gen-simple-refset))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -538,7 +535,6 @@
   ([] (gen/fmap snomed/map->MRCMAttributeDomainRefsetItem (s/gen :info.snomed/MRCMAttributeDomainRefset)))
   ([refset] (gen/fmap #(merge % refset) (gen-mrcm-attribute-domain-refset))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (s/def :info.snomed/MRCMAttributeRangeRefset
@@ -558,7 +554,6 @@
   ([] (gen/fmap snomed/map->MRCMAttributeRangeRefsetItem (s/gen :info.snomed/MRCMAttributeRangeRefset)))
   ([refset] (gen/fmap #(merge % refset) (gen-simple-refset))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (s/def :info.snomed/MRCMModuleScopeRefset
@@ -575,7 +570,6 @@
   ([] (gen/fmap snomed/map->MRCMModuleScopeRefsetItem (s/gen :info.snomed/MRCMModuleScopeRefset)))
   ([refset] (gen/fmap #(merge % refset) (gen-mrcm-module-scope-refset))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn gen-refset
@@ -585,14 +579,13 @@
   frequencies from installed distributions."
   []
   (gen/frequency
-    [[4 (gen-simple-map-refset)]
-     [45 (gen-language-refset)]
-     [14 (gen-extended-map-refset)]
-     [15 (gen-simple-refset)]
-     [10 (gen-attribute-value-refset)]
-     [10 (gen-association-refset)]
-     [1 (gen-refset-descriptor-refset)]]))
-
+   [[4 (gen-simple-map-refset)]
+    [45 (gen-language-refset)]
+    [14 (gen-extended-map-refset)]
+    [15 (gen-simple-refset)]
+    [10 (gen-attribute-value-refset)]
+    [10 (gen-association-refset)]
+    [1 (gen-refset-descriptor-refset)]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
