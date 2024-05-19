@@ -2,11 +2,11 @@
 
 This log documents significant changes for each release.
 
-## [1.4.xxxx] - not yet released
+## [1.4.1388] - 2024-05-19 
 
 * Avoid deprecated methods in Lucene 9.10 series (e.g. use CollectorManager and not Collector) - preparing for Lucene 10 release
 * Upgrade dependencies 
-* Add more comprehensive tests for arbitrarily large descriptions (see #66)  
+* Add more comprehensive tests for arbitrarily large descriptions (see #66) to prove Hermes will have no issues if maximum description length increases 
 
 ## [1.4.1368] - 2024-03-20
 
