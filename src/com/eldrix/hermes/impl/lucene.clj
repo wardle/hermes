@@ -57,7 +57,7 @@
     (when close? (a/close! ch))))
 
 (defn ^:deprecated search-all*
-  "Search a lucene index and return *all* results matching query specified.
+  "Search a Lucene index and return *all* results matching query specified.
   Results are returned as a sequence of Lucene document ids."
   [^IndexSearcher searcher ^Query q]
   (let [coll (ArrayList.)]
@@ -65,11 +65,13 @@
     (seq coll)))
 
 (defn search-all
+  "Search a Lucene index and return *all* results matching query specified.
+  Results are returned as a sequence of Lucene document ids."
   [^IndexSearcher searcher ^Query q]
   (.search searcher q (IntoSequenceCollectorManager.)))
 
 (defn ^:deprecated stream-all*
-  "Search a lucene index and return *all* results on the channel specified.
+  "Search a Lucene index and return *all* results on the channel specified.
   Results are returned as Lucene document ids."
   ([^IndexSearcher searcher ^Query q ch]
    (stream-all* searcher q ch true))
@@ -78,6 +80,8 @@
    (when close? (a/close! ch))))
 
 (defn stream-all
+  "Search a Lucene index and return *all* results on the channel specified.
+  Results are returned as Lucene document ids."
   ([^IndexSearcher searcher ^Query q ch]
    (stream-all searcher q ch true))
   ([^IndexSearcher searcher ^Query q ch close?]
