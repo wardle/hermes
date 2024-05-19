@@ -101,6 +101,7 @@
         relationships (gen/sample (rf2/gen-relationship) n)
         refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset) n)]
     (log/debug "Creating temporary components in " release-path)
+    (is (some #(< 1024 (count (:term %))) descriptions) "There must be synthetic descriptions with very long terms (up to 4096 characters)")
     (write-components release-path "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset))
     (write-components release-path "sct2_Description_Snapshot_GB1000000_20180401.txt" descriptions)
     (write-components release-path "sct2_Relationship_Snapshot_GB1000000_20180401.txt" relationships)
