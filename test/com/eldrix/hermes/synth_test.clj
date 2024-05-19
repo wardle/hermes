@@ -9,6 +9,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.gen :as hgen]
+            [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.importer :as importer]
             [com.eldrix.hermes.rf2 :as rf2]
@@ -29,7 +30,6 @@
     (dorun (->> (iterator-seq (.iterator (Files/walk path' (make-array FileVisitOption 0))))
                 sort reverse
                 (map #(Files/delete %))))))
-
 
 (def ^:dynamic *paths*)
 
@@ -97,6 +97,7 @@
         en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
         concepts (conj (gen/sample (rf2/gen-concept) (dec n)) en-GB-refset)
         descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) concepts)
+        descriptions-by-id (group-by :conceptId descriptions)
         en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
         relationships (gen/sample (rf2/gen-relationship) n)
         refset-descriptors (gen/sample (rf2/gen-refset-descriptor-refset) n)]
@@ -119,7 +120,22 @@
         (is (= n (get-in status [:components :relationships])))
         (is (= (count (set (map :refsetId (concat en-GB-refset refset-descriptors)))) (get-in status [:components :refsets])))
         (is (= (count concepts) (a/<!! (a/reduce (fn [acc v] (+ acc (count v))) 0 ch)))
-            "Number of concepts streamed does not match total number of concepts")))))
+            "Number of concepts streamed does not match total number of concepts")
+        (doseq [{:keys [id] :as concept} concepts]
+          (is (= concept (hermes/concept svc id)) "")
+          (is (= (set (descriptions-by-id id)) (set (hermes/descriptions svc id)))))
+        (doseq [{:keys [id term] :as description} descriptions]
+          (is (= description (hermes/description svc id)))
+          (let [results-by-id (search/do-query-for-results (.-searcher svc) (search/q-description-id id) nil)
+                results-by-s (search/do-query-for-results (.-searcher svc) (search/q-term term) nil)
+                result-by-id (first results-by-id)]
+            (is (= 1 (count results-by-id)) (str "Search for description by id did not return a single result" {:d description :results results-by-id}))
+            (is (= id (:id result-by-id)) (str "Failed to search for description" description))
+            (is (= term (:term result-by-id)) (str "Did not get back same term for description" {:d description :result result-by-id}))
+            (is (contains? (set (map :term results-by-s)) term))
+            (is (contains? (set (map :id results-by-s)) id))))
+        (doseq [{:keys [id] :as relationship} relationships]
+          (is (= relationship (hermes/relationship svc id))))))))
 
 (deftest test-localisation
   (let [{:keys [release-path db-path store-path]} *paths*
