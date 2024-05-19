@@ -11,6 +11,7 @@
   See https://confluence.ihtsdotools.org/display/DOCRELFMT"
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
+            [clojure.string :as str]
             [com.eldrix.hermes.snomed :as snomed]
             [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import [java.time LocalDate]
