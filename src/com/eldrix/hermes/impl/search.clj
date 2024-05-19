@@ -409,10 +409,18 @@ items."
   [q]
   (instance? MatchAllDocsQuery q))
 
+(defn q-concept-id
+  [concept-id]
+  (LongPoint/newExactQuery "concept-id" concept-id))
 (defn q-concept-ids
   "Returns a query that will return documents for the concepts specified."
   [^Collection concept-ids]
   (LongPoint/newSetQuery "concept-id" concept-ids))
+
+(defn q-description-id
+  "Returns a query to return the document with the given `description-id`."
+  [description-id]
+  (LongPoint/newExactQuery "description-id" description-id))
 
 (defn q-descendantOf
   "Returns a query that matches descendants of the specified concept."
