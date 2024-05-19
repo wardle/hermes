@@ -96,7 +96,7 @@
         n 2000
         en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
         concepts (conj (gen/sample (rf2/gen-concept) (dec n)) en-GB-refset)
-        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true})) concepts)
+        descriptions (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true}) 2) concepts)
         descriptions-by-id (group-by :conceptId descriptions)
         en-GB (hgen/make-language-refset-items descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
         relationships (gen/sample (rf2/gen-relationship) n)
