@@ -89,6 +89,21 @@
 ;;;;
 ;;;; RF2 description specification.
 ;;;;
+
+(def ^:private gen-non-blank-string
+  "A generator for non blank strings."
+  (s/gen (s/and string? (complement str/blank?))))
+
+(defn ^:private gen-string-of-length
+  "Create a generator for strings between `min-len` and `max-len` length."
+  [min-len max-len]
+  (gen/fmap str/join (gen/vector (gen/char-alphanumeric) min-len max-len)))
+
+(def ^:private gen-description-term
+  (gen/frequency [[18 gen-non-blank-string]
+                  [1 (gen-string-of-length 0 512)]
+                  [1 (gen-string-of-length 512 4096)]]))
+
 (s/def :info.snomed.Description/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Description (snomed/identifier->type %)))
                                                #(gen-description-id)))
 (s/def :info.snomed.Description/effectiveTime ::effectiveTime)
@@ -97,7 +112,7 @@
 (s/def :info.snomed.Description/conceptId :info.snomed.Concept/id)
 (s/def :info.snomed.Description/languageCode (set (Locale/getISOLanguages)))
 (s/def :info.snomed.Description/typeId #{snomed/Synonym snomed/FullySpecifiedName snomed/Definition})
-(s/def :info.snomed.Description/term (s/and string? #(pos? (count %))))
+(s/def :info.snomed.Description/term (s/with-gen (s/and string? #(pos-int? (count %))) (fn [] gen-description-term)))
 (s/def :info.snomed.Description/caseSignificanceId #{snomed/EntireTermCaseSensitive snomed/EntireTermCaseInsensitive snomed/OnlyInitialCharacterCaseInsensitive})
 (s/def :info.snomed/Description (s/keys :req-un [:info.snomed.Description/id :info.snomed.Description/effectiveTime :info.snomed.Description/active
                                                  :info.snomed.Description/moduleId :info.snomed.Description/conceptId
