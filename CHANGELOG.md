@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.4.xxxx] - not yet released
+## [1.4.1390] - 2024-05-21 
 
 * Add support for ECL v2.2, including the operators top and bottom
 
