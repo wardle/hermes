@@ -724,11 +724,18 @@ of the REPL; a read-evaluate-print-loop in which one can issue arbitrary
 commands to execute. As such, one has a full Turing-complete language (a lisp)
 in which to explore the domain.
 
-Run a REPL and use the terminology services interactively. I usually use a
-REPL from within my IDE.
+I usually use a REPL from within my IDE so run a REPL from there.
+You can run an nREPL server, which makes it easy to connect from other editors, such as emacs or neovim:
 
 ```
-clj -A:dev
+clj -M:dev:nrepl-server
+```
+
+You can run a REPL and use the terminology services interactively at the command-line, but I
+would not advise this. It is much better to use a REPL within your editor.
+
+```
+clj -M:dev
 ```
 
 #### 5. Get the status of your installed index
