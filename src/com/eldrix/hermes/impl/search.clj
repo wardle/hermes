@@ -108,7 +108,7 @@
         ec' (dissoc ec :descriptions)]
     ;; turn concept inside out to focus on description instead
     (map #(assoc % :concept (merge (dissoc ec' :concept) (:concept ec'))
-                   :preferredSynonyms preferred)
+                 :preferredSynonyms preferred)
          (:descriptions ec))))
 
 (defn extended-description->document
@@ -186,11 +186,11 @@
                 writer (open-index-writer search-filename)]
       (a/thread (store/stream-all-concepts store ch))       ;; start streaming all concepts
       (a/<!! (a/pipeline
-               nthreads                                     ;; Parallelism factor
-               (doto (a/chan) (a/close!))
-               (comp (map #(concept->documents store %))
-                     (map #(.addDocuments writer %)))
-               ch true (fn ex-handler [ex] (log/error ex) (a/close! ch) nil)))
+              nthreads                                     ;; Parallelism factor
+              (doto (a/chan) (a/close!))
+              (comp (map #(concept->documents store %))
+                    (map #(.addDocuments writer %)))
+              ch true (fn ex-handler [ex] (log/error ex) (a/close! ch) nil)))
       (.forceMerge writer 1))))
 
 (defn- make-token-query
@@ -200,7 +200,7 @@
         builder (BooleanQuery$Builder.)]
     (.add builder (PrefixQuery. term) BooleanClause$Occur/SHOULD)
     (if (and fuzzy (pos? fuzzy)) (.add builder (FuzzyQuery. term (min 2 fuzzy)) BooleanClause$Occur/SHOULD)
-                                 (.add builder tq BooleanClause$Occur/SHOULD))
+        (.add builder tq BooleanClause$Occur/SHOULD))
     (.setMinimumNumberShouldMatch builder 1)
     (.build builder)))
 
@@ -564,7 +564,6 @@ items."
   [^Collection refset-ids]
   (LongPoint/newSetQuery "description-refsets" refset-ids))
 
-
 (defn q-memberOfInstalledReferenceSet
   "A query for concepts that are a member of any reference set."
   [store]
@@ -673,17 +672,17 @@ items."
           excl (seq (filter #(= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))]
       (vector
         ;; build the inclusive clauses directly into a new query
-        (when incl
-          (let [builder (BooleanQuery$Builder.)]
-            (doseq [^BooleanClause clause incl]
-              (.add builder clause))
-            (.build builder)))
+       (when incl
+         (let [builder (BooleanQuery$Builder.)]
+           (doseq [^BooleanClause clause incl]
+             (.add builder clause))
+           (.build builder)))
         ;; extract the exclusive queries from each clause but rewrite
-        (when excl
-          (let [builder (BooleanQuery$Builder.)]
-            (doseq [^BooleanClause clause excl]
-              (.add builder (.getQuery clause) BooleanClause$Occur/MUST))
-            (.build builder)))))))
+       (when excl
+         (let [builder (BooleanQuery$Builder.)]
+           (doseq [^BooleanClause clause excl]
+             (.add builder (.getQuery clause) BooleanClause$Occur/MUST))
+           (.build builder)))))))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]
   (when q
