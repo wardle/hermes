@@ -13,8 +13,9 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 
 * a fast terminology service with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
-* cross-mapping to and from other code systems
-* support for SNOMED CT compositional grammar and the SNOMED CT expression constraint language.
+* cross-mapping to and from other code systems including ICD-10, Read codes and OPCS
+* support for SNOMED CT compositional grammar (cg) and expression constraint language (ECL) v2.2.
+* optional HL7 FHIR terminology server via [hades](https://github.com/wardle/hades)
 
 It is designed as both a library for embedding into larger applications and as a standalone microservice.
 
