@@ -533,6 +533,19 @@ items."
   [store concept-ids]
   (LongPoint/newSetQuery "concept-id" ^Collection (store/leaves store concept-ids)))
 
+(defn q-topOfSet
+  "A query for the subset of concepts that are the highest, or more general,
+  within the set such that no concept within the subset subsumes another.
+  This could have been implemented as 
+  ```
+  (LongPoint/newSetQuery \"concept-id\" ^Collection (store/top-leaves store concept-ids))
+  ```
+  but that would be slower than this implementation."
+  [^Collection concept-ids]
+  (let [q1 (LongPoint/newSetQuery "concept-id" concept-ids)
+        q2 (q-descendantOfAny concept-ids)]
+    (q-not q1 q2)))
+
 (defn q-memberOf
   "A query for concepts that are referenced by the given reference set."
   [refset-id]
