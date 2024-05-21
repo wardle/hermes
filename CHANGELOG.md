@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [1.4.xxxx] - not yet released
+
+* Add support for ECL v2.2, including the operators top and bottom
+
 ## [1.4.1388] - 2024-05-19 
 
 * Avoid deprecated methods in Lucene 9.10 series (e.g. use CollectorManager and not Collector) - preparing for Lucene 10 release
