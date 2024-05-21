@@ -483,6 +483,7 @@ items."
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOfAny
+  "A query for concepts that are ancestors the specified concepts."
   [store ^Collection concept-ids]
   (let [^Collection parent-ids (set/difference (store/all-parents store concept-ids) (set concept-ids))]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
