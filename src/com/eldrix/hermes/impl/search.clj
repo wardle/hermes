@@ -557,10 +557,12 @@ items."
   (LongPoint/newSetQuery "concept-refsets" refset-ids))
 
 (defn q-description-memberOf
+  "A query for descriptions that are members of the given reference set."
   [refset-id]
   (LongPoint/newExactQuery "description-refsets" refset-id))
 
 (defn q-description-memberOfAny
+  "A query for descriptions that are members of the given reference sets."
   [^Collection refset-ids]
   (LongPoint/newSetQuery "description-refsets" refset-ids))
 
