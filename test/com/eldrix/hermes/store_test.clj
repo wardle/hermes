@@ -175,7 +175,7 @@
       (store/write-batch st {:type :info.snomed/AssociationRefset :data refsets})
       (is (= #{} (store/component-refset-ids st (:referencedComponentId item))))
       (store/index st)
-      (clojure.core.async/thread
+      (async/thread
         (loop []
           (when (= :ok @status)
             (if (= #{(:refsetId item)} (store/component-refset-ids st (:referencedComponentId item)))
