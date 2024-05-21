@@ -527,6 +527,12 @@ items."
   (let [^Collection parent-ids (into (set concept-ids) (mapcat #(store/proximal-parent-ids store %)) concept-ids)]
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
+(defn q-bottomOfSet
+  "A query for the subset of concepts that are the lowest, or most specific, 
+  within the set such that no concept within that subset subsumes another."
+  [store concept-ids]
+  (LongPoint/newSetQuery "concept-id" ^Collection (store/leaves store concept-ids)))
+
 (defn q-memberOf
   "A query for concepts that are referenced by the given reference set."
   [refset-id]
