@@ -17,7 +17,8 @@
             [com.eldrix.hermes.impl.lmdb :as kv]
             [com.eldrix.hermes.snomed :as snomed])
   (:import (com.eldrix.hermes.snomed Concept Description ExtendedConcept SimpleRefsetItem)
-           (java.io Closeable)))
+           (java.io Closeable)
+           (java.util Collection)))
 
 (s/def ::store any?)
 
@@ -250,12 +251,46 @@
 
 (defn leaves
   "Returns the subset of the specified `concept-ids` such that no member of the
-  subset is subsumed by another member.
+  subset is subsumed by another member, choosing the most *specific* concepts. 
+  As such, the result will be concepts that have no descendants within that 
+  result. If the SNOMED hierarchy is displayed as a tree with the root at the
+  top, then this returns the 'bottom'-most conceots within the set. 
   
-   Parameters:
-  - concept-ids  : a collection of concept identifiers"
-  [store concept-ids]
-  (set/difference (set concept-ids) (into #{} (mapcat #(disj (all-parents store %) %)) concept-ids)))
+  Also see [[top-leaves]] although that is not performant and is only used for
+  testing. 
+
+  This is essentially implementing 'bottom-of-set' as per https://confluence.ihtsdotools.org/display/DOCECL/6.12+Top+and+Bottom.
+
+  Parameters:
+  - concept-ids  : a collection of concept identifiers."
+  ^Collection [store concept-ids]
+  (set/difference          ;; remove all parents of the concepts from the set
+   (set concept-ids)
+   (into #{} (mapcat #(disj (all-parents store %) %)) concept-ids)))
+
+(defn top-leaves
+  "Returns the subset of the specified `concept-ids` such that no member of the
+  subset is subsumed by another member, choosing the most *general* concepts.
+  As such, the result will be concepts that have no ancestors within that 
+  result. If the SNOMED hierarchy is drawn as a tree with the root at the top,
+  then this returns the 'top'-most concepts within the set.
+
+  Also see [[leaves]] which does the same but returns the most specific
+  concepts ('bottom' if the SNOMED CT hierarchy is displayed as a tree with 
+  the root at the top).
+  
+  This is essentially implementing 'top-of-set' as per https://confluence.ihtsdotools.org/display/DOCECL/6.12+Top+and+Bottom
+ 
+  WARNING: this implementation is slow and simply the reverse of `leaves`. 
+  It is much better (3x faster) to implement within Lucene, but this is made
+  available for validation purposes.
+
+  Parameters:
+  - concept-ids : a collection of concept identifiers."
+  ^Collection [store concept-ids]
+  (set/difference          ;; remove all children of the concepts from the set
+   (set concept-ids)
+   (into #{} (mapcat #(disj (all-children store %) %)) concept-ids)))
 
 (defn transitive-synonyms
   "Returns all synonyms of the specified concept, including those of its
