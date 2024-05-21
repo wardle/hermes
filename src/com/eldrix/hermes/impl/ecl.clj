@@ -34,7 +34,7 @@
 (s/def ::loc any?)
 
 (def ^:private ecl-parser
-  (insta/parser (io/resource "ecl-v2.0.abnf") :input-format :abnf :output-format :enlive))
+  (insta/parser (io/resource "ecl-v2.2.abnf") :input-format :abnf :output-format :enlive))
 
 (declare parse)
 (declare parse-ecl-attribute-set)
@@ -58,14 +58,24 @@
   "Returns constraint operator as a keyword.
   For example, :descendantOrSelfOf
 
-  constraintOperator = childOf / childOrSelfOf / descendantOrSelfOf / descendantOf / parentOf / parentOrSelfOf / ancestorOrSelfOf / ancestorOf"
+  constraintOperator = childOf / childOrSelfOf / descendantOrSelfOf / descendantOf / parentOf / parentOrSelfOf / ancestorOrSelfOf / ancestorOf / top / bottom"
   [loc]
   (:tag (first (zip/down loc))))
 
-(defn- parse-focus-concept
-  "eclFocusConcept = eclConceptReference / wildCard"
+(defn- parse-alt-identifier
+  " altIdentifier = (QM altIdentifierSchemeAlias \" #\" altIdentifierCodeWithinQuotes QM / altIdentifierSchemeAlias \" #\" altIdentifierCodeWithoutQuotes) [ws \" | \" ws term ws \" | \"]
+    altIdentifierSchemeAlias = alpha *(dash / alpha / integerValue)
+    altIdentifierCodeWithinQuotes = 1*anyNonEscapedChar
+    altIdentifierCodeWithoutQuotes = 1*(alpha / digit / dash / \" . \" / \" _ \")"
   [loc]
-  (or (zx/xml1-> loc :eclConceptReference parse-concept-reference) :wildcard))
+  (throw (ex-info "unsupported clause altIdentifier " {:s (zx/text loc)})))
+
+(defn- parse-focus-concept
+  "eclFocusConcept = eclConceptReference / wildCard / altIdentifier"
+  [loc]
+  (or (zx/xml1-> loc :eclConceptReference parse-concept-reference)
+      (zx/xml1-> loc :altIdentifier parse-alt-identifier)
+      :wildcard))
 
 (s/fdef realise-concept-ids
   :args (s/cat :ctx ::ctx :q ::query))
@@ -78,7 +88,6 @@
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
   [ctx loc]
   (search/q-and (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
-
 
 (defn- parse-disjunction-expression-constraint
   "disjunctionExpressionConstraint = subExpressionConstraint 1*(ws disjunction ws subExpressionConstraint)"
@@ -231,7 +240,6 @@
   (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
       (zx/xml1-> loc :typeTokenFilter (partial parse-type-token-filter ctx))))
 
-
 (def ^:private acceptability->kw
   "Map a token or a concept identifier to a keyword."
   {"accept"           :acceptable-in
@@ -252,7 +260,6 @@
   (let [ids (or (seq (zx/xml-> loc :acceptabilityIdSet :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))
                 (map str/lower-case (zx/xml-> loc :acceptabilityTokenSet :acceptabilityToken zx/text)))]
     (map acceptability->kw ids)))
-
 
 (defn- parse-dialect-set
   "Parse either a dialect-alias-set or a dialect-id-set. Turns either a concept id or a dialect alias into
@@ -278,32 +285,32 @@
             concept-id (zx/xml1-> tag :eclConceptReference :conceptId parse-conceptId)
             acceptability (zx/xml1-> tag :acceptabilitySet parse-acceptability-set->kws)]
         (recur
-          (zip/next tag)
-          (let [c (count results), is-even? (even? c), is-odd? (not is-even?)]
-            (cond
-              (and (nil? d-alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
-              results
+         (zip/next tag)
+         (let [c (count results), is-even? (even? c), is-odd? (not is-even?)]
+           (cond
+             (and (nil? d-alias) (nil? concept-id) (nil? acceptability)) ;; keep on looping if its some other tag
+             results
 
-              (and d-alias (nil? mapped))
-              (throw (ex-info (str "unknown dialect: '" d-alias "'") {:text (zx/text loc)}))
+             (and d-alias (nil? mapped))
+             (throw (ex-info (str "unknown dialect: '" d-alias "'") {:text (zx/text loc)}))
 
-              (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
-              (conj results mapped)
+             (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
+             (conj results mapped)
 
-              (and is-even? concept-id)
-              (conj results concept-id)
+             (and is-even? concept-id)
+             (conj results concept-id)
 
-              (and is-odd? mapped)                          ;; if it's an alias or id, and we're not ready, insert an acceptability first
-              (apply conj results [default-acceptability mapped])
+             (and is-odd? mapped)                          ;; if it's an alias or id, and we're not ready, insert an acceptability first
+             (apply conj results [default-acceptability mapped])
 
-              (and is-odd? concept-id)
-              (apply conj results [default-acceptability concept-id])
+             (and is-odd? concept-id)
+             (apply conj results [default-acceptability concept-id])
 
-              (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
-              (throw (ex-info "parse error: acceptability before dialect alias" {:text (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
+             (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
+             (throw (ex-info "parse error: acceptability before dialect alias" {:text (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
 
-              (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
-              (conj results acceptability))))))))
+             (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
+             (conj results acceptability))))))))
 
 (defn- parse-dialect-id-filter
   "dialectIdFilter = dialectId ws booleanComparisonOperator ws (eclConceptReference / dialectIdSet)"
@@ -349,7 +356,6 @@
 
       :else
       (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc)})))))
-
 
 (defn- parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
@@ -499,7 +505,6 @@
       :else
       (throw (ex-info "invalid attribute query" {:text (zx/text loc)})))))
 
-
 (def ^:private concrete-numeric-comparison-ops
   {"="  search/q-concrete=
    ">"  search/q-concrete>
@@ -608,7 +613,6 @@
       (and sub-refinement (seq disjunction-refinement-set))
       (search/q-or (conj disjunction-refinement-set sub-refinement))
       :else sub-refinement)))
-
 
 (defn- parse-member-filter--match-search-term-set
   "matchSearchTermSet = QM ws matchSearchTerm *(mws matchSearchTerm) ws QM
@@ -725,7 +729,6 @@
         values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))
         _ (println "values: " {:op op :f f :values values})]
     (members/q-and (into [(members/q-refset-id refset-id)] (mapv #(f "effectiveTime" %) values)))))
-
 
 (defn- parse-member-filter--active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
@@ -920,16 +923,22 @@
                      (make-nested-query ctx expression-constraint search/q-childOrSelfOfAny)
 
                      (and (= :ancestorOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOfAny store))
+                     (make-nested-query ctx expression-constraint #(search/q-ancestorOfAny store %))
 
                      (and (= :ancestorOrSelfOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-ancestorOrSelfOfAny store))
+                     (make-nested-query ctx expression-constraint #(search/q-ancestorOrSelfOfAny store %))
 
                      (and (= :parentOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-parentOfAny store))
+                     (make-nested-query ctx expression-constraint #(search/q-parentOfAny store %))
 
                      (and (= :parentOrSelfOf constraint-operator) expression-constraint)
-                     (make-nested-query ctx expression-constraint (partial search/q-parentOrSelfOfAny store))
+                     (make-nested-query ctx expression-constraint #(search/q-parentOrSelfOfAny store %))
+
+                     (and (= :bottom constraint-operator) expression-constraint)
+                     (make-nested-query ctx expression-constraint #(search/q-bottomOfSet store %))
+
+                     (and (= :top constraint-operator) expression-constraint)
+                     (make-nested-query ctx expression-constraint search/q-topOfSet)
 
                      ;; "conceptId"  == SELF
                      (and (nil? constraint-operator) (:conceptId focus-concept))
@@ -994,7 +1003,6 @@
       (zx/xml1-> loc :compoundExpressionConstraint (partial parse-compound-expression-constraint ctx))
       (zx/xml1-> loc :dottedExpressionConstraint (partial parse-dotted-expression-constraint ctx))
       (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
-
 
 (s/fdef parse
   :args (s/cat :ctx ::ctx :s string?))
@@ -1064,7 +1072,6 @@
   (pe "<  64572001 |Disease|  {{ term = \"box\", type = syn, dialect = ( en-gb (accept) en-nhs-clinical )  }}")
   (pe "<  404684003 |Clinical finding| : 116676008 |Associated morphology|  =
      ((<<  56208002 |Ulcer|  AND \n    <<  50960005 |Hemorrhage| ) MINUS \n    <<  26036001 |Obstruction| )")
-
 
   (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000)
   (pe "<  64572001 |Disease| {{ term = wild:\"cardi*opathy\"}}"))

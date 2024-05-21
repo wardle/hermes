@@ -120,17 +120,12 @@
    {:ecl " <<  19829001 |Disorder of lung|  MINUS <<  301867009 |Edema of trunk|"}
    {:ecl "<  404684003 |Clinical finding| :  116676008 |Associated morphology|  =\n         ((<<  56208002 |Ulcer|  AND <<  50960005 |Hemorrhage| ) MINUS <<  26036001 |Obstruction| )"}
    {:ecl "   <  404684003 |Clinical finding| :\n          116676008 |Associated morphology|  != <<  26036001 |Obstruction|"}])
-
 ;; {:ecl ""}
 ;; {:ecl ""}
-;; {:ecl ""}
-
-
 
 (def not-yet-implemented
   ;; need to implement cardinality - see https://confluence.ihtsdotools.org/display/DOCECL/6.5+Exclusion+and+Not+Equals
   {:ecl " <  404684003 |Clinical finding| :\n         [0..0]  116676008 |Associated morphology|  != <<  26036001 |Obstruction|"})
-
 
 (deftest ^:live test-equivalence
   (let [r1 (hermes/expand-ecl *svc* " < ( 125605004 |Fracture of bone| . 363698007 |Finding site| )")
@@ -152,7 +147,6 @@
     (is (< (count r1) (count r2)))
     (is (= r2 r3))
     (is (set/subset? r1 r2))))
-
 
 (def member-filter-tests
   [{:ecl  " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"
@@ -199,8 +193,26 @@
 (deftest ^:live test-term-filter
   (let [langs (hermes/match-locale *svc*)
         r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
-        r2 (set (hermes/search *svc* {:s "heart att" :language-refset-ids langs :constraint "<  64572001 |Disease| "}))]
-    (is (= r1 r2))))
+        r2 (set (hermes/search *svc* {:s "heart att" :language-refset-ids langs :constraint "<  64572001 |Disease| "}))
+        r3 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = match:\"heart att\"}}"))]
+    (is (= r1 r2 r3))))
+
+(deftest ^:live test-top-of-set
+  (let [concept-ids (into #{} (map :conceptId) (hermes/expand-ecl* *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|" (hermes/match-locale *svc*)))
+        r1 (set (hermes/expand-ecl *svc* " !!> ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
+        r2 (set (hermes/expand-ecl *svc* " ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )
+                                   MINUS < ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
+        r3 (store/top-leaves (.-store *svc*) concept-ids)]  ;; calculate in a different way, albeit slower, to check result 
+    (is (= r1 r2) "top of set !!> operator should be equivalent to removing descendants via a MINUS clause")
+    (is (= (set (map :conceptId r1)) r3) "top of set !!> operator in ECL should return same concept ids as store/top-leaves")))
+
+(deftest ^:live test-bottom-of-set
+  (let [concept-ids (into #{} (map :conceptId) (hermes/expand-ecl* *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)" (hermes/match-locale *svc*)))
+        r1 (set (hermes/expand-ecl *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning| AND ^991411000000109 |Emergency care diagnosis simple reference set|)"))
+        minus-concept-ids (into #{} (map :conceptId) (hermes/expand-ecl *svc* "> (>> 45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)"))
+        r2 (set/difference concept-ids minus-concept-ids)
+        r3 (store/leaves (.-store *svc*) concept-ids)]
+    (is (= (set (map :conceptId r1)) r2 r3) "bottom of set !!< operator in ECL should return same concept ids as store/leaves")))
 
 (defn some-concrete-value?
   "Returns whether a concept's concrete values match the value specified."
@@ -211,7 +223,6 @@
    (->> (store/concrete-values (:store *svc*) concept-id)
         (filter #(= type-id (:typeId %)))
         (some #(= value (:value %))))))
-
 
 (deftest ^:live test-concrete
   (let [r1 (hermes/expand-ecl *svc* "< 763158003 |Medicinal product (product)| :
