@@ -428,6 +428,7 @@ items."
   (LongPoint/newExactQuery (str snomed/IsA) concept-id))
 
 (defn q-descendantOfAny
+  "A query for descendants of the given concepts."
   [^Collection concept-ids]
   (LongPoint/newSetQuery (str snomed/IsA) concept-ids))
 
@@ -440,6 +441,8 @@ items."
       (.build)))
 
 (defn q-descendantOrSelfOfAny
+  "A query matching descendants of the specified concepts plus the concepts
+  themselves."
   [concept-ids]
   (-> (BooleanQuery$Builder.)
       (.add (q-concept-ids concept-ids) BooleanClause$Occur/SHOULD)
@@ -452,6 +455,7 @@ items."
   (LongPoint/newExactQuery (str "d" snomed/IsA) concept-id))
 
 (defn q-childOfAny
+  "A query for direct (proximal) children of the specified concepts."
   [^Collection concept-ids]
   (LongPoint/newSetQuery (str "d" snomed/IsA) concept-ids))
 
@@ -464,6 +468,8 @@ items."
       (.build)))
 
 (defn q-childOrSelfOfAny
+  "A query for direct (proximal) children of the specified concepts, 
+  including the concepts themselves."
   [^Collection concept-ids]
   (-> (BooleanQuery$Builder.)
       (.add (q-concept-ids concept-ids) BooleanClause$Occur/SHOULD)
@@ -488,6 +494,8 @@ items."
     (LongPoint/newSetQuery "concept-id" parent-ids)))
 
 (defn q-ancestorOrSelfOfAny
+  "A query for concepts that are ancestors of the specified concepts, plus 
+  the concepts themselves."
   [store ^Collection concept-ids]
   (LongPoint/newSetQuery "concept-id" ^Collection (store/all-parents store concept-ids)))
 
