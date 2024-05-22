@@ -249,7 +249,7 @@ My machine takes 6 minutes to build the search indices and 20 seconds to compact
 ### 4. Run a server!
 
 ```shell
-java -jar hermes.jar --db snomed.db --port 8080 serve
+java -jar hermes.jar --db snomed.db --port 8080 --bind-address 0.0.0.0 serve
 ```
 or
 ```shell
@@ -790,13 +790,13 @@ By default, data are returned using json, but you can
 request [edn](https://github.com/edn-format/edn) by simply adding "Accept:application/edn" in the request header.
 
 ```
-java -jar hermes.jar --db snomed.db --port 8080 serve 
+java -jar hermes.jar --db snomed.db --port 8080 --bind-address 0.0.0.0 serve 
 ```
 
 or
 
 ```
-clj -M:run --db snomed.db --port 8080 serve
+clj -M:run --db snomed.db --port 8080 --bind-address 0.0.0.0 serve
 ```
 
 There are a number of configuration options for `serve`:
