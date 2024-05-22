@@ -845,18 +845,18 @@ I have a very small, low-powered server (<$3/mo) available for demonstration pur
 
 Here are some examples:
 
-* [/v1/snomed/concepts/24700007](http://3.9.221.177:8080/v1/snomed/concepts/24700007) - basic data about a single concept
-* [/v1/snomed/concepts/24700007/descriptions](http://3.9.221.177:8080/v1/snomed/concepts/24700007/descriptions) - all descriptions for concept
-* [/v1/snomed/concepts/24700007/preferred](http://3.9.221.177:8080/v1/snomed/concepts/24700007/preferred) : preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
-* [/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended) : an extended concept 
-* [/v1/snomed/concepts/1231295007/properties?expand=1](http://3.9.221.177:8080/v1/snomed/concepts/24700007/properties?expand=1) : properties for a concept
-* [/v1/snomed/concepts/586591000000100/historical](http://3.9.221.177:8080/v1/snomed/concepts/586591000000100/historical) - historical associations for this concept
-* [/v1/snomed/concepts/24700007/refsets](http://3.9.221.177:8080/v1/snomed/concepts/24700007/refsets) - refsets to which this concept is a member
-* [/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101) - crossmap to alternate codesystem (ICD-10 in this example)
-* [/v1/snomed/concepts/24700007/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109) - map into a SNOMED subset (the UK emergency unit refset in this example)
-* [/v1/snomed/crossmap/999002271000000101/G35X](http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X) - cross from an alternate codesystem (ICD-10 in this example)
-* [/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5) - search for a term, constrained by SNOMED ECL expression
-* [/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true) - expand SNOMED ECL expression
+* [/v1/snomed/concepts/24700007](http://128.140.5.148:8080/v1/snomed/concepts/24700007) - basic data about a single concept
+* [/v1/snomed/concepts/24700007/descriptions](http://128.140.5.148:8080/v1/snomed/concepts/24700007/descriptions) - all descriptions for concept
+* [/v1/snomed/concepts/24700007/preferred](http://128.140.5.148:8080/v1/snomed/concepts/24700007/preferred) : preferred description for concept. Use an `Accept-Language` header to choose your locale (see below).
+* [/v1/snomed/concepts/24700007/extended](http://128.140.5.148:8080/v1/snomed/concepts/24700007/extended) : an extended concept 
+* [/v1/snomed/concepts/1231295007/properties?expand=1](http://128.140.5.148:8080/v1/snomed/concepts/24700007/properties?expand=1) : properties for a concept
+* [/v1/snomed/concepts/586591000000100/historical](http://128.140.5.148:8080/v1/snomed/concepts/586591000000100/historical) - historical associations for this concept
+* [/v1/snomed/concepts/24700007/refsets](http://128.140.5.148:8080/v1/snomed/concepts/24700007/refsets) - refsets to which this concept is a member
+* [/v1/snomed/concepts/24700007/map/999002271000000101](http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/999002271000000101) - crossmap to alternate codesystem (ICD-10 in this example)
+* [/v1/snomed/concepts/24700007/map/991411000000109](http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/991411000000109) - map into a SNOMED subset (the UK emergency unit refset in this example)
+* [/v1/snomed/crossmap/999002271000000101/G35X](http://128.140.5.148:8080/v1/snomed/crossmap/999002271000000101/G35X) - cross from an alternate codesystem (ICD-10 in this example)
+* [/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://128.140.5.148:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5) - search for a term, constrained by SNOMED ECL expression
+* [/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true](http://128.140.5.148:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true) - expand SNOMED ECL expression
 
 **WARNING**
 
@@ -890,7 +890,7 @@ http '127.0.0.1:8080/v1/snomed/concepts/24700007'
 
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007](http://3.9.221.177:8080/v1/snomed/concepts/24700007)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/24700007](http://128.140.5.148:8080/v1/snomed/concepts/24700007)
 
 You'll want to use the other endpoints much more frequently.
 
@@ -901,7 +901,7 @@ You'll want to use the other endpoints much more frequently.
 http 127.0.0.1:8080/v1/snomed/concepts/24700007/extended
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended](http://3.9.221.177:8080/v1/snomed/concepts/24700007/extended)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/24700007/extended](http://128.140.5.148:8080/v1/snomed/concepts/24700007/extended)
 
 The result is an extended concept definition - all the information
 needed for inference, logic and display. For example, at the client
@@ -1173,7 +1173,7 @@ lamotrigine:
 http 'http://127.0.0.1:8080/v1/snomed/concepts/1231295007/properties'
 ```
 
-Try it live [http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties](http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties)
+Try it live [http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties](http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties)
 
 Note that when results are not expanded, the metadata model is used to fix 
 the cardinality of the values for the relationship in the context of the concept.
@@ -1226,7 +1226,7 @@ Example:
 http 'http://127.0.0.1:8080/v1/snomed/concepts/1231295007/properties?expand=0&format=id:syn'
 ```
 
-Try it live [http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties?expand=1&format=id:syn](http://3.9.221.177:8080/v1/snomed/concepts/1231295007/properties?expand=0&format=id:syn)
+Try it live [http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?expand=1&format=id:syn](http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?expand=0&format=id:syn)
 
 Note again how the models within SNOMED CT are used to determine the cardinality
 of the returned relationships. A drug can have multiple roles, but has only
@@ -1267,7 +1267,7 @@ Example usage of search endpoint.
 http '127.0.0.1:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5'
 ````
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://3.9.221.177:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5](http://128.140.5.148:8080/v1/snomed/search?s=mnd\&constraint=<64572001&maxHits=5)
 
 ```json
 [
@@ -1315,7 +1315,7 @@ results:
 http '127.0.0.1:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500'
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500](http://3.9.221.177:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500](http://128.140.5.148:8080/v1/snomed/search?s=amlodipine\&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500)
 
 More complex expressions are supported, and no search term is actually needed.
 
@@ -1325,7 +1325,7 @@ Let's get all drugs with exactly three active ingredients:
 http '127.0.0.1:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|'
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|](http://3.9.221.177:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3]  127489000 |Has active ingredient|  = <  105590001 |Substance|](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
 
 Or, what about all disorders of the lung that are associated with oedema?
 
@@ -1333,7 +1333,7 @@ Or, what about all disorders of the lung that are associated with oedema?
 http -j '127.0.0.1:8080/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|'
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/search?constraint=/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|](http://3.9.221.177:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?constraint=/v1/snomed/search?constraint= <  19829001 |Disorder of lung|  AND <  301867009 |Edema of trunk|](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
 
 The ECL can be written more concisely:
 
@@ -1352,7 +1352,7 @@ without search terms, you can use the `expand` endpoint.
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl= <19829001 AND <301867009&includeHistoric=true'
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=<19829001 AND <301867009&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true)
+Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=<19829001 AND <301867009&includeHistoric=true](http://128.140.5.148:8080/v1/snomed/expand?ecl=%20%3C19829001%20AND%20%3C301867009&includeHistoric=true)
 
 This has an optional parameter `includeHistoric` which can expand the expansion
 to include historical associations. This is very useful in analytics. SNOMED 
@@ -1370,14 +1370,14 @@ is an ECL expression that will return Asthma, and all subtypes, including
 those now considered inactive or duplicate. You can read more about the new
 [history supplement functionality](https://confluence.ihtsdotools.org/display/DOCECL/6.11+History+Supplements) in ECL2.0 in the [formal documentation](http://snomed.org/ecl).
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=<<195967001 {{ +HISTORY-MOD }}](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
+Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=<<195967001 {{ +HISTORY-MOD }}](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
 
 As a concept identifier is actually a valid SNOMED ECL expression, you can do this:
 
 ```shell
 http -j '127.0.0.1:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true'
 ```
-Try it live: [http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true](http://3.9.221.177:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true)
+Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true](http://128.140.5.148:8080/v1/snomed/expand?ecl=24700007&includeHistoric=true)
 
 
 ```json
@@ -1419,7 +1419,7 @@ have an oral dose form:
 
 You can use `hermes` to expand this:
 
-Try it live:  [http://3.9.221.177:8080/v1/snomed/expand?ecl=<7631580003...](http://3.9.221.177:8080/v1/snomed/expand?ecl=%3C%20763158003%20%7CMedicinal%20product%20%28product%29%7C%20%3A%0A%20%20%20%20%20411116001%20%7CHas%20manufactured%20dose%20form%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20385268001%20%7COral%20dose%20form%20%28dose%20form%29%7C%20%2C%0A%20%20%20%20%7B%20%20%20%20%3C%3C%20%20127489000%20%7CHas%20active%20ingredient%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20372687004%20%7CAmoxicillin%20%28substance%29%7C%20%2C%0A%20%20%20%20%20%20%20%20%20%201142135004%20%7CHas%20presentation%20strength%20numerator%20value%20%28attribute%29%7C%20%20%3D%20%23250%2C%0A%20%20%20%20%20%20%20%20%20732945000%20%7CHas%20presentation%20strength%20numerator%20unit%20%28attribute%29%7C%20%20%3D%20%20258684004%20%7Cmilligram%20%28qualifier%20value%29%7C%7D)
+Try it live:  [http://128.140.5.148:8080/v1/snomed/expand?ecl=<7631580003...](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C%20763158003%20%7CMedicinal%20product%20%28product%29%7C%20%3A%0A%20%20%20%20%20411116001%20%7CHas%20manufactured%20dose%20form%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20385268001%20%7COral%20dose%20form%20%28dose%20form%29%7C%20%2C%0A%20%20%20%20%7B%20%20%20%20%3C%3C%20%20127489000%20%7CHas%20active%20ingredient%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20372687004%20%7CAmoxicillin%20%28substance%29%7C%20%2C%0A%20%20%20%20%20%20%20%20%20%201142135004%20%7CHas%20presentation%20strength%20numerator%20value%20%28attribute%29%7C%20%20%3D%20%23250%2C%0A%20%20%20%20%20%20%20%20%20732945000%20%7CHas%20presentation%20strength%20numerator%20unit%20%28attribute%29%7C%20%20%3D%20%20258684004%20%7Cmilligram%20%28qualifier%20value%29%7C%7D)
 
 Unfortunately, at the time of writing, the UK SNOMED drug extension doesn't 
 currently publish concrete values data for products in the UK dictionary of 
@@ -1438,7 +1438,7 @@ Let's map one of our diagnostic terms into ICD-10:
 http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/999002271000000101
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/999002271000000101)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/999002271000000101](http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/999002271000000101)
 
 Result:
 
@@ -1468,7 +1468,7 @@ And of course, we can crossmap back to SNOMED as well:
 http -j 127.0.0.1:8080/v1/snomed/crossmap/999002271000000101/G35X
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X](http://3.9.221.177:8080/v1/snomed/crossmap/999002271000000101/G35X)
+Try it live: [http://128.140.5.148:8080/v1/snomed/crossmap/999002271000000101/G35X](http://128.140.5.148:8080/v1/snomed/crossmap/999002271000000101/G35X)
 
 If you map a concept into a reference set that doesn't contain that concept, you'll
 automatically get the best parent matches instead.
@@ -1485,7 +1485,7 @@ reference set (`991411000000109`):
 http -j 127.0.0.1:8080/v1/snomed/concepts/24700007/map/991411000000109
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/24700007/map/991411000000109)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/991411000000109](http://128.140.5.148:8080/v1/snomed/concepts/24700007/map/991411000000109)
 
 The UK emergency unit reference set gives a subset of concepts used for central reporting problems and diagnoses in UK emergency units. 
 
@@ -1513,7 +1513,7 @@ that UK emergency unit reference set:
 http -j 127.0.0.1:8080/v1/snomed/concepts/763794005/map/991411000000109
 ```
 
-Try it live: [http://3.9.221.177:8080/v1/snomed/concepts/763794005/map/991411000000109](http://3.9.221.177:8080/v1/snomed/concepts/763794005/map/991411000000109)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/763794005/map/991411000000109](http://128.140.5.148:8080/v1/snomed/concepts/763794005/map/991411000000109)
 
 
 Result:
