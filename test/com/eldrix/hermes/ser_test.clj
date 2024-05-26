@@ -15,7 +15,7 @@
 (def n 2000)
 
 (defn test-ser [write-fn read-fn data]
-  (let [b (.directBuffer (PooledByteBufAllocator/DEFAULT))]
+  (let [b (.directBuffer PooledByteBufAllocator/DEFAULT)]
     (try
       (write-fn b data)
       (is (= (read-fn b) data))

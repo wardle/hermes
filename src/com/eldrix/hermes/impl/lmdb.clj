@@ -172,8 +172,8 @@
   [^LmdbStore store concepts]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [^Dbi db (.-concepts store)
-          kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
+          kb (.directBuffer PooledByteBufAllocator/DEFAULT 8)
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 512)]
       (try (doseq [^Concept concept concepts]
              (doto kb .clear (.writeLong (.-id concept)))
              (when (should-write-object? db txn kb 8 (.-effectiveTime concept))
@@ -193,10 +193,10 @@
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [^Dbi db (.-conceptDescriptions store)             ;; concept-id - description-id = description
           ^Dbi idx (.-descriptionConcept store)             ;; description-id - concept-id = nil
-          kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)
-          idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
+          kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 512)
+          idx-key (.directBuffer PooledByteBufAllocator/DEFAULT 16)
+          idx-val (.directBuffer PooledByteBufAllocator/DEFAULT 0)]
       (try (doseq [^Description description descriptions]
              (doto kb
                .clear
@@ -220,8 +220,8 @@
   [^LmdbStore store relationships]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [^Dbi db (.-relationships store)
-          kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8) ;; relationship id
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 64)] ;; relationship entity
+          kb (.directBuffer PooledByteBufAllocator/DEFAULT 8) ;; relationship id
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 64)] ;; relationship entity
       (try (doseq [^Relationship relationship relationships]
              (doto kb
                .clear
@@ -240,8 +240,8 @@
   [^LmdbStore store concrete-values]
   (with-open [txn (.txnWrite ^Env (.-coreEnv store))]
     (let [^Dbi db (.-concreteValues store)
-          kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; conceptId-relationshipId  (compound key)
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 4096)] ;; concrete value entity
+          kb (.directBuffer PooledByteBufAllocator/DEFAULT 16) ;; conceptId-relationshipId  (compound key)
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 4096)] ;; concrete value entity
       (try (doseq [^ConcreteValue cv concrete-values]
              (doto kb
                .clear
@@ -266,9 +266,9 @@
               cursor (.openCursor ^Dbi (.-relationships store) read-txn)]
     (let [^Dbi parent-idx (.-conceptParentRelationships store)
           ^Dbi child-idx (.-conceptChildRelationships store)
-          parent-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; sourceId -- typeId -- group -- destinationId
-          child-idx-key (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; destinationId -- typeId -- group -- sourceId
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)] ;; empty value
+          parent-idx-key (.directBuffer PooledByteBufAllocator/DEFAULT 32) ;; sourceId -- typeId -- group -- destinationId
+          child-idx-key (.directBuffer PooledByteBufAllocator/DEFAULT 32) ;; destinationId -- typeId -- group -- sourceId
+          idx-val (.directBuffer PooledByteBufAllocator/DEFAULT 0)] ;; empty value
       (try
         (.drop parent-idx write-txn) ;; delete all parent and child indices
         (.drop child-idx write-txn)
@@ -297,8 +297,8 @@
   [^LmdbStore store ^Txn txn refset-id headings]
   (when refset-id
     (let [^Dbi headings-db (.-refsetFieldNames store)
-          kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
+          kb (.directBuffer PooledByteBufAllocator/DEFAULT 8)
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 512)]
       (try (.writeLong kb refset-id)
            (ser/write-field-names vb (or headings []))
            (.put headings-db txn kb vb put-flags)
@@ -314,8 +314,8 @@
   [^LmdbStore store headings items]
   (with-open [refsets-txn (.txnWrite ^Env (.-refsetsEnv store))]
     (let [^Dbi items-db (.-refsetItems store)
-          item-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16) ;; a UUID - 16 bytes
-          vb (.directBuffer (PooledByteBufAllocator/DEFAULT) 512)]
+          item-kb (.directBuffer PooledByteBufAllocator/DEFAULT 16) ;; a UUID - 16 bytes
+          vb (.directBuffer PooledByteBufAllocator/DEFAULT 512)]
       (try
         (loop [items' items, refset-ids #{}]
           (when-let [item (first items')]
@@ -347,9 +347,9 @@
               cursor (.openCursor ^Dbi (.-refsetItems store) read-txn)]
     (let [^Dbi components-db (.-componentRefsets store)
           ^Dbi assocs-db (.-associations store)
-          component-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 32) ;; referencedComponentId -- refsetId -- msb -- lsb
-          assoc-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
-          idx-val (.directBuffer (PooledByteBufAllocator/DEFAULT) 0)]
+          component-kb (.directBuffer PooledByteBufAllocator/DEFAULT 32) ;; referencedComponentId -- refsetId -- msb -- lsb
+          assoc-kb (.directBuffer PooledByteBufAllocator/DEFAULT 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
+          idx-val (.directBuffer PooledByteBufAllocator/DEFAULT 0)]
       (try
         (.drop components-db write-txn)   ;; delete all existing indices prior to re-indexing
         (.drop assocs-db write-txn)
@@ -398,7 +398,7 @@
 
 (defn get-object [^Env env ^Dbi dbi ^long id read-fn]
   (with-open [txn (.txnRead env)]
-    (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 8)]
+    (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 8)]
       (try
         (.writeLong kb id)
         (when-let [rb (.get dbi txn kb)]
@@ -417,7 +417,7 @@
   conceptId-descriptionId-concept because that's a more common operation than
   finding a description by identifier alone."
   ([^LmdbStore store ^long description-id]
-   (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+   (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
      (try
        (doto kb (.writeLong description-id) (.writeLong 0))
        (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
@@ -436,7 +436,7 @@
        (finally (.release kb)))))
   ([^LmdbStore store ^long concept-id ^long description-id]
    (with-open [txn (.txnRead ^Env (.-coreEnv store))]
-     (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+     (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
        (try
          (.writeLong kb concept-id)
          (.writeLong kb description-id)
@@ -474,8 +474,8 @@
   (assert (vector? end-key) "end-key must be a vector")
   (assert (= (count start-key) (count end-key)) "start-key and end-key must be same length")
   (let [n (* 8 (count start-key))]
-    `(let [start-kb# (.directBuffer (PooledByteBufAllocator/DEFAULT) ~n)
-           end-kb# (.directBuffer (PooledByteBufAllocator/DEFAULT) ~n)]
+    `(let [start-kb# (.directBuffer PooledByteBufAllocator/DEFAULT ~n)
+           end-kb# (.directBuffer PooledByteBufAllocator/DEFAULT ~n)]
        (try
          (write-longs start-kb# ~start-key)
          (write-longs end-kb# ~end-key)
@@ -485,7 +485,7 @@
 (defn concept-descriptions
   "Returns a vector of descriptions for the given concept."
   [^LmdbStore store ^long concept-id]
-  (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+  (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
       (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
@@ -507,7 +507,7 @@
   "Return concrete values for the specified concept, if the underlying store
   supports concrete values. Only active concrete values are returned."
   [^LmdbStore store ^long concept-id]
-  (let [start-kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+  (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
       (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
@@ -531,7 +531,7 @@
    (refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
   ([^LmdbStore store ^long msb ^long lsb]
    (with-open [txn (.txnRead ^Env (.-refsetsEnv store))]
-     (let [kb (.directBuffer (PooledByteBufAllocator/DEFAULT) 16)]
+     (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
        (try
          (doto kb (.writeLong msb) (.writeLong lsb))
          (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
