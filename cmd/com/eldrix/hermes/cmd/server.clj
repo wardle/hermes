@@ -248,7 +248,11 @@
    :enter (fn [{svc ::svc :as ctx}]
             (assoc ctx :result (hermes/mrcm-domains svc)))})
 
-(def common-routes [coerce-body content-neg-intc entity-render])
+(def common-routes
+  "Common interceptors for all routes. Note logging is not included here, but
+  set via '::http/request-logger' in the service map."
+  [coerce-body service-error-handler content-neg-intc entity-render])
+
 (def routes
   (route/expand-routes
    #{["/v1/snomed/concepts/:concept-id" :get (conj common-routes get-concept) :constraints {:concept-id #"[0-9]+"}]
@@ -261,9 +265,9 @@
      ["/v1/snomed/concepts/:concept-id/map/:refset-id" :get (conj common-routes get-map-to) :constraints {:concept-id #"[0-9]+" :refset-id #"[0-9]+"}]
      ["/v1/snomed/concepts/:concept-id/subsumed-by/:subsumer-id" :get (conj common-routes subsumed-by?) :constraints {:concept-id #"[0-9]+" :subsumer-id #"[0-9]+"}]
      ["/v1/snomed/crossmap/:refset-id/:code" :get (conj common-routes get-map-from) :constraints {:refset-id #"[0-9]+"}]
-     ["/v1/snomed/search" :get [coerce-body service-error-handler content-neg-intc entity-render get-search]]
-     ["/v1/snomed/expand" :get [coerce-body service-error-handler content-neg-intc entity-render get-expand]]
-     ["/v1/snomed/mrcm-domains" :get [coerce-body service-error-handler content-neg-intc entity-render get-mrcm-domains]]}))
+     ["/v1/snomed/search" :get (conj common-routes get-search)]
+     ["/v1/snomed/expand" :get (conj common-routes get-expand)]
+     ["/v1/snomed/mrcm-domains" :get (conj common-routes get-mrcm-domains)]}))
 
 (def service-map
   {::http/routes         routes
