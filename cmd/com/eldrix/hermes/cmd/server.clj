@@ -46,9 +46,9 @@
 (defn transform-content
   [body content-type]
   (case content-type
-    "text/html" body
-    "text/plain" body
-    "application/edn" (.getBytes (pr-str body) "UTF-8")
+    "text/html"        body
+    "text/plain"       body
+    "application/edn"  (.getBytes (pr-str body) "UTF-8")
     "application/json" (.getBytes (json/write-str body) "UTF-8")))
 
 (defn coerce-to
@@ -71,7 +71,7 @@
   {:name  ::inject-svc
    :enter (fn [ctx] (assoc ctx ::svc svc))})
 
-(def log-request
+(def log-request       ;; TODO: also update metrics similar to default log interception; see https://github.com/pedestal/pedestal/blob/0.7.0-beta-2/service/src/io/pedestal/http.clj#L87
   {:name  ::log-request
    :enter (fn [{req :request :as ctx}]
             (log/trace :request (select-keys req [:request-method :uri :query-string :remote-addr]))
@@ -197,19 +197,19 @@
 (defn parse-search-params
   [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
   (cond-> {}
-    s (assoc :s s)
-    constraint (assoc :constraint constraint)
-    ecl (assoc :constraint ecl)
-    maxHits (assoc :max-hits (Long/parseLong maxHits))
-    (string? isA) (assoc :properties {snomed/IsA (Long/parseLong isA)})
-    (coll? isA) (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
-    (string? refset) (assoc :concept-refsets [(Long/parseLong refset)])
-    (coll? refset) (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
-    fuzzy (assoc :fuzzy (if (parse-flag fuzzy) 2 0))
-    fallbackFuzzy (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
-    inactiveConcepts (assoc :inactive-concepts? (parse-flag inactiveConcepts))
+    s                    (assoc :s s)
+    constraint           (assoc :constraint constraint)
+    ecl                  (assoc :constraint ecl)
+    maxHits              (assoc :max-hits (Long/parseLong maxHits))
+    (string? isA)        (assoc :properties {snomed/IsA (Long/parseLong isA)})
+    (coll? isA)          (assoc :properties {snomed/IsA (mapv #(Long/parseLong %) isA)})
+    (string? refset)     (assoc :concept-refsets [(Long/parseLong refset)])
+    (coll? refset)       (assoc :concept-refsets (mapv #(Long/parseLong %) refset))
+    fuzzy                (assoc :fuzzy (if (parse-flag fuzzy) 2 0))
+    fallbackFuzzy        (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
+    inactiveConcepts     (assoc :inactive-concepts? (parse-flag inactiveConcepts))
     inactiveDescriptions (assoc :inactive-descriptions? (parse-flag inactiveDescriptions))
-    removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))))
+    removeDuplicates     (assoc :remove-duplicates? (parse-flag removeDuplicates))))
 
 (def get-search
   {:name  ::get-search
