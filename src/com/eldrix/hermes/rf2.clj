@@ -53,7 +53,7 @@
   (gen-identifier :info.snomed/Relationship))
 (defn gen-effective-time []
   (gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
-            (s/gen (s/int-in 1 (* 365 10)))))
+            (gen/choose 1 (* 365 10))))
 
 (s/def ::active
   (s/with-gen boolean? #(gen/frequency [[8 (gen/return true)] [2 (gen/return false)]])))
@@ -66,7 +66,7 @@
 ;;;; RF2 concept specification
 ;;;;
 (s/def :info.snomed.Concept/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Concept (snomed/identifier->type %)))
-                                 #(gen-concept-id)))
+                                 gen-concept-id))
 (s/def :info.snomed.Concept/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Concept/active ::active)
 (s/def :info.snomed.Concept/moduleId :info.snomed.Concept/id)
@@ -107,7 +107,7 @@
                   [1 (gen-string-of-length 512 4096)]]))
 
 (s/def :info.snomed.Description/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Description (snomed/identifier->type %)))
-                                     #(gen-description-id)))
+                                     gen-description-id))
 (s/def :info.snomed.Description/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Description/active ::active)
 (s/def :info.snomed.Description/moduleId :info.snomed.Concept/id)
@@ -136,14 +136,13 @@
 ;;;;
 
 (s/def :info.snomed.Relationship/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                      #(gen-relationship-id)))
+                                      gen-relationship-id))
 (s/def :info.snomed.Relationship/effectiveTime ::effectiveTime)
 (s/def :info.snomed.Relationship/active ::active)
 (s/def :info.snomed.Relationship/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/sourceId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/destinationId :info.snomed.Concept/id)
-(s/def :info.snomed.Relationship/relationshipGroup (s/with-gen nat-int?
-                                                     #(s/gen (s/int-in 0 5))))
+(s/def :info.snomed.Relationship/relationshipGroup (s/with-gen nat-int? #(gen/choose 0 5)))
 (s/def :info.snomed.Relationship/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.Relationship/modifierId (s/with-gen :info.snomed.Concept/id
@@ -181,14 +180,13 @@
 ;;;;
 
 (s/def :info.snomed.ConcreteValue/id (s/with-gen (s/and pos-int? verhoeff/valid? #(= :info.snomed/Relationship (snomed/identifier->type %)))
-                                       #(gen-relationship-id)))
+                                       gen-relationship-id))
 (s/def :info.snomed.ConcreteValue/effectiveTime ::effectiveTime)
 (s/def :info.snomed.ConcreteValue/active ::active)
 (s/def :info.snomed.ConcreteValue/moduleId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/sourceId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/value string?)
-(s/def :info.snomed.ConcreteValue/relationshipGroup (s/with-gen nat-int?
-                                                      #(s/gen (s/int-in 0 5))))
+(s/def :info.snomed.ConcreteValue/relationshipGroup (s/with-gen nat-int? #(gen/choose 0 5)))
 (s/def :info.snomed.ConcreteValue/typeId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/characteristicTypeId :info.snomed.Concept/id)
 (s/def :info.snomed.ConcreteValue/modifierId (s/with-gen :info.snomed.Concept/id
@@ -234,10 +232,10 @@
 (s/def :info.snomed.RefsetItem/acceptabilityId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/attributeDescriptionId :info.snomed.Concept/id)
 (s/def :info.snomed.RefsetItem/attributeTypeId :info.snomed.Concept/id)
-(s/def :info.snomed.RefsetItem/attributeOrder (s/with-gen int? #(gen/fmap int (s/gen (s/int-in 0 10)))))
+(s/def :info.snomed.RefsetItem/attributeOrder (s/with-gen int? #(gen/fmap int (gen/choose 0 10))))
 (s/def :info.snomed.RefsetItem/mapTarget (s/and string? #(pos? (count %))))
-(s/def :info.snomed.RefsetItem/mapGroup (s/with-gen int? #(s/gen (s/int-in 0 2))))
-(s/def :info.snomed.RefsetItem/mapPriority (s/with-gen int? #(s/gen (s/int-in 0 2))))
+(s/def :info.snomed.RefsetItem/mapGroup (s/with-gen int? #(gen/choose 0 2)))
+(s/def :info.snomed.RefsetItem/mapPriority (s/with-gen int? #(gen/choose 0 2)))
 (s/def :info.snomed.RefsetItem/mapRule (s/and string? #(pos? (count %))))
 (s/def :info.snomed.RefsetItem/mapAdvice (s/and string? #(pos? (count %))))
 (s/def :info.snomed.RefsetItem/correlationId :info.snomed.Concept/id)
