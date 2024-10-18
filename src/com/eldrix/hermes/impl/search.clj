@@ -50,10 +50,10 @@
 (s/def ::remove-duplicates? boolean?)
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
-(s/def ::search-params (s/keys :req-un [::s]
-                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
+(s/def ::search-params (s/keys :req-un [(or ::s ::query)]
+                               :opt-un [::max-hits ::fuzzy ::fallback-fuzzy
                                         ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
-                                        ::properties ::concept-refsets]))
+                                        ::properties ::remove-duplicates? ::concept-refsets]))
 ;; Specification for search results
 (s/def ::id :info.snomed.Description/id)
 (s/def ::conceptId :info.snomed.Concept/id)
@@ -218,8 +218,11 @@
           (let [term (.toString termAtt)]
             (recur (.incrementToken tokenStream) (conj result term))))))))
 
-(defn- make-tokens-query
-  (^BooleanQuery [field-name s] (make-tokens-query field-name s 0))
+(defn- make-autocomplete-tokens-query
+  "Create a query that matches ALL tokens within `s` for field `field-name`.
+  This is most appropriate for autocompletion, in which a user would expect
+  to type and have all tokens considered in search."
+  (^BooleanQuery [field-name s] (make-autocomplete-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
    (with-open [analyzer (StandardAnalyzer.)]
      (when s
@@ -265,29 +268,34 @@
 
 (defn- make-search-query
   ^Query
-  [{:keys [s fuzzy show-fsn? inactive-concepts? inactive-descriptions? concept-refsets properties]
-    :or   {show-fsn? false, inactive-concepts? false, inactive-descriptions? true}}]
-  (let [query (cond-> (BooleanQuery$Builder.)
-                s
-                (.add (make-tokens-query "nterm" s fuzzy) BooleanClause$Occur/MUST)
+  [{:keys [s query fuzzy show-fsn? inactive-concepts? inactive-descriptions? boost-length? concept-refsets properties]
+    :or   {show-fsn? false, inactive-concepts? false, inactive-descriptions? true, boost-length? true}}]
+  (let [qb (cond-> (BooleanQuery$Builder.)
 
-                (not inactive-concepts?)
-                (.add (q-concept-active true) BooleanClause$Occur/FILTER)
+             s
+             (.add (make-autocomplete-tokens-query "nterm" s fuzzy) BooleanClause$Occur/MUST)
 
-                (not inactive-descriptions?)
-                (.add (q-description-active true) BooleanClause$Occur/FILTER)
+             query
+             (.add query BooleanClause$Occur/MUST)
 
-                (not show-fsn?)
-                (.add (q-fsn) BooleanClause$Occur/MUST_NOT)
+             (not inactive-concepts?)
+             (.add (q-concept-active true) BooleanClause$Occur/FILTER)
 
-                (seq concept-refsets)
-                (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]
+             (not inactive-descriptions?)
+             (.add (q-description-active true) BooleanClause$Occur/FILTER)
+
+             (not show-fsn?)
+             (.add (q-fsn) BooleanClause$Occur/MUST_NOT)
+
+             (seq concept-refsets)
+             (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]
     (doseq [[k v] properties]
       (let [^Collection vv (if (instance? Collection v) v [v])]
-        (.add query
+        (.add qb
               (LongPoint/newSetQuery (str k) vv)
               BooleanClause$Occur/FILTER)))
-    (.build query)))
+    (let [q (.build qb)]
+      (if boost-length? (boost-length-query q) q))))
 
 (defn doc->preferred-term
   "Given a Lucene document and a sequence of language reference set identifiers,
@@ -350,14 +358,14 @@ items."
 (s/fdef do-search
   :args (s/cat :searcher ::searcher :params ::search-params))
 (defn do-search
-  "Perform a search against the index.
+  "Perform an 'autocompletion' search against the index.
   Parameters:
   - searcher : the IndexSearcher to use
   - params   : a map of search parameters, which are:
 
   | keyword                 | description (default)                             |
   |---------------------    |---------------------------------------------------|
-  | :s                      | search string; should be normalized                     |
+  | :s                      | search string; should be normalized               |
   | :max-hits               | maximum hits (if omitted returns unlimited but    |
   |                         | *unsorted* results)                               |
   | :language-refset-ids    | ordered priority list of reference set ids        |
@@ -380,12 +388,10 @@ items."
   ```
   A FSN is a fully-specified name and should generally be left out of search. "
   [^IndexSearcher searcher {:keys [max-hits language-refset-ids fuzzy fallback-fuzzy remove-duplicates?] :as params}]
-  (let [q1 (make-search-query params)
-        q2 (if-let [q (:query params)] (q-and [q1 q]) q1)
-        q3 (boost-length-query q2)
+  (let [q (make-search-query params)
         results (if max-hits
-                  (do-query-for-results searcher q3 language-refset-ids (int max-hits))
-                  (do-query-for-results searcher q3 language-refset-ids))]
+                  (do-query-for-results searcher q language-refset-ids (int max-hits))
+                  (do-query-for-results searcher q language-refset-ids))]
     (if (seq results)
       (if remove-duplicates?
         (remove-duplicates duplicate-result? results)
@@ -413,6 +419,7 @@ items."
 (defn q-concept-id
   [concept-id]
   (LongPoint/newExactQuery "concept-id" concept-id))
+
 (defn q-concept-ids
   "Returns a query that will return documents for the concepts specified."
   [^Collection concept-ids]
@@ -628,7 +635,7 @@ items."
       (q-not (MatchAllDocsQuery.) (IntPoint/newRangeQuery field (int (inc maximum)) Integer/MAX_VALUE)))))
 
 (defn q-term [s]
-  (make-tokens-query "nterm" s))
+  (make-autocomplete-tokens-query "nterm" s))
 
 (defn q-wildcard [s]
   (WildcardQuery. (Term. "nterm" ^String s)))
