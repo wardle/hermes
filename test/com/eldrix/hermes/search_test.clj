@@ -66,6 +66,10 @@
       (doseq [concept-id concept-ids]
         (test-query svc (search/q-descendantOf concept-id))))))
 
+(deftest ^:live test-query-and-constraint ;; if there is a query AND a constraint, they should be AND'ed together
+  (with-open [svc (hermes/open "snomed.db")]
+    (is (empty? (hermes/search svc {:constraint "<24700007" :query (search/q-concept-id 24700007)})))))
+
 (comment
   (def svc (hermes/open "snomed.db"))
   (def searcher (.-searcher svc))
