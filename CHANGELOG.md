@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Add ranked search 
+* Fix #68 and permit both additional custom query AND a constraint
+* Upgrade dependencies
+
 ## [1.4.1400] - 2024-05-21 
 
 * Add support for ECL v2.2, including the operators top and bottom
