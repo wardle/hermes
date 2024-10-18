@@ -541,19 +541,26 @@
   (scg/parse s))
 
 (defn ^:private make-search-params
-  [^Svc svc {:keys [s constraint accept-language language-refset-ids] :as params}]
+  [^Svc svc {:keys [s query constraint accept-language language-refset-ids] :as params}]
   (let [lang-refset-ids (or (seq language-refset-ids) (match-locale svc accept-language true))]
     (cond-> (assoc params :language-refset-ids lang-refset-ids)
       ;; if there is a string, normalize it
-      s (update :s #(lang/fold (first lang-refset-ids) %))
+      s
+      (update :s #(lang/fold (first lang-refset-ids) %))
+
+      ;; if there is a custom query AND a constraint, combine them
+      (and query constraint)
+      (assoc :query (search/q-and [query (ecl/parse svc constraint)]))
+
       ;; if there is a constraint, parse it into a Lucene query
-      constraint (assoc :query (ecl/parse svc constraint)))))
+      (and (not query) constraint)
+      (assoc :query (ecl/parse svc constraint)))))
 
 (s/fdef search
   :args (s/cat :svc ::svc :params ::search-params)
   :ret (s/coll-of ::result))
 (defn search
-  "Perform a search against the index.
+  "Perform a search optimised for autocompletion against the index.
 
   Parameters:
   - svc    : hermes service
@@ -577,7 +584,7 @@
    (search svc {:s \"neurologist\" :constraint \"<14679004\"})
   ```
   For autocompletion, it is recommended to use `fuzzy=0`, and `fallback-fuzzy=2`.
-
+  
   There are some lower-level search parameters available, but it is usually
   more appropriate to use a SNOMED ECL constraint instead of these.
 
