@@ -234,6 +234,24 @@
              (.build builder))
            (first qs)))))))
 
+(defn- make-ranked-search-tokens-query
+  "Create a query that searches using the tokens in `s`. This should be used
+  for 'ranked' search, in which one is looking for a best match. This means
+  some tokens may be ignored, but results will be ranked higher if more 
+  tokens match."
+  (^BooleanQuery [field-name s]
+   (make-ranked-search-tokens-query field-name s 0))
+  (^BooleanQuery [field-name s fuzzy]
+   (with-open [analyzer (StandardAnalyzer.)]
+     (when s
+       (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
+         (if (pos-int? (count qs))
+           (let [builder (BooleanQuery$Builder.)]
+             (doseq [q qs]
+               (.add builder q BooleanClause$Occur/SHOULD))
+             (.build builder))
+           (first qs)))))))
+
 (defn q-or [queries]
   (lucene/q-or queries))
 
@@ -399,6 +417,26 @@ items."
       (let [fuzzy (or fuzzy 0), fallback (or fallback-fuzzy 0)]
         (when (and (zero? fuzzy) (pos? fallback))           ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
+
+(defn do-ranked-search
+  "A modified [[do-search]] that returns results in ranked order. `max-hits`
+  must be specified.
+  Example:
+  ```
+  (do-ranked-search searcher {:s \"consultant neurologist\" :max-hits 1})
+  ```
+  will return the 'best' match for the search tokens. Unlike [[do-search]], 
+  which is useful for autocompletion, this will not return zero results if 
+  one or more token is not found. Instead, results will be ranked from 'best' 
+  to 'worst'. An important design consideration here was to not alter the 
+  functioning of [[do-search]] with conditionals."
+  [searcher {:keys [s fuzzy query] :as params}]
+  (let [q1 (make-ranked-search-tokens-query "nterm" s fuzzy)
+        q2 (if query (q-and [q1 query]) q1)]
+    (do-search searcher (-> params
+                            (assoc :boost-length? false)
+                            (dissoc :s)
+                            (assoc :query q2)))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."

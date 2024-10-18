@@ -613,6 +613,16 @@
   [^Svc svc params]
   (search/do-search (.-searcher svc) (make-search-params svc params)))
 
+(defn ranked-search
+  "A version of [[search]] that performs a ranked search in which results are
+  returned that best match the tokens specified. Unlike the operation of 
+  [[search]], in which no results would be returned if there is a token that
+  matches no results, [[ranked-search]] simply scores from best to worst.
+  This function is most useful for finding best matches, while [[search]]
+  is best used for autocompletion."
+  [^Svc svc params]
+  (search/do-ranked-search (.-searcher svc) (make-search-params svc params)))
+
 (defn- concept-id->result
   [^Svc svc concept-id language-refset-ids]
   (when-let [ps (preferred-synonym* svc concept-id language-refset-ids)]
@@ -1514,7 +1524,9 @@
   (crit/bench (extended-concept svc 24700007))
   (crit/bench (search svc {:s "multiple sclerosis"})))
 
-
 (comment
   (def svc (open "snomed.db"))
-  (extended-concept svc 24700007))
+  (extended-concept svc 24700007)
+  (search svc {:s "occupation" :max-hits 1})
+  (search svc {:s "consultant neurologist" :constraint "<14679004" :mode :ranked-search :max-hits 1000})
+  (search svc {:s "CNS" :constraint "<14679004" :mode :ranked-search :max-hits 1}))
