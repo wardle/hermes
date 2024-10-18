@@ -13,9 +13,9 @@
   hato/hato                                {:mvn/version "1.0.0"}
   instaparse/instaparse                    {:mvn/version "1.5.0"}
   io.netty/netty-buffer                    {:mvn/version "4.1.113.Final"}
-  org.apache.lucene/lucene-core            {:mvn/version "9.12.0"}
-  org.apache.lucene/lucene-queries         {:mvn/version "9.12.0"}
-  org.apache.lucene/lucene-backward-codecs {:mvn/version "9.12.0"}
+  org.apache.lucene/lucene-core            {:mvn/version "10.0.0"}
+  org.apache.lucene/lucene-queries         {:mvn/version "10.0.0"}
+  org.apache.lucene/lucene-backward-codecs {:mvn/version "10.0.0"}
   org.lmdbjava/lmdbjava                    {:mvn/version "0.9.0"}}
 
  :aliases

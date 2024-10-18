@@ -733,8 +733,8 @@ items."
   (if-not (instance? BooleanQuery query)
     (vector query nil)
     (let [clauses (.clauses ^BooleanQuery query)
-          incl (seq (filter #(not= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))
-          excl (seq (filter #(= (.getOccur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))]
+          incl (seq (filter #(not= (.occur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))
+          excl (seq (filter #(= (.occur ^BooleanClause %) BooleanClause$Occur/MUST_NOT) clauses))]
       (vector
         ;; build the inclusive clauses directly into a new query
        (when incl
@@ -746,7 +746,7 @@ items."
        (when excl
          (let [builder (BooleanQuery$Builder.)]
            (doseq [^BooleanClause clause excl]
-             (.add builder (.getQuery clause) BooleanClause$Occur/MUST))
+             (.add builder (.query clause) BooleanClause$Occur/MUST))
            (.build builder)))))))
 
 (defn test-query [store ^IndexSearcher searcher ^Query q ^long max-hits]

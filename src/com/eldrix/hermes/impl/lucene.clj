@@ -93,14 +93,14 @@
   [^Query q]
   (and (instance? BooleanQuery q)
        (= (count (.clauses ^BooleanQuery q)) 1)
-       (= BooleanClause$Occur/MUST_NOT (.getOccur ^BooleanClause (first (.clauses ^BooleanQuery q))))))
+       (= BooleanClause$Occur/MUST_NOT (.occur ^BooleanClause (first (.clauses ^BooleanQuery q))))))
 
 (defn- rewrite-single-must-not
   "Rewrite a single 'must-not' query."
   [^BooleanQuery q]
   (-> (BooleanQuery$Builder.)
       (.add (MatchAllDocsQuery.) BooleanClause$Occur/SHOULD)
-      (.add (.getQuery ^BooleanClause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
+      (.add (.query ^BooleanClause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
       (.build)))
 
 (defn q-or
@@ -131,7 +131,7 @@
     (let [builder (BooleanQuery$Builder.)]
       (doseq [query queries]
         (if (single-must-not-clause? query)
-          (.add builder ^Query (.getQuery ^BooleanClause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
+          (.add builder ^Query (.query ^BooleanClause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
           (.add builder ^Query query BooleanClause$Occur/MUST)))
       (.build builder))))
 
