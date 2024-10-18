@@ -43,7 +43,7 @@
 
 (defn ch->set
   "Drain the clojure.core.async channel `ch` and return results as a set."
-  [ch] 
+  [ch]
   (loop [results (transient #{})]
     (if-let [result (async/<!! ch)]
       (recur (conj! results result))
@@ -53,12 +53,12 @@
   (let [searcher (.-searcher svc)
         ch1 (async/chan)
         ch2 (async/chan)]
-      (async/thread (lucene/stream-all searcher q ch1))
-      (async/thread (lucene/stream-all* searcher q ch2))
-      (is (= (set (lucene/search-all searcher q))
-             (set (lucene/search-all* searcher q))
-             (ch->set ch1)
-             (ch->set ch2)) (str "Query returned different results" q))))
+    (async/thread (lucene/stream-all searcher q ch1))
+    (async/thread (lucene/stream-all* searcher q ch2))
+    (is (= (set (lucene/search-all searcher q))
+           (set (lucene/search-all* searcher q))
+           (ch->set ch1)
+           (ch->set ch2)) (str "Query returned different results" q))))
 
 (deftest ^:live search-parallel
   (with-open [svc (hermes/open "snomed.db")]
@@ -73,8 +73,11 @@
 (comment
   (def svc (hermes/open "snomed.db"))
   (def searcher (.-searcher svc))
-  (def q (search/q-descendantOf 25700007))   ;138875005
+  (def q (search/q-descendantOf 24700007))   ;138875005
+  (def q (search/q-descendantOrSelfOf 24700007))
+  (hermes/expand-ecl svc "<24700007")
+  (hermes/search svc {:constraint "<<24700007" :query (search/q-concept-id 24700007)})
   (require '[criterium.core :as crit])
   (crit/bench (lucene/search-all searcher q))
   (crit/bench (lucene/search-all* searcher q)))
-  
+
