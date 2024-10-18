@@ -433,10 +433,10 @@ items."
   [searcher {:keys [s fuzzy query] :as params}]
   (let [q1 (make-ranked-search-tokens-query "nterm" s fuzzy)
         q2 (if query (q-and [q1 query]) q1)]
-    (do-search searcher (-> params
-                            (assoc :boost-length? false)
+    (do-search searcher (-> params  ;; alter original parameters to use internal API to do ranked search, not autocompletion
                             (dissoc :s)
-                            (assoc :query q2)))))
+                            (assoc :boost-length? false
+                                   :query q2)))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."
