@@ -81,7 +81,8 @@
             (if (equality-fn prior input)
               result
               (rf result input))))))))
-  ([equality-fn coll] (sequence (remove-duplicates equality-fn) coll)))
+  ([equality-fn coll]
+   (sequence (remove-duplicates equality-fn) coll)))
 
 (defn duplicate-result?
   "Are the given results, in effect, duplicates?
@@ -653,12 +654,29 @@ items."
     :acceptable-in (LongPoint/newSetQuery "acceptable-in" refset-ids)
     (throw (IllegalArgumentException. (str "unknown acceptability '" accept "'")))))
 
-(defn q-concrete= [type-id n] (DoubleField/newExactQuery (str "v" type-id) n))
-(defn q-concrete> [type-id n] (DoubleField/newRangeQuery (str "v" type-id) (Math/nextUp (double n)) Double/POSITIVE_INFINITY))
-(defn q-concrete>= [type-id n] (DoubleField/newRangeQuery (str "v" type-id) n Double/POSITIVE_INFINITY))
-(defn q-concrete< [type-id n] (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY (Math/nextDown (double n))))
-(defn q-concrete<= [type-id n] (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY n))
-(defn q-concrete!= [type-id n] (q-and [(q-concrete< type-id n) (q-concrete> type-id n)]))
+(defn q-concrete=
+  [type-id n]
+  (DoubleField/newExactQuery (str "v" type-id) n))
+
+(defn q-concrete>
+  [type-id n]
+  (DoubleField/newRangeQuery (str "v" type-id) (Math/nextUp (double n)) Double/POSITIVE_INFINITY))
+
+(defn q-concrete>=
+  [type-id n]
+  (DoubleField/newRangeQuery (str "v" type-id) n Double/POSITIVE_INFINITY))
+
+(defn q-concrete<
+  [type-id n]
+  (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY (Math/nextDown (double n))))
+
+(defn q-concrete<=
+  [type-id n]
+  (DoubleField/newRangeQuery (str "v" type-id) Double/NEGATIVE_INFINITY n))
+
+(defn q-concrete!=
+  [type-id n]
+  (q-and [(q-concrete< type-id n) (q-concrete> type-id n)]))
 
 (defn rewrite-query
   "Rewrites a query separating out any top-level 'inclusions' from 'exclusions'.
