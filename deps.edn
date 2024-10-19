@@ -12,7 +12,7 @@
   com.eldrix/trud                          {:mvn/version "1.0.117"}
   hato/hato                                {:mvn/version "1.0.0"}
   instaparse/instaparse                    {:mvn/version "1.5.0"}
-  io.netty/netty-buffer                    {:mvn/version "4.1.113.Final"}
+  io.netty/netty-buffer                    {:mvn/version "4.1.114.Final"}
   org.apache.lucene/lucene-core            {:mvn/version "9.12.0"}
   org.apache.lucene/lucene-queries         {:mvn/version "9.12.0"}
   org.apache.lucene/lucene-backward-codecs {:mvn/version "9.12.0"}
@@ -30,7 +30,7 @@
    :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.1.230"}
                  org.clojure/data.json          {:mvn/version "2.5.0"}
                  expound/expound                {:mvn/version "0.9.0"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.5.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.5.11"}
                  io.pedestal/pedestal.service   {:mvn/version "0.7.1"}
                  io.pedestal/pedestal.error     {:mvn/version "0.7.1"}
                  io.pedestal/pedestal.jetty     {:mvn/version "0.7.1"}}
@@ -56,7 +56,7 @@
 
                  com.cognitect/test-runner      {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                  :sha     "9d36f36ff541dac680a05010e4348c744333f191"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.5.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.5.11"}
                  criterium/criterium            {:mvn/version "0.4.6"}
                  io.pedestal/pedestal.jetty     {:mvn/version "0.7.1"}
                  io.pedestal/pedestal.error     {:mvn/version "0.7.1"}
@@ -73,7 +73,7 @@
   :test/cloverage
   {:extra-paths ["test"]
    :extra-deps  {cloverage/cloverage            {:mvn/version "1.2.4"}
-                 ch.qos.logback/logback-classic {:mvn/version "1.5.8"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.5.11"}
                  org.clojure/test.check         {:mvn/version "1.1.1"}}
    :main-opts   ["-m" "cloverage.coverage" "-p" "src/clj" "-s" "test"]
    :exec-fn     cloverage.coverage/run-project
@@ -119,7 +119,7 @@
    :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
   :lint/splint
-  {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.17.1"}}
+  {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.18.0"}}
    :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}
 
   :codox
