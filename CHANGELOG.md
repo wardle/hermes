@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.4.1420] - 2024-10-19
 
 * Add ranked search 
 * Fix #68 and permit both additional custom query AND a constraint
