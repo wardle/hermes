@@ -218,10 +218,14 @@
           (let [term (.toString termAtt)]
             (recur (.incrementToken tokenStream) (conj result term))))))))
 
-(defn- make-autocomplete-tokens-query
+(defn make-autocomplete-tokens-query
   "Create a query that matches ALL tokens within `s` for field `field-name`.
   This is most appropriate for autocompletion, in which a user would expect
-  to type and have all tokens considered in search."
+  to type and have all tokens considered in search. If `s` is nil, or has
+  no valid tokens (e.g an empty string or only stop characters), then this
+  returns nil. This permits use as a filter in autocompletion such that an
+  unfiltered list could be returned. This behaviour is different to
+  [[make-ranked-search-tokens-query]]."
   (^BooleanQuery [field-name s] (make-autocomplete-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
    (with-open [analyzer (StandardAnalyzer.)]
@@ -234,23 +238,27 @@
              (.build builder))
            (first qs)))))))
 
-(defn- make-ranked-search-tokens-query
+(defn make-ranked-search-tokens-query
   "Create a query that searches using the tokens in `s`. This should be used
   for 'ranked' search, in which one is looking for a best match. This means
   some tokens may be ignored, but results will be ranked higher if more 
-  tokens match."
+  tokens match. Unlike [[make-autocomplete-tokens-query]] this will always
+  return a query, and will return a MatchNoDocsQuery if the `s` is nil, or
+  has no valid tokens."
   (^BooleanQuery [field-name s]
    (make-ranked-search-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
    (with-open [analyzer (StandardAnalyzer.)]
-     (when s
-       (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
-         (if (pos-int? (count qs))
-           (let [builder (BooleanQuery$Builder.)]
-             (doseq [q qs]
-               (.add builder q BooleanClause$Occur/SHOULD))
-             (.build builder))
-           (first qs)))))))
+     (or
+      (when s
+        (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
+          (if (pos-int? (count qs))
+            (let [builder (BooleanQuery$Builder.)]
+              (doseq [q qs]
+                (.add builder q BooleanClause$Occur/SHOULD))
+              (.build builder))
+            (first qs))))
+      (MatchNoDocsQuery.)))))     ;; fallback to always returning a query that will match no results
 
 (defn q-or [queries]
   (lucene/q-or queries))
@@ -288,12 +296,13 @@
   ^Query
   [{:keys [s query fuzzy show-fsn? inactive-concepts? inactive-descriptions? boost-length? concept-refsets properties]
     :or   {show-fsn? false, inactive-concepts? false, inactive-descriptions? true, boost-length? true}}]
-  (let [qb (cond-> (BooleanQuery$Builder.)
+  (let [s-query (make-autocomplete-tokens-query "nterm" s fuzzy)  ;; doesn't matter if s is nil or blank
+        qb (cond-> (BooleanQuery$Builder.)
 
-             s
-             (.add (make-autocomplete-tokens-query "nterm" s fuzzy) BooleanClause$Occur/MUST)
+             s-query ;; if we have a search string AND it was turned into a non-nil query, use it
+             (.add s-query BooleanClause$Occur/MUST)
 
-             query
+             query   ;; also bring in any other query
              (.add query BooleanClause$Occur/MUST)
 
              (not inactive-concepts?)
@@ -418,6 +427,8 @@ items."
         (when (and (zero? fuzzy) (pos? fallback))           ; only fallback to fuzzy search if no fuzziness requested first time
           (do-search searcher (assoc params :fuzzy fallback)))))))
 
+(s/fdef do-ranked-search
+  :args (s/cat :searcher ::searcher :params ::search-params))
 (defn do-ranked-search
   "A modified [[do-search]] that returns results in ranked order. `max-hits`
   must be specified.
@@ -427,16 +438,18 @@ items."
   ```
   will return the 'best' match for the search tokens. Unlike [[do-search]], 
   which is useful for autocompletion, this will not return zero results if 
-  one or more token is not found. Instead, results will be ranked from 'best' 
-  to 'worst'. An important design consideration here was to not alter the 
-  functioning of [[do-search]] with conditionals."
+  one or more token is not found. Instead, results will be ranked from 'best'
+  to 'worst'. An important design consideration here was to not alter the
+  functioning of [[do-search]] with conditionals. Note: no results will be
+  returned if 's' is nil, or empty, or contains no valid word tokens."
   [searcher {:keys [s fuzzy query] :as params}]
   (let [q1 (make-ranked-search-tokens-query "nterm" s fuzzy)
-        q2 (if query (q-and [q1 query]) q1)]
-    (do-search searcher (-> params  ;; alter original parameters to use internal API to do ranked search, not autocompletion
-                            (dissoc :s)
-                            (assoc :boost-length? false
-                                   :query q2)))))
+        q2 (if (and q1 query) (q-and [q1 query]) q1)]
+    (when q2
+      (do-search searcher (-> params  ;; alter original parameters to use internal API to do ranked search, not autocompletion
+                              (dissoc :s)
+                              (assoc :boost-length? false
+                                     :query q2))))))
 
 (defn q-self
   "Returns a query that will only return documents for the concept specified."

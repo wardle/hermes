@@ -1,10 +1,11 @@
 (ns com.eldrix.hermes.search-test
   (:require [clojure.core.async :as async]
             [clojure.spec.gen.alpha :as gen]
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.lucene :as lucene]
-            [com.eldrix.hermes.impl.search :as search]))
+            [com.eldrix.hermes.impl.search :as search])
+  (:import (org.apache.lucene.search Query)))
 
 (def example-results-1
   [{:id            464271012
@@ -69,6 +70,27 @@
 (deftest ^:live test-query-and-constraint ;; if there is a query AND a constraint, they should be AND'ed together
   (with-open [svc (hermes/open "snomed.db")]
     (is (empty? (hermes/search svc {:constraint "<24700007" :query (search/q-concept-id 24700007)})))))
+
+(deftest ^:live test-token-queries
+  (let [ss (gen/sample (gen/string) 1000)]
+    (doseq [s ss]
+      (let [q1 (search/make-autocomplete-tokens-query "nterm" s)
+            q2 (search/make-ranked-search-tokens-query "nterm" s)]
+        (is (or (nil? q1) (instance? Query q1)) "Autocomplete tokenisation should work with arbitrary string input")
+        (is (instance? Query q2) "Ranked search tokenisation should work with arbitrary string input and always return a query")))))
+
+(deftest ^:live empty-search
+  (with-open [svc (hermes/open "snomed.db")]
+    (testing "autocompletion"
+      (is (seq (hermes/search svc {:max-hits 1 :constraint "<14679004"}))
+          "For autocompletion, with no search string, result should be unfiltered sequence")
+      (is (seq (hermes/search svc {:s " " :max-hits 1 :constraint "<14679004"}))
+          "For autocompletion, when search term resolves to zero tokens, result should be unfiltered sequence"))
+    (testing "ranked search"
+      (is (empty? (hermes/ranked-search svc {:max-hits 1 :constraint "<14679004"}))
+          "For ranked search, with no search string, result should be empty AND it must not throw an 'null query' exception")
+      (is (empty? (hermes/ranked-search svc {:s " " :max-hits 1 :constraint "<14679004"}))
+          "For ranked search, when search term resolves to zero tokens, result should be empty AND it must not throw an 'null query' exception"))))
 
 (comment
   (def svc (hermes/open "snomed.db"))

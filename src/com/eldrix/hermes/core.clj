@@ -619,7 +619,8 @@
   [[search]], in which no results would be returned if there is a token that
   matches no results, [[ranked-search]] simply scores from best to worst.
   This function is most useful for finding best matches, while [[search]]
-  is best used for autocompletion."
+  is best used for autocompletion. Unlike [[search]], this function returns
+  no results if there is no search string, or no tokens in the search string."
   [^Svc svc params]
   (search/do-ranked-search (.-searcher svc) (make-search-params svc params)))
 
