@@ -19,7 +19,7 @@
   (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
         parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (str/split examples #"\n"))]
     (doseq [f parsed]
-      (is (some? (:data f))) (str "couldn't parse filename" f))))
+      (is (some? (:data f)) (str "couldn't parse filename" f)))))
 
 (deftest test-filenames2
   (let [p (snomed/parse-snomed-filename "der2_cRefset_AttributeValueSnapshot_INT_20180131.txt")]
@@ -248,7 +248,6 @@
     (let [snofile (snomed/parse-snomed-filename (:filename example))]
       (is (= (:identifier example) (:identifier snofile)) (str "Failed to parse filename: " (:filename example)))
       (is (:parser snofile)))))
-
 
 (def reification-refset-items
   [{:attributes [449608002 900000000000533001] :class AssociationRefsetItem
