@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1425] - 2024-11-07
+
+* Improvements to ranked-search
+* Add support for Lucene 10 for testing and evaluation via a runtime switch
+
 ## [1.4.1420] - 2024-10-19
 
 * Add ranked search 
