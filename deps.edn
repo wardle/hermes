@@ -13,9 +13,9 @@
   hato/hato                                {:mvn/version "1.0.0"}
   instaparse/instaparse                    {:mvn/version "1.5.0"}
   io.netty/netty-buffer                    {:mvn/version "4.1.114.Final"}
-  org.apache.lucene/lucene-core            {:mvn/version "9.12.0"}
-  org.apache.lucene/lucene-queries         {:mvn/version "9.12.0"}
-  org.apache.lucene/lucene-backward-codecs {:mvn/version "9.12.0"}
+  org.apache.lucene/lucene-core            ^:antq/exclude {:mvn/version "9.12.0"}
+  org.apache.lucene/lucene-queries         ^:antq/exclude {:mvn/version "9.12.0"}
+  org.apache.lucene/lucene-backward-codecs ^:antq/exclude {:mvn/version "9.12.0"}
   org.lmdbjava/lmdbjava                    {:mvn/version "0.9.0"}}
 
  :aliases
@@ -47,6 +47,11 @@
                  com.wsscode/pathom3              {:mvn/version "2023.08.22-alpha"}
                  com.wsscode/pathom-viz-connector {:mvn/version "2022.02.14"}
                  io.github.nubank/morse           {:git/tag "v2023.10.06.02" :git/sha "88b5ff7"}}}
+
+  :lucene10  ;; can be used when on Java 21 and above
+  {:override-deps {org.apache.lucene/lucene-core            {:mvn/version "10.0.0"}
+                   org.apache.lucene/lucene-queries         {:mvn/version "10.0.0"}
+                   org.apache.lucene/lucene-backward-codecs {:mvn/version "10.0.0"}}}
 
   :test
   {:extra-paths ["cmd" "test" "test/resources"]
@@ -127,3 +132,5 @@
    :exec-fn    codox.main/generate-docs
    :exec-args  {:source-paths ["src"]
                 :metadata     {:doc/format :markdown}}}}}
+
+

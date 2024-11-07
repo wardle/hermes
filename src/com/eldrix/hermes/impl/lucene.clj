@@ -9,8 +9,65 @@
 (ns ^:no-doc com.eldrix.hermes.impl.lucene
   (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
+           (org.apache.lucene.util Version)
            (org.apache.lucene.search CollectionTerminatedException CollectorManager IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
                                      MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector Scorable ScoreMode)))
+
+(defmacro when-v
+  "Evaluate body depending on Lucene major version.
+  Supported operators: = <= < > >=
+  For example
+  ```
+  (lucene/when-v > 8 ...)
+  ```"
+  [op version & body]
+  (let [latest (.major Version/LATEST)]
+    (list 'when (list 'cond
+                      (list = '= op) `(= ~version ~latest)
+                      (list = '>= op) `(>= ~latest ~version)
+                      (list = '> op) `(> ~latest ~version)
+                      (list = '< op) `(< ~latest ~version)
+                      (list = '<= op) `(<= ~latest ~version)
+                      :else `(throw (ex-info "Invalid operand" {:op ~op})))
+          (cons 'do body))))
+
+;;
+;; Lucene 10 breaks backwards compatibility in a trivial rename of an accessor
+;; which, frankly, is pretty indefensible. Here we manage the incompatibility
+;; dynamically by looking at the Lucene version at compile time and choosing
+;; the right accessor based on version. This means we can support Lucene 10
+;; when running on Java 21 and above, and yet still run on Java 11 and above
+;; using Lucene 9.
+;;
+
+(when-v >= 10
+
+        (defn query-for-boolean-clause
+          [^BooleanClause clause]
+          (.query clause))
+        (defn occur-for-boolean-clause
+          [^BooleanClause clause]
+          (.occur clause)))
+
+(when-v < 10
+
+        (defn query-for-boolean-clause
+          [^BooleanClause clause]
+          (.getQuery clause))
+        (defn occur-for-boolean-clause
+          [^BooleanClause clause]
+          (.getOccur clause)))
+
+(comment
+  Version/LUCENE_CURRENT
+  (println Version/LUCENE_CURRENT)
+  (println Version/MIN_SUPPORTED_MAJOR)
+  (.MIN_SUPPORTED_MAJOR Version/LATEST))
+
+;;
+;;
+;;
+;;
 
 (set! *warn-on-reflection* true)
 
@@ -93,14 +150,14 @@
   [^Query q]
   (and (instance? BooleanQuery q)
        (= (count (.clauses ^BooleanQuery q)) 1)
-       (= BooleanClause$Occur/MUST_NOT (.getOccur ^BooleanClause (first (.clauses ^BooleanQuery q))))))
+       (= BooleanClause$Occur/MUST_NOT (occur-for-boolean-clause (first (.clauses ^BooleanQuery q))))))
 
 (defn- rewrite-single-must-not
   "Rewrite a single 'must-not' query."
   [^BooleanQuery q]
   (-> (BooleanQuery$Builder.)
       (.add (MatchAllDocsQuery.) BooleanClause$Occur/SHOULD)
-      (.add (.getQuery ^BooleanClause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
+      (.add (query-for-boolean-clause (first (.clauses q))) BooleanClause$Occur/MUST_NOT)
       (.build)))
 
 (defn q-or
@@ -131,7 +188,7 @@
     (let [builder (BooleanQuery$Builder.)]
       (doseq [query queries]
         (if (single-must-not-clause? query)
-          (.add builder ^Query (.getQuery ^BooleanClause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
+          (.add builder ^Query (query-for-boolean-clause (first (.clauses ^BooleanQuery query))) BooleanClause$Occur/MUST_NOT)
           (.add builder ^Query query BooleanClause$Occur/MUST)))
       (.build builder))))
 
