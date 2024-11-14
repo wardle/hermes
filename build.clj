@@ -81,9 +81,18 @@
   (jar nil)
   (dd/deploy {:installer :remote, :artifact  jar-file
               :pom-file  (b/pom-path {:lib lib, :class-dir class-dir})}))
+
+(defn- check-jvm
+  []
+  (let [jvm-version (-> (System/getProperty "java.specification.version") Integer/parseInt)]
+    (when (>= jvm-version 21)
+      (throw (ex-info "Not building with jdk >= 21 because of the SequencedCollection issue." {})))
+    (println "Building with jdk" jvm-version)))
+
 (defn uber
   "Build an executable uberjar file for HTTP server and CLI tooling."
   [{:keys [out] :or {out uber-file}}]
+  (check-jvm)
   (println "Building uberjar:" out)
   (update-citation nil)
   (clean nil)
