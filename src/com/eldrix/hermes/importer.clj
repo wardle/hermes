@@ -9,6 +9,7 @@
 (ns com.eldrix.hermes.importer
   "Provides import functionality for processing directories of files"
   (:require [clojure.core.async :as a]
+            [clojure.data.csv :as csv]
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
@@ -73,7 +74,7 @@
           (merge (json/read-str (slurp f) :key-fn keyword :value-fn read-metadata-value)) ;; read in metadaa
           (update :modules update-keys (fn [x] (-> x name parse-long)))) ;; return all module identifiers as longs
       (catch Throwable e (log/warn e "Invalid metadata in distribution file" (:name default))
-                         (assoc default :error "Invalid metadata in distribution file")))))
+             (assoc default :error "Invalid metadata in distribution file")))))
 
 (defn metadata-files
   "Returns a list of release package information files from the directory.
@@ -90,20 +91,35 @@
   (doall (->> (metadata-files dir)
               (map read-metadata))))
 
-(defn- process-file
+(defprotocol SnomedFile
+  (parse-filename [this] "Returns structured data about a SNOMED file"))
+
+(extend-protocol SnomedFile
+  String
+  (parse-filename [s] (snomed/parse-snomed-filename s))
+  File
+  (parse-filename [f] (snomed/parse-snomed-filename (.getName f)))
+  java.net.URL
+  (parse-filename [url] (snomed/parse-snomed-filename (.getPath url)))
+  nil
+  (parse-filename [_] nil))
+
+(defn process-file
   "Process the specified file, streaming batched results to the channel
-  specified, blocking if channel not being drained.
+  specified, blocking if channel not being drained. 
+  Parameters:
+  - f     : anything coercible using clojure.java.io/reader
 
   Each batch is a map with keys
    - :type      : a type of SNOMED component
    - :parser    : a parser that can take each row and give you data
    - :headings  : a sequence of headings from the original file
    - :data      : a sequence of vectors representing each column."
-  [filename out-c & {:keys [batch-size] :or {batch-size 1000}}]
-  (with-open [reader (io/reader filename)]
-    (let [{:keys [identifier parser filename component]} (snomed/parse-snomed-filename filename)]
-      (when parser
-        (let [csv-data (map #(str/split % #"\t") (line-seq reader))
+  [f out-c & {:keys [batch-size] :or {batch-size 1000}}]
+  (let [{:keys [identifier parser filename component]} (parse-filename f)]
+    (when parser
+      (with-open [reader (io/reader f)]
+        (let [csv-data (csv/read-csv reader :separator \tab)
               headings (first csv-data)
               data (rest csv-data)
               batches (->> data
@@ -141,12 +157,12 @@
           (a/>!! processed-c e)))
       (a/close! raw-c))
     (a/pipeline
-      nthreads
-      processed-c
-      (map snomed/parse-batch)
-      raw-c
-      true
-      (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err)) err))
+     nthreads
+     processed-c
+     (map snomed/parse-batch)
+     raw-c
+     true
+     (fn ex-handler [err] (log/debug "Error during import pipeline: " (ex-data err)) err))
     processed-c))
 
 (defn load-snomed
