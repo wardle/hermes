@@ -119,7 +119,7 @@
   (let [{:keys [identifier parser filename component]} (parse-filename f)]
     (when parser
       (with-open [reader (io/reader f)]
-        (let [csv-data (csv/read-csv reader :separator \tab)
+        (let [csv-data (csv/read-csv reader :separator \tab :quote \u0000)
               headings (first csv-data)
               data (rest csv-data)
               batches (->> data
