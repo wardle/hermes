@@ -16,7 +16,7 @@
 (stest/instrument)
 
 (deftest test-filenames
-  (let [examples (slurp (io/resource "com/eldrix/hermes/example-snomed-file-list.txt"))
+  (let [examples (slurp (io/resource "example-snomed-file-list.txt"))
         parsed (map #(hash-map :filename % :data (snomed/parse-snomed-filename %)) (str/split examples #"\n"))]
     (doseq [f parsed]
       (is (some? (:data f)) (str "couldn't parse filename" f)))))
@@ -277,7 +277,7 @@
 
 (deftest test-release-metadata
   (testing "Release metadata"
-    (let [{:keys [effectiveTime modules]} (importer/read-metadata (io/resource "com/eldrix/hermes/example-release_package_information.json"))]
+    (let [{:keys [effectiveTime modules]} (importer/read-metadata (io/resource "example-release_package_information.json"))]
       (is (= (LocalDate/of 2022 8 3) effectiveTime))
       (is (= #{999000011000000103 999000031000000106} (set (keys modules)))))))
 
