@@ -10,7 +10,7 @@
   org.clojure/data.zip                     {:mvn/version "1.1.0"}
   org.clojure/tools.logging                {:mvn/version "1.3.0"}
   com.eldrix/hermes-api                    {:mvn/version "1.0.32"}
-  com.eldrix/trud                          {:mvn/version "1.0.117"}
+  com.eldrix/trud                          {:mvn/version "1.0.118"}
   hato/hato                                {:mvn/version "1.0.0"}
   instaparse/instaparse                    {:mvn/version "1.5.0"}
   io.netty/netty-buffer                    {:mvn/version "4.1.114.Final"}
