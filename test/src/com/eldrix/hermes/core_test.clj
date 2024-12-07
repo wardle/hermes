@@ -50,12 +50,18 @@
 
 (deftest ^:live test-intersect-ecl
   (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "<<24700007")) "Descendant or self expression should include self")
+  (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "<<24700007") [24700007])) "Descendant or self expression should include self")
   (is (= #{816984002} (hermes/intersect-ecl *svc* [816984002] "<<24700007")) "Primary progressive multiple sclerosis is a type of MS")
+  (is (= #{816984002} ((hermes/intersect-ecl-fn *svc* "<<24700007") [816984002])) "Primary progressive multiple sclerosis is a type of MS")
   (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "^447562003")) "Multiple sclerosis should be in the ICD-10 complex map reference set")
+  (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "^447562003") [24700007])) "Multiple sclerosis should be in the ICD-10 complex map reference set")
   (is (= #{24700007} (hermes/intersect-ecl *svc* #{315560000 24700007} "<64572001")) "Born in Wales is not a type of disease")
+  (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "<64572001") #{315560000 24700007})) "Born in Wales is not a type of disease")
   (let [concept-ids-1 (set (map :conceptId (hermes/search *svc* {:s "m"})))
-        concept-ids-2 (hermes/intersect-ecl *svc* concept-ids-1 "<<138875005")]
-    (is (empty? (set/difference concept-ids-1 concept-ids-2)) "All concepts should be children of root SNOMED CT")))
+        concept-ids-2 (hermes/intersect-ecl *svc* concept-ids-1 "<<138875005")
+        concept-ids-3 ((hermes/intersect-ecl-fn *svc* "<<138875005") concept-ids-1)]
+    (is (empty? (set/difference concept-ids-1 concept-ids-2)) "All concepts should be children of root SNOMED CT")
+    (is (empty? (set/difference concept-ids-1 concept-ids-3)) "All concepts should be children of root SNOMED CT")))
 
 (deftest ^:live test-expand-historic
   (is (every? true? (->> (hermes/expand-ecl *svc* "<<24700007")
@@ -100,8 +106,6 @@
     (is (seq (filter #{"Appendectomy"} (map :term r2))) "Appendectomy should be an acceptable term for en-GB locale")
     (is (seq (filter #{"Appendicectomy"} (map :term r2))) "Appendicectomy should be a preferred term for en-GB locale")
     (is (seq (filter #{"Appendectomy"} (map :term r3))) "Appendectomy should be a preferred term for en-US locale")))
-
-
 
 (deftest ^:live test-with-historical
   (is (:active (hermes/concept *svc* 24700007)))

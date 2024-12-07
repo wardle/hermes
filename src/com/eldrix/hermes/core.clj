@@ -697,11 +697,23 @@
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
 (defn intersect-ecl
   "Returns the subset of the concept identifiers that satisfy the SNOMED ECL
-  expression."
+  expression. Use [[intersect-ecl-fn]] if the same ECL expression will be
+  used repeatedly."
   [^Svc svc concept-ids ^String ecl]
   (let [q1 (search/q-concept-ids concept-ids)
         q2 (ecl/parse svc ecl)]
     (search/do-query-for-concept-ids (.-searcher svc) (search/q-and [q1 q2]))))
+
+(s/fdef intersect-ecl-fn
+  :args (s/cat :svc ::svc :ecl ::non-blank-string))
+(defn intersect-ecl-fn
+  "Return a function that can return the subset the specified concept
+  identifiers that satisfy the SNOMED ECL expression."
+  [^Svc svc ^String ecl]
+  (let [q2 (ecl/parse svc ecl)]
+    (fn [concept-ids]
+      (let [q1 (search/q-concept-ids concept-ids)]
+        (search/do-query-for-concept-ids (.-searcher svc) (search/q-and [q1 q2]))))))
 
 (s/fdef valid-ecl?
   :args (s/cat :s string?))
