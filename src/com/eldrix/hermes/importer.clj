@@ -136,6 +136,17 @@
               (log/debug "Processing cancelled (output channel closed)")
               (throw (InterruptedException. "process cancelled")))))))))
 
+(defn import-file
+  "Import a SNOMED file, returning a map containing :type :headings :parser 
+  and :data as per [[process-file]]. This is designed only for testing and
+  development purposes."
+  [f]
+  (let [ch (a/chan)]
+    (a/thread
+      (process-file f ch)
+      (a/close! ch))
+    (a/<!! ch)))
+
 (s/fdef load-snomed-files
   :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
                :opts (s/keys* :opt-un [::nthreads ::batch-size])))
