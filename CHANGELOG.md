@@ -2,11 +2,12 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.4.1433] - 2024-12-07
 
 * Fix #69 by improving import of custom reference sets in which there are missing custom field values
 * Improve build process for uberjar to ensure backwards compatibility with JDK>=11
 * Update to latest [trud](https://github.com/wardle/trud) library as the NHS TRUD service now supports SHA256 for integrity checks on downloaded files 
+* Add `intersect-ecl-fn` to improve performance in data pipelines when an ECL expression may be re-used many times
 
 ## [1.4.1425] - 2024-11-07
 
