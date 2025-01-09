@@ -84,7 +84,16 @@ supports search and autocompletion using the $expand operation.
 You can have a terminology server running in minutes.
 Full documentation is below, but here is a quickstart.
 
-Before you begin, you will need to have Java installed.
+Before you begin, you will need to have Java version 21 or above installed.
+You can check the Java version using the following command:
+```shell
+java --version
+```
+Example output:
+```shell
+java 21.0.2 2024-01-16 LTS
+```
+The first number (21 in this example) is the major version number you need to check.
 
 ### 1. Download hermes
 
