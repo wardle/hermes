@@ -84,7 +84,7 @@ supports search and autocompletion using the $expand operation.
 You can have a terminology server running in minutes.
 Full documentation is below, but here is a quickstart.
 
-Before you begin, you will need to have Java installed.
+Before you begin, you will need to have Java version 11 or greater installed.
 
 ### 1. Download hermes
 
