@@ -216,6 +216,15 @@
         r3 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = match:\"heart att\"}}"))]
     (is (= r1 r2 r3))))
 
+(deftest ^:live test-top-of-set
+  (let [concept-ids (into #{} (map :conceptId) (hermes/expand-ecl* *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|" (hermes/match-locale *svc*)))
+        r1 (set (hermes/expand-ecl *svc* " !!> ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
+        r2 (set (hermes/expand-ecl *svc* " ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )
+                                   MINUS < ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
+        r3 (store/top-leaves (.-store *svc*) concept-ids)]  ;; calculate in a different way, albeit slower, to check result 
+    (is (= r1 r2) "top of set !!> operator should be equivalent to removing descendants via a MINUS clause")
+    (is (= (set (map :conceptId r1)) r3) "top of set !!> operator in ECL should return same concept ids as store/top-leaves")))
+
 (deftest ^:live test-ecl-parses
   (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"heart\" }}"))
   (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"hjärt\" }}")
@@ -269,4 +278,19 @@
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))
   (ecl/parse *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}")
+
+  (ecl/parse *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M moduleId = 11000172109 |Belgian module| }}")
+
+  (ecl/ecl-parser " ^  447562003 |ICD-10 complex map reference set|  {{ M effectiveTime < \"20241231\" }}")
+
+  (let [parse (ecl/ecl-parser " ^  447562003 |ICD-10 complex map reference set|  {{ M active = true }}")]
+    (->> parse
+        zip/xml-zip
+        d-zip/descendants
+        (filter #(= :activeFilter (:tag (zip/node %))))
+        )
+    )
+
+  (ecl/ecl-parser " ^  447562003 |ICD-10 complex map reference set|  {{ M moduleId = 11000172109 |Belgian module| }}")
+
   (run-tests))
