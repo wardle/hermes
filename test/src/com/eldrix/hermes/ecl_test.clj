@@ -199,12 +199,19 @@
             r3 (set (hermes/expand-ecl *svc* (str "<  64572001 |Disease|  {{ term = match:\"" s "\"}}")))]
         (is (= r1 r2 r3))))))
 
+(deftest ^:live test-ecl-parses
+  (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"heart\" }}"))
+  (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"hjärt\" }}")
+      "2-byte UTF-8 in terms")
+  (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"麻疹\" }}")
+      "3-byte UTF-8 in terms"))
+
 (deftest ^:live test-top-of-set
   (let [concept-ids (into #{} (map :conceptId) (hermes/expand-ecl* *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|" (hermes/match-locale *svc*)))
         r1 (set (hermes/expand-ecl *svc* " !!> ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
         r2 (set (hermes/expand-ecl *svc* " ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )
                                    MINUS < ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )"))
-        r3 (store/top-leaves (.-store *svc*) concept-ids)]  ;; calculate in a different way, albeit slower, to check result 
+        r3 (store/top-leaves (.-store *svc*) concept-ids)]  ;; calculate in a different way, albeit slower, to check result
     (is (= r1 r2) "top of set !!> operator should be equivalent to removing descendants via a MINUS clause")
     (is (= (set (map :conceptId r1)) r3) "top of set !!> operator in ECL should return same concept ids as store/top-leaves")))
 
