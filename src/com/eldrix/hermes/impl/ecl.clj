@@ -33,7 +33,7 @@
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher]))
 (s/def ::loc any?)
 
-(def ^:private ecl-parser
+(def ecl-parser
   (insta/parser (io/resource "ecl-v2.2.abnf") :input-format :abnf :output-format :enlive))
 
 (declare parse)

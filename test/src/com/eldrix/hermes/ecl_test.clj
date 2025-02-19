@@ -1,8 +1,10 @@
 (ns com.eldrix.hermes.ecl-test
   (:require [clojure.core.async :as a]
+            [clojure.data.zip :as d-zip]
             [clojure.set :as set]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is use-fixtures run-tests testing]]
+            [clojure.zip :as zip]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.store :as store]
@@ -162,6 +164,23 @@
   (doseq [{:keys [ecl incl]} member-filter-tests]
     (let [results (hermes/expand-ecl *svc* ecl)]
       (when incl (is (set/subset? incl (set (map :conceptId results))))))))
+
+(defn- parse-contains-tag?
+  "Answers whether the parse of an ECL expression contains
+  the given non-terminal tag."
+  [ecl tag]
+  (some->> ecl ecl/ecl-parser zip/xml-zip d-zip/descendants
+           (some #(= tag (:tag (zip/node %))))))
+
+(deftest ^:live test-member-field-parsing
+  (is (parse-contains-tag? "^ 447562003 {{ M mapTarget = \"J45.9\" }}"
+                           :memberFieldFilter))
+  (is (parse-contains-tag? "^ 447562003 {{ M active = true }}"
+                           :activeFilter))
+  (is (parse-contains-tag? "^ 447562003 {{ M moduleId = 11000172109 |Belgian module| }}"
+                           :moduleFilter))
+  (is (parse-contains-tag? "^ 447562003 {{ M effectiveTime < \"20241231\" }}"
+                           :effectiveTimeFilter)))
 
 (deftest ^:live test-refinement-with-wildcard-value
   (let [ch (a/chan)]
