@@ -37,7 +37,7 @@
 (insta/defparser ecl-parser
   (assoc (c/abnf (slurp (io/resource "ecl-v2.2.abnf")))
          :UTF8-2 (c/unicode-char 0x0080 0x07ff)
-         :UTF8-4 (c/unicode-char 0x0080 0x07ff)
+         :UTF8-3 (c/unicode-char 0x0800 0xffff)
          :UTF8-4 (c/unicode-char 0x10000 0x10ffff))
   :start         :expressionConstraint
   :input-format  :abnf
