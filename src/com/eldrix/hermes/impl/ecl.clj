@@ -22,6 +22,7 @@
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
+            [instaparse.combinators :as c]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher)
            (java.time LocalDate)))
@@ -33,8 +34,14 @@
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher]))
 (s/def ::loc any?)
 
-(def ^:private ecl-parser
-  (insta/parser (io/resource "ecl-v2.2.abnf") :input-format :abnf :output-format :enlive))
+(insta/defparser ecl-parser
+  (assoc (c/abnf (slurp (io/resource "ecl-v2.2.abnf")))
+         :UTF8-2 (c/unicode-char 0x0080 0x07ff)
+         :UTF8-4 (c/unicode-char 0x0080 0x07ff)
+         :UTF8-4 (c/unicode-char 0x10000 0x10ffff))
+  :start         :expressionConstraint
+  :input-format  :abnf
+  :output-format :enlive)
 
 (declare parse)
 (declare parse-ecl-attribute-set)
