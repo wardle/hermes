@@ -207,24 +207,22 @@
   (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
 
 (defn- parse-type-id-filter
-  "typeIdFilter = typeId ws booleanComparisonOperator ws (eclConceptReference / eclConceptReferenceSet)\n"
-  [{:keys [store]} loc]
+  "typeIdFilter = typeId ws booleanComparisonOperator ws (subExpressionConstraint / eclConceptReferenceSet"
+  [{:keys [store] :as ctx} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
-        ecl-concept-reference (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
-        ecl-concept-references (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId)]
+        type-ids (or (seq (when-let [subexpr (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))]
+                            (realise-concept-ids ctx subexpr)))
+                     (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))]
     (cond
-      (and (= "=" boolean-comparison-operator) ecl-concept-reference)
-      (search/q-type ecl-concept-reference)
+      (empty? type-ids)
+      (throw (ex-info (str "unknown type-id filter; type ids not found: " (zx/text loc)) {:text (zx/text loc)}))
 
-      (and (= "=" boolean-comparison-operator) ecl-concept-references)
-      (search/q-typeAny ecl-concept-references)
+      (= "=" boolean-comparison-operator)
+      (search/q-typeAny type-ids)
 
       ;; for "!=", we ask SNOMED for all concepts that are a subtype of 900000000000446008 and then subtract the concept reference(s).
-      (and (= "!=" boolean-comparison-operator) ecl-concept-reference)
-      (search/q-typeAny (disj (store/all-children store 900000000000446008) ecl-concept-reference))
-
-      (and (= "!=" boolean-comparison-operator) ecl-concept-references)
-      (search/q-typeAny (set/difference (store/all-children store 900000000000446008) ecl-concept-references))
+      (= "!=" boolean-comparison-operator)
+      (search/q-typeAny (set/difference (store/all-children store 900000000000446008) type-ids))
 
       :else
       (throw (ex-info "unknown type-id filter" {:text (zx/text loc)})))))
