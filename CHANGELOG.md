@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.4.xxxx] - Not yet released
+
+* Fix #70 with handling unicode characters in ECL parsing 
+* Fix #75 with handling of unicode characters and normalization (folding) for search within ECL description term filter
+* Fix #73 by updating ECL parser with newer 2.2 updates
+
 ## [1.4.1433] - 2024-12-07
 
 * Fix #69 by improving import of custom reference sets in which there are missing custom field values
