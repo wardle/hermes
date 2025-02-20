@@ -175,8 +175,6 @@
   (let [terms (zx/xml-> loc :typedSearchTerm #(parse-typed-search-term ctx %))]
     (search/q-or terms)))
 
-(s/fdef parse-typed-search-term
-  :args (s/cat :ctx ::ctx :loc ::loc))
 (defn- parse-typed-search-term
   [ctx loc]
   (or (zx/xml1-> loc :matchSearchTermSet #(parse-match-search-term-set ctx %))
@@ -264,12 +262,14 @@
 (defn- parse-acceptability-set->kws
   "Parse acceptability set into a sequence of keywords.
   Result is either ':acceptable-in' or ':preferred-in'
-  acceptabilitySet = acceptabilityIdSet / acceptabilityTokenSet
+  acceptabilitySet = acceptabilityConceptReferenceSet / acceptabilityTokenSet
+  acceptabilityConceptReferenceSet = ( ws eclConceptReference *(mws eclConceptReference) ws)
+
   acceptabilityIdSet = eclConceptReferenceSet
   acceptabilityTokenSet = ( ws acceptabilityToken *(mws acceptabilityToken) ws )
   acceptabilityToken = acceptable / preferred"
   [loc]
-  (let [ids (or (seq (zx/xml-> loc :acceptabilityIdSet :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))
+  (let [ids (or (seq (zx/xml-> loc :acceptabilityConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))
                 (map str/lower-case (zx/xml-> loc :acceptabilityTokenSet :acceptabilityToken zx/text)))]
     (map acceptability->kw ids)))
 
