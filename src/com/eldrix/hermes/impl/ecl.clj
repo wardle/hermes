@@ -10,7 +10,6 @@
   "Implementation of the SNOMED CT expression constraint language.
   See http://snomed.org/ecl"
   (:require [clojure.data.zip.xml :as zx]
-            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
@@ -51,7 +50,7 @@
 (declare parse-subexpression-constraint)
 
 (defn- parse-sctId [sctId]
-  (edn/read-string (zx/xml1-> sctId zx/text)))
+  (parse-long (zx/xml1-> sctId zx/text)))
 
 (defn- parse-conceptId [conceptId]
   (zx/xml1-> conceptId :sctId parse-sctId))
