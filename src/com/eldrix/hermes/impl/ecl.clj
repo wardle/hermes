@@ -31,7 +31,8 @@
 (s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
 (s/def ::memberSearcher #(instance? IndexSearcher %))
-(s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher]))
+(s/def ::localeMatchFn fn?)
+(s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher ::localeMatchFn]))
 (s/def ::loc any?)
 
 (insta/defparser ecl-parser
@@ -150,37 +151,44 @@
         (process-dotted ctx values dotted-expression-attributes))
       subexpression-constraint)))
 
-(defn- parse-match-search-term-set [loc]
+(defn fold
+  "Fold text according to the database default locale."
+  [{:keys [localeMatchFn]} s]
+  (let [refset-id (first (localeMatchFn))]
+    (lang/fold refset-id s)))
+
+(defn- parse-match-search-term-set
+  [ctx loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)]
-    (search/q-and (map search/q-term terms))))
+    (search/q-and (map #(search/q-term (fold ctx %)) terms))))
 
 (defn- parse-wild-search-term-set
   "wildSearchTermSet = QM wildSearchTerm QM"
-  [loc]
+  [ctx loc]
   (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
-    (search/q-wildcard term)))
+    (search/q-wildcard (fold ctx term))))
 
 (declare parse-typed-search-term)
 
 (defn- parse-typed-search-term-set
   "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
-  [loc]
-  (let [terms (zx/xml-> loc :typedSearchTerm parse-typed-search-term)]
+  [ctx loc]
+  (let [terms (zx/xml-> loc :typedSearchTerm #(parse-typed-search-term ctx %))]
     (search/q-or terms)))
 
 (s/fdef parse-typed-search-term
-  :args (s/cat :loc ::loc))
+  :args (s/cat :ctx ::ctx :loc ::loc))
 (defn- parse-typed-search-term
-  [loc]
-  (or (zx/xml1-> loc :matchSearchTermSet parse-match-search-term-set)
-      (zx/xml1-> loc :wildSearchTermSet parse-wild-search-term-set)))
+  [ctx loc]
+  (or (zx/xml1-> loc :matchSearchTermSet #(parse-match-search-term-set ctx %))
+      (zx/xml1-> loc :wildSearchTermSet #(parse-wild-search-term-set ctx %))))
 
 (defn- parse-term-filter
   "termFilter = termKeyword ws stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet)\n"
-  [loc]
+  [ctx loc]
   (let [op (zx/xml1-> loc :stringComparisonOperator zx/text) ;; "=" or "!="
-        typed-search-term (zx/xml1-> loc :typedSearchTerm parse-typed-search-term)
-        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet parse-typed-search-term-set)]
+        typed-search-term (zx/xml1-> loc :typedSearchTerm #(parse-typed-search-term ctx %))
+        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet #(parse-typed-search-term-set ctx %))]
     (cond
       (and (= "=" op) typed-search-term)
       typed-search-term
@@ -320,33 +328,31 @@
              (conj results acceptability))))))))
 
 (defn- parse-dialect-id-filter
-  "dialectIdFilter = dialectId ws booleanComparisonOperator ws (eclConceptReference / dialectIdSet)"
-  [acceptability-set loc]
+  "dialectIdFilter = dialectId ws booleanComparisonOperator ws (subExpressionConstraint / dialectIdSet)"
+  [ctx acceptability-set loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
-        refset-id (zx/xml1-> loc :eclConceptReference :conceptId parse-conceptId)
-        refset-ids (zx/xml-> loc :dialectAliasSet (partial parse-dialect-set acceptability-set))]
+        refset-ids (or (when-let [subexp (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))]
+                         (interleave (realise-concept-ids ctx subexp) (repeat acceptability-set)))
+                       (zx/xml-> loc :dialectIdSet #(parse-dialect-set acceptability-set %)))]
     (cond
-      (and (= "=" boolean-comparison-operator) refset-id acceptability-set)
-      (search/q-acceptability acceptability-set refset-id)
-
-      (and (= "=" boolean-comparison-operator) refset-id)
-      (search/q-description-memberOf refset-id)
-
       (and (= "=" boolean-comparison-operator) (seq refset-ids))
       (let [m (apply hash-map refset-ids)]
         (search/q-or (map (fn [[refset-id accept]]
                             (if accept
                               (search/q-acceptability accept refset-id)
                               (search/q-description-memberOf refset-id))) m)))
+
+      (empty? refset-ids)                                   ;; if we did not realise any concepts from the subexpression
+      (throw (ex-info (str "dialect ids not found:" (zx/xml1-> loc :subExpressionConstraint zx/text)) {:text (zx/text loc)}))
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:test (zx/text loc)})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc) :op boolean-comparison-operator  :refset-ids refset-ids})))))
 
 (defn- parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
   [acceptability-set loc]
   (let [op (zx/xml1-> loc :booleanComparisonOperator zx/text)
         dialect-alias (lang/dialect->refset-id (zx/xml1-> loc :dialectAlias zx/text))
-        dialect-aliases (zx/xml-> loc :dialectAliasSet (partial parse-dialect-set acceptability-set))]
+        dialect-aliases (zx/xml-> loc :dialectAliasSet #(parse-dialect-set acceptability-set %))]
     (cond
       (and (= "=" op) acceptability-set dialect-alias)
       (search/q-acceptability acceptability-set dialect-alias)
@@ -366,14 +372,14 @@
 
 (defn- parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
-  [loc]
+  [ctx loc]
   ;; Pass the acceptability set to the parsers of dialectIdFilter or dialectAliasFilter
   ;  because adding acceptability changes the generated query from one of concept
   ;  refset membership to using the 'preferred-in' and 'acceptable-in' indexes
   ;  specially designed for that purpose.
   (let [acceptability-set (zx/xml1-> loc :acceptabilitySet parse-acceptability-set->kws)]
-    (or (zx/xml1-> loc :dialectIdFilter (partial parse-dialect-id-filter acceptability-set))
-        (zx/xml1-> loc :dialectAliasFilter (partial parse-dialect-alias-filter acceptability-set)))))
+    (or (zx/xml1-> loc :dialectIdFilter #(parse-dialect-id-filter ctx acceptability-set %))
+        (zx/xml1-> loc :dialectAliasFilter #(parse-dialect-alias-filter acceptability-set %)))))
 
 (defn- parse-description-active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
@@ -391,18 +397,21 @@
   "2.0: descriptionFilter = termFilter / languageFilter / typeFilter / dialectFilter / moduleFilter / effectiveTimeFilter / activeFilter\n
   1.5: filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
-  (or (zx/xml1-> loc :termFilter parse-term-filter)
+  (or (zx/xml1-> loc :termFilter #(parse-term-filter ctx %))
       (zx/xml1-> loc :languageFilter parse-language-filter)
-      (zx/xml1-> loc :typeFilter (partial parse-type-filter ctx))
-      (zx/xml1-> loc :dialectFilter parse-dialect-filter)
+      (zx/xml1-> loc :typeFilter #(parse-type-filter ctx %))
+      (zx/xml1-> loc :dialectFilter #(parse-dialect-filter ctx %))
       (zx/xml1-> loc :activeFilter parse-description-active-filter)
       (throw (ex-info "Unsupported description filter" {:ecl (zx/text loc)}))))
 
 (defn- parse-description-filter-constraint
-  "2.0: descriptionFilterConstraint = \"{{\" ws [ \"d\" / \"D\" ] ws descriptionFilter *(ws \",\" ws descriptionFilter) ws \"}}\"\n
-  1.5 : filterConstraint = \"{{\" ws filter *(ws \",\" ws filter) ws \"}}\""
+  "2.0: descriptionFilterConstraint = {{ ws [ d / D ] ws descriptionFilter *(ws , ws descriptionFilter) ws }}
+  1.5 : filterConstraint = {{ ws filter *(ws , ws filter) ws }}
+  At the moment, search term text folding (removing diacritics) uses the database default language reference set. This
+  is a reasonable assumption, and could be the default if instead we used any specific language or dialect choices at
+  this level within the ECL itself. TODO: implement more local choice on locale to use for case folding."
   [ctx loc]
-  (search/q-and (zx/xml-> loc :descriptionFilter (partial parse-description-filter ctx))))
+  (search/q-and (zx/xml-> loc :descriptionFilter #(parse-description-filter ctx %))))
 
 (defn- parse-concept-active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue"
@@ -1082,3 +1091,6 @@
 
   (testq (pe "<< 50043002 : << 263502005 = << 19939008") 100000)
   (pe "<  64572001 |Disease| {{ term = wild:\"cardi*opathy\"}}"))
+
+(comment
+  (ecl-parser "<  64572001 |Disease| {{ term = \"hjärt\"}}"))

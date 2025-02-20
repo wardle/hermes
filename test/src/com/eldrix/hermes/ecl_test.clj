@@ -191,11 +191,13 @@
                (every? #(> % 1)))))))
 
 (deftest ^:live test-term-filter
-  (let [langs (hermes/match-locale *svc*)
-        r1 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart att\"}}"))
-        r2 (set (hermes/search *svc* {:s "heart att" :language-refset-ids langs :constraint "<  64572001 |Disease| "}))
-        r3 (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = match:\"heart att\"}}"))]
-    (is (= r1 r2 r3))))
+  (doseq [s ["heart att" "sjogren" "Sjögren" "heart" "hjärt"]]
+    (testing (str "term filter with string: " s)
+      (let [langs (hermes/match-locale *svc*)
+            r1 (set (hermes/expand-ecl *svc* (str "<  64572001 |Disease|  {{ term = \"" s "\"}}")))
+            r2 (set (hermes/search *svc* {:s s :language-refset-ids langs :constraint "<  64572001 |Disease| "}))
+            r3 (set (hermes/expand-ecl *svc* (str "<  64572001 |Disease|  {{ term = match:\"" s "\"}}")))]
+        (is (= r1 r2 r3))))))
 
 (deftest ^:live test-top-of-set
   (let [concept-ids (into #{} (map :conceptId) (hermes/expand-ecl* *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|" (hermes/match-locale *svc*)))
