@@ -345,7 +345,7 @@
       (empty? refset-ids)                                   ;; if we did not realise any concepts from the subexpression
       (throw (ex-info (str "dialect ids not found:" (zx/xml1-> loc :subExpressionConstraint zx/text)) {:text (zx/text loc)}))
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc) :op boolean-comparison-operator  :refset-ids refset-ids})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc) :op boolean-comparison-operator :refset-ids refset-ids})))))
 
 (defn- parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
