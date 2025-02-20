@@ -59,7 +59,7 @@
   (let [conceptId (zx/xml1-> cr :conceptId parse-conceptId)
         term (zx/xml1-> cr :term zx/text)]
     (cond-> {:conceptId conceptId}
-           term (assoc :term term))))
+      term (assoc :term term))))
 
 (defn- parse-constraint-operator
   "Returns constraint operator as a keyword.
