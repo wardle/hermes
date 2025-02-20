@@ -34,11 +34,16 @@
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher ::localeMatchFn]))
 (s/def ::loc any?)
 
+(def ecl-grammar
+  (-> (c/abnf (slurp (io/resource "ecl-v2.2.abnf")))
+      (update :memberFilter #(apply c/ord (:parsers %)))   ;; see https://github.com/wardle/hermes/issues/72 - force ordering
+      (assoc
+       :UTF8-2 (c/unicode-char 0x0080 0x07ff)
+       :UTF8-3 (c/unicode-char 0x0800 0xffff)
+       :UTF8-4 (c/unicode-char 0x10000 0x10ffff))))
+
 (insta/defparser ecl-parser
-  (assoc (c/abnf (slurp (io/resource "ecl-v2.2.abnf")))
-         :UTF8-2 (c/unicode-char 0x0080 0x07ff)
-         :UTF8-3 (c/unicode-char 0x0800 0xffff)
-         :UTF8-4 (c/unicode-char 0x10000 0x10ffff))
+  ecl-grammar
   :start         :expressionConstraint
   :input-format  :abnf
   :output-format :enlive)

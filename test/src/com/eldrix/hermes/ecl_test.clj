@@ -7,7 +7,8 @@
             [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
-            [com.eldrix.hermes.snomed :as snomed]))
+            [com.eldrix.hermes.snomed :as snomed]
+            [instaparse.core :as insta]))
 
 (stest/instrument)
 
@@ -147,6 +148,20 @@
     (is (< (count r1) (count r2)))
     (is (= r2 r3))
     (is (set/subset? r1 r2))))
+
+(def member-filter-parser
+  "A specialised instance of a parser using the ECL grammar for testing member filters."
+  (insta/parser ecl/ecl-grammar :start :memberFilter :output :hiccup))
+
+(deftest parse-member-filter
+  (doseq [[s expected]
+          [["mapPriority = #1"                 :memberFieldFilter]
+           ["active = true"                    :activeFilter]
+           ["active = 0"                       :activeFilter]
+           ["moduleId = <<  32570231000036109" :moduleFilter]
+           ["effectiveTime >= \"20210731\""    :effectiveTimeFilter]]]
+    (let [p (member-filter-parser s)]
+      (is (= expected (get-in p [1 0]))))))
 
 (def member-filter-tests
   [{:ecl  " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"
