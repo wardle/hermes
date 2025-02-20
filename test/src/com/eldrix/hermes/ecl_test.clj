@@ -153,7 +153,7 @@
   "A specialised instance of a parser using the ECL grammar for testing member filters."
   (insta/parser ecl/ecl-grammar :start :memberFilter :output :hiccup))
 
-(deftest parse-member-filter
+(deftest ^:live parse-member-filter
   (doseq [[s expected]
           [["mapPriority = #1"                 :memberFieldFilter]
            ["active = true"                    :activeFilter]
