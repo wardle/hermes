@@ -58,8 +58,8 @@
 (defn- parse-concept-reference [cr]
   (let [conceptId (zx/xml1-> cr :conceptId parse-conceptId)
         term (zx/xml1-> cr :term zx/text)]
-    (merge {:conceptId conceptId}
-           (when term {:term term}))))
+    (cond-> {:conceptId conceptId}
+           term (assoc :term term))))
 
 (defn- parse-constraint-operator
   "Returns constraint operator as a keyword.
