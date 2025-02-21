@@ -8,6 +8,7 @@ This log documents significant changes for each release.
 * Fix #72 by forcing ordered choice to reduce ambiguity in parsing member filters
 * Fix #73 by updating ECL parser with newer 2.2 updates
 * Fix #75 with handling of unicode characters and normalization (folding) for search within ECL description term filter
+* Upgrade dependencies including lmdbjava 0.9.1
 
 ## [1.4.1433] - 2024-12-07
 
