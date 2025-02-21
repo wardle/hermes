@@ -102,7 +102,7 @@
 
 (defn usage
   ([options-summary]
-   (->> [(str "Usage: hermes [options] 'commands' ")
+   (->> ["Usage: hermes [options] 'commands'"
          ""
          "For more help on a command, use hermes --help 'command'"
          ""

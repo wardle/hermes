@@ -220,7 +220,7 @@
                   params' (if langs (assoc params :accept-language langs) params)]
               (if (< 0 max-hits 10000)
                 (assoc ctx :result (or (hermes/search svc (assoc params' :max-hits max-hits)) []))
-                (assoc ctx :response {:status 400 :body {:error (str "invalid parameter: maxHits")}}))))})
+                (assoc ctx :response {:status 400 :body {:error "invalid parameter: maxHits"}}))))})
 
 (def get-expand
   {:name  ::get-expand
