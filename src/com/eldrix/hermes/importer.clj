@@ -13,7 +13,6 @@
             [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
-            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.snomed :as snomed])
   (:import (java.io File)))
