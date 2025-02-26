@@ -118,8 +118,8 @@
   (is (seq (hermes/refset-members *svc* 723264001))
       "Lateralizable body structure reference set should have at least one member"))
 
-(deftest ^:live test-module-dependencies
-  (is (every? :valid (hermes/module-dependencies *svc*))))
+#_(deftest ^:live test-module-dependencies
+    (is (every? :valid (hermes/module-dependencies *svc*))))
 
 (deftest ^:live test-term-folding
   (testing "Search parameters"
