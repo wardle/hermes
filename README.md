@@ -142,7 +142,7 @@ In the United Kingdom, you can download a distribution from NHS Digital using th
 
 `hermes` also provides automated downloads for a range of distributions worldwide using the [MLDS](https://mlds.ihtsdotools.org).
 
-If you've downloaded a distribution manually, import using one of these commands:
+If you've downloaded a distribution manually, unzip and import using one of these commands:
 
 ```shell
 java -jar hermes.jar --db snomed.db import ~/Downloads/snomed-2021/
