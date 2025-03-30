@@ -4,10 +4,10 @@ This log documents significant changes for each release.
 
 ## [1.4.1454] - 2025-02-21
 
-* Fix #70 with handling unicode characters in ECL parsing 
+* Fix #70 with handling Unicode characters in ECL parsing 
 * Fix #72 by forcing ordered choice to reduce ambiguity in parsing member filters
 * Fix #73 by updating ECL parser with newer 2.2 updates
-* Fix #75 with handling of unicode characters and normalization (folding) for search within ECL description term filter
+* Fix #75 with handling of Unicode characters and normalization (folding) for search within ECL description term filter
 * Upgrade dependencies including lmdbjava 0.9.1
 
 ## [1.4.1433] - 2024-12-07
