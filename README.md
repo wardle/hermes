@@ -824,7 +824,7 @@ Options:
   -p, --port PORT                       8080   Port number
 ```
 
-* `--bind-address` is optional. You may want to use `--bind-address 0.0.0.0`
+* `--bind-address` is optional. You may want to use `--bind-address 0.0.0.0` particularly if you are running in a container.
 * `--allowed-origins` is optional. You could use `--allowed-origins "*"` or `--allowed-origins example.com,example.net`
 * `--allowed-origin example.com --allowed-origin example.net` is equivalent to `--allowed-origins example.com,example.net`.
 * `--allowed-origin "*"` is equivalent to `--allowed-origins "*"`
