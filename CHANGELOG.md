@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1364] - 2025-07-26
+
+* More lenient import of null/empty string reference set fields
+* Improved logging to help with automated pipelines and distribution files
+* Improve search for empty search strings
+
 ## [1.4.1454] - 2025-02-21
 
 * Fix #70 with handling Unicode characters in ECL parsing 
