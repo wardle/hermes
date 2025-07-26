@@ -13,6 +13,7 @@
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.lucene :as lucene]
@@ -222,14 +223,14 @@
   "Create a query that matches ALL tokens within `s` for field `field-name`.
   This is most appropriate for autocompletion, in which a user would expect
   to type and have all tokens considered in search. If `s` is nil, or has
-  no valid tokens (e.g an empty string or only stop characters), then this
+  no valid tokens (e.g. an empty string or only stop characters), then this
   returns nil. This permits use as a filter in autocompletion such that an
   unfiltered list could be returned. This behaviour is different to
   [[make-ranked-search-tokens-query]]."
   (^BooleanQuery [field-name s] (make-autocomplete-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
    (with-open [analyzer (StandardAnalyzer.)]
-     (when s
+     (when-not (str/blank? s) 
        (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
          (if (> (count qs) 1)
            (let [builder (BooleanQuery$Builder.)]
