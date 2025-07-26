@@ -1316,8 +1316,9 @@
   (let [metadata (importer/all-metadata dir)
         module-names (->> metadata (map :modules) (mapcat vals))
         n-modules (count module-names)]
-    (when (seq metadata)
-      (log/info "importing" (count metadata) "distribution(s) from" dir))
+    (if (seq metadata)
+      (log/info "importing" (count metadata) "distribution(s) from" dir)
+      (log/info "no distribution(s) found in " dir))
     (doseq [dist metadata]
       (log/info "distribution: " (select-keys dist [:name :effectiveTime]))
       (log/info "license: " (or (:licenceStatement dist) (:error dist))))
@@ -1347,10 +1348,13 @@
     (doseq [dir dirs]
       (log-metadata dir)
       (let [files (importer/importable-files dir)]
-        (do-import-snomed store-file (->> files (filter #(core-components (:component %)))))
-        (with-open [st (store/open-store store-file {:read-only? false})]
-          (store/index st))
-        (do-import-snomed store-file (->> files (remove #(core-components (:component %)))))))))
+        (if (seq files)
+          (do
+            (do-import-snomed store-file (->> files (filter #(core-components (:component %)))))
+            (with-open [st (store/open-store store-file {:read-only? false})]
+              (store/index st))
+            (do-import-snomed store-file (->> files (remove #(core-components (:component %))))))
+          (log/warn "no importable files found when processing:" dir))))))
 
 (defn compact
   [root]
