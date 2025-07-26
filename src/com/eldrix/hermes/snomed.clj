@@ -524,8 +524,8 @@
     (log/debug "length of pattern values not equal" {:pattern pattern :values values})
     (throw (ex-info "length of pattern values not equal" {:pattern pattern :values values})))
   (mapv (fn [[k v]]
-          (case k \c (Long/parseLong v)
-                  \i (Long/parseLong v)
+          (case k \c (parse-long v)
+                  \i (parse-long v)
                   \s v
                   (throw (ex-info "invalid refset pattern" {:pattern pattern :values values}))))
         (mapv vector (seq pattern) values)))
