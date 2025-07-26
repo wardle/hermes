@@ -55,7 +55,7 @@
   [dir filename components & {:keys [field-headings]}]
   (with-open [writer (io/writer (.toFile (.resolve dir filename)))]
     (let [component (first components)
-          headings (concat (map name (keys (dissoc component :fields)))
+          headings (into (mapv name (keys (dissoc component :fields)))
                            (or field-headings (gen/generate (s/gen (s/coll-of ::hermes/non-blank-string :count (count (:fields component)))))))]
       (.write writer (str (str/join "\t" headings) \newline))
       (doall (->> components (map snomed/unparse) (map #(.write writer (str (str/join "\t" %) \newline))))))))
