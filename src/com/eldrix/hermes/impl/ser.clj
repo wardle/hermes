@@ -155,19 +155,31 @@
         (recur (inc n)
                (conj result (readUTF in)))))))
 
-(defmulti write-field (fn [_ v] (class v)))
+(defmulti write-field
+  "Write out field with
+  - single byte for 'type' : \\i, \\s or \\n.
+  - rest of bytes representing value
+
+  The custom encoding is:
+     |- \\i : long integer
+     |- \\s : string (UTF) - short (length) + bytes of string
+     |- \\n : 'null' value"
+  (fn [_ v] (class v)))
 (defmethod write-field Long [^ByteBuf out v]
   (.writeByte out (int \i))
   (.writeLong out v))
 (defmethod write-field String [^ByteBuf out v]
   (.writeByte out (int \s))
   (writeUTF out v))
+(defmethod write-field nil [^ByteBuf out v]
+  (.writeByte out (int \n)))
 
 (defn read-field [^ByteBuf in]
   (let [field-type (char (.readByte in))]
     (case field-type
       \i (.readLong in)
       \s (readUTF in)
+      \n nil
       (throw (ex-info "unknown refset field type" {:got      field-type
                                                    :expected #{\i \s}})))))
 (defn write-fields

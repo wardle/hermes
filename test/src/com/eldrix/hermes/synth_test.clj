@@ -74,6 +74,23 @@
                                  (when o
                                    (recur (a/<!! ch))))))))))
 
+
+
+(deftest test-null-refset-field-import
+  (let [{:keys [release-path db-path store-path]} *paths*
+        items1 (gen/sample (rf2/gen-simple-refset {:fields [1 2 "a"]}))
+        items2 (gen/sample (rf2/gen-simple-refset {:fields [nil 2 "a"]}))
+        items3 (gen/sample (rf2/gen-simple-refset {:fields [1 nil "a"]}))
+        items4 (gen/sample (rf2/gen-simple-refset {:fields [1 nil ""]}))
+        items5 (gen/sample (rf2/gen-simple-refset {:fields [nil nil ""]}))
+        items# (concat items1 items2 items3 items4 items5)]
+    (write-components release-path "der2_iisRefset_SimpleSnapshot_INT_20230131.txt" items#)
+    (hermes/import-snomed (str db-path) [(str release-path)])
+    (hermes/compact (str db-path))
+    (with-open [store (store/open-store (str store-path))]
+      (doseq [item items#]
+        (is (= item (store/refset-item store (:id item))))))))
+
 (deftest test-reify-refset
   (let [{:keys [release-path db-path store-path]} *paths*
         refset-concept (gen/generate (rf2/gen-concept {:id 1322291000000109 :active true}))

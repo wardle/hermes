@@ -55,6 +55,7 @@
 (defmethod unparse Integer [v] (str v))
 (defmethod unparse String [v] v)
 (defmethod unparse UUID [v] (.toString ^UUID v))
+(defmethod unparse nil [v] nil)
 (defmethod unparse :info.snomed/Component [v] (mapv unparse (->vec v)))
 
 ;; The core SNOMED entities are Concept, Description and Relationship.
