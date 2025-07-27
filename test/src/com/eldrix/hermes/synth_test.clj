@@ -87,6 +87,7 @@
     (write-components release-path "der2_iisRefset_SimpleSnapshot_INT_20230131.txt" items#)
     (hermes/import-snomed (str db-path) [(str release-path)])
     (hermes/compact (str db-path))
+    (hermes/index (str db-path))
     (with-open [store (store/open-store (str store-path))]
       (doseq [item items#]
         (is (= item (store/refset-item store (:id item))))))))

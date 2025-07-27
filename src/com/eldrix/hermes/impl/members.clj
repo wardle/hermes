@@ -41,6 +41,7 @@
   future. At the moment, we simply use the class of the value but could use
   the attribute type information from the attribute reference set if required."
   (fn [_k v] (class v)))
+
 (defmethod make-fields Long [k v]
   (if (stored-fields k)
     [(LongPoint. (name k) (long-array [v]))
@@ -49,10 +50,13 @@
 
 (defmethod make-fields UUID [k v]
   [(make-string-field k v)])
+
 (defmethod make-fields Boolean [k v]
   [(make-string-field k v)])
+
 (defmethod make-fields String [k v]
   [(make-string-field k v)])
+
 (defmethod make-fields LocalDate [k v]
   (let [nm (name k)
         v' (localdate->epoch-milli v)]
@@ -66,6 +70,9 @@
     [(LongPoint. (name k) (long-array [v]))
      (StoredField. (name k) ^long v)]
     [(LongPoint. (name k) (long-array [v]))]))
+
+(defmethod make-fields nil [k v]
+  [])
 
 (defn make-document
   "Create a Lucene document representing the given reference set item.
