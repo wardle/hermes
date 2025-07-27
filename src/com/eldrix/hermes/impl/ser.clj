@@ -180,8 +180,8 @@
       \i (.readLong in)
       \s (readUTF in)
       \n nil
-      (throw (ex-info "unknown refset field type" {:got      field-type
-                                                   :expected #{\i \s \n}})))))
+      (throw (ex-info "unknown refset field type" {:got field-type, :expected #{\i \s \n}})))))
+
 (defn write-fields
   [^ByteBuf out fields]
   (.writeInt out (count fields))                            ;; write out a count of the custom fields, may be zero
