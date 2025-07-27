@@ -5,7 +5,7 @@ authors:
   given-names: "Mark"
   orcid: "https://orcid.org/0000-0002-4543-7068"
 title: "Hermes"
-version: 1.4.1464
+version: 1.4.1468
 doi: 10.5281/zenodo.5504046
-date-released: 2025-07-26
+date-released: 2025-07-27
 url: "https://github.com/wardle/hermes"
