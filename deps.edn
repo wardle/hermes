@@ -40,6 +40,7 @@
   :dev
   {:extra-paths ["cmd" "test/src" "test/resources"]
    :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.1.230"}
+                 ch.qos.logback/logback-classic {:mvn/version "1.5.16"}
                  io.pedestal/pedestal.service     {:mvn/version "0.7.2"}
                  io.pedestal/pedestal.error       {:mvn/version "0.7.2"}
                  io.pedestal/pedestal.jetty       {:mvn/version "0.7.2"}
