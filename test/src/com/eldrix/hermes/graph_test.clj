@@ -35,7 +35,7 @@
     (is (= "Appendectomy" (get-in result [:>/en-US :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
     (is (= "Appendicectomy" (get-in result [:>/en-GB :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
-(deftest ^:live test-get-synonyms
+(deftest ^{:live true :uk true} test-get-synonyms
   (let [result (p.eql/process *registry*
                               {:info.snomed.Concept/id 80146002}
                               [{:>/en-US [{(list :info.snomed.Concept/synonyms {:accept-language "en-US"})

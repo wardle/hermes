@@ -48,4 +48,4 @@ jobs:
         run: clojure -M:run --db snomed.db status
 
       - name: Run tests
-        run: clojure -M:test
+        run: clojure -M:test -e :uk

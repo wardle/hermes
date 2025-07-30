@@ -94,7 +94,7 @@
     (is (= "Appendectomy" (get-in r1 [2 :term])))
     (is (= "Appendicectomy" (get-in r2 [2 :term])))))
 
-(deftest ^:live test-localised-synonyms
+(deftest ^{:live true :uk true} test-localised-synonyms
   (let [en-GB (hermes/match-locale *svc* "en-GB")
         en-US (hermes/match-locale *svc* "en-US")
         r1 (hermes/synonyms *svc* 80146002)
@@ -107,7 +107,7 @@
     (is (seq (filter #{"Appendicectomy"} (map :term r2))) "Appendicectomy should be a preferred term for en-GB locale")
     (is (seq (filter #{"Appendectomy"} (map :term r3))) "Appendectomy should be a preferred term for en-US locale")))
 
-(deftest ^:live test-with-historical
+(deftest ^{:live true :uk true} test-with-historical
   (is (:active (hermes/concept *svc* 24700007)))
   (is (not (:active (hermes/concept *svc* 586591000000100))))
   (is (some false? (map #(:active (hermes/concept *svc* %)) (hermes/with-historical *svc* [24700007]))))
