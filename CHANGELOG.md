@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1474] - 2025-07-30
+
+* Improve automated downloads for distributions using [MLDS service - 'Member Licensing and Distribution Service'](https://mlds.ihtsdotools.org)
+* Add GitHub Actions to test MLDS downloads for International, and Argentinian distributions and exclude some UK specific tests (localisation)
+
 ## [1.4.1364] - 2025-07-26
 
 * More lenient import of null/empty string reference set fields
