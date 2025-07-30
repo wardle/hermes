@@ -1,9 +1,10 @@
 name: Test-intl-live
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -41,7 +42,6 @@ jobs:
         run: clojure -M:run install --db snomed.db --dist ihtsdo.mlds/167 --username ${{ secrets.MLDS_USERNAME }} --password mlds-password.txt
 
       - name: Index database
-        if: steps.cache-db.outputs.cache-hit != 'true'
         run: clojure -M:run --db snomed.db index
 
       - name: Print status report

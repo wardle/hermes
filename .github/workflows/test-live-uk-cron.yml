@@ -46,7 +46,6 @@ jobs:
         run: rm -rf trud
 
       - name: Index database
-        if: steps.cache-db.outputs.cache-hit != 'true'
         run: clojure -M:run --db snomed.db index
 
       - name: Print status report

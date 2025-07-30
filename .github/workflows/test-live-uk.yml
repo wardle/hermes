@@ -1,9 +1,10 @@
 name: Test-uk-live
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -40,22 +41,13 @@ jobs:
       - name: Write out TRUD API key from secrets
         run: echo ${{ secrets.TRUD_API_KEY }} >> api-key.txt
 
-      - name: Cache database
-        id: cache-db
-        uses: actions/cache@v4
-        with:
-            path: snomed.db
-            key: ${{ github.sha }}-uk-clinical-db
-
       - name: Install latest distributions for the UK
-        if: steps.cache-db.outputs.cache-hit != 'true'
         run: clojure -M:run --db snomed.db install uk.nhs/sct-clinical --api-key api-key.txt --cache-dir trud
 
       - name: Remove downloaded files
         run: rm -rf trud
 
       - name: Index database
-        if: steps.cache-db.outputs.cache-hit != 'true'
         run: clojure -M:run --db snomed.db index
 
       - name: Print status report
