@@ -15,11 +15,12 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.trud.core :as trud]
             [hato.client :as hc])
-  (:import (java.io FileNotFoundException)
+  (:import (java.io File FileNotFoundException)
            (java.nio.file Files Path)
            (java.nio.file.attribute FileAttribute)
            (java.time LocalDate)
-           (java.time.format DateTimeParseException)))
+           (java.time.format DateTimeParseException)
+           (java.util.zip ZipFile)))
 
 (s/def ::api-key string?)
 (s/def ::cache-dir string?)
@@ -56,22 +57,34 @@
                         :progress  progress}
                        item-identifier))))
 
+(defn download-from-trud*
+  "Returns a function that will download and unzip a release from TRUD."
+  [item-identifier]
+  (fn [params]
+    (-> (download-from-trud item-identifier params)
+        :archiveFilePath
+        (trud/unzip))))
+
 (def trud-distributions
   [{:id   "uk.nhs/sct-clinical"
     :rc   "UK"
-    :f    (fn [params] (:archiveFilePath (download-from-trud 101 params)))
+    :f    (download-from-trud* 101)
     :desc "UK clinical edition"
     :spec ::uk-trud}
    {:id   "uk.nhs/sct-drug-ext"
     :rc   "UK"
-    :f    (fn [params] (:archiveFilePath (download-from-trud 105 params)))
+    :f    (download-from-trud* 105)
     :spec ::uk-trud
     :desc "UK drug extension"}
    {:id   "uk.nhs/sct-monolith"
     :rc   "UK"
-    :f    (fn [params] (:archiveFilePath (download-from-trud 1799 params)))
+    :f    (download-from-trud* 1799)
     :spec ::uk-trud
     :desc "UK monolith edition"}])
+
+;;
+;;
+;;
 
 (def mlds-base-url "https://mlds.ihtsdotools.org")
 
@@ -96,7 +109,7 @@
         (map (fn [{package-id :releasePackageId nm :name m :member d :description :as p}]
                (let [id (make-mlds-id p)]
                  (merge p {:id   id, :rc (:key m), :desc nm
-                           :spec ::mlds, :f (partial download-from-mlds id)})))))))
+                           :spec ::mlds, :f (fn do-download [opts] (download-from-mlds id opts))})))))))
 
 (defn distribution
   "Returns the distribution with the given identifier. Avoids network calls
@@ -114,13 +127,27 @@
    :throw-exceptions? false
    :http-client       {:redirect-policy :normal}})
 
+(defn label->s
+  [s]
+  (str/replace s #"\s|\<.*?>" ""))
+
+(defn zip-file?
+  "Can 'f' be read as a zip file?
+  Parameters:
+  - f : anything coercible by [[clojure.java.io/file]]."
+  [f]
+  (let [f' (io/file f)]
+    (when (and (.isFile f') (.canRead f'))
+      (try (with-open [_ (ZipFile. f')] true)
+           (catch Exception _ false)))))
+
 (defn download-mlds-release-file
-  "Download an MLDS release file"
-  [username password-file {url :clientDownloadUrl, label :label}]
-  (log/info "downloading MLDS release file" {:url url :file label})
+  "Download an MLDS release file into the 'parent-dir' directory"
+  [username password-file parent-dir {id :releaseFileId url :clientDownloadUrl, label :label :as release-file}]
+  (log/info "downloading MLDS release file" (select-keys release-file [:releaseFileId :clientDownloadUrl :label]))
   (let [password (try (some-> (slurp (io/file password-file)) str/trim-newline)
                       (catch FileNotFoundException e (log/error "password file not found") (throw e)))
-        target (Files/createTempFile label "" (make-array FileAttribute 0))
+        target (File/createTempFile (label->s label) nil)
         opts (assoc http-opts :basic-auth {:user username :pass password})
         {:keys [status body error]} (hc/get (str mlds-base-url url) opts)]
     (cond
@@ -131,7 +158,29 @@
         (throw (ex-info (str "Unable to download: " (get body' "message")) {:url url :status status :body body'})))
       (or (not= 200 status) error)
       (throw (ex-info "Unable to download" {:url url :status status :error error :body (slurp body)}))
-      :else (do (io/copy body (.toFile target)) target))))
+      :else
+      (try
+        (io/copy body target)
+        (when (zip-file? target)
+          (let [target# (Files/createTempDirectory (.toPath parent-dir) (label->s label) (make-array FileAttribute 0))]
+            (trud/unzip (.toPath target) target#)
+            (assoc release-file :f (.toFile target#))))
+        (finally
+          (.delete target))))))
+
+(defn download-mlds-release-files
+  "Download all release files for a release version, automatically unzipping any
+  zip files. Returns a [[java.io.File]] for the parent directory to which all
+  importable release files will be found."
+  [username password {:keys [releaseVersionId releaseFiles] :as release-version}]
+  (log/info "downloading release" (select-keys release-version [:name :summary :description :releaseVersionId]))
+  (let [parent-dir (.toFile (Files/createTempDirectory (str "mlds" releaseVersionId) (make-array FileAttribute 0)))
+        files (->> releaseFiles
+                   (map #(download-mlds-release-file username password parent-dir %))
+                   (remove nil?))]
+    (if (seq files)
+      parent-dir
+      (log/warn "No zip files identified in release" (select-keys release-version [:name :summary :description :releaseVersionId])))))
 
 (defn download-from-mlds
   "Download the MLDS package specified."
@@ -141,14 +190,12 @@
       (pp/print-table [:releaseVersionId :publishedAt] versions)
       (if-let [version (if-not release-date (first versions) ;; use the latest version if not release date specified
                                             (first (filter #(= release-date (:publishedAt %)) versions)))]
-        (let [zip-release-files (filter #(str/ends-with? (:label %) ".zip") (:releaseFiles version))
-              n (count zip-release-files)]
-          (cond
-            (zero? n) (throw (ex-info "no zip files found for release" version))
-            (> n 1) (throw (ex-info "release has more than one archive file" version))
-            :else (do (log/info "downloading MLDS package" {:id package-id :version (:releaseVersionId version) :release-date (:publishedAt version)})
-                      (download-mlds-release-file username password (first zip-release-files)))))
+        (download-mlds-release-files username password version)
         (throw (ex-info (str "no release version found for release date " release-date) {}))))))
+
+;;
+;;
+;;
 
 (defn download
   "Download the named distribution.
@@ -168,9 +215,8 @@
       (println "\nAvailable releases for distribution" nm ":"))
     (if-not (and spec (s/valid? spec params))
       (throw (ex-info (str "Invalid parameters for provider '" nm "'") (if spec (s/explain-data spec params) {})))
-      (if-let [zipfile (f params)]
-        (trud/unzip zipfile)
-        (when-not list-releases? (log/warn "no files returned" {:provider nm}))))))
+      (or (f params)
+          (when-not list-releases? (log/warn "no files returned" {:provider nm}))))))
 
 (defn print-providers
   "Placeholder for a more sophisticated future method of printing available
@@ -180,18 +226,11 @@
   (pp/print-table [:rc :id :desc] (sort-by :id (into trud-distributions (available-mlds-distributions)))))
 
 (comment
-
-  (download "uk.nhs/sct-clinical" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
-  (download "uk.nhs/sct-drug-ext" ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
-  (download "uk.nhs/sct-clinical" [])
+  (available-mlds-distributions)
+  (distribution "ar.mlds/1271898")
 
   (def api-key (str/trim (slurp "../trud/api-key.txt")))
-  (trud/get-releases api-key 101)
-
-
-  (def params ["api-key" "/Users/mark/Dev/trud/api-key.txt" "cache-dir" "/tmp/trud"])
-  (def params2 ["api-key" "api-key.txt" "cache-dir=../trud/cache"])
-  (apply hash-map params))
+  (trud/get-releases api-key 101))
 
 
 

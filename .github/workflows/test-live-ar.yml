@@ -1,0 +1,51 @@
+name: Test-ar-live
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeLaGuardo/setup-clojure@master
+        with:
+          cli: latest
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Install dependencies
+        run: clojure -P -M:test
+
+      - name: Compilation check
+        run:  clojure -M:dev:check
+
+      - name: Write out MLDS password from secrets
+        run: echo ${{ secrets.MLDS_PASSWORD }} >> mlds-password.txt
+
+      - name: Install latest distributions for Argentina
+        run: clojure -M:run install --db snomed.db --dist ar.mlds/1271898 --username ${{ secrets.MLDS_USERNAME }} --password mlds-password.txt
+
+      - name: Index database
+        if: steps.cache-db.outputs.cache-hit != 'true'
+        run: clojure -M:run --db snomed.db index
+
+      - name: Print status report
+        run: clojure -M:run --db snomed.db status
+
+      - name: Run tests
+        run: clojure -M:test
