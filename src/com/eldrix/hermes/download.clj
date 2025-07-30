@@ -141,7 +141,10 @@
       (pp/print-table [:releaseVersionId :publishedAt] versions)
       (if-let [version (if-not release-date (first versions) ;; use the latest version if not release date specified
                                             (first (filter #(= release-date (:publishedAt %)) versions)))]
-        (let [zip-release-files (filter #(str/ends-with? (:label %) ".zip") (:releaseFiles version))
+        (let [release-files     (->> version :releaseFiles
+                                     (map #(update % :label str/replace #"</.*" ""))
+                                     (map #(update % :label str/replace #".*>" "")))
+              zip-release-files (filter #(str/ends-with? (:label %) ".zip") release-files)
               n (count zip-release-files)]
           (cond
             (zero? n) (throw (ex-info "no zip files found for release" version))
