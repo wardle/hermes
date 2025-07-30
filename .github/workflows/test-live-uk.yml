@@ -5,6 +5,8 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+  schedule:
+    - cron: '0 14 8-14 * 3' # Second Wednesday of every month at 2pm
 
 jobs:
   build:
