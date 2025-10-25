@@ -9,6 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         java-version: ['11', '17', '21', '25']
     steps:
