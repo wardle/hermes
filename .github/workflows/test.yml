@@ -39,3 +39,7 @@ jobs:
 
       - name: Clojure tests
         run: clojure -M:test -e :live
+
+      - name: Clojure tests with Lucene 10
+        if: matrix.java-version >= 21
+        run: clojure -M:lucene10:test -e :live
