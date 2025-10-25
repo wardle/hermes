@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java-version: ['11', '17', '21', '25']
     steps:
       - uses: actions/checkout@v4
 
@@ -15,11 +18,11 @@ jobs:
         with:
           cli: latest
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: ${{ matrix.java-version }}
 
       - name: Cache Maven packages
         uses: actions/cache@v4
