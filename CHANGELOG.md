@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [Not yet released]
+
+* Upgrade Pedestal to v0.8.1, which uses Jetty 12; as such `hermes` now requires JDK>=17
+* Improve GitHub Actions to test against multiple Java versions
+* Upgrade other dependencies
+ 
 ## [1.4.1474] - 2025-07-30
 
 * Improve automated downloads for distributions using [MLDS service - 'Member Licensing and Distribution Service'](https://mlds.ihtsdotools.org)
