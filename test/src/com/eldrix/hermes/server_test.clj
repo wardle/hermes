@@ -26,7 +26,7 @@
   (is (= 200 (:status (response-for *connector* :get (url-for ::server/get-concept :path-params {:concept-id "24700007"})))))
   (is (= 200 (:status (response-for *connector*
                                     :get (url-for ::server/get-concept :path-params {:concept-id "80146002"})
-                                    :headers {"Accept" "application/edn"}))))
+                                    :headers {"accept" "application/edn"}))))
   (is (= 404 (:status (response-for *connector* :get (url-for ::server/get-concept :path-params {:concept-id "123"})))))
   (is (= 404 (:status (response-for *connector* :get (url-for ::server/get-concept :path-params {:concept-id "abc"}))))))
 
@@ -37,10 +37,10 @@
 (deftest ^:live get-preferred
   (let [en-GB (response-for *connector*
                             :get (url-for ::server/get-concept-preferred-description :path-params {:concept-id "80146002"})
-                            :headers {"Accept-Language" "en-GB"})
+                            :headers {"accept-language" "en-GB"})
         en-US (response-for *connector*
                             :get (url-for ::server/get-concept-preferred-description :path-params {:concept-id "80146002"})
-                            :headers {"Accept-Language" "en-US"})]
+                            :headers {"accept-language" "en-US"})]
     (is (= 200 (:status en-GB)))
     (is (= 200 (:status en-US)))
     (is (= "Appendicectomy" (get (json/read-str (:body en-GB)) "term")))
