@@ -136,7 +136,7 @@
      (fn [{::keys [svc] :as ctx}]
        (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
              concept (hermes/extended-concept svc concept-id)
-             langs (get-in ctx [:request :headers "Accept-Language"])
+             langs (get-in ctx [:request :headers "accept-language"])
              preferred (hermes/preferred-synonym svc concept-id langs true)]
          (assoc ctx :result (when concept (assoc concept :preferredDescription preferred)))))}))
 
@@ -184,7 +184,7 @@
              key-fmt (or (property-formats (get-in ctx [:request :params :key-format])) fmt)
              value-fmt (or (property-formats (get-in ctx [:request :params :value-format])) fmt)
              pretty (or key-fmt value-fmt)
-             language-range (get-in ctx [:request :headers "Accept-Language"])
+             language-range (get-in ctx [:request :headers "accept-language"])
              result (hermes/properties svc concept-id {:expand expand?})]
          (assoc ctx :result                                 ;; take care that if no result, is it because no props, or concept doesn't exist?
                     (if (seq result)                        ;; so if there's an empty result
@@ -197,7 +197,7 @@
      :enter
      (fn [{::keys [svc] :as ctx}]
        (let [concept-id (Long/parseLong (get-in ctx [:request :path-params :concept-id]))
-             langs (get-in ctx [:request :headers "Accept-Language"])
+             langs (get-in ctx [:request :headers "accept-language"])
              ds (hermes/preferred-synonym svc concept-id langs true)]
          (assoc ctx :result ds)))}))
 
@@ -256,7 +256,7 @@
      (fn [{::keys [svc] :as ctx}]
        (let [params (parse-search-params (get-in ctx [:request :params]))
              max-hits (or (:max-hits params) 500)
-             langs (get-in ctx [:request :headers "Accept-Language"])
+             langs (get-in ctx [:request :headers "accept-language"])
              params' (if langs (assoc params :accept-language langs) params)]
          (if (< 0 max-hits 10000)
            (assoc ctx :result (or (hermes/search svc (assoc params' :max-hits max-hits)) []))
@@ -280,7 +280,7 @@
            include-historic?
            (assoc ctx :result (hermes/expand-ecl-historic svc ecl))
            preferred?
-           (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (get-in ctx [:request :headers "Accept-Language"]) true)))]
+           (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (get-in ctx [:request :headers "accept-language"]) true)))]
              (assoc ctx :result (hermes/expand-ecl* svc ecl refset-ids)))
            :else
            (assoc ctx :result (hermes/expand-ecl svc ecl)))))}))
