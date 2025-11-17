@@ -70,6 +70,7 @@ supports search and autocompletion using the $expand operation.
   - [B. Endpoints for the HTTP server](#b-endpoints-for-the-http-terminology-server)
     - [Get a single concept](#get-a-single-concept-)
     - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
+    - [Get preferred synonym](#get-preferred-synonym)
     - [Get properties for a single concept](#get-properties-for-a-single-concept)
     - [Search](#search)
     - [Expanding SNOMED ECL (Expression Constraint Language)](#expanding-ecl-without-search)
@@ -1158,6 +1159,54 @@ Date: Mon, 08 Mar 2021 22:01:13 GMT
     ]
 }
 
+```
+##### Get preferred synonym
+
+You can simply get the preferred synonym for a concept using this endpoint.
+
+```shell 
+http://127.0.0.1:8080/v1/snomed/concepts/80146002/preferred
+```
+
+Try it live [http://128.140.5.148:8080/v1/snomed/concepts/80146002/preferred](http://128.140.5.148:8080/v1/snomed/concepts/80146002/preferred)
+
+But `hermes` can use a defined language reference set, or even a simple locale if you want:
+
+```shell 
+http 'http://127.0.0.1:8080/v1/snomed/concepts/80146002/preferred' Accept-Language:en-GB
+```
+
+```json
+{
+    "active": true,
+    "caseSignificanceId": 900000000000448009,
+    "conceptId": 80146002,
+    "effectiveTime": "2017-07-31",
+    "id": 132973012,
+    "languageCode": "en",
+    "moduleId": 900000000000207008,
+    "term": "Appendicectomy",
+    "typeId": 900000000000013009
+}
+```
+And now let's pretend we're in the United States:
+
+```shell
+http 'http://127.0.0.1:8080/v1/snomed/concepts/80146002/preferred' Accept-Language:en-US
+```
+
+```json
+{
+    "active": true,
+    "caseSignificanceId": 900000000000448009,
+    "conceptId": 80146002,
+    "effectiveTime": "2017-07-31",
+    "id": 132967011,
+    "languageCode": "en",
+    "moduleId": 900000000000207008,
+    "term": "Appendectomy",
+    "typeId": 900000000000013009
+}
 ```
 
 ##### Get properties for a single concept
