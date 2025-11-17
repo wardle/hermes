@@ -98,7 +98,7 @@
                         (update-keys keyword)))
     (log-module-dependency-problems svc)
     (log/info "starting terminology server " (dissoc params' :allowed-origin))
-    (server/start-server svc params')))
+    (server/start! svc params')))
 
 (defn usage
   ([options-summary]
