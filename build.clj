@@ -84,7 +84,7 @@
 
 (defn- check-jvm
   []
-  (let [jvm-version (-> (System/getProperty "java.specification.version") Integer/parseInt)]
+  (let [jvm-version (-> (System/getProperty "java.specification.version") parse-long)]
     (when (>= jvm-version 21)
       (throw (ex-info "Not building with jdk >= 21 because of the SequencedCollection issue." {})))
     (println "Building with jdk" jvm-version)))
