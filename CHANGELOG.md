@@ -2,8 +2,9 @@
 
 This log documents significant changes for each release.
 
-## [Not yet released]
+## [1.4.1498] - 2025-11-26
 
+* Improve handling of filename parsing for reference sets
 * Upgrade Pedestal to v0.8.1, which uses Jetty 12; as such `hermes` now requires JDK>=17
 * Improve GitHub Actions to test against multiple Java versions
 * Upgrade other dependencies
