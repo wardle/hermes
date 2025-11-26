@@ -85,7 +85,7 @@ supports search and autocompletion using the $expand operation.
 You can have a terminology server running in minutes.
 Full documentation is below, but here is a quickstart.
 
-Before you begin, you will need to have Java version 11 or greater installed.
+Before you begin, you will need to have Java version 17 or greater installed. 
 
 ### 1. Download hermes
 
@@ -110,7 +110,7 @@ In all examples below, `java -jar hermes.jar` is equivalent to `clj -M:run` and 
 
 ##### Run from source code using Clojure
 
-Install clojure. e.g on Mac OS X:
+Install Clojure. e.g on Mac OS X:
 
 ```shell
 brew install clojure
