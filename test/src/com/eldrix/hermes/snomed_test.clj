@@ -28,7 +28,14 @@
     (is (nil? (:language-code p))))
   (let [p (snomed/parse-snomed-filename "sct2_Description_Snapshot-en_INT_20180131.txt")]
     (is (= "Snapshot" (:release-type p)))
-    (is (= "en" (:language-code p)))))
+    (is (= "en" (:language-code p))))
+  (let [{:keys [release-type language-code summary refset-type component pattern] :as parsed}
+        (snomed/parse-snomed-filename "der2_ccRefset_SNOMEDtoSNOMEDSimpleMapUKCLSnapshot_GB_20251119.txt")]
+    (is (= "Snapshot" release-type))
+    (is (= "SimpleMap" refset-type))
+    (is (= "SimpleMapRefset" component))
+    (is (= "cc" pattern))))
+
 
 (deftest test-refset-filename-pattern
   (is (= '(1 2 3) (snomed/parse-fields "iii" ["1" "2" "3"])))

@@ -898,6 +898,21 @@
   $")
 
 
+(def ^:private refset-types
+  "Known reference set types, ordered by length (longest first) to ensure
+   correct matching - e.g., SimpleMap before Simple."
+  ["MRCMAttributeDomain" "MRCMAttributeRange" "QuerySpecification"
+   "OrderedAssociation" "ModuleDependency" "RefsetDescriptor"
+   "MRCMModuleScope" "DescriptionType" "AttributeValue" "OWLExpression"
+   "ExtendedMap" "Association" "MRCMDomain" "ComplexMap" "Annotation"
+   "SimpleMap" "Language" "Ordered" "Simple"])
+
+(defn- find-refset-type
+  "Find a refset type within a string, checking longer types first."
+  [s]
+  (when s
+    (some #(when (str/includes? s %) %) refset-types)))
+
 (defn parse-snomed-filename
   "Parse a filename according the specifications outlined in
    https://confluence.ihtsdotools.org/display/DOCRELFMT/3.3.2+Release+File+Naming+Convention
@@ -911,7 +926,10 @@
     (when (.matches m)
       (let [entity (.group m "entity")
             pattern (.group m "pattern")
-            refset-type (or (.group m "refsettype") (when (= "Refset" entity) "Simple"))
+            summary-extra (.group m "summaryextra")
+            refset-type (or (.group m "refsettype")
+                            (when (= "Refset" entity)
+                              (or (find-refset-type summary-extra) "Simple")))
             component-name (str refset-type entity)
             identifier (when-not (str/blank? component-name) (keyword "info.snomed" component-name))]
         {:path              filename
@@ -930,7 +948,7 @@
          :content-subtype   (.group m "contentsubtype")
          :summary           (.group m "summary")
          :refset-type       refset-type
-         :summary-extra     (.group m "summaryextra")
+         :summary-extra     summary-extra
          :release-type      (.group m "releasetype")
          :doc-status        (.group m "docstatus")
          :language-code     (.group m "languagecode")
