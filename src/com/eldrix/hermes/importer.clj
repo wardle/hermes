@@ -123,7 +123,8 @@
               data (rest csv-data)
               batches (->> data
                            (partition-all batch-size)
-                           (map #(hash-map :type identifier
+                           (map #(hash-map :file f
+                                           :type identifier
                                            :parser parser
                                            :headings headings
                                            :data %)))]
