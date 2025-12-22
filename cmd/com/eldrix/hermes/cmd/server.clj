@@ -233,7 +233,7 @@
          (assoc ctx :result {:subsumedBy (hermes/subsumed-by? svc concept-id subsumer-id)})))}))
 
 (defn parse-search-params
-  [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates]}]
+  [{:keys [s maxHits isA refset constraint ecl fuzzy fallbackFuzzy inactiveConcepts inactiveDescriptions removeDuplicates showFsn]}]
   (cond-> {}
     s (assoc :s s)
     constraint (assoc :constraint constraint)
@@ -247,7 +247,8 @@
     fallbackFuzzy (assoc :fallback-fuzzy (if (parse-flag fallbackFuzzy) 2 0))
     inactiveConcepts (assoc :inactive-concepts? (parse-flag inactiveConcepts))
     inactiveDescriptions (assoc :inactive-descriptions? (parse-flag inactiveDescriptions))
-    removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))))
+    removeDuplicates (assoc :remove-duplicates? (parse-flag removeDuplicates))
+    showFsn (assoc :show-fsn? (parse-flag showFsn))))
 
 (def get-search
   (intc/interceptor
