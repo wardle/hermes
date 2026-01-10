@@ -2,6 +2,10 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1502] - 2026-01-10
+
+* Add `expand` mutation to graph API exposing ECL expansion for Pathom clients
+
 ## [1.4.1498] - 2025-11-26
 
 * Improve handling of filename parsing for reference sets
