@@ -402,6 +402,28 @@
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
   (perform-search svc params))
 
+(pco/defmutation expand
+  "Expands an ECL expression, returning matching concepts.
+  Parameters:
+   - :ecl               : SNOMED ECL expression to expand (required)
+   - :include-historic? : include historical associations (default false)"
+  [{svc :com.eldrix/hermes} {:keys [ecl include-historic?]}]
+  {::pco/op-name 'info.snomed/expand
+   ::pco/params  [:ecl :include-historic?]
+   ::pco/output  [:info.snomed.Description/id
+                  :info.snomed.Concept/id
+                  :info.snomed.Description/term
+                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+  (when ecl
+    (->> (if include-historic?
+           (hermes/expand-ecl-historic svc ecl)
+           (hermes/expand-ecl svc ecl))
+         (mapv (fn [{:keys [id conceptId term preferredTerm]}]
+                 {:info.snomed.Description/id               id
+                  :info.snomed.Concept/id                   conceptId
+                  :info.snomed.Description/term             term
+                  :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}})))))
+
 (pco/defresolver installed-refsets
   [{svc :com.eldrix/hermes} _]
   {::pco/output [{:info.snomed/installedReferenceSets [:info.snomed.Concept/id]}]}
@@ -445,6 +467,7 @@
    lowercase-term
    search-resolver
    search
+   expand
    installed-refsets])
 
 (comment

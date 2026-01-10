@@ -74,6 +74,18 @@
     (is (= 37340000 (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/id])))
     (is (= "Motor neuron disease" (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
 
+(deftest ^:live test-expand
+  (let [result (p.eql/process *registry*
+                              [{'(info.snomed/expand
+                                   {:ecl "<<24700007"})
+                                [:info.snomed.Concept/id
+                                 :info.snomed.Description/id
+                                 :info.snomed.Description/term
+                                 {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])]
+    (is (seq (get result 'info.snomed/expand)) "Expand should return results")
+    (is (some #(= 24700007 (:info.snomed.Concept/id %)) (get result 'info.snomed/expand))
+        "Multiple sclerosis (24700007) should be in results for <<24700007")))
+
 (deftest ^:live test-search-resolver
   (let [result (p.eql/process *registry*
                               ['({:info.snomed.Search/search [:info.snomed.Concept/id
