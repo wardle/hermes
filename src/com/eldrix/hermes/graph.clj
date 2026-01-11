@@ -365,14 +365,17 @@
   {::pco/output [:info.read/ctv3]}
   {:info.read/ctv3 (:mapTarget (first (hermes/component-refset-items svc id 900000000000497000)))})
 
+(defn- normalise-result
+  [{:keys [id conceptId term preferredTerm]}]
+  {:info.snomed.Description/id               id
+   :info.snomed.Concept/id                   conceptId
+   :info.snomed.Description/term             term
+   :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}})
+
 (s/fdef perform-search :args (s/cat :hermes/svc ::hermes/svc :params ::hermes/search-params))
 (defn perform-search [svc params]
   (->> (hermes/search svc (select-keys params [:s :constraint :fuzzy :fallback-fuzzy :max-hits :remove-duplicates? :accept-language :language-refset-ids]))
-       (mapv (fn [{:keys [id conceptId term preferredTerm]}]
-               {:info.snomed.Description/id               id
-                :info.snomed.Concept/id                   conceptId
-                :info.snomed.Description/term             term
-                :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}}))))
+       (mapv normalise-result)))
 
 (pco/defresolver search-resolver
   [{svc :com.eldrix/hermes :as env} _]
@@ -403,10 +406,13 @@
   (perform-search svc params))
 
 (pco/defmutation expand
-  "Expands an ECL expression, returning matching concepts.
+  "Expands an ECL expression, returning matching concepts with synonyms.
+  May return multiple descriptions per concept. Best for analytics and research.
   Parameters:
-   - :ecl               : SNOMED ECL expression to expand (required)
-   - :include-historic? : include historical associations (default false)"
+   - :ecl              : SNOMED ECL expression to expand (required)
+   - :include-historic?: include historical associations (default false)
+
+  See also [[expand*]] for UI use cases where one term per concept is needed."
   [{svc :com.eldrix/hermes} {:keys [ecl include-historic?]}]
   {::pco/op-name 'info.snomed/expand
    ::pco/params  [:ecl :include-historic?]
@@ -414,15 +420,32 @@
                   :info.snomed.Concept/id
                   :info.snomed.Description/term
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-  (when ecl
-    (->> (if include-historic?
-           (hermes/expand-ecl-historic svc ecl)
-           (hermes/expand-ecl svc ecl))
-         (mapv (fn [{:keys [id conceptId term preferredTerm]}]
-                 {:info.snomed.Description/id               id
-                  :info.snomed.Concept/id                   conceptId
-                  :info.snomed.Description/term             term
-                  :info.snomed.Concept/preferredDescription {:info.snomed.Description/term preferredTerm}})))))
+  (when-not (str/blank? ecl)
+    (if include-historic?
+      (mapv normalise-result (hermes/expand-ecl-historic svc ecl))
+      (mapv normalise-result (hermes/expand-ecl svc ecl)))))
+
+(pco/defmutation expand*
+  "Expands an ECL expression, returning preferred descriptions only.
+  Best for user interfaces and value sets.
+  Parameters:
+   - :ecl                 : SNOMED ECL expression to expand (required)
+   - :accept-language     : BCP 47 language preference (e.g. 'en-GB')
+   - :language-refset-ids : explicit language reference set IDs
+
+  To return a single result per concept, use a single language reference set.
+  See also [[expand]] for analytics use cases where synonyms are needed."
+  [{svc :com.eldrix/hermes} {:keys [ecl accept-language language-refset-ids]}]
+  {::pco/op-name 'info.snomed/expand*
+   ::pco/params  [:ecl :accept-language :language-refset-ids]
+   ::pco/output  [:info.snomed.Description/id
+                  :info.snomed.Concept/id
+                  :info.snomed.Description/term
+                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+  (when-not (str/blank? ecl)
+    (let [refset-ids (or (seq language-refset-ids)
+                         (hermes/match-locale svc accept-language true))]
+      (mapv normalise-result (hermes/expand-ecl* svc ecl refset-ids)))))
 
 (pco/defresolver installed-refsets
   [{svc :com.eldrix/hermes} _]
@@ -468,6 +491,7 @@
    search-resolver
    search
    expand
+   expand*
    installed-refsets])
 
 (comment

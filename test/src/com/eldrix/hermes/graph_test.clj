@@ -86,6 +86,58 @@
     (is (some #(= 24700007 (:info.snomed.Concept/id %)) (get result 'info.snomed/expand))
         "Multiple sclerosis (24700007) should be in results for <<24700007")))
 
+(deftest ^:live test-expand-blank-ecl
+  (testing "blank ecl returns nil"
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand {:ecl ""}) [:info.snomed.Concept/id]}]) 'info.snomed/expand)))
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand {:ecl "  "}) [:info.snomed.Concept/id]}]) 'info.snomed/expand)))
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand {:ecl nil}) [:info.snomed.Concept/id]}]) 'info.snomed/expand)))
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand* {:ecl ""}) [:info.snomed.Concept/id]}]) 'info.snomed/expand*)))
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand* {:ecl "  "}) [:info.snomed.Concept/id]}]) 'info.snomed/expand*)))
+    (is (nil? (get (p.eql/process *registry* [{'(info.snomed/expand* {}) [:info.snomed.Concept/id]}]) 'info.snomed/expand*)))))
+
+(deftest ^:live test-expand-include-historic
+  (let [result (p.eql/process *registry*
+                              [{'(info.snomed/expand {:ecl "<<24700007" :include-historic? true})
+                                [:info.snomed.Concept/id
+                                 :info.snomed.Description/term]}])]
+    (is (seq (get result 'info.snomed/expand)) "Expand with include-historic? should return results")
+    (is (some #(= 24700007 (:info.snomed.Concept/id %)) (get result 'info.snomed/expand)))))
+
+(deftest ^:live test-expand-returns-synonyms
+  (testing "expand returns multiple synonyms per concept"
+    (let [result (get (p.eql/process *registry*
+                                     [{'(info.snomed/expand {:ecl "80146002"})
+                                       [:info.snomed.Concept/id :info.snomed.Description/term]}])
+                      'info.snomed/expand)
+          terms (set (map :info.snomed.Description/term result))]
+      (is (> (count result) 1) "expand should return multiple descriptions (synonyms) per concept")
+      (is (contains? terms "Appendectomy") "Should include US spelling")
+      (is (contains? terms "Appendicectomy") "Should include GB spelling"))))
+
+(deftest ^:live test-expand*-with-accept-language
+  (testing "expand* with accept-language returns preferred term for that language"
+    (let [en-gb (get (p.eql/process *registry*
+                                    [{'(info.snomed/expand* {:ecl "80146002" :accept-language "en-GB"})
+                                      [:info.snomed.Concept/id :info.snomed.Description/term]}])
+                     'info.snomed/expand*)
+          en-us (get (p.eql/process *registry*
+                                    [{'(info.snomed/expand* {:ecl "80146002" :accept-language "en-US"})
+                                      [:info.snomed.Concept/id :info.snomed.Description/term]}])
+                     'info.snomed/expand*)]
+      (is (= 1 (count en-gb)) "Single language resolves to one result per concept")
+      (is (= 1 (count en-us)) "Single language resolves to one result per concept")
+      (is (= "Appendicectomy" (:info.snomed.Description/term (first en-gb))) "en-GB should return Appendicectomy")
+      (is (= "Appendectomy" (:info.snomed.Description/term (first en-us))) "en-US should return Appendectomy"))))
+
+(deftest ^:live test-expand*-with-language-refset-ids
+  (testing "expand* with explicit language-refset-ids"
+    (let [result (get (p.eql/process *registry*
+                                     [{'(info.snomed/expand* {:ecl "80146002" :language-refset-ids [900000000000508004]})
+                                       [:info.snomed.Concept/id :info.snomed.Description/term]}])
+                      'info.snomed/expand*)]
+      (is (= 1 (count result)) "Single language refset returns one result per concept")
+      (is (= "Appendicectomy" (:info.snomed.Description/term (first result))) "GB refset should return Appendicectomy"))))
+
 (deftest ^:live test-search-resolver
   (let [result (p.eql/process *registry*
                               ['({:info.snomed.Search/search [:info.snomed.Concept/id
