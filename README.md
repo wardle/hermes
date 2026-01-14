@@ -1344,6 +1344,7 @@ Search parameters:
 * `fuzzy` - whether to use fuzziness for search (default, `false`)
 * `fallbackFuzzy` - whether to retry using a fuzziness factor if initial search returns no results (default, `false`)
 * `removeDuplicates` - whether to remove consecutive results with the same conceptId and text (default, `false`)
+* `fsn` - whether to search for and include fully specified names in the results (default, `false`)
 
 For autocompletion, in a typical type-ahead user interface control, you might use `fallbackFuzzy=1` (or
 `fallbackFuzzy=true`) and `removeDuplicates=1` (or `removeDuplicates=true`).
