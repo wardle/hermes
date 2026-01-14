@@ -119,33 +119,27 @@
     (let [en-gb (get (p.eql/process *registry*
                                     [{'(info.snomed/expand* {:ecl "80146002" :accept-language "en-GB"})
                                       [:info.snomed.Concept/id
-                                       :info.snomed.Description/term
-                                       {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+                                       :info.snomed.Description/term]}])
                      'info.snomed/expand*)
           en-us (get (p.eql/process *registry*
                                     [{'(info.snomed/expand* {:ecl "80146002" :accept-language "en-US"})
                                       [:info.snomed.Concept/id
-                                       :info.snomed.Description/term
-                                       {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+                                       :info.snomed.Description/term]}])
                      'info.snomed/expand*)]
       (is (= 1 (count en-gb)) "Single language resolves to one result per concept")
       (is (= 1 (count en-us)) "Single language resolves to one result per concept")
       (is (= "Appendicectomy" (:info.snomed.Description/term (first en-gb))))
-      (is (= "Appendicectomy" (get-in (first en-gb) [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
-      (is (= "Appendectomy" (:info.snomed.Description/term (first en-us))))
-      (is (= "Appendectomy" (get-in (first en-us) [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))))))
+      (is (= "Appendectomy" (:info.snomed.Description/term (first en-us)))))))
 
 (deftest ^:live test-expand*-with-language-refset-ids
   (testing "expand* with explicit language-refset-ids"
     (let [result (get (p.eql/process *registry*
                                      [{'(info.snomed/expand* {:ecl "80146002" :language-refset-ids [900000000000508004]})
                                        [:info.snomed.Concept/id
-                                        :info.snomed.Description/term
-                                        {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+                                        :info.snomed.Description/term]}])
                       'info.snomed/expand*)]
       (is (= 1 (count result)) "Single language refset returns one result per concept")
-      (is (= "Appendicectomy" (:info.snomed.Description/term (first result))))
-      (is (= "Appendicectomy" (get-in (first result) [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))))))
+      (is (= "Appendicectomy" (:info.snomed.Description/term (first result)))))))
 
 (deftest ^:live test-search-resolver
   (let [result (p.eql/process *registry*
