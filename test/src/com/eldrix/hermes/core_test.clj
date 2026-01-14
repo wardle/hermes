@@ -23,21 +23,47 @@
     (is (s/valid? :info.snomed/Concept (:concept multiple-sclerosis)))
     (is (every? true? (map #(s/valid? :info.snomed/Description %) (:descriptions multiple-sclerosis))))))
 
+(deftest ^:live test-icd10-map-installed
+  (let [installed (hermes/installed-reference-sets *svc*)]
+    (is (or (contains? installed 447562003)
+            (contains? installed 999002271000000101))
+        "At least one ICD-10 complex map reference set must be installed (international: 447562003 or UK: 999002271000000101)")))
+
 (deftest ^:live test-reverse-map-prefix
-  (let [synonyms (->> (hermes/member-field-prefix *svc* 447562003 "mapTarget" "I30")
-                      (map #(:term (hermes/preferred-synonym *svc* % "en"))))]
-    (is (some #{"Viral pericarditis"} synonyms)))
-  (is (->> (hermes/reverse-map *svc* 447562003 "G35")
-           (map :mapTarget)
-           (every? #(.startsWith % "G35")))
-      "Reverse map prefix returns items with a map target not fulfilling original request ")
-  (is (->> (hermes/reverse-map-prefix *svc* 447562003 "I30")
-           (map :mapTarget)
-           (every? #(.startsWith % "I30")))
-      "Reverse map prefix returns items with a map target not fulfulling original request "))
+  (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+    (let [synonyms (->> (hermes/member-field-prefix *svc* 447562003 "mapTarget" "I30")
+                        (map #(:term (hermes/preferred-synonym *svc* % "en"))))]
+      (is (some #{"Viral pericarditis"} synonyms)))
+    (is (->> (hermes/reverse-map *svc* 447562003 "G35")
+             (map :mapTarget)
+             (every? #(.startsWith % "G35")))
+        "Reverse map prefix returns items with a map target not fulfilling original request ")
+    (is (->> (hermes/reverse-map-prefix *svc* 447562003 "I30")
+             (map :mapTarget)
+             (every? #(.startsWith % "I30")))
+        "Reverse map prefix returns items with a map target not fulfulling original request ")))
 
 (deftest ^:live test-cross-map
-  (is (contains? (set (map :mapTarget (hermes/component-refset-items *svc* 24700007 447562003))) "G35") "Multiple sclerosis should map to ICD code G35"))
+  (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+    (is (contains? (set (map :mapTarget (hermes/component-refset-items *svc* 24700007 447562003))) "G35") "Multiple sclerosis should map to ICD code G35")))
+
+(deftest ^{:live true :uk true} test-reverse-map-prefix-uk
+  (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+    (is (seq (hermes/member-field-prefix *svc* 999002271000000101 "mapTarget" "I30"))
+        "Should find concepts mapping to I30* in UK ICD-10")
+    (is (->> (hermes/reverse-map *svc* 999002271000000101 "G35X")
+             (map :mapTarget)
+             (every? #(.startsWith % "G35")))
+        "Reverse map should return items with matching map target prefix")
+    (is (->> (hermes/reverse-map-prefix *svc* 999002271000000101 "I30")
+             (map :mapTarget)
+             (every? #(.startsWith % "I30")))
+        "Reverse map prefix should return items with matching map target prefix")))
+
+(deftest ^{:live true :uk true} test-cross-map-uk
+  (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+    (is (contains? (set (map :mapTarget (hermes/component-refset-items *svc* 24700007 999002271000000101))) "G35X")
+        "Multiple sclerosis should map to ICD code G35X in UK edition")))
 
 (deftest ^:live test-map-into
   (let [mapped (hermes/map-into *svc* [24700007 763794005 95883001] "118940003 OR 50043002 OR 40733004")]
@@ -46,15 +72,22 @@
 (deftest ^:live test-ecl-contains
   (is (hermes/ecl-contains? *svc* [24700007] "<<24700007") "Descendant or self expression should include self")
   (is (hermes/ecl-contains? *svc* [816984002] "<<24700007") "Primary progressive multiple sclerosis is a type of MS")
-  (is (hermes/ecl-contains? *svc* [24700007] "^447562003")) "Multiple sclerosis should be in the ICD-10 complex map reference set")
+  (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+    (is (hermes/ecl-contains? *svc* [24700007] "^447562003") "Multiple sclerosis should be in the ICD-10 complex map reference set"))
+  (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+    (is (hermes/ecl-contains? *svc* [24700007] "^999002271000000101") "Multiple sclerosis should be in the UK ICD-10 complex map reference set")))
 
 (deftest ^:live test-intersect-ecl
   (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "<<24700007")) "Descendant or self expression should include self")
   (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "<<24700007") [24700007])) "Descendant or self expression should include self")
   (is (= #{816984002} (hermes/intersect-ecl *svc* [816984002] "<<24700007")) "Primary progressive multiple sclerosis is a type of MS")
   (is (= #{816984002} ((hermes/intersect-ecl-fn *svc* "<<24700007") [816984002])) "Primary progressive multiple sclerosis is a type of MS")
-  (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "^447562003")) "Multiple sclerosis should be in the ICD-10 complex map reference set")
-  (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "^447562003") [24700007])) "Multiple sclerosis should be in the ICD-10 complex map reference set")
+  (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+    (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "^447562003")) "Multiple sclerosis should be in the ICD-10 complex map reference set")
+    (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "^447562003") [24700007])) "Multiple sclerosis should be in the ICD-10 complex map reference set"))
+  (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+    (is (= #{24700007} (hermes/intersect-ecl *svc* [24700007] "^999002271000000101")) "Multiple sclerosis should be in the UK ICD-10 complex map reference set")
+    (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "^999002271000000101") [24700007])) "Multiple sclerosis should be in the UK ICD-10 complex map reference set"))
   (is (= #{24700007} (hermes/intersect-ecl *svc* #{315560000 24700007} "<64572001")) "Born in Wales is not a type of disease")
   (is (= #{24700007} ((hermes/intersect-ecl-fn *svc* "<64572001") #{315560000 24700007})) "Born in Wales is not a type of disease")
   (let [concept-ids-1 (set (map :conceptId (hermes/search *svc* {:s "m"})))

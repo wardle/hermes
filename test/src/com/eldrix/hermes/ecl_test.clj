@@ -167,16 +167,39 @@
   [{:ecl  " ^  447562003 |ICD-10 complex map reference set|  {{ M mapTarget = \"J45.9\" }}"
     :incl #{195967001 707447008 401193004}}])
 
+(def member-filter-tests-uk
+  [{:ecl  " ^  999002271000000101  {{ M mapTarget = \"J458\" }}"
+    :incl #{196168001 707444001 707447008}}])
+
+(deftest ^:live test-icd10-map-installed
+  (let [installed (hermes/installed-reference-sets *svc*)]
+    (is (or (contains? installed 447562003)
+            (contains? installed 999002271000000101))
+        "At least one ICD-10 complex map reference set must be installed (international: 447562003 or UK: 999002271000000101)")))
+
 (deftest ^:live test-member-filter
-  (dorun (->> (hermes/expand-ecl *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapPriority = #1, mapTarget = \"J45.9\" }}")
-              (map :conceptId)
-              (map #(hermes/component-refset-items *svc* % 447562003))
-              (map #(map :mapTarget %))
-              (map #(some (fn [s] (.startsWith "J45.9" s)) %))
-              (map #(is true? %))))
-  (doseq [{:keys [ecl incl]} member-filter-tests]
-    (let [results (hermes/expand-ecl *svc* ecl)]
-      (when incl (is (set/subset? incl (set (map :conceptId results))))))))
+  (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+    (dorun (->> (hermes/expand-ecl *svc* " ^  447562003 |ICD-10 complex map reference set|  {{ M mapPriority = #1, mapTarget = \"J45.9\" }}")
+                (map :conceptId)
+                (map #(hermes/component-refset-items *svc* % 447562003))
+                (map #(map :mapTarget %))
+                (map #(some (fn [s] (.startsWith "J45.9" s)) %))
+                (map #(is true? %))))
+    (doseq [{:keys [ecl incl]} member-filter-tests]
+      (let [results (hermes/expand-ecl *svc* ecl)]
+        (when incl (is (set/subset? incl (set (map :conceptId results)))))))))
+
+(deftest ^{:live true :uk true} test-member-filter-uk
+  (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+    (dorun (->> (hermes/expand-ecl *svc* " ^  999002271000000101  {{ M mapPriority = #1, mapTarget = \"J458\" }}")
+                (map :conceptId)
+                (map #(hermes/component-refset-items *svc* % 999002271000000101))
+                (map #(map :mapTarget %))
+                (map #(some (fn [s] (.startsWith s "J458")) %))
+                (map #(is true? %))))
+    (doseq [{:keys [ecl incl]} member-filter-tests-uk]
+      (let [results (hermes/expand-ecl *svc* ecl)]
+        (when incl (is (set/subset? incl (set (map :conceptId results)))))))))
 
 (deftest ^:live test-refinement-with-wildcard-value
   (let [ch (a/chan)]
