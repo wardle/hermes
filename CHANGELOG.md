@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1510] - 2026-01-14
+
+* Add `expand*` mutation to graph API returning only preferred descriptions for specified language, suitable for UI and value sets
+* Add `fsn` parameter to HTTP server (#81)
+* Improve test coverage for ICD-10 complex map reference sets, supporting both international (447562003) and UK (999002271000000101) editions
+
 ## [1.4.1502] - 2026-01-10
 
 * Add `expand` mutation to graph API exposing ECL expansion for Pathom clients
