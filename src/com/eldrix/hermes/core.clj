@@ -691,6 +691,7 @@
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-synonym)
         q3 (search/q-acceptabilityAny :preferred-in language-refset-ids)]
+    ;; we deliberatively pass 'nil' here for the language reference sets as the term IS the preferred term
     (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]) nil)))
 
 (s/fdef intersect-ecl
