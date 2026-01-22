@@ -36,6 +36,19 @@
     (is (= "SimpleMapRefset" component))
     (is (= "cc" pattern))))
 
+(deftest test-text-definition-filename
+  (testing "TextDefinition file parsing"
+    (let [p (snomed/parse-snomed-filename "sct2_TextDefinition_Snapshot-en_INT_20250131.txt")]
+      (is (= "Snapshot" (:release-type p)))
+      (is (= "en" (:language-code p)))
+      (is (= "TextDefinition" (:entity p)))
+      (is (= "TextDefinition" (:component p)))
+      (is (= :info.snomed/TextDefinition (:identifier p)))
+      (is (some? (:parser p)) "TextDefinition files should have a parser")))
+  (testing "TextDefinition uses same parser as Description"
+    (is (= (get snomed/parsers :info.snomed/TextDefinition)
+           (get snomed/parsers :info.snomed/Description)))))
+
 
 (deftest test-refset-filename-pattern
   (is (= '(1 2 3) (snomed/parse-fields "iii" ["1" "2" "3"])))
@@ -325,6 +338,21 @@
   (doseq [{:keys [expected] :as d} case-sensitivity-examples]
     (let [d' (gen/generate (rf2/gen-description d))]
       (is (= expected (snomed/term->lowercase d'))))))
+
+(deftest test-description-type-predicates
+  (testing "Description type predicates"
+    (let [fsn (gen/generate (rf2/gen-description {:typeId snomed/FullySpecifiedName}))
+          syn (gen/generate (rf2/gen-description {:typeId snomed/Synonym}))
+          def (gen/generate (rf2/gen-description {:typeId snomed/Definition}))]
+      (is (snomed/fully-specified-name? fsn))
+      (is (not (snomed/fully-specified-name? syn)))
+      (is (not (snomed/fully-specified-name? def)))
+      (is (snomed/synonym? syn))
+      (is (not (snomed/synonym? fsn)))
+      (is (not (snomed/synonym? def)))
+      (is (snomed/definition? def))
+      (is (not (snomed/definition? fsn)))
+      (is (not (snomed/definition? syn))))))
 
 (comment
   (run-tests)

@@ -409,6 +409,33 @@
     (let [d (preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
       (or d (recur store concept-id (rest language-refset-ids))))))
 
+(s/fdef language-definitions
+  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :ret (s/coll-of :info.snomed/Description))
+(defn language-definitions
+  "Return definitions for the concept that are active and present in the language
+  reference sets specified. This means that they are either preferred or
+  acceptable in those languages."
+  [store concept-id language-refset-ids]
+  (filter #(and (:active %)
+                (= snomed/Definition (:typeId %))
+                (component-in-refsets? store (:id %) language-refset-ids))
+          (kv/concept-descriptions store concept-id)))
+
+(s/fdef preferred-definition
+  :args (s/cat :store ::store
+               :concept-id :info.snomed.Concept/id
+               :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :ret (s/nilable :info.snomed/Description))
+(defn preferred-definition
+  "Returns the preferred definition for the concept specified, looking in the
+  language reference sets specified in order, returning the first 'preferred'
+  value. The ordering of the reference set identifiers is therefore significant."
+  [store concept-id language-refset-ids]
+  (when-let [refset-id (first language-refset-ids)]
+    (let [d (preferred-description store concept-id snomed/Definition refset-id)]
+      (or d (recur store concept-id (rest language-refset-ids))))))
+
 (s/fdef fully-specified-name
   :args (s/alt
          :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
@@ -585,6 +612,8 @@
 (defmethod write-batch :info.snomed/Concept [store {data :data}]
   (kv/write-concepts store data))
 (defmethod write-batch :info.snomed/Description [store {data :data}]
+  (kv/write-descriptions store data))
+(defmethod write-batch :info.snomed/TextDefinition [store {data :data}]
   (kv/write-descriptions store data))
 (defmethod write-batch :info.snomed/Relationship [store {data :data}]
   (kv/write-relationships store data))

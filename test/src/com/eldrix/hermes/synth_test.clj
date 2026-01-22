@@ -186,7 +186,62 @@
         modules [module-1 module-2 module-3]]
     (is (every? :valid (hermes/module-dependencies* [module-1 module-2 module-3])) "Synthetically generated module dependencies should be valid")
     (let [module-4 (gen/generate (rf2/gen-module-dependency-refset (assoc template :moduleId 449080006 :referencedComponentId 999000011000000103)))]
-      (is (not-every? :valid (hermes/module-dependencies* (conj modules module-4)))) "Dependencies should be invalid, as module 449080006 depends on a module that does not exist")))
+      (is (not-every? :valid (hermes/module-dependencies* (conj modules module-4))) "Dependencies should be invalid, as module 449080006 depends on a module that does not exist"))))
+
+(deftest test-text-definitions
+  (testing "TextDefinition import and retrieval"
+    (let [{:keys [release-path db-path]} *paths*
+          en-GB-refset (gen/generate (rf2/gen-concept {:id 999001261000000100 :active true}))
+          ;; Create a few test concepts
+          concepts (gen/sample (rf2/gen-concept {:active true}) 5)
+          ;; Create synonyms for each concept
+          synonyms (mapcat #(gen/sample (rf2/gen-description {:conceptId (:id %) :typeId snomed/Synonym :active true :languageCode "en"}) 2) concepts)
+          ;; Create definitions for each concept (using Definition typeId)
+          definitions (map #(gen/generate (rf2/gen-description {:conceptId (:id %)
+                                                                 :typeId snomed/Definition
+                                                                 :active true
+                                                                 :languageCode "en"
+                                                                 :term (str "This is a definition for concept " (:id %))})) concepts)
+          ;; Create language refset items for synonyms and definitions
+          all-descriptions (concat synonyms definitions)
+          en-GB (hgen/make-language-refset-items all-descriptions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Synonym})
+          en-GB-defs (hgen/make-language-refset-items definitions {:refsetId (:id en-GB-refset) :active true :acceptabilityId snomed/Preferred :typeId snomed/Definition})]
+      ;; Write components to files
+      (write-components release-path "sct2_Concept_Snapshot_GB1000000_20180401.txt" (conj concepts en-GB-refset))
+      (write-components release-path "sct2_Description_Snapshot-en_GB1000000_20180401.txt" synonyms)
+      (write-components release-path "sct2_TextDefinition_Snapshot-en_GB1000000_20180401.txt" definitions)
+      (write-components release-path "der2_cRefset_LanguageSnapshot-en-GB_GB1000000_20180401.txt" (concat en-GB en-GB-defs))
+      ;; Import and index
+      (hermes/import-snomed (str db-path) [(str release-path)])
+      (hermes/compact (str db-path))
+      (hermes/index (str db-path))
+      ;; Test retrieval
+      (with-open [svc (hermes/open (str db-path) {:default-locale "en-GB"})]
+        (doseq [concept concepts]
+          (let [concept-id (:id concept)
+                all-descs (hermes/descriptions svc concept-id)
+                defs (hermes/definitions svc concept-id)
+                syns (hermes/synonyms svc concept-id)
+                pref-def (hermes/preferred-definition svc concept-id "en-GB")]
+            ;; Test that definitions are retrieved
+            (is (= 1 (count defs)) (str "Expected 1 definition for concept " concept-id))
+            (is (every? #(= snomed/Definition (:typeId %)) defs) "All definitions should have Definition typeId")
+            ;; Test that synonyms are separate from definitions
+            (is (= 2 (count syns)) (str "Expected 2 synonyms for concept " concept-id))
+            (is (every? #(= snomed/Synonym (:typeId %)) syns) "All synonyms should have Synonym typeId")
+            ;; Test that all descriptions include both
+            (is (= 3 (count all-descs)) (str "Expected 3 total descriptions for concept " concept-id))
+            ;; Test preferred-definition
+            (is (some? pref-def) (str "Expected preferred definition for concept " concept-id))
+            (is (= snomed/Definition (:typeId pref-def)) "Preferred definition should have Definition typeId")
+            ;; Test that definitions are excluded from default search
+            (let [search-results (hermes/search svc {:s "definition" :max-hits 100})]
+              (is (not-any? #(= snomed/Definition (:typeId (hermes/description svc (:id %)))) search-results)
+                  "Definitions should be excluded from default search"))
+            ;; Test that definitions can be included in search with show-definitions?
+            (let [search-results-with-defs (hermes/search svc {:s "definition" :max-hits 100 :show-definitions? true})]
+              (is (some #(str/includes? (:term %) "definition") search-results-with-defs)
+                  "Definitions should be included in search when show-definitions? is true"))))))))
 
 (comment
   (run-tests)

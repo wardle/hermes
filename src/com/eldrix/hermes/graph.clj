@@ -172,6 +172,17 @@
   {:info.snomed.Concept/preferredDescription
    (record->map "info.snomed.Description" (hermes/preferred-synonym svc id (:accept-language (pco/params env)) true))})
 
+(pco/defresolver preferred-definition
+  "Returns a concept's preferred definition, if one exists.
+  Takes an optional single parameter :accept-language, a BCP 47 language
+  preference string."
+  [{svc :com.eldrix/hermes :as env} {:info.snomed.Concept/keys [id]}]
+  {::pco/input  [:info.snomed.Concept/id]
+   ::pco/output [{:info.snomed.Concept/preferredDefinition description-properties}]}
+  {:info.snomed.Concept/preferredDefinition
+   (some->> (hermes/preferred-definition svc id (:accept-language (pco/params env)) true)
+            (record->map "info.snomed.Description"))})
+
 (pco/defresolver fully-specified-name
   [{svc :com.eldrix/hermes} {:info.snomed.Concept/keys [id]}]
   {::pco/output [{:info.snomed.Concept/fullySpecifiedName description-properties}]}
@@ -485,6 +496,7 @@
    readctv3-concept
    concept-readctv3
    preferred-description
+   preferred-definition
    fully-specified-name
    concept-relationships
    lowercase-term

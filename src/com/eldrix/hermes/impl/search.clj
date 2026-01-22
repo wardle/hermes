@@ -46,6 +46,7 @@
 (s/def ::fallback-fuzzy (s/int-in 0 3))
 (s/def ::query #(instance? Query %))
 (s/def ::show-fsn? boolean?)
+(s/def ::show-definitions? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
 (s/def ::remove-duplicates? boolean?)
@@ -53,7 +54,7 @@
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 (s/def ::search-params (s/keys :req-un [(or ::s ::query)]
                                :opt-un [::max-hits ::fuzzy ::fallback-fuzzy
-                                        ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                                        ::show-fsn? ::show-definitions? ::inactive-concepts? ::inactive-descriptions?
                                         ::properties ::remove-duplicates? ::concept-refsets]))
 ;; Specification for search results
 (s/def ::id :info.snomed.Description/id)
@@ -280,6 +281,10 @@
   []
   (LongPoint/newExactQuery "type-id" snomed/Synonym))
 
+(defn q-definition
+  []
+  (LongPoint/newExactQuery "type-id" snomed/Definition))
+
 (defn q-concept-active
   [active?]
   (TermQuery. (Term. "concept-active" (str active?))))
@@ -295,8 +300,8 @@
 
 (defn- make-search-query
   ^Query
-  [{:keys [s query fuzzy show-fsn? inactive-concepts? inactive-descriptions? boost-length? concept-refsets properties]
-    :or   {show-fsn? false, inactive-concepts? false, inactive-descriptions? true, boost-length? true}}]
+  [{:keys [s query fuzzy show-fsn? show-definitions? inactive-concepts? inactive-descriptions? boost-length? concept-refsets properties]
+    :or   {show-fsn? false, show-definitions? false, inactive-concepts? false, inactive-descriptions? true, boost-length? true}}]
   (let [s-query (make-autocomplete-tokens-query "nterm" s fuzzy)  ;; doesn't matter if s is nil or blank
         qb (cond-> (BooleanQuery$Builder.)
 
@@ -314,6 +319,9 @@
 
              (not show-fsn?)
              (.add (q-fsn) BooleanClause$Occur/MUST_NOT)
+
+             (not show-definitions?)
+             (.add (q-definition) BooleanClause$Occur/MUST_NOT)
 
              (seq concept-refsets)
              (.add (LongPoint/newSetQuery "concept-refsets" ^Collection concept-refsets) BooleanClause$Occur/FILTER))]
@@ -401,6 +409,7 @@ items."
   | :fallback-fuzzy         | if no results, try fuzzy search (0-2, default 0). |
   | :query                  | additional ^Query to apply                        |
   | :show-fsn?              | show FSNs in results? (default, false)            |
+  | :show-definitions?      | show definitions in results? (default, false)     |
   | :inactive-concepts?     | search descriptions of inactive concepts? (false) |
   | :inactive-descriptions? | search inactive descriptions? (default, true)     |
   | :remove-duplicates?     | remove duplicate results (default, false)         |
@@ -414,7 +423,8 @@ items."
   ```
   (do-search searcher {:s \"neurologist\"  :properties {snomed/IsA [14679004]}})
   ```
-  A FSN is a fully-specified name and should generally be left out of search. "
+  FSNs are fully-specified names and definitions are narrative text descriptions;
+  both should generally be left out of search. "
   [^IndexSearcher searcher {:keys [max-hits language-refset-ids fuzzy fallback-fuzzy remove-duplicates?] :as params}]
   (let [q (make-search-query params)
         results (if max-hits

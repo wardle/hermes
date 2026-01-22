@@ -782,6 +782,7 @@
 (def parsers
   {:info.snomed/Concept                    parse-concept
    :info.snomed/Description                parse-description
+   :info.snomed/TextDefinition             parse-description
    :info.snomed/Relationship               parse-relationship
    :info.snomed/ConcreteValue              parse-concrete-value
    :info.snomed/RelationshipConcreteValues parse-concrete-value
@@ -1161,6 +1162,10 @@
 (defn synonym?
   [^Description d]
   (= Synonym (:typeId d)))
+
+(defn definition?
+  [^Description d]
+  (= Definition (:typeId d)))
 
 (def ^:deprecated is-primitive? "DEPRECATED. Use [[primitive?]] instead." primitive?)
 (def ^:deprecated is-defined? "DEPRECATED. Use [[defined?]] instead." defined?)

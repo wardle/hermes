@@ -56,6 +56,7 @@
 (s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
 (s/def ::fold (s/or :bool boolean? :lang string?))
 (s/def ::show-fsn? boolean?)
+(s/def ::show-definitions? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
 (s/def ::remove-duplicates? boolean?)
@@ -66,7 +67,7 @@
   (s/keys :req-un [(or ::s ::constraint)]
           :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
                    ::accept-language ::language-refset-ids ::fold
-                   ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
+                   ::show-fsn? ::show-definitions? ::inactive-concepts? ::inactive-descriptions?
                    ::remove-duplicates? ::properties ::concept-refsets]))
 
 ;; for backwards compatibility in case a client referenced the old concrete deftype
@@ -141,6 +142,18 @@
         (filter #(= snomed/Synonym (:typeId %)))))
   ([^Svc svc concept-id language-refset-ids]
    (store/language-synonyms (.-store svc) concept-id language-refset-ids)))
+
+(s/fdef definitions
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+(defn definitions
+  "Returns a sequence of definitions for the given concept. If language-refset-ids
+  is provided, then only definitions that are preferred or acceptable in those
+  reference sets are returned."
+  ([^Svc svc concept-id]
+   (->> (descriptions svc concept-id)
+        (filter #(= snomed/Definition (:typeId %)))))
+  ([^Svc svc concept-id language-refset-ids]
+   (store/language-definitions (.-store svc) concept-id language-refset-ids)))
 
 (s/fdef concrete-values
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
@@ -504,6 +517,44 @@
    (when-let [lang-refset-ids (seq (match-locale svc language-range fallback?))]
      (preferred-synonym* svc concept-id lang-refset-ids))))
 
+(s/fdef preferred-definition*
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id)))
+(defn preferred-definition*
+  "Given an ordered sequence of preferred language reference set ids, return
+  the preferred definition for the concept specified, or nil if there is no
+  definition for that concept."
+  ^Description [^Svc svc concept-id language-refset-ids]
+  (store/preferred-definition (.-store svc) concept-id language-refset-ids))
+
+(s/fdef preferred-definition
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
+               :language-range (s/? (s/nilable string?))
+               :fallback? (s/? boolean?)))
+(defn preferred-definition
+  "Return the preferred definition for the concept based on the language
+  preferences specified.
+
+  Use [[match-locale]] and then repeated calls to [[preferred-definition*]] if
+  preferred definitions of a number of concepts are required (e.g. in a map/reduce etc).
+
+  Parameters:
+
+  - `svc`            : hermes service
+  - `concept-id`     : concept identifier
+  - `language-range` : a single string containing a list of comma-separated
+                     language ranges or a list of language ranges in the form of
+                     the \"Accept-Language \" header defined in RFC3066.
+  - `fallback?`      : whether to fall back to database default language.
+
+  Returns nil if the concept has no definition."
+  ([^Svc svc concept-id]
+   (preferred-definition* svc concept-id (match-locale svc nil true)))
+  ([^Svc svc concept-id language-range]
+   (preferred-definition svc concept-id language-range false))
+  ([^Svc svc concept-id language-range fallback?]
+   (when-let [lang-refset-ids (seq (match-locale svc language-range fallback?))]
+     (preferred-definition* svc concept-id lang-refset-ids))))
+
 (s/fdef fully-specified-name
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? (s/nilable ::non-blank-string))))
 (defn fully-specified-name
@@ -592,13 +643,14 @@
   |---------------------------|------------------------------------------------|
   | `:query`                  | additional Lucene `Query` to apply             |
   | `:show-fsn?`              | show FSNs in results?                          |
+  | `:show-definitions?`      | show definitions in results?                   |
   | `:inactive-concepts?`     | search descriptions of inactive concepts?      |
   | `:inactive-descriptions?` | search inactive descriptions?                  |
   | `:properties`             | a map of properties and their possible values. |
   | `:concept-refsets`        | a collection of refset ids to limit search     |
 
-  By default, `:show-fsn?` and `:inactive-concepts?` are `false`, while
-  `:inactive-descriptions?` is `true`.
+  By default, `:show-fsn?`, `:show-definitions?` and `:inactive-concepts?` are
+  `false`, while `:inactive-descriptions?` is `true`.
 
   The properties map contains keys for a property and then either a single
   identifier or vector of identifiers to limit search.
@@ -609,7 +661,8 @@
   However, concrete values are not supported, so to search using concrete values
   use a SNOMED ECL constraint instead.
 
-  A FSN is a fully-specified name and should generally be left out of search."
+  FSNs are fully-specified names and definitions are narrative text descriptions;
+  both should generally be left out of search."
   [^Svc svc params]
   (search/do-search (.-searcher svc) (make-search-params svc params)))
 
@@ -1479,6 +1532,7 @@
   (morse/launch-in-proc)
   (def svc (open "snomed.db"))
   (concept svc 24700007)
+  (descriptions svc 24700007)
   (all-children svc 24700007)
   (time (all-parents svc 24700007))
   (time (extended-concept svc 24700007))
@@ -1544,7 +1598,9 @@
 
 (comment
   (def svc (open "snomed.db"))
+  (.close svc)
   (extended-concept svc 24700007)
+  (definitions svc 24700007)
   (search svc {:s "occupation" :max-hits 1})
   (search svc {:s "consultant neurologist" :constraint "<14679004" :mode :ranked-search :max-hits 1000})
   (search svc {:s "CNS" :constraint "<14679004" :mode :ranked-search :max-hits 1}))
