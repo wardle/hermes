@@ -19,9 +19,7 @@
             [io.pedestal.http.route :as route]
             [io.pedestal.http.secure-headers :as sec-headers]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.service.interceptors :as interceptors])
-  (:import (java.time.format DateTimeFormatter)
-           (java.time LocalDate)))
+            [io.pedestal.service.interceptors :as interceptors]))
 
 (set! *warn-on-reflection* true)
 
@@ -38,13 +36,6 @@
 (defn accepted-type
   [ctx]
   (get-in ctx [:request :accept :field] "application/json"))
-
-(defn write-local-date [^LocalDate o ^Appendable out _options]
-  (.append out \")
-  (.append out (.format DateTimeFormatter/ISO_DATE o))
-  (.append out \"))
-
-(extend LocalDate json/JSONWriter {:-write write-local-date})
 
 (defn transform-content
   [body content-type]

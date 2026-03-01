@@ -78,7 +78,23 @@
     :test (fn [{:keys [options errors cmds]}]
             (is (= cmds ["install" "index" "compact" "serve"]))
             (is (nil? errors))
-            (is (= 8090 (:port options))))}])
+            (is (= 8090 (:port options))))}
+   {:s    "Test MCP with database"
+    :args ["--db" "snomed.db" "mcp"]
+    :test (fn [{:keys [cmds options errors]}]
+            (is (nil? errors))
+            (is (= cmds ["mcp"]))
+            (is (= (:db options) "snomed.db")))}
+   {:s    "Test MCP with locale"
+    :args ["--db" "snomed.db" "mcp" "--locale" "en-GB"]
+    :test (fn [{:keys [cmds options errors]}]
+            (is (nil? errors))
+            (is (= cmds ["mcp"]))
+            (is (= (:locale options) "en-GB")))}
+   {:s    "Test MCP with missing database"
+    :args ["mcp"]
+    :test (fn [{:keys [errors]}]
+            (is (seq errors)))}])
 
 (deftest test-parse-cli-options
   (doseq [{s :s args :args test-fn :test} cli-tests]

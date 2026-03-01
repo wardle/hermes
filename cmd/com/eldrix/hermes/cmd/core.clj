@@ -14,13 +14,24 @@
    [clojure.string :as str]
    [clojure.tools.logging.readable :as log]
    [com.eldrix.hermes.cmd.cli :as cli]
+   [com.eldrix.hermes.cmd.mcp :as mcp]
    [com.eldrix.hermes.cmd.server :as server]
    [com.eldrix.hermes.core :as hermes]
    [com.eldrix.hermes.download :as download]
    [com.eldrix.hermes.importer :as importer]
    [expound.alpha :as expound])
   (:import (clojure.lang ExceptionInfo)
-           (java.net ConnectException)))
+           (java.net ConnectException)
+           (java.time LocalDate)
+           (java.time.format DateTimeFormatter)))
+
+;; Register LocalDate as a JSON writer for clojure.data.json
+(defn- write-local-date [^LocalDate o ^Appendable out _options]
+  (.append out \")
+  (.append out (.format DateTimeFormatter/ISO_DATE o))
+  (.append out \"))
+
+(extend LocalDate json/JSONWriter {:-write write-local-date})
 
 (defn- log-module-dependency-problems [svc]
   (let [problem-deps (seq (hermes/module-dependency-problems svc))]
@@ -88,6 +99,11 @@
       :json (json/pprint st)
       (clojure.pprint/pprint st))))
 
+(defn mcp [{:keys [db locale]} _]
+  (with-open [svc (hermes/open db {:default-locale locale})]
+    (log-module-dependency-problems svc)
+    (mcp/start! svc)))
+
 (defn serve [{:keys [db _port _bind-address allowed-origin locale] :as params} _]
   (let [svc (hermes/open db {:default-locale locale})
         params' (cond (= ["*"] allowed-origin) (assoc params :allowed-origins (constantly true))
@@ -132,6 +148,7 @@
    "index"     {:fn build-index}
    "compact"   {:fn compact}
    "serve"     {:fn serve}
+   "mcp"       {:fn mcp}
    "status"    {:fn status}})
 
 (defn exit [status-code msg]

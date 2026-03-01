@@ -154,7 +154,9 @@
    {:cmd  "serve" :desc "Start a terminology server"
     :opts [(option :db db-mandatory) (option :port) (option :bind-address)
            (option :allowed-origins) (option :allowed-origin) (option :locale)
-           (option :help)]}])
+           (option :help)]}
+   {:cmd  "mcp" :desc "Start an MCP (Model Context Protocol) server"
+    :opts [(option :db db-mandatory) (option :locale) (option :help)]}])
 
 (def commands
   "Return information about the command specified."

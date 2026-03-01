@@ -1,18 +1,20 @@
 (ns build
   (:refer-clojure :exclude [compile])
-  (:require [clojure.string :as str]
+  (:require [clojure.edn :as edn]
+            [clojure.string :as str]
             [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as dd]
             [borkdude.gh-release-artifact :as gh])
   (:import (java.time LocalDate)))
 
 (def lib 'com.eldrix/hermes)
-(def version (format "1.4.%s" (b/git-count-revs nil)))
+(def version (edn/read-string (slurp "resources/version.edn")))
+(def version-str (format "%s.%s" (:version version) (b/git-count-revs nil)))
 (def class-dir "target/classes")
-(def jar-basis (b/create-basis {:project "deps.edn"}))
-(def uber-basis (b/create-basis {:project "deps.edn", :aliases [:run]}))
-(def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
-(def uber-file (format "target/%s-%s.jar" (name lib) version))
+(def jar-basis (delay (b/create-basis {:project "deps.edn"})))
+(def uber-basis (delay (b/create-basis {:project "deps.edn", :aliases [:run]})))
+(def jar-file (format "target/%s-lib-%s.jar" (name lib) version-str))
+(def uber-file (format "target/%s-%s.jar" (name lib) version-str))
 
 (def citation
   (str/join "\n"
@@ -23,7 +25,7 @@
              "  given-names: \"Mark\""
              "  orcid: \"https://orcid.org/0000-0002-4543-7068\""
              "title: \"Hermes\""
-             (str "version: " version)
+             (str "version: " version-str)
              "doi: 10.5281/zenodo.5504046"
              (str "date-released: " (LocalDate/now))
              "url: \"https://github.com/wardle/hermes\""]))
@@ -40,11 +42,11 @@
   (println "Building" jar-file)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
-                :version   version
-                :basis     jar-basis
+                :version   version-str
+                :basis     @jar-basis
                 :src-dirs  ["src"]
                 :scm       {:url                 "https://github.com/wardle/hermes"
-                            :tag                 (str "v" version)
+                            :tag                 (str "v" version-str)
                             :connection          "scm:git:git://github.com/wardle/hermes.git"
                             :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}
                 :pom-data  [[:description
@@ -67,10 +69,10 @@
   [_]
   (jar nil)
   (println "Installing" jar-file)
-  (b/install {:basis     jar-basis
+  (b/install {:basis     @jar-basis
               :lib       lib
               :class-dir class-dir
-              :version   version
+              :version   version-str
               :jar-file  jar-file}))
 
 (defn deploy
@@ -97,9 +99,10 @@
   (update-citation nil)
   (clean nil)
   (b/copy-dir {:src-dirs ["resources"], :target-dir class-dir})
+  (spit (str class-dir "/version.edn") (pr-str (assoc version :version version-str)))
   (b/copy-file {:src "cmd/logback.xml", :target (str class-dir "/logback.xml")})
   (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "LICENSE"])})
-  (b/compile-clj {:basis        uber-basis
+  (b/compile-clj {:basis        @uber-basis
                   :src-dirs     ["src" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]
                   :compile-opts {:elide-meta     [:doc :added]
@@ -108,7 +111,7 @@
                   :class-dir    class-dir})
   (b/uber {:class-dir class-dir
            :uber-file out
-           :basis     uber-basis
+           :basis     @uber-basis
            :main      'com.eldrix.hermes.cmd.core}))
 
 (defn release
@@ -119,6 +122,6 @@
   (println "Deploying release to GitHub")
   (gh/release-artifact {:org    "wardle"
                         :repo   "hermes"
-                        :tag    (str "v" version)
+                        :tag    (str "v" version-str)
                         :file   uber-file
                         :sha256 true}))
