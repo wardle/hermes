@@ -15,6 +15,7 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
 * cross-mapping to and from other code systems including ICD-10, Read codes and OPCS
 * support for SNOMED CT compositional grammar (cg) and expression constraint language (ECL) v2.2.
+* a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for use with AI assistants and LLM-based tools
 * optional HL7 FHIR terminology server via [hades](https://github.com/wardle/hades)
 
 It is designed as both a library for embedding into larger applications and as a standalone microservice.
@@ -66,7 +67,8 @@ supports search and autocompletion using the $expand operation.
     - [4. Run a REPL (optional)](#4-run-a-repl-optional)
     - [5. Get status (optional)](#5-get-the-status-of-your-installed-index)
     - [6. Run a HTTP terminology server](#6-run-a-terminology-web-service)
-    - [7. Run a FHIR terminology server](#7-run-a-hl7-fhir-terminology-web-service)
+    - [7. Run a MCP server for AI assistants](#7-run-a-mcp-server-for-ai-assistants)
+    - [8. Run a FHIR terminology server](#8-run-a-hl7-fhir-terminology-web-service)
   - [B. Endpoints for the HTTP server](#b-endpoints-for-the-http-terminology-server)
     - [Get a single concept](#get-a-single-concept-)
     - [Get extended information about a single concept](#get-extended-information-about-a-single-concept)
@@ -833,7 +835,40 @@ Options:
 
 By default, the default locale will be determined by looking at which language reference sets are installed.
 
-#### 7. Run a HL7 FHIR terminology web service
+#### 7. Run a MCP server for AI assistants
+
+Hermes provides a native [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server,
+allowing AI assistants and LLM-based tools to query SNOMED CT directly.
+
+The MCP server communicates via stdio using JSON-RPC 2.0 and exposes tools for
+search, concept lookup, hierarchy navigation, cross-mapping, ECL expansion and more.
+It also provides resources (ECL and concept model guides) and prompts for common
+workflows such as clinical coding and value set construction.
+
+```shell
+java -jar hermes.jar --db snomed.db mcp
+```
+or
+```shell
+clj -M:run --db snomed.db mcp
+```
+
+To use with Claude Desktop, add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "hermes": {
+      "command": "java",
+      "args": ["-jar", "/path/to/hermes.jar", "--db", "/path/to/snomed.db", "mcp"]
+    }
+  }
+}
+```
+
+Use `--locale` to set the default locale for preferred synonyms (e.g. `--locale en-GB`).
+
+#### 8. Run a HL7 FHIR terminology web service
 
 You can use [`hades`](https://github.com/wardle/hades) together with the 
 files you have just created to run a FHIR R4 terminology server.
