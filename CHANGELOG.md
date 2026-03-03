@@ -2,6 +2,22 @@
 
 This log documents significant changes for each release.
 
+
+## [1.4.1520] - 2026-03-03
+
+* Fix CLI 'available' list to work gracefully if user does not have MLDS credentials
+
+## [1.4.1518] - 2026-03-03 
+
+* Minor improvements to MCP server
+* Make MCP tooling, prompts and guides available as a library for in-process usage
+* Require MLDS user credentials to show available distributions MLDS now requires user credentials even to show the available distributions so update CLI to reflect that change
+
+## [1.4.1515] - 2026-03-01
+
+* Add new MCP (model context protocol) server
+* Update dependencies
+
 ## [1.4.1510] - 2026-01-14
 
 * Add `expand*` mutation to graph API returning only preferred descriptions for specified language, suitable for UI and value sets
