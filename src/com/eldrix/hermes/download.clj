@@ -90,9 +90,9 @@
 
 (defn mlds-packages
   "Return all MLDS packages for all members."
-  []
-  (some-> (str mlds-base-url "/api/releasePackages")
-          hc/get
+  [{:keys [username password]}]
+  (some-> (hc/get (str mlds-base-url "/api/releasePackages")
+                  {:basic-auth {:user username :pass (str/trim-newline (slurp (io/file password)))}})
           :body
           (json/read-str :key-fn keyword)))
 
@@ -103,23 +103,24 @@
 (declare download-from-mlds)
 
 (defn available-mlds-distributions
-  ([] (available-mlds-distributions (mlds-packages)))
-  ([packages]
-   (->> packages
-        (map (fn [{package-id :releasePackageId nm :name m :member d :description :as p}]
-               (let [id (make-mlds-id p)]
-                 (merge p {:id   id, :rc (:key m), :desc nm
-                           :spec ::mlds, :f (fn do-download [opts] (download-from-mlds id opts))})))))))
+  [packages]
+  (->> packages
+       (map (fn [{package-id :releasePackageId nm :name m :member d :description :as p}]
+              (let [id (make-mlds-id p)]
+                (merge p {:id   id, :rc (:key m), :desc nm
+                          :spec ::mlds, :f (fn do-download [opts] (download-from-mlds id opts))}))))))
 
 (defn distribution
   "Returns the distribution with the given identifier. Avoids network calls
-  for locally known distributions, but checks online providers if not found."
-  ([id] (distribution id true))
-  ([id local]
-   (let [dists (if local trud-distributions (into trud-distributions (available-mlds-distributions)))
+  for locally known distributions, but checks online providers if not found.
+  Requires opts containing MLDS credentials (:username :password) for MLDS
+  distributions."
+  ([id opts] (distribution id true opts))
+  ([id local opts]
+   (let [dists (if local trud-distributions (into trud-distributions (available-mlds-distributions (mlds-packages opts))))
          available (reduce (fn [acc v] (assoc acc (:id v) v)) {} dists)
          result (get available id)]
-     (if (and (not result) local) (distribution id false) result))))
+     (if (and (not result) local) (distribution id false opts) result))))
 
 (def http-opts
   "Default HTTP client options"
@@ -138,7 +139,7 @@
   [f]
   (let [f' (io/file f)]
     (when (and (.isFile f') (.canRead f'))
-      (try (with-open [_ (ZipFile. f')] true)
+      (try (with-open [_ (ZipFile. f' (java.nio.charset.Charset/forName "IBM437"))] true)
            (catch Exception _ false)))))
 
 (defn download-mlds-release-file
@@ -184,8 +185,8 @@
 
 (defn download-from-mlds
   "Download the MLDS package specified."
-  [package-id {:keys [username password release-date]}]
-  (let [versions (some->> (distribution package-id) :releaseVersions (sort-by :publishedAt) reverse)]
+  [package-id {:keys [username password release-date] :as opts}]
+  (let [versions (some->> (distribution package-id true opts) :releaseVersions (sort-by :publishedAt) reverse)]
     (if (= "list" release-date)
       (pp/print-table [:releaseVersionId :publishedAt] versions)
       (if-let [version (if-not release-date (first versions) ;; use the latest version if not release date specified
@@ -206,7 +207,7 @@
   The parameters will depend on the exact nature of the provider.
   Returns the java.nio.file.Path of the directory containing unzipped files."
   ^Path [nm params]
-  (let [{:keys [f spec]} (distribution nm)
+  (let [{:keys [f spec]} (distribution nm true params)
         list-releases? (= "list" (:release-date params))]
     (when-not f
       (throw (IllegalArgumentException. (str "Unknown provider: " nm))))
@@ -219,15 +220,16 @@
           (when-not list-releases? (log/warn "no files returned" {:provider nm}))))))
 
 (defn print-providers
-  "Placeholder for a more sophisticated future method of printing available
-  providers."
-  []
+  "Print available distributions for automated install. Requires opts
+  containing :username and :password for MLDS authentication."
+  [opts]
   (println "Available distributions for automated 'install':\n")
-  (pp/print-table [:rc :id :desc] (sort-by :id (into trud-distributions (available-mlds-distributions)))))
+  (pp/print-table [:rc :id :desc] (sort-by :id (into trud-distributions (available-mlds-distributions (mlds-packages opts))))))
 
 (comment
-  (available-mlds-distributions)
-  (distribution "ar.mlds/1271898")
+  (def mlds-opts {:username "user" :password "password.txt"})
+  (available-mlds-distributions (mlds-packages mlds-opts))
+  (distribution "ar.mlds/1271898" mlds-opts)
 
   (def api-key (str/trim (slurp "../trud/api-key.txt")))
   (trud/get-releases api-key 101))
