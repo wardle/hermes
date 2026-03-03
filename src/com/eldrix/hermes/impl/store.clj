@@ -254,7 +254,7 @@
   subset is subsumed by another member, choosing the most *specific* concepts. 
   As such, the result will be concepts that have no descendants within that 
   result. If the SNOMED hierarchy is displayed as a tree with the root at the
-  top, then this returns the 'bottom'-most conceots within the set. 
+  top, then this returns the 'bottom'-most concepts within the set.
   
   Also see [[top-leaves]] although that is not performant and is only used for
   testing. 
