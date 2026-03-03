@@ -63,7 +63,7 @@
 (defn install [{:keys [dist] :as opts} _]
   (if-not (seq dist)
     (do (println "No distribution specified. Specify with --dist.")
-        (println "Use 'available --username USER --password FILE' to list distributions."))
+        (println "Use 'available' to list distributions."))
     (try
       (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
@@ -80,11 +80,9 @@
         (log/error (ex-message e))
         (throw e)))))
 
-(defn available [{:keys [dist username password] :as opts} _]
+(defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
-    (do (when-not (and username password)
-          (throw (IllegalArgumentException. "--username and --password are required to list available MLDS distributions")))
-        (download/print-providers opts))
+    (download/print-providers opts)
     (install (assoc opts :release-date "list") [])))
 
 (defn build-index [{:keys [db]} _]

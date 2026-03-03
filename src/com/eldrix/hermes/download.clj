@@ -220,11 +220,20 @@
           (when-not list-releases? (log/warn "no files returned" {:provider nm}))))))
 
 (defn print-providers
-  "Print available distributions for automated install. Requires opts
-  containing :username and :password for MLDS authentication."
+  "Print available distributions for automated install. When opts contains
+  :username and :password, MLDS distributions are included; otherwise only
+  locally-known distributions are shown."
   [opts]
-  (println "Available distributions for automated 'install':\n")
-  (pp/print-table [:rc :id :desc] (sort-by :id (into trud-distributions (available-mlds-distributions (mlds-packages opts))))))
+  (let [mlds (when (and (:username opts) (:password opts))
+               (try (available-mlds-distributions (mlds-packages opts))
+                    (catch Exception e
+                      (log/warn "Could not fetch MLDS distributions:" (ex-message e))
+                      nil)))
+        all (sort-by :id (into trud-distributions mlds))]
+    (println "Available distributions for automated 'install':\n")
+    (pp/print-table [:rc :id :desc] all)
+    (when-not mlds
+      (println "\nNote: MLDS distributions not shown. Use --username and --password to include them."))))
 
 (comment
   (def mlds-opts {:username "user" :password "password.txt"})
