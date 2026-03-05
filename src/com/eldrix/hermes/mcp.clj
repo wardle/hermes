@@ -151,9 +151,7 @@
 
 (defn- tool-synonym [svc {:keys [concept_id accept_language]}]
   (let [lang (hermes/match-locale svc accept_language true)]
-    (for-concept concept_id
-      (fn [id]
-        {:id id :term (:term (hermes/preferred-synonym* svc id lang)) :active (:active (hermes/concept svc id))}))))
+    (for-concept concept_id #(hermes/preferred-synonym* svc % lang))))
 
 (defn- tool-valid-ecl [_svc {:keys [ecl]}]
   {:valid (hermes/valid-ecl? ecl)})
@@ -166,10 +164,7 @@
               (hermes/component-refset-ids svc id))))))
 
 (defn- tool-fully-specified-name [svc {:keys [concept_id accept_language]}]
-  (for-concept concept_id
-    (fn [id]
-      (let [fsn (hermes/fully-specified-name svc id accept_language)]
-        {:id id :term (:term fsn) :active (:active (hermes/concept svc id))}))))
+  (for-concept concept_id #(hermes/fully-specified-name svc % accept_language)))
 
 (defn- tool-descriptions [svc {:keys [concept_id]}]
   (for-concept concept_id #(hermes/descriptions svc %)))
@@ -214,7 +209,7 @@
 
 (def ^:private tools*
   [{:name        "search"
-    :description "Search for SNOMED CT concepts by clinical term. Results are ranked by relevance and returned even when not all tokens match. Best for identifying which concept a clinical term refers to. Use 'constraint' to limit by ECL expression — e.g., query='heart attack', constraint='<404684003' to search within clinical findings only. Use 'autocomplete' instead when building up a search interactively token by token."
+    :description "Ranked search for SNOMED CT concepts by clinical term. Returns results even when not all tokens match."
     :inputSchema {:type       "object"
                   :properties {:query           {:type "string" :description "Search text"}
                                :constraint      {:type "string" :description "SNOMED ECL constraint expression to filter results"}
@@ -223,7 +218,7 @@
                   :required   ["query"]}
     :handler     tool-search}
    {:name        "autocomplete"
-    :description "Search for SNOMED CT concepts with autocompletion semantics — all tokens must match and results are suitable for interactive type-ahead. Use 'constraint' to limit by ECL. Use 'search' instead when looking for the best match for a complete clinical term."
+    :description "Autocomplete search for SNOMED CT concepts. All tokens must match. Suitable for interactive type-ahead."
     :inputSchema {:type       "object"
                   :properties {:query           {:type "string" :description "Search text"}
                                :constraint      {:type "string" :description "SNOMED ECL constraint expression to filter results"}
@@ -234,27 +229,27 @@
                   :required   ["query"]}
     :handler     tool-autocomplete}
    {:name        "concept"
-    :description "Get a SNOMED CT concept record: id, effectiveTime, active, moduleId, and definitionStatusId. A lightweight way to check whether a concept exists and its active/inactive status. Use 'extended_concept' for the full picture including descriptions and relationships. Accepts a single concept_id or an array."
+    :description "Get a SNOMED CT concept record: id, effectiveTime, active, moduleId, definitionStatusId."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema}
                   :required   ["concept_id"]}
     :handler     tool-concept}
    {:name        "extended_concept"
-    :description "Get a SNOMED CT concept with all of its descriptions, parent/child relationships, concrete values, and reference set memberships. Includes the preferred synonym. Use 'concept' for just the concept record. Accepts a single concept_id or an array."
+    :description "Get a SNOMED CT concept with descriptions, parent/child relationships, concrete values, reference set memberships, and preferred synonym."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-extended-concept}
    {:name        "properties"
-    :description "Get the defining properties (attributes/relationships) of a SNOMED CT concept, with human-readable labels. For example, a drug's active ingredients, dose form, and strength; or a clinical finding's associated morphology and finding site. Set 'expand' to true to include transitive relationships. Accepts a single concept_id or an array."
+    :description "Get the defining properties (attributes/relationships) of a SNOMED CT concept with human-readable labels."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema
                                :expand     {:type "boolean" :description "Include transitive relationships (default false)"}}
                   :required   ["concept_id"]}
     :handler     tool-properties}
    {:name        "expand_ecl"
-    :description "Expand a SNOMED CT Expression Constraint Language expression to its matching concepts. Common patterns: '<73211009' for all types of diabetes (descendants), '<<73211009' for diabetes including the concept itself (self and descendants), '>73211009' for ancestors. Attribute refinement: '<404684003: 363698007 = <<39057004' for clinical findings with a pulmonary finding site. Set: '^refset_id' for reference set members. Set 'include_historic' to true to include now-inactive concepts. Read resource 'hermes://guides/ecl' for full ECL syntax reference."
+    :description "Expand an ECL expression to matching concepts. Supports ECL v2.2 — see resource 'hermes://guides/ecl'."
     :inputSchema {:type       "object"
                   :properties {:ecl              {:type "string" :description "ECL expression to expand"}
                                :max_hits         {:type "integer" :description "Maximum number of results (unlimited if omitted)"}
@@ -263,119 +258,119 @@
                   :required   ["ecl"]}
     :handler     tool-expand-ecl}
    {:name        "transitive_synonyms"
-    :description "Get all synonyms (terms) used for a concept and all of its descendants. Useful for understanding the full vocabulary of a clinical domain — e.g., all the ways any type of diabetes might be referred to. You must provide either a concept_id or an ECL expression."
+    :description "Get all synonyms (terms) for a concept and all of its descendants. Provide either concept_id or ecl."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema
                                :ecl        {:type "string" :description "ECL expression selecting concepts"}}}
     :handler     tool-transitive-synonyms}
    {:name        "map_to"
-    :description "Map a SNOMED CT concept to a target code system (e.g. ICD-10). Returns reference set items containing the target codes. If the concept is not directly mapped, walks up the hierarchy to find the nearest mapped ancestor. Use 'server_info' to discover available map reference sets. Accepts a single concept_id or an array."
+    :description "Map a SNOMED CT concept to a target code system. If not directly mapped, walks up the hierarchy to the nearest mapped ancestor."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema
                                :refset_id  {:type "integer" :description "Reference set identifier for the target map (e.g. 999002271000000101 for UK ICD-10)"}}
                   :required   ["concept_id" "refset_id"]}
     :handler     tool-map-to}
    {:name        "map_from"
-    :description "Reverse map from a target code system code (e.g. an ICD-10 code) back to SNOMED CT concepts. Returns reference set items for matching concepts. Use 'server_info' to discover available map reference sets."
+    :description "Reverse map from a target code system code back to SNOMED CT concepts."
     :inputSchema {:type       "object"
                   :properties {:refset_id {:type "integer" :description "Reference set identifier for the map"}
                                :code      {:type "string" :description "Code in the target code system"}}
                   :required   ["refset_id" "code"]}
     :handler     tool-map-from}
    {:name        "map_into"
-    :description "Classify SNOMED CT concepts into a target set by walking the hierarchy. For each source concept, finds the most specific ancestor(s) present in the target. The target can be an ECL expression (e.g. '118940003 OR 50043002' for broad disease categories) or a reference set identifier. Useful for reducing granularity for analytics or categorisation. Accepts a single concept_id or an array."
+    :description "Classify concepts into a target set by walking the hierarchy to find the most specific ancestor(s) in the target."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema
                                :target     {:type "string" :description "ECL expression or reference set identifier defining the target set"}}
                   :required   ["concept_id" "target"]}
     :handler     tool-map-into}
    {:name        "intersect_ecl"
-    :description "From a list of SNOMED CT concept identifiers, return only those that match the given ECL expression. For example, given a patient's list of diagnosis concept IDs, use ecl='<<73211009' to find which are types of diabetes, or ecl='<404684003: 363698007 = <<39057004' to find which have a pulmonary finding site. Accepts a single concept_id or an array."
+    :description "Filter a list of SNOMED CT concept identifiers to only those matching a given ECL expression."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema
                                :ecl        {:type "string" :description "ECL expression to filter by"}}
                   :required   ["concept_id" "ecl"]}
     :handler     tool-intersect-ecl}
    {:name        "subsumed_by"
-    :description "Check whether SNOMED CT concept(s) are subsumed by (i.e. are a kind of) another concept or concepts. For example, check whether 'multiple sclerosis' is a kind of 'demyelinating disease of the CNS'. Accepts a single concept_id or an array of concept_ids, and a single subsumer_id or an array of subsumer_ids. When arrays are given, returns true if ANY concept is subsumed by ANY subsumer."
+    :description "Check whether concept(s) are subsumed by (i.e. a kind of) another concept(s). With arrays, returns true if any pair matches."
     :inputSchema {:type       "object"
                   :properties {:concept_id  concept-id-schema
                                :subsumer_id (assoc concept-id-schema :description "SNOMED CT concept identifier(s) of the potential parent/ancestor(s)")}
                   :required   ["concept_id" "subsumer_id"]}
     :handler     tool-subsumed-by}
    {:name        "paths_to_root"
-    :description "Get all paths from a concept to the SNOMED CT root, showing the full ontological hierarchy. Each path is a sequence of concept identifiers from the concept up to the root. Invaluable for understanding what kind of thing a concept is — e.g., seeing that 'appendicectomy' is a 'procedure on digestive system' which is a 'surgical procedure' which is a 'procedure'. Accepts a single concept_id or an array."
+    :description "Get all IS-A paths from a concept to the SNOMED CT root."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-paths-to-root}
    {:name        "historical"
-    :description "Get historical associations for an inactive or deprecated SNOMED CT concept. Returns successor concepts grouped by association type (SAME AS, POSSIBLY EQUIVALENT TO, etc.). Use when a concept identifier is inactive and you need to find its current replacement(s). Accepts a single concept_id or an array."
+    :description "Get historical associations for an inactive concept — successor concepts grouped by association type (SAME AS, POSSIBLY EQUIVALENT TO, etc.)."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-historical}
    {:name        "synonym"
-    :description "Get the preferred synonym and active status for one or more SNOMED CT concepts. A lightweight alternative to 'concept' when you only need the human-readable name. Accepts a single concept_id or an array."
+    :description "Get the preferred synonym for SNOMED CT concept(s)."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-synonym}
    {:name        "valid_ecl"
-    :description "Check whether a SNOMED CT Expression Constraint Language expression is syntactically valid, without executing it. Use before 'expand_ecl' to verify your ECL is well-formed. Read resource 'hermes://guides/ecl' for ECL syntax reference."
+    :description "Check whether an ECL expression is syntactically valid without executing it."
     :inputSchema {:type       "object"
                   :properties {:ecl {:type "string" :description "ECL expression to validate"}}
                   :required   ["ecl"]}
     :handler     tool-valid-ecl}
    {:name        "membership"
-    :description "Get the reference set identifiers to which a concept belongs, with human-readable names. Useful for understanding a concept's context — is it in the ICD-10 map? A particular drug subset? An assessment scale? Accepts a single concept_id or an array."
+    :description "Get the reference sets to which a concept belongs, with human-readable names."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-membership}
    {:name        "fully_specified_name"
-    :description "Get the fully specified name (FSN) for a SNOMED CT concept. The FSN includes a semantic tag in parentheses that disambiguates the concept's meaning — e.g., 'Multiple sclerosis (disorder)', 'Cold (qualifier value)', 'Cold (finding)'. The semantic tag reveals what kind of entity the concept is: disorder, procedure, substance, body structure, finding, etc. Invaluable for disambiguation when a clinical term is ambiguous. Accepts a single concept_id or an array."
+    :description "Get the fully specified name (FSN) for a SNOMED CT concept, including its semantic tag (e.g. 'disorder', 'finding')."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-fully-specified-name}
    {:name        "descriptions"
-    :description "Get all descriptions (terms) for a SNOMED CT concept — including fully specified names, synonyms, and definitions in all available languages. Unlike 'synonym' (which returns only the single preferred term), this returns every term that can refer to the concept. Useful for entity linking, understanding all the ways a concept may appear in clinical text, or finding translations. Accepts a single concept_id or an array."
+    :description "Get all descriptions (terms) for a SNOMED CT concept — FSNs, synonyms, and definitions in all languages."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema}
                   :required   ["concept_id"]}
     :handler     tool-descriptions}
    {:name        "source_historical"
-    :description "Find all inactive/deprecated concepts that historically pointed to a given active concept. The reverse of 'historical': given a current active concept, discover which old concept identifiers were retired and mapped to it (via SAME AS, POSSIBLY EQUIVALENT TO, etc.). Useful for understanding the history of a concept or building backward-compatible lookups that accept legacy codes. Accepts a single concept_id or an array."
+    :description "Find inactive concepts that were historically mapped to a given active concept."
     :inputSchema {:type       "object"
                   :properties {:concept_id      concept-id-schema
                                :accept_language accept-language-schema}
                   :required   ["concept_id"]}
     :handler     tool-source-historical}
    {:name        "with_historical"
-    :description "Return a set of SNOMED CT concept identifiers that includes the input concepts together with all historical associations — both predecessors (inactive concepts that map to these) and successors (active concepts that inactive ones map to). Essential for building robust value sets that work across SNOMED CT release versions. For example, expanding a list of diagnoses to catch records coded with now-retired concept IDs. Accepts a single concept_id or an array."
+    :description "Expand concept(s) to include all historical associations — both predecessors and successors."
     :inputSchema {:type       "object"
                   :properties {:concept_id concept-id-schema}
                   :required   ["concept_id"]}
     :handler     tool-with-historical}
    {:name        "refset_members"
-    :description "List all member concept identifiers of a given reference set. For example, get all concepts in a particular drug subset or clinical finding list. Returns a set of SNOMED CT concept identifiers. Use 'refsets' or 'server_info' to discover available reference set identifiers."
+    :description "List all member concept identifiers of a reference set."
     :inputSchema {:type       "object"
                   :properties {:refset_id {:type "integer" :description "Reference set identifier"}}
                   :required   ["refset_id"]}
     :handler     tool-refset-members}
    {:name        "server_info"
-    :description "Get information about the installed SNOMED CT content: which releases are loaded, which locales are supported, and which reference sets are available (with their names). Use this to discover map reference set identifiers for 'map_to' and 'map_from'."
+    :description "Get installed SNOMED CT releases, supported locales, and available reference sets."
     :inputSchema {:type       "object"
                   :properties {}}
     :handler     tool-server-info}
    {:name        "refsets"
-    :description "List all installed reference sets, grouped by type (e.g. simple map, language, association). Each group includes the type concept name and all member reference sets with their names. Useful for discovering what reference sets are available and understanding their categories."
+    :description "List all installed reference sets, grouped by type (simple map, language, association, etc.)."
     :inputSchema {:type       "object"
                   :properties {}}
     :handler     tool-refsets}])
@@ -398,40 +393,139 @@
 (def ^:private ecl-guide
   "# ECL Quick Reference — SNOMED CT Expression Constraint Language
 
-## Basic Operators
-  <concept_id       Descendants (excluding self)
-  <<concept_id      Self and descendants
-  >concept_id       Ancestors (excluding self)
-  >>concept_id      Self and ancestors
-  concept_id        Exactly this concept (self)
-  *                 Any concept
+Hermes supports ECL through v2.2 (November 2023). All keywords are case-insensitive.
 
-## Logical Operators
-  expr1 AND expr2   Intersection — concepts matching both
-  expr1 OR expr2    Union — concepts matching either
-  expr1 MINUS expr2 Difference — concepts in first but not second
+## 1. Hierarchy Operators
+  <id         Descendants (excluding self)
+  <<id        Self and descendants
+  <!id        Direct children only
+  <<!id       Self and direct children
+  >id         Ancestors (excluding self)
+  >>id        Self and ancestors
+  >!id        Direct parents only
+  >>!id       Self and direct parents
+  id          Exactly this concept (self)
+  *           Any concept (wildcard)
 
-## Attribute Constraints
-  <404684003 |Clinical finding|: 363698007 |Finding site| = <<39057004 |Pulmonary structure|
-  → All clinical findings with a finding site in the pulmonary structure hierarchy
+## 2. Logical Operators
+  expr AND expr     Intersection — concepts matching both
+  expr OR expr      Union — concepts matching either
+  expr MINUS expr   Difference — concepts in first but not second
+  When mixing operators, use parentheses: (A AND B) OR C
 
-  <373873005 |Pharmaceutical / biologic product|: 127489000 |Has active ingredient| = <<387207008 |Ibuprofen|
-  → All drugs containing ibuprofen or a subtype
+## 3. Member Of (Reference Sets)
+  ^refset_id                     Members of a reference set
+  ^(refset_id1 OR refset_id2)   Members of multiple reference sets
+  ^<<refset_id                  Members of refset or its descendant refsets
+  ^*                            Member of any reference set
+  ^[referencedComponentId] id   Return specific field(s) from refset rows
 
-## Attribute Groups
+## 4. Attribute Refinement
+Refinements follow a colon (:) and constrain defining relationships.
+
+  <<404684003: 363698007 |Finding site| = <<39057004 |Pulmonary structure|
+  → Clinical findings with a pulmonary finding site
+
+  Comparison operators for concept values: =, !=
+  Comparison operators for concrete values: =, !=, <, <=, >, >=
+
+  Conjunction (AND) within refinements uses a comma:
+  <<404684003: 363698007 = <<39057004, 116676008 = <<415582006
+
+  Disjunction uses OR:
+  <<404684003: 116676008 = <<55641003 OR 42752001 = <<22298006
+
+  Constraint operators on attribute names:
+  <<404684003: <<47429007 |Associated with| = <<267038008 |Edema|
+  → Matches any subtype of 'Associated with' as the attribute
+
+  Attribute value set (disjunction on value side):
+  <<404684003: 246075003 = (<373873005 OR <105590001)
+
+  Nested expression constraints as attribute values:
+  <<404684003: 363698007 = (<<39057004: 272741003 = 7771000 |Left|)
+
+## 5. Attribute Groups
   { attr1 = val1, attr2 = val2 }
-  → Attributes within the same group (co-occurring in the same relationship group)
+  → Attributes must co-occur within the same relationship group
 
-## Cardinality
-  [0..0] 363698007 |Finding site| = *
-  → Concepts with NO finding site defined
+  Multiple groups:
+  <<404684003: { 363698007 = <<39057004, 116676008 = <<415582006 }
+               OR { 363698007 = <<53085002, 116676008 = <<56246009 }
 
-  [1..1] 127489000 |Has active ingredient| = *
-  → Concepts with exactly one active ingredient
+## 6. Cardinality  [min..max]
+  [0..0] attr = *      Attribute must be absent
+  [1..1] attr = *      Exactly one occurrence
+  [1..3] attr = val    Between 1 and 3 occurrences
+  [2..*] attr = val    Two or more
 
-## Refinement
-  <<404684003: 116676008 |Associated morphology| = <<23583003 |Inflammation|
-  → Clinical findings with inflammatory morphology
+  On groups: [1..3] { 127489000 = <105590001 }
+  Default (when omitted) is [1..*]
+
+## 7. Concrete Values
+  Use # prefix for numeric values, quotes for strings:
+  <27658006: 1142135004 |Has presentation strength numerator value| >= #250
+  <concept: attr = #5.5          (decimal)
+  <concept: attr = \"some text\"   (string)
+
+## 8. Reverse Flag
+  R reverses attribute traversal — 'what concepts point to this one?'
+  <105590001: [3..3] R 127489000 = *
+  → Substances that are the active ingredient of exactly 3 products
+
+## 9. Dot Notation (Attribute Value Navigation)
+  Retrieves target values of an attribute for a set of concepts.
+  <125605004 |Fracture of bone| . 363698007 |Finding site|
+  → Returns all body structures that are finding sites of fracture subtypes
+
+  Chaining (multiple dots):
+  <125605004 . 363698007 . 272741003 |Laterality|
+  → Retrieves finding sites, then retrieves their laterality values
+
+## 10. Filters  {{ }}
+  Filters restrict results by metadata. Multiple filter blocks can be chained.
+
+### Description Filters (default, or {{ D ... }})
+  {{ term = \"heart attack\" }}                       Word-prefix-any-order match
+  {{ term = wild:\"cardi*opathy\" }}                  Wildcard matching
+  {{ term = (\"heart\" \"cardiac\") }}                  Term set (OR logic)
+  {{ term != \"fracture\" }}                          Exclude matching terms
+  {{ type = syn }}                                  Synonyms only (also: fsn, def)
+  {{ language = en }}                               Language filter
+  {{ dialect = en-us }}                             Dialect filter
+  {{ dialect = en-us (prefer) }}                    Preferred terms only
+  {{ dialect = (en-gb (prefer) en-us (accept)) }}   Multiple dialects
+  {{ D active = 1 }}                                Active descriptions only
+  {{ D moduleId = 731000124108 }}                   By module
+  {{ D effectiveTime >= \"20210131\" }}                By effective time
+
+### Concept Filters {{ C ... }}
+  {{ C definitionStatus = defined }}    Fully defined concepts only (also: primitive)
+  {{ C moduleId = 900000000000207008 }} By module
+  {{ C effectiveTime >= \"20210131\" }}   By effective time
+  {{ C active = 1 }}                    Active concepts only
+
+### Member Filters {{ M ... }} (with ^ memberOf)
+  ^ 447562003 {{ M mapTarget = wild:\"J45*\" }}              ICD-10 codes starting J45
+  ^ 447562003 {{ M mapGroup = #2, mapPriority = #1 }}       By map group and priority
+  ^ 447562003 {{ M mapTarget = \"J45.9\" }}                   Specific map target
+
+  Combining filters: <<404684003 {{ term = \"heart\" }} {{ C active = 1 }}
+
+## 11. History Supplements  {{ + HISTORY-... }}
+  Augment results with inactive concepts via historical associations.
+  <<306206005 {{ + HISTORY-MIN }}    SAME AS associations only (high precision)
+  <<306206005 {{ + HISTORY-MOD }}    + POSSIBLY EQUIVALENT TO (balanced)
+  <<306206005 {{ + HISTORY-MAX }}    All historical associations (high recall)
+  <<306206005 {{ + HISTORY }}        Server default (equivalent to MAX)
+
+## 12. Top / Bottom (ECL v2.2)
+  !!< (<<73211009)    Leaf concepts — no descendants in the result set
+  !!> (<<73211009)    Root concepts — no ancestors in the result set
+  Parentheses around the subexpression are required.
+
+## 13. Comments
+  /* This is a comment */ <<73211009
 
 ## Common Patterns
 
@@ -445,19 +539,35 @@
   <<404684003: 363698007 = <<[body_site_concept_id]
 
 ### Procedures on a body site
-  <<71388002 |Procedure|: 363704007 |Procedure site| = <<[body_site_concept_id]
+  <<71388002: 363704007 |Procedure site| = <<[body_site_concept_id]
 
 ### Descendants excluding certain subtypes
   <<73211009 MINUS <<46635009 |Type 1 diabetes|
 
-### Members of a reference set
-  ^[refset_id]
+### Clinical findings with a specific morphology at a specific site
+  <<404684003: { 363698007 = <<[body_site], 116676008 = <<[morphology] }
+
+### Primitive concepts in a hierarchy (candidates for further modelling)
+  <404684003 {{ C definitionStatus = primitive }}
+
+### Concepts with preferred terms matching a word in a specific dialect
+  <<404684003 {{ term = \"heart\", dialect = en-us (prefer) }}
+
+### ICD-10 map entries matching a code pattern
+  ^447562003 {{ M mapTarget = wild:\"I2*\" }}
+
+### Value set with historical coverage
+  <<73211009 {{ + HISTORY-MOD }}
+
+### Most specific (leaf) concepts in a hierarchy
+  !!< (<<73211009)
 
 ## Tips
 - Concept IDs can be written with or without pipe-delimited terms: 73211009 or 73211009 |Diabetes mellitus|
-- Use 'valid_ecl' to check syntax before 'expand_ecl'
 - Use 'expand_ecl' with 'max_hits' to preview large result sets
-- Use 'intersect_ecl' to test whether specific concepts match an expression")
+- Use 'valid_ecl' to check syntax when building ECL for storage or sharing without expanding
+- Use 'intersect_ecl' to test whether specific concepts match an expression
+- Alternate identifiers (e.g. LOINC#\"code\") are NOT supported")
 
 (def ^:private concept-model-guide
   "# SNOMED CT Concept Model — Quick Reference
@@ -537,7 +647,7 @@ Use 'server_info' to find specific reference set IDs.
 (def ^:private resources*
   [{:uri         "hermes://guides/ecl"
     :name        "ECL Quick Reference"
-    :description "SNOMED CT Expression Constraint Language (ECL) syntax cheat sheet with common patterns and examples"
+    :description "SNOMED CT Expression Constraint Language (ECL) v2.2 reference: hierarchy operators, refinements, dot notation, filters, history supplements, cardinality, concrete values, and common patterns"
     :mimeType    "text/plain"
     :content     ecl-guide}
    {:uri         "hermes://guides/concept-model"
@@ -578,8 +688,8 @@ Use 'server_info' to find specific reference set IDs.
                                           ":\n\n\"" clinical_term "\"\n\n"
                                           "Please follow these steps:\n"
                                           "1. Use 'search' to find candidate SNOMED CT concepts for this term\n"
-                                          "2. Review the results and pick the best match, using 'fully_specified_name' to check the semantic tag if the term is ambiguous\n"
-                                          "3. Use 'extended_concept' or 'properties' to verify the concept is correct by checking its defining attributes\n"
+                                          "2. For the best match(es), use 'extended_concept' to verify — check the fully specified name's semantic tag for disambiguation, and review the defining relationships\n"
+                                          "3. Use 'properties' if you need more detail on the concept's defining attributes\n"
                                           "4. Use 'paths_to_root' to confirm the concept sits in the right part of the hierarchy\n"
                                           (when target_refset_id
                                             (str "5. Use 'map_to' with refset_id " target_refset_id " to find the corresponding code in the target system\n"
@@ -594,13 +704,10 @@ Use 'server_info' to find specific reference set IDs.
                    [{:role "user"
                      :content {:type "text"
                                :text (str "Please explore SNOMED CT concept " concept_id " in detail:\n\n"
-                                          "1. Use 'fully_specified_name' to get the full name with semantic tag\n"
-                                          "2. Use 'synonym' to get the preferred term\n"
-                                          "3. Use 'descriptions' to see all available terms/synonyms\n"
-                                          "4. Use 'properties' to see the defining attributes\n"
-                                          "5. Use 'paths_to_root' to see where it sits in the hierarchy\n"
-                                          "6. Use 'membership' to see which reference sets it belongs to\n"
-                                          "7. Check if it's active; if not, use 'historical' to find its replacement(s)\n"
+                                          "1. Use 'extended_concept' to get the full concept with descriptions, relationships, and reference set memberships — this includes the fully specified name, preferred synonym, all terms, parent/child relationships, and refset IDs\n"
+                                          "2. Use 'properties' to see the defining attributes (e.g., finding site, associated morphology, active ingredients)\n"
+                                          "3. Use 'paths_to_root' to see where it sits in the full hierarchy\n"
+                                          "4. If the concept is inactive, use 'historical' to find its replacement(s)\n"
                                           "\nSummarise what kind of concept this is, its key characteristics, and how it relates to the broader SNOMED CT hierarchy.")}}])}
    {:name        "value_set_construction"
     :description "Guide through building a SNOMED CT value set (a defined subset of concepts) using ECL expressions. Covers choosing the right ancestor concept, applying attribute filters, and validating the result set."
@@ -615,12 +722,14 @@ Use 'server_info' to find specific reference set IDs.
                                           "1. Use 'search' to find the most appropriate ancestor concept for this domain\n"
                                           "2. Use 'fully_specified_name' to verify it has the right semantic tag\n"
                                           "3. Draft an ECL expression (e.g., <<concept_id for all descendants)\n"
-                                          "4. Use 'valid_ecl' to verify the syntax\n"
-                                          "5. Use 'expand_ecl' with a max_hits limit to preview the results\n"
-                                          "6. If too broad, refine using attribute constraints (e.g., filtering by finding site or morphology)\n"
-                                          "7. If you need to exclude certain subtypes, use MINUS\n"
-                                          "8. Present the final ECL expression and a sample of matching concepts\n"
-                                          "\nExplain your reasoning at each refinement step.")}}])}])
+                                          "4. Use 'expand_ecl' with a max_hits limit to preview the results\n"
+                                          "5. If too broad, refine using:\n"
+                                          "   - Attribute constraints (e.g., filtering by finding site or morphology)\n"
+                                          "   - MINUS to exclude certain subtypes\n"
+                                          "   - Filters (e.g., {{ C definitionStatus = defined }} or {{ term = \"...\", dialect = en-us (prefer) }})\n"
+                                          "6. If the value set needs to match historical/legacy coded data, add a history supplement: {{ + HISTORY-MIN }} for high precision or {{ + HISTORY-MOD }} for balanced recall\n"
+                                          "7. Present the final ECL expression and a sample of matching concepts\n"
+                                          "\nRead 'hermes://guides/ecl' for full ECL syntax. Explain your reasoning at each refinement step.")}}])}])
 
 (defn prompts
   "Return prompt definitions for the wire — :name, :description and :arguments only."
