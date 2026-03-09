@@ -18,6 +18,7 @@
             [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.members :as members]
+            [com.eldrix.hermes.impl.mrcm :as mrcm]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
@@ -1031,76 +1032,15 @@
   [pred coll]
   (first (keep-indexed (fn [idx v] (when (pred v) [idx v])) coll)))
 
-(defn ^:private mrcm-refset-ids
-  "Return a set of MRCM reference ids, optionally of the specified type."
-  ([{:keys [store memberSearcher]}]
-   (into #{}
-         (comp (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
-               (map :mrcmRuleRefsetId))
-         (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet))))
-  ([{:keys [store memberSearcher]} type-id]
-   (into #{}
-         (comp (mapcat #(store/component-refset-items store % snomed/MRCMModuleScopeReferenceSet))
-               (map :mrcmRuleRefsetId)
-               (filter #(store/is-a? store % type-id)))
-         (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet)))))
-
 (s/fdef mrcm-domains
   :args (s/cat :svc ::svc)
   :ret (s/coll-of :info.snomed/MRCMDomainRefset))
 (defn mrcm-domains
   "Return a sequence of MRCM Domain reference set items for the given service.
   Each item essentially represents an 'MRCM domain'. "
-  [{:keys [store memberSearcher] :as svc}]                  ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
-  (let [refset-ids (mrcm-refset-ids svc snomed/MRCMDomainReferenceSet)]
-    (->> (members/search memberSearcher (members/q-refset-ids refset-ids)) ;; all members of the given reference sets
-         (mapcat #(mapcat (fn [refset-id] (store/component-refset-items store % refset-id)) refset-ids)))))
+  [svc]
+  (mrcm/domains svc))
 
-(defn ^:private mrcm-domain-fn
-  "Create a function that can provide a set of domains for any given concept."
-  [{:keys [searcher] :as svc}]                              ;; this deliberately accepts a map as it will usually be used *before* a service is fully initialised
-  (let [domains (->> (mrcm-domains svc)                     ;; for each domain, create a constraint query
-                     (reduce (fn [acc v] (assoc acc (:referencedComponentId v) (ecl/parse svc (:domainConstraint v)))) {}))]
-    (fn [concept-id]
-      (let [q1 (search/q-self concept-id)]
-        (reduce-kv (fn [acc domain-id q2]
-                     (if (seq (search/do-query-for-concept-ids searcher (search/q-and [q1 q2])))
-                       (conj acc domain-id) acc)) #{} domains)))))
-
-(defn ^:private concept-domains
-  "Return a set of concept ids representing the domains for the given concept."
-  [^Svc svc concept-id]
-  ((.-mrcmDomainFn svc) concept-id))
-
-(defn ^:private attribute-domain
-  "Returns a single MRCMAttributeDomainRefsetItem for the attribute specified
-  in the context of the concept specified.
-
-  Some attributes can be used in multiple domains, and so there may be multiple
-  reference set items for the same attribute. Iff there are multiple items,
-  the domain of the concept is determined and used to return the correct item
-  in context."
-  [svc concept-id attribute-concept-id]
-  (let [items (->> (mrcm-refset-ids svc snomed/MRCMAttributeDomainReferenceSet)
-                   (mapcat #(component-refset-items svc attribute-concept-id %))
-                   (filter :active))]
-    (case (count items)
-      0 nil
-      1 (first items)
-      (let [domain-ids (concept-domains svc concept-id)]    ;; only lookup concept's domains if we really need to
-        (->> items
-             (filter #(domain-ids (:domainId %)))
-             (sort-by :effectiveTime)
-             last)))))
-
-(defn ^:private attribute-range
-  "Return a valid attribute range for the concept specified."
-  [{:keys [store] :as svc} concept-id]
-  (->> (mrcm-refset-ids svc snomed/MRCMAttributeRangeReferenceSet)
-       (mapcat #(store/component-refset-items store concept-id %))
-       (filter :active)
-       (sort-by :effectiveTime)
-       last))
 
 (defn ^:private -fix-property-values
   "Given a map of attributes and values (props), unwrap any values for
@@ -1111,7 +1051,7 @@
     (reduce-kv
      (fn [acc k v]
        (assoc acc k
-              (let [ad (when (= 1 (count v)) (attribute-domain svc concept-id k))]
+              (let [ad (when (= 1 (count v)) (mrcm/attribute-domain svc concept-id k))]
                 (if (and ad
                          (or (not only-concrete) (string? (first v)))
                          (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
@@ -1289,7 +1229,7 @@
                    (assoc manifest :releases (map :term (store/release-information st))
                           :default-languages (map #(:term (store/preferred-synonym st % lang-refset-ids)) lang-refset-ids)
                           :installed-locales (lang/available-locales st)))))
-     (map->Svc (assoc svc :mrcmDomainFn (mrcm-domain-fn svc))))))
+     (map->Svc (assoc svc :mrcmDomainFn (mrcm/make-domain-fn svc))))))
 
 (defn close [^Closeable svc]
   (.close svc))
