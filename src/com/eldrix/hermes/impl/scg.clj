@@ -1,4 +1,4 @@
-; Copyright (c) 2020-2023 Mark Wardle and Eldrix Ltd
+; Copyright (c) 2020-2026 Mark Wardle and Eldrix Ltd
 ;
 ; This program and the accompanying materials are made available under the
 ; terms of the Eclipse Public License 2.0 which is available at
@@ -9,126 +9,243 @@
 (ns ^:no-doc com.eldrix.hermes.impl.scg
   "Support for SNOMED CT compositional grammar.
   See http://snomed.org/scg"
-  (:require [clojure.data.zip.xml :as zx]
-            [clojure.edn :as edn]
+  (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.walk :as walk]
-            [clojure.zip :as zip]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.rf2]
+            [com.eldrix.hermes.snomed :as snomed]
             [instaparse.core :as insta]))
 
-(def cg-parser
-  (insta/parser (io/resource "cg-v2.4.abnf") :input-format :abnf :output-format :enlive))
+(def ^:private cg-parser
+  (insta/parser (io/resource "cg-v2.4.abnf") :input-format :abnf))
 
-(defn- parse-sctId [sctId]
-  (edn/read-string (zx/xml1-> sctId zx/text)))
+(defn- syntax-literal?
+  "Returns true for single-character grammar syntax literals."
+  [x]
+  (and (string? x) (contains? #{"|" "+" ":" "=" "," "{" "}" "(" ")" "#"} x)))
 
-(defn- parse-conceptId [conceptId]
-  (zx/xml1-> conceptId :sctId parse-sctId))
+(defn- remove-noise
+  "Remove nil values and syntax literal strings from transformed args."
+  [args]
+  (remove #(or (nil? %) (syntax-literal? %)) args))
 
-(defn- parse-concept-reference [cr]
-  (let [conceptId (zx/xml1-> cr :conceptId parse-conceptId)
-        term (zx/xml1-> cr :term zx/text)]
-    (merge {:conceptId conceptId}
-           (when term {:term term}))))
-
-(defn- parse-focus-concept [focus-concept]
-  (zx/xml-> focus-concept :conceptReference parse-concept-reference))
-
-(defn- parse-attribute-name
-  "attributeName = conceptReference"
-  [attribute-name]
-  (zx/xml1-> attribute-name :conceptReference parse-concept-reference))
-
-(declare parse-subexpression)
-
-(defn- parse-expression-value
-  "expressionValue = conceptReference / '(' ws subExpression ws ')'"
-  [expression-value]
-  (or (zx/xml1-> expression-value :conceptReference parse-concept-reference)
-      (zx/xml1-> expression-value :subExpression parse-subexpression)))
-
-(defn- parse-attribute-value
-  "attributeValue = expressionValue / QM stringValue QM / '#' numericValue / booleanValue"
-  [attribute-value]
-  (let [expressionValue (zx/xml1-> attribute-value :expressionValue parse-expression-value)
-        stringValue (zx/xml1-> attribute-value :stringValue zx/text)
-        numericValue (zx/xml1-> attribute-value :numericValue zx/text)
-        booleanValue (zx/xml1-> attribute-value :booleanValue zx/text)]
-    (cond
-      expressionValue expressionValue
-      stringValue stringValue
-      numericValue (edn/read-string numericValue)
-      booleanValue [(Boolean/parseBoolean booleanValue)]))) ;; hide boolean in vector so we don't break zipper
-
-(defn- parse-attribute
-  "attribute = attributeName ws \"=\" ws attributeValue"
-  [attribute]
-  {(zx/xml1-> attribute :attributeName parse-attribute-name)
-   (zx/xml1-> attribute :attributeValue parse-attribute-value)})
-
-(defn- parse-attribute-set
-  "attributeSet = attribute *(ws \",\" ws attribute)"
-  [attribute-set]
-  (apply merge (zx/xml-> attribute-set :attribute parse-attribute)))
-
-(defn- parse-attribute-group
-  "attributeGroup = '{' ws attributeSet ws '}'"
-  [attribute-group]
-  (zx/xml-> attribute-group :attributeSet parse-attribute-set))
-
-(defn- parse-refinement
-  "refinement = (attributeSet / attributeGroup) *( ws [\",\" ws] attributeGroup )"
-  [refinement]
-  (let [attributeSet (zx/xml-> refinement :attributeSet parse-attribute-set)
-        attributeGroup (zx/xml-> refinement :attributeGroup parse-attribute-group)]
-    (concat
-      (when (seq attributeSet) attributeSet)
-      (when (seq attributeGroup) attributeGroup))))
-
-
-(defn- parse-subexpression
-  "subExpression = focusConcept [ws \":\" ws refinement]"
-  [subexpression]
-  (let [focusConcept {:focusConcepts (zx/xml-> subexpression :focusConcept parse-focus-concept)}
-        refinements (zx/xml-> subexpression :refinement parse-refinement)]
-    (if (seq refinements) (merge focusConcept {:refinements refinements})
-                          focusConcept)))
-
-(defn- parse-expression [expression]
-  (let [ds (zx/xml1-> expression :definitionStatus zx/text)]
-    {:definitionStatus (or ds "===")
-     :subExpression    (zx/xml1-> expression :subExpression parse-subexpression)}))
+(def ^:private scg-transform
+  {:ws               (constantly nil)
+   :SP               str
+   :HTAB             (constantly nil)
+   :CR               (constantly nil)
+   :LF               (constantly nil)
+   :digit            str
+   :digitNonZero     str
+   :zero             (constantly "0")
+   :sctId            (fn [& chars] (parse-long (apply str chars)))
+   :conceptId        identity
+   :term             (fn [& parts] (apply str parts))
+   :nonwsNonPipe     str
+   :conceptReference (fn [& args]
+                       (let [parts (vec (remove-noise args))]
+                         (if (= 1 (count parts))
+                           {:conceptId (first parts)}
+                           {:conceptId (first parts) :term (second parts)})))
+   :focusConcept     (fn [& args] (vec (remove-noise args)))
+   :attributeName    identity
+   :stringValue      (fn [& chars] (apply str chars))
+   :anyNonEscapedChar str
+   :escapedChar      (fn [_bs ch] (if (nil? ch) "\"" "\\"))
+   :integerValue     (fn [& chars] (apply str chars))
+   :decimalValue     (fn [& parts] (apply str parts))
+   :numericValue     (fn [& parts] (edn/read-string (apply str parts)))
+   :true             (constantly true)
+   :false            (constantly false)
+   :booleanValue     identity
+   :QM               (constantly nil)
+   :BS               (constantly ::backslash)
+   :expressionValue  (fn [& args] (first (remove-noise args)))
+   :attributeValue   (fn [& args] (first (remove-noise args)))
+   :attribute        (fn [& args] (vec (remove-noise args)))
+   :attributeSet     (fn [& args] (vec (remove-noise args)))
+   :attributeGroup   (fn [& args]
+                       (set (first (remove-noise args))))
+   :refinement       (fn [& args]
+                       (vec (mapcat (fn [x]
+                                      (cond
+                                        (nil? x) nil
+                                        (syntax-literal? x) nil
+                                        (set? x) [x]
+                                        (vector? x) x
+                                        :else [x]))
+                                    args)))
+   :subExpression    (fn [& args]
+                       (let [parts (vec (remove-noise args))
+                             focus (first parts)
+                             refinement (second parts)]
+                         (cond-> {:focusConcepts focus}
+                           refinement (assoc :refinements refinement))))
+   :definitionStatus identity
+   :equivalentTo     (constantly :equivalent-to)
+   :subtypeOf        (constantly :subtype-of)
+   :expression       (fn [& args]
+                       (let [parts (vec (remove-noise args))]
+                         (if (= 1 (count parts))
+                           {:definitionStatus :equivalent-to :subExpression (first parts)}
+                           {:definitionStatus (first parts) :subExpression (second parts)})))})
 
 (defn parse
   "Parse a SNOMED-CT expression, as defined by the compositional grammar.
-  See https://confluence.ihtsdotools.org/display/DOCSCG/Compositional+Grammar+-+Specification+and+Guide"
-  [s] (zx/xml1-> (zip/xml-zip (cg-parser s)) :expression parse-expression))
+  See https://confluence.ihtsdotools.org/display/DOCSCG/Compositional+Grammar+-+Specification+and+Guide
 
-(defn- simplify-focus-concepts
-  [node]
-  (set (map :conceptId (:focusConcepts node))))
+  The result is a map with keys:
+  - :definitionStatus - :equivalent-to or :subtype-of
+  - :subExpression    - a map with:
+    - :focusConcepts  - vector of concept references [{:conceptId long, :term string?} ...]
+    - :refinements    - vector of refinement items, where each item is either:
+      - [name value] pair (ungrouped attribute, SNOMED group 0)
+      - #{[name value] ...} set (attribute group, SNOMED non-zero group)"
+  [s]
+  (->> (cg-parser s)
+       (insta/transform scg-transform)))
 
-(defn- simplify-refinement
-  [node]
-  (if (map? node)
-    (zipmap (map :conceptId (keys node)) (map #(if (map? %) (dissoc % :term) %) (vals node)))
-    node))
+;;
+;; Specs for the close-to-user (CTU) expression IR.
+;; As this is based on the scg grammar, we use camelcase here.
+;; Preserves user terms, uses concept maps {:conceptId ... :term ...}.
+;;
+(s/def :ctu/conceptId :info.snomed.Concept/id)
+(s/def :ctu/term string?)
+(s/def :ctu/concept (s/keys :req-un [:ctu/conceptId] :opt-un [:ctu/term]))
+(s/def :ctu/focusConcepts (s/coll-of :ctu/concept :kind vector? :min-count 1))
+(s/def :ctu/attributeValue (s/or :concept    :ctu/concept
+                                  :expression :ctu/subExpression
+                                  :numeric    number?
+                                  :boolean    boolean?
+                                  :string     string?))
+(s/def :ctu/attribute (s/tuple :ctu/concept :ctu/attributeValue))
+(s/def :ctu/group (s/coll-of :ctu/attribute :kind set? :min-count 1))
+(s/def :ctu/refinements (s/cat :ungrouped (s/* :ctu/attribute)
+                               :groups    (s/* :ctu/group)))
+(s/def :ctu/subExpression (s/keys :req-un [:ctu/focusConcepts] :opt-un [:ctu/refinements]))
+(s/def :ctu/definitionStatus #{:equivalent-to :subtype-of})
+(s/def :ctu/expression (s/keys :req-un [:ctu/definitionStatus :ctu/subExpression]))
 
-(defn simplify
-  "Simplify a SNOMED CT expression by removing content that does not aid computability."
+;;
+;; Specs for the classifiable form (CF) IR.
+;; Bare concept IDs (longs), sets throughout, no terms.
+;; Produced by `normalize`; suitable for comparison and subsumption testing.
+;;
+(s/def :cf/attribute-value (s/or :concept    :info.snomed.Concept/id
+                                 :expression :cf/expression
+                                 :numeric    number?
+                                 :boolean    boolean?
+                                 :string     string?))
+(s/def :cf/attribute (s/tuple :info.snomed.Concept/id :cf/attribute-value))
+(s/def :cf/focus-concepts (s/coll-of :info.snomed.Concept/id :kind set? :min-count 1))
+(s/def :cf/ungrouped (s/coll-of :cf/attribute :kind set?))
+(s/def :cf/group (s/coll-of :cf/attribute :kind set? :min-count 1))
+(s/def :cf/groups (s/coll-of :cf/group :kind set?))
+(s/def :cf/definition-status #{:equivalent-to :subtype-of})
+(s/def :cf/expression (s/keys :req [:cf/focus-concepts :cf/definition-status]
+                              :opt [:cf/ungrouped :cf/groups]))
+
+(s/def ::update-terms? boolean?)
+(s/def ::accept-language string?)
+(s/def ::hide-terms? boolean?)
+
+(defn strip-terms
+  "Recursively strip all :term keys from an expression."
   [expression]
-  (walk/prewalk
+  (walk/postwalk
     (fn [node]
-      (if (map? node)
-        (cond-> node
-                (contains? node :focusConcepts) (assoc :focusConcepts (simplify-focus-concepts node))
-                (contains? node :refinements) (assoc :refinements (map simplify-refinement (:refinements node)))
-                true (dissoc :term))
+      (if (and (map? node) (contains? node :term))
+        (dissoc node :term)
         node))
     expression))
+
+(declare canonicalize-subexpression)
+
+(defn- canonicalize-value
+  "Canonicalize an attribute value, recursing into nested subexpressions."
+  [value]
+  (if (and (map? value) (contains? value :focusConcepts))
+    (canonicalize-subexpression value)
+    value))
+
+(defn- canonicalize-attribute
+  "Canonicalize a single attribute pair, recursing into its value."
+  [[name value]]
+  [name (canonicalize-value value)])
+
+(defn- sort-attributes
+  "Sort a collection of attribute pairs by their name concept ID."
+  [attrs]
+  (vec (sort-by (comp :conceptId first) attrs)))
+
+(defn- sort-groups
+  "Sort a collection of attribute groups by the minimum name concept ID in each."
+  [groups]
+  (vec (sort-by (fn [g] (apply min (map (comp :conceptId first) g))) groups)))
+
+(defn- canonicalize-refinements
+  "Sort ungrouped attributes and groups independently."
+  [refinements]
+  (let [ungrouped (take-while vector? refinements)
+        groups (drop-while vector? refinements)]
+    (into (sort-attributes (map canonicalize-attribute ungrouped))
+          (sort-groups (map #(set (map canonicalize-attribute %)) groups)))))
+
+(defn- canonicalize-subexpression
+  [{:keys [focusConcepts refinements]}]
+  (cond-> {:focusConcepts (vec (sort-by :conceptId focusConcepts))}
+    refinements
+    (assoc :refinements (canonicalize-refinements refinements))))
+
+(defn canonicalize
+  "Return a canonical form of an expression: terms stripped, all elements sorted
+  deterministically. Two semantically equivalent expressions produce identical
+  canonical forms."
+  [expression]
+  (let [stripped (strip-terms expression)]
+    (assoc stripped :subExpression (canonicalize-subexpression (:subExpression stripped)))))
+
+(s/fdef concept->expression*
+  :args (s/cat :concept-id :info.snomed.Concept/id
+               :defined? boolean?
+               :properties map?))
+
+(defn concept->expression*
+  "Build an SCG expression IR from a concept's properties-by-group data.
+  Parameters:
+  - concept-id  : the SNOMED CT concept identifier
+  - defined?    : whether the concept is fully defined
+  - properties  : result of store/properties-by-group for this concept"
+  [concept-id defined? properties]
+  (let [group-0 (get properties 0)
+        focus-ids (sort (get group-0 snomed/IsA))
+        ungrouped (->> (dissoc group-0 snomed/IsA)
+                       (mapcat (fn [[type-id target-ids]]
+                                 (map (fn [tid] [{:conceptId type-id} {:conceptId tid}]) (sort target-ids))))
+                       (sort-by (comp :conceptId first))
+                       vec)
+        groups (->> (dissoc properties 0)
+                    (sort-by key)
+                    (mapv (fn [[_gid attrs]]
+                            (->> attrs
+                                 (mapcat (fn [[type-id target-ids]]
+                                           (map (fn [tid] [{:conceptId type-id} {:conceptId tid}]) (sort target-ids))))
+                                 (sort-by (comp :conceptId first))
+                                 set)))
+                    (sort-by (fn [g] (apply min (map (comp :conceptId first) g))))
+                    vec)
+        refinements (into ungrouped groups)]
+    {:definitionStatus (if defined? :equivalent-to :subtype-of)
+     :subExpression    (cond-> {:focusConcepts (if defined?
+                                                 (mapv (fn [id] {:conceptId id}) focus-ids)
+                                                 [{:conceptId concept-id}])}
+                         (seq refinements)
+                         (assoc :refinements refinements))}))
 
 (defn- render-concept
   [config concept]
@@ -147,28 +264,32 @@
 (defn- render-value
   [config value]
   (cond
-    (map? value) (cond
-                   (get value :conceptId) (render-concept config value)
-                   (get value :focusConcepts) (str "(" (render-subexpression config value) ")")
-                   :else (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value})))
+    (and (map? value) (get value :conceptId)) (render-concept config value)
+    (and (map? value) (get value :focusConcepts)) (str "(" (render-subexpression config value) ")")
+    (map? value) (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value}))
     (number? value) (str "#" value)
-    (boolean? value) (str value)
-    :else (str "\"" value "\"")))
+    (boolean? value) (str/upper-case (str value))
+    (string? value) (str "\"" (str/replace (str/replace value "\\" "\\\\") "\"" "\\\"") "\"")
+    :else (throw (ex-info (str "** unknown value:'" value "' **") {:error "Unknown value" :value value}))))
 
-
-(defn- render-refinement-set
-  [config refinements]
-
-  (let [k (map (partial render-concept config) (keys refinements))
-        v (map (partial render-value config) (vals refinements))]
-    (str/join "," (map (fn [k1 v1] (str/join "=" [k1 v1])) k v))))
+(defn- render-attribute
+  [config [k v]]
+  (str (render-concept config k) "=" (render-value config v)))
 
 (defn- render-refinements
+  "Render refinements: ungrouped pairs [name value] are rendered directly,
+  groups (sets of pairs) are rendered with braces."
   [config refinements]
-  (case (count refinements)
-    0 ""
-    1 (render-refinement-set config (first refinements))
-    (str "{" (str/join "} {" (map (partial render-refinement-set config) refinements)) "}")))
+  (let [;; Partition into leading ungrouped pairs and the rest
+        ungrouped (vec (take-while vector? refinements))
+        remaining (drop-while vector? refinements)
+        parts (concat
+                (when (seq ungrouped)
+                  [(str/join "," (map (partial render-attribute config) ungrouped))])
+                (map (fn [group]
+                       (str "{" (str/join "," (map (partial render-attribute config) group)) "}"))
+                     remaining))]
+    (str/join "," parts)))
 
 (defn- render-subexpression
   [config subexp]
@@ -176,19 +297,301 @@
         refinements (:refinements subexp)]
     (if refinements (str focus-concepts ":" (render-refinements config refinements)) focus-concepts)))
 
+(s/fdef render
+  :args (s/cat :store (s/? any?)
+               :expression :ctu/expression
+               :opts (s/? (s/keys :opt-un [::update-terms? ::accept-language ::hide-terms?]))))
+
 (defn render
   "Render an expression into string form.
-  Parameters:
-  - st            : SNOMED store
-  - hide-terms?   : do not include textual terms in output
-  - update-terms? : update terms for the preferred synonyms in locale(s) specified.
-  - locale-priorities : list of locale priorities (e.g. \"en-GB\")"
-  [{:keys [store update-terms? locale-priorities] :as config} exp]
-  (let [lang-refsets (when store (lang/match store locale-priorities))
-        cfg (if (and store update-terms? (seq lang-refsets))
-              (assoc config :get-preferred-synonym-fn (fn [concept-id] (store/preferred-synonym store concept-id lang-refsets)))
-              config)]
-    (str (:definitionStatus exp) " " (render-subexpression cfg (:subExpression exp)))))
+  Single-arity renders using terms already present in the expression.
+  Three-arity takes a store, expression, and options map:
+    :update-terms?     - update terms to preferred synonyms for specified locale
+    :accept-language   - Accept-Language header value (e.g. \"en-GB\")
+    :hide-terms?       - omit terms entirely"
+  ([expression]
+   (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
+        " " (render-subexpression {} (:subExpression expression))))
+  ([store expression]
+   (render store expression {:update-terms? false}))
+  ([store expression {:keys [update-terms? accept-language] :as opts}]
+   (let [lang-refsets (lang/match store accept-language)
+         cfg (if (and update-terms? (seq lang-refsets))
+               (assoc opts :get-preferred-synonym-fn (fn [concept-id] (store/preferred-synonym store concept-id lang-refsets)))
+               (or opts {}))]
+     (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
+          " " (render-subexpression cfg (:subExpression expression))))))
 
 
-(comment)
+(s/fdef concept->expression
+  :args (s/cat :store any?
+               :concept-id :info.snomed.Concept/id))
+
+(defn concept->expression
+  "Return the definition of a concept as an SCG expression IR.
+  For a primitive concept, the concept itself is the sole focus concept with
+  definition status :subtype-of. For a fully-defined concept, the IS-A parents become
+  the focus concepts with definition status :equivalent-to. In both cases, non-IS-A
+  properties are included as refinements.
+  Returns nil if the concept does not exist."
+  [store concept-id]
+  (when-let [c (store/concept store concept-id)]
+    (concept->expression* concept-id (snomed/defined? c) (store/properties-by-group store concept-id))))
+
+(defn- properties->attributes
+  "Extract non-IS-A attributes from properties-by-group as ungrouped + groups."
+  [props]
+  (let [group-0 (get props 0)
+        ungrouped (->> (dissoc group-0 snomed/IsA)
+                       (mapcat (fn [[tid targets]]
+                                 (map #(vector tid %) targets)))
+                       set)
+        groups (->> (dissoc props 0)
+                    (vals)
+                    (into #{}
+                          (map (fn [attrs]
+                                 (set (mapcat (fn [[tid targets]]
+                                               (map #(vector tid %) targets))
+                                             attrs))))))]
+    {:ungrouped ungrouped :groups groups}))
+
+(defn- collect-primitives-and-attributes
+  "Recursively expand a concept to proximal primitive supertypes, collecting
+  all defining (non-IS-A) attributes from the concept and its fully-defined
+  ancestors. Primitive concepts include their own defining attributes but
+  do not recurse further.
+  Returns {:primitives #{id ...} :ungrouped #{[tid vid] ...} :groups #{#{[tid vid] ...} ...}}"
+  [store concept-id]
+  (let [c (store/concept store concept-id)]
+    (cond
+      (nil? c)
+      {:primitives #{} :ungrouped #{} :groups #{}}
+
+      (snomed/primitive? c)
+      (let [{:keys [ungrouped groups]} (properties->attributes (store/properties-by-group store concept-id))]
+        {:primitives #{concept-id} :ungrouped ungrouped :groups groups})
+
+      :else
+      (let [props (store/properties-by-group store concept-id)
+            {:keys [ungrouped groups]} (properties->attributes props)
+            parent-ids (get (get props 0) snomed/IsA)
+            parent-results (mapv #(collect-primitives-and-attributes store %) parent-ids)]
+        {:primitives (into #{} (mapcat :primitives) parent-results)
+         :ungrouped (into ungrouped (mapcat :ungrouped parent-results))
+         :groups (into groups (mapcat :groups parent-results))}))))
+
+(defn- concept-valued?
+  "True if an attribute's value is a concept ID."
+  [[_ v]]
+  (integer? v))
+
+(defn- leaf-values-for-type
+  "Given attributes sharing the same type, keep only those with the most
+  specific (leaf) values — i.e., remove values subsumed by another."
+  [store attrs]
+  (let [value-ids (map second attrs)
+        leaf-ids (store/leaves store value-ids)]
+    (filterv #(contains? leaf-ids (second %)) attrs)))
+
+(defn- remove-subsumed-attributes
+  "Remove attributes whose value is subsumed by another with the same type.
+  For each attribute type, keeps only the most specific (leaf) values."
+  [store attrs]
+  (let [by-concept (filterv concept-valued? attrs)
+        other (filterv (complement concept-valued?) attrs)]
+    (->> (group-by first by-concept)
+         (vals)
+         (into (set other) (mapcat #(leaf-values-for-type store %))))))
+
+(defn- attribute-subsumes?
+  "True if attribute a1 subsumes a2: a2's type is-a a1's type and a2's value is-a a1's value."
+  [store [tid1 vid1] [tid2 vid2]]
+  (and (integer? vid1) (integer? vid2)
+       (or (= tid2 tid1) (store/is-a? store tid2 tid1))
+       (or (= vid2 vid1) (store/is-a? store vid2 vid1))))
+
+(defn- group-subsumes?
+  "True if group g1 subsumes g2: every attribute in g1 has a more specific
+  (or equal) match in g2. O(K²) where K = attributes per group (typically <5)."
+  [store g1 g2]
+  (every? (fn [a1] (some #(attribute-subsumes? store a1 %) g2)) g1))
+
+(defn- remove-subsumed-groups
+  "Remove groups that are subsumed by a different, more specific group."
+  [store groups]
+  (into #{} (remove (fn [g] (some #(and (not= g %) (group-subsumes? store g %)) groups)) groups)))
+
+(defn- ctu-attr->cf-attr
+  "Convert a CTU attribute [concept-ref value] to a CF attribute [type-id value]."
+  [[attr-name attr-value]]
+  [(:conceptId attr-name)
+   (cond
+     (and (map? attr-value) (:conceptId attr-value)) (:conceptId attr-value)
+     (and (map? attr-value) (:focusConcepts attr-value)) attr-value ;; nested subExpression, normalized later
+     :else attr-value)])
+
+(s/fdef normalize
+  :args (s/cat :store any? :expression :ctu/expression))
+
+(defn normalize
+  "Transform a close-to-user expression to classifiable form.
+  Expands fully-defined focus concepts to proximal primitive supertypes,
+  merges defining attributes with user refinements, removes redundancy.
+  Returns a map with namespaced :cf/ keys:
+    :cf/definition-status  - always :subtype-of
+    :cf/focus-concepts     - set of proximal primitive concept IDs
+    :cf/ungrouped         - set of [type-id value] attribute pairs
+    :cf/groups            - set of #{[type-id value] ...} attribute groups"
+  [store expression]
+  (let [{:keys [focusConcepts refinements]} (:subExpression expression)
+        user-ungrouped (->> (filterv vector? (or refinements []))
+                            (map ctu-attr->cf-attr)
+                            set)
+        user-groups (->> (filterv set? (or refinements []))
+                         (into #{} (map (fn [g] (set (map ctu-attr->cf-attr g))))))
+        expansions (mapv #(collect-primitives-and-attributes store (:conceptId %)) focusConcepts)
+        all-primitives (into #{} (mapcat :primitives) expansions)
+        all-ungrouped (into (into #{} (mapcat :ungrouped) expansions) user-ungrouped)
+        all-groups (into (into #{} (mapcat :groups) expansions) user-groups)
+        norm-val (fn [v]
+                   (if (and (map? v) (:focusConcepts v))
+                     (normalize store {:definitionStatus :equivalent-to :subExpression v})
+                     v))
+        norm-attr (fn [[t v]] [t (norm-val v)])
+        all-ungrouped (set (map norm-attr all-ungrouped))
+        all-groups (into #{} (map (fn [g] (set (map norm-attr g)))) all-groups)
+        all-ungrouped (remove-subsumed-attributes store all-ungrouped)
+        all-groups (into #{} (map (fn [g] (set (remove-subsumed-attributes store g)))) all-groups)
+        all-groups (remove-subsumed-groups store all-groups)]
+    (cond-> {:cf/definition-status :subtype-of
+             :cf/focus-concepts    all-primitives}
+      (seq all-ungrouped) (assoc :cf/ungrouped all-ungrouped)
+      (seq all-groups) (assoc :cf/groups all-groups))))
+
+(declare classifiable->ctu)
+
+(defn- cf-value->ctu-value
+  "Convert a classifiable form attribute value to a CTU attribute value."
+  [v]
+  (cond
+    (integer? v) {:conceptId v}
+    (and (map? v) (contains? v :cf/focus-concepts)) (:subExpression (classifiable->ctu v))
+    :else v))
+
+(s/fdef classifiable->ctu
+  :args (s/cat :normal-form :cf/expression))
+
+(defn classifiable->ctu
+  "Convert a classifiable form expression to a close-to-user expression IR
+  suitable for rendering."
+  [{:cf/keys [definition-status focus-concepts ungrouped groups]}]
+  (let [focus (mapv #(hash-map :conceptId %) (sort focus-concepts))
+        ungrouped-attrs (when (seq ungrouped)
+                          (->> ungrouped
+                               (map (fn [[t v]] [{:conceptId t} (cf-value->ctu-value v)]))
+                               (sort-by (comp :conceptId first))
+                               vec))
+        grouped-attrs (when (seq groups)
+                        (->> groups
+                             (map (fn [g] (set (map (fn [[t v]] [{:conceptId t} (cf-value->ctu-value v)]) g))))
+                             (sort-by (fn [g] (apply min (map (comp :conceptId first) g))))
+                             vec))
+        refinements (into (or ungrouped-attrs []) (or grouped-attrs []))]
+    {:definitionStatus definition-status
+     :subExpression (cond-> {:focusConcepts focus}
+                      (seq refinements)
+                      (assoc :refinements refinements))}))
+
+(s/fdef subsumes?
+  :args (s/cat :store any? :a :ctu/expression :b :ctu/expression))
+
+(defn subsumes?
+  "Does expression a subsume expression b?
+  Both expressions are normalized to classifiable form, then compared:
+    1. Every focus concept in A must subsume at least one in B — O(F_a × F_b)
+    2. Every ungrouped attribute in A must be subsumed by one in B — O(U_a × U_b)
+    3. Every group in A must match a group in B — O(G_a × G_b × K²)
+  where F=focus concepts, U=ungrouped attrs, G=groups, K=attrs per group.
+  All counts are small (single digits), so effectively constant.
+  is-a? is O(1) via precomputed transitive closure.
+
+  Note: normalizes both expressions on every call. For repeated subsumption
+  checks against the same expression, consider a variant that accepts
+  pre-normalized CF expressions or returns a closure from a single expression."
+  [store a b]
+  (let [a' (normalize store a)
+        b' (normalize store b)
+        ;; 1. Focus concept check: every focus in A subsumes at least one in B
+        focus-ok? (every? (fn [fa]
+                            (some (fn [fb] (or (= fb fa) (store/is-a? store fb fa)))
+                                  (:cf/focus-concepts b')))
+                          (:cf/focus-concepts a'))
+        ;; 2. Ungrouped attribute check
+        ungrouped-ok? (every? (fn [ua]
+                                (some #(attribute-subsumes? store ua %) (:cf/ungrouped b')))
+                              (:cf/ungrouped a'))
+        ;; 3. Group check: every group in A has a matching group in B
+        groups-ok? (every? (fn [ga]
+                             (some #(group-subsumes? store ga %) (:cf/groups b')))
+                           (:cf/groups a'))]
+    (and focus-ok? ungrouped-ok? groups-ok?)))
+
+(defn- validate-concept-reference
+  "Validate a concept reference exists. Returns error map or nil."
+  [store {:keys [conceptId]} role]
+  (when-not (store/concept store conceptId)
+    {:type :concept-not-found :conceptId conceptId :role role}))
+
+(declare validate-subexpression)
+
+(defn- validate-attribute-value
+  "Validate an attribute value, recursing into nested sub-expressions."
+  [store value]
+  (cond
+    (and (map? value) (:focusConcepts value))
+    (validate-subexpression store value)
+
+    (and (map? value) (:conceptId value))
+    (when-let [err (validate-concept-reference store value :attribute-value)]
+      [err])
+
+    :else nil))
+
+(defn- validate-attribute
+  "Validate a single attribute: type and value concepts exist and are active."
+  [store [attr-name attr-value]]
+  (let [type-err (validate-concept-reference store attr-name :attribute-type)
+        val-errs (validate-attribute-value store attr-value)]
+    (cond-> []
+      type-err (conj type-err)
+      val-errs (into val-errs))))
+
+(defn- validate-subexpression
+  "Validate a sub-expression: focus concepts and refinements."
+  [store {:keys [focusConcepts refinements]}]
+  (let [focus-errs (keep #(validate-concept-reference store % :focus-concept) focusConcepts)
+        attr-errs (when refinements
+                    (mapcat (fn [r]
+                              (if (set? r)
+                                (mapcat #(validate-attribute store %) r)
+                                (validate-attribute store r)))
+                            refinements))]
+    (into (vec focus-errs) attr-errs)))
+
+(s/fdef errors
+  :args (s/cat :store any? :expression :ctu/expression))
+
+(defn errors
+  "Return a sequence of error maps for an expression, or nil if valid.
+  Checks that all referenced concepts exist and are active."
+  [store expression]
+  (seq (validate-subexpression store (:subExpression expression))))
+
+(comment
+  (def st (store/open-store "snomed.db/store.db"))
+  (concept->expression st 24700007)
+  (normalize st (parse "24700007"))
+  (normalize st (parse "80146002"))
+  (errors st (parse "24700007"))
+  (errors st (parse "100000102"))
+  )
