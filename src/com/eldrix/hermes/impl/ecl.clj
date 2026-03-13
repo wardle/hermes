@@ -800,7 +800,15 @@
                          :else
                          (realise-concept-ids ctx (search/q-and [(search/q-descendantOf 900000000000455006) refsets])))]
     (when (seq refset-ids)
-      (let [queries (mapcat (fn [refset-id] (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))) refset-ids)
+      (let [queries (map (fn [refset-id]
+                           (let [filters (zx/xml-> loc :memberFilter #(parse-member-filter ctx refset-id %))
+                                 filters (if (seq (zx/xml-> loc :memberFilter :activeFilter))
+                                           filters
+                                           (cons (members/q-and [(members/q-refset-id refset-id)
+                                                                 (members/q-field-boolean "active" true)])
+                                                 filters))]
+                             (members/q-and filters)))
+                         refset-ids)
             q (members/q-or queries)
             referenced-component-ids (members/search memberSearcher q)]
         (search/q-concept-ids referenced-component-ids)))))

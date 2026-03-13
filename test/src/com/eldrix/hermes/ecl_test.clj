@@ -169,7 +169,7 @@
 
 (def member-filter-tests-uk
   [{:ecl  " ^  999002271000000101  {{ M mapTarget = \"J458\" }}"
-    :incl #{196168001 707444001 707447008}}])
+    :incl #{707444001 707447008}}])
 
 (deftest ^:live test-icd10-map-installed
   (let [installed (hermes/installed-reference-sets *svc*)]
@@ -184,7 +184,7 @@
                 (map #(hermes/component-refset-items *svc* % 447562003))
                 (map #(map :mapTarget %))
                 (map #(some (fn [s] (.startsWith "J45.9" s)) %))
-                (map #(is true? %))))
+                (map #(is (true? %)))))
     (doseq [{:keys [ecl incl]} member-filter-tests]
       (let [results (hermes/expand-ecl *svc* ecl)]
         (when incl (is (set/subset? incl (set (map :conceptId results)))))))))
@@ -196,10 +196,47 @@
                 (map #(hermes/component-refset-items *svc* % 999002271000000101))
                 (map #(map :mapTarget %))
                 (map #(some (fn [s] (.startsWith s "J458")) %))
-                (map #(is true? %))))
+                (map #(is (true? %)))))
     (doseq [{:keys [ecl incl]} member-filter-tests-uk]
       (let [results (hermes/expand-ecl *svc* ecl)]
         (when incl (is (set/subset? incl (set (map :conceptId results)))))))))
+
+(deftest ^{:live true :uk true} test-member-filter-conjunction
+  (testing "Comma-separated member filters within {{ }} are conjunctive (AND)"
+    (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
+      (let [;; single filter: mapTarget only
+            ecl-target " ^ 999002271000000101 {{ M mapTarget = \"J458\" }}"
+            ;; conjunctive filter: both conditions must hold on same member item
+            ecl-both " ^ 999002271000000101 {{ M mapPriority = #1, mapTarget = \"J458\" }}"
+            ids-target (set (map :conceptId (hermes/expand-ecl *svc* ecl-target)))
+            ids-both (set (map :conceptId (hermes/expand-ecl *svc* ecl-both)))]
+        (is (set/subset? ids-both ids-target)
+            "Conjunctive filter results must be a subset of single-filter results")
+        (is (< (count ids-both) (count ids-target))
+            "Adding mapPriority constraint should reduce result count")
+        ;; conjunctive filter must not return a massively over-broad result set
+        ;; (without AND semantics, the mapPriority=1 filter alone would match
+        ;; hundreds of thousands of member items from the entire reference set)
+        (is (< (count ids-both) (* 2 (count ids-target)))
+            "Conjunctive filter should not return vastly more results than a single filter")
+        ;; verify every result actually has a member item satisfying BOTH conditions
+        (doseq [cid ids-both]
+          (let [items (hermes/component-refset-items *svc* cid 999002271000000101)]
+            (is (some (fn [{:keys [mapPriority mapTarget]}]
+                        (and (= 1 mapPriority)
+                             (.startsWith ^String mapTarget "J458")))
+                      items)
+                (str "Concept " cid " must have a member item with mapPriority=1 AND mapTarget starting with J458"))))
+        ;; verify no false positives: concepts matching mapTarget alone but NOT
+        ;; the conjunction should be excluded
+        (let [excluded (set/difference ids-target ids-both)]
+          (doseq [cid excluded]
+            (let [items (hermes/component-refset-items *svc* cid 999002271000000101)]
+              (is (not (some (fn [{:keys [mapPriority mapTarget]}]
+                               (and (= 1 mapPriority)
+                                    (.startsWith ^String mapTarget "J458")))
+                             items))
+                  (str "Concept " cid " should NOT have a member item with mapPriority=1 AND mapTarget starting with J458")))))))))
 
 (deftest ^:live test-refinement-with-wildcard-value
   (let [ch (a/chan)]
