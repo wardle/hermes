@@ -149,14 +149,29 @@
 (defmethod cf-attribute-value-type :numeric [_] (s/tuple #{:numeric} number?))
 (defmethod cf-attribute-value-type :boolean [_] (s/tuple #{:boolean} boolean?))
 (defmethod cf-attribute-value-type :string [_] (s/tuple #{:string} string?))
+(defn- gen-leaf-attribute-value
+  "Generator for non-recursive CF attribute values."
+  []
+  (gen/one-of [(gen/fmap (fn [id] [:concept id]) (s/gen :info.snomed.Concept/id))
+               (gen/fmap (fn [n] [:numeric (long n)]) (gen/choose 0 1000))
+               (gen/fmap (fn [n] [:numeric (/ (double n) 100.0)]) (gen/choose 0 100000))
+               (gen/fmap (fn [s] [:string s]) (gen/string-alphanumeric))
+               (gen/fmap (fn [b] [:boolean b]) (gen/boolean))]))
+
+(defn- gen-nested-expression
+  "Generator for a simple nested CF expression (single focus concept, no further nesting)."
+  []
+  (gen/fmap (fn [[fc ds]]
+              [:expression {:cf/focus-concepts #{fc}
+                            :cf/definition-status ds}])
+            (gen/tuple (s/gen :info.snomed.Concept/id)
+                       (gen/elements [:subtype-of :equivalent-to]))))
+
 (s/def :cf/attribute-value
   (s/with-gen
     (s/multi-spec cf-attribute-value-type first)
-    #(gen/one-of [(gen/fmap (fn [id] [:concept id]) (s/gen :info.snomed.Concept/id))
-                  (gen/fmap (fn [n] [:numeric (long n)]) (gen/choose 0 1000))
-                  (gen/fmap (fn [n] [:numeric (/ (double n) 100.0)]) (gen/choose 0 100000))
-                  (gen/fmap (fn [s] [:string s]) (gen/string-alphanumeric))
-                  (gen/fmap (fn [b] [:boolean b]) (gen/boolean))])))
+    #(gen/frequency [[8 (gen-leaf-attribute-value)]
+                     [2 (gen-nested-expression)]])))
 (s/def :cf/attribute (s/tuple :info.snomed.Concept/id :cf/attribute-value))
 (s/def :cf/focus-concepts (s/coll-of :info.snomed.Concept/id :kind set? :min-count 1))
 (s/def :cf/ungrouped (s/coll-of :cf/attribute :kind set?))

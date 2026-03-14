@@ -43,7 +43,7 @@
      (try
        ((dynaload 'com.eldrix.hermes.impl.owl/start-reasoner) store opts)
        (catch Exception e
-         (log/debug e "OWL reasoning not available")
+         (log/error e "failed to start OWL reasoner")
          nil)))))
 
 (defn classify

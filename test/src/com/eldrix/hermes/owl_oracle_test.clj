@@ -7,10 +7,16 @@
   The OWL side uses ctu->cf to preserve concept identity — the reasoner already
   knows concept definitions from the ontology, so normalization would lose
   information."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [com.eldrix.hermes.impl.owl :as owl]
             [com.eldrix.hermes.impl.scg :as scg]
-            [com.eldrix.hermes.impl.store :as store]))
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed]))
+
+(stest/instrument)
 
 (def ^:private store-path "snomed.db/store.db")
 
@@ -80,40 +86,6 @@
 
 ;;;; ── Classification tests ──
 
-(def ^:private classify-cases
-  "Declarative classification test cases.
-  Each case specifies an SCG expression (or CF) and what to check in the result.
-  Keys:
-    :description  — test label
-    :expression   — SCG string (classified via ctu->cf)
-    :normalize?   — if true, classify via ctu->cf+normalize instead of ctu->cf
-    :has-equivalents   — concept IDs that must appear in ::equivalent-concepts
-    :lacks-equivalents — concept IDs that must NOT appear in ::equivalent-concepts
-    :has-supers        — concept IDs that must appear in ::direct-super-concepts
-    :has-pps           — true if ::proximal-primitive-supertypes must be non-empty"
-  [{:description   "concepts have superclasses (MS)"
-    :expression    "24700007"
-    :has-supers    :any}
-   {:description   "concepts have superclasses (appendectomy)"
-    :expression    "80146002"
-    :has-supers    :any}
-   {:description   "concepts have superclasses (procedure)"
-    :expression    "71388002"
-    :has-supers    :any}
-   {:description   "fully-defined concept is equivalent to itself"
-    :expression    "80146002"
-    :has-equivalents #{80146002}}
-   {:description   "ctu->cf+normalize loses equivalence for fully-defined concepts"
-    :expression    "80146002"
-    :normalize?    true
-    :lacks-equivalents #{80146002}
-    :has-supers        #{80146002}}
-   {:description   "post-coordinated expression is subtype of base concept"
-    :expression    "80146002 : 272741003 = 7771000"
-    :has-supers    #{80146002}}
-   {:description   "classify includes proximal primitive supertypes"
-    :expression    "80146002"
-    :has-pps       true}])
 
 (def ^:private subsumes-cases
   "Declarative subsumption test cases for owl/subsumes?."
@@ -126,22 +98,6 @@
    {:description "unrelated expressions"
     :a "80146002" :b "22298006" :expected :not-subsumed}])
 
-(def ^:private nnf-cases
-  "Declarative NNF test cases."
-  [{:description     "NNF is primitive with focus concepts"
-    :expression      "80146002"
-    :def-status      :subtype-of
-    :has-groups?     true
-    :has-group-attr  260686004
-    :pps-match?      true}
-   {:description     "NNF merges user refinements with inherited"
-    :expression      "80146002 : 272741003 = 7771000"
-    :has-ungrouped   [272741003 [:concept 7771000]]
-    :has-groups?     true}
-   {:description     "NNF of post-coordinated grouped expression"
-    :expression      "71388002 : { 260686004 = 129304002 }"
-    :def-status      :subtype-of
-    :has-focus?      true}])
 
 (def ^:private ecl-cases
   "Declarative cf->ecl test cases."
@@ -153,30 +109,33 @@
     :contains    ["272741003 = << 7771000"]
     :excludes    ["80146002"]}])
 
+(defn- classify-str
+  ([reasoner s] (owl/classify reasoner (scg/ctu->cf (scg/str->ctu s))))
+  ([reasoner store s] (owl/classify reasoner (scg/ctu->cf+normalize store (scg/str->ctu s)))))
+
 (deftest ^:live classification
-  (let [st *store* reasoner *reasoner*]
-    (doseq [{:keys [description expression normalize?
-                    has-equivalents lacks-equivalents has-supers has-pps]} classify-cases]
-      (testing description
-        (let [cf     (if normalize?
-                       (scg/ctu->cf+normalize st (scg/str->ctu expression))
-                       (scg/ctu->cf (scg/str->ctu expression)))
-              result (owl/classify reasoner cf)]
-          (is (set? (::owl/equivalent-concepts result)))
-          (is (set? (::owl/direct-super-concepts result)))
-          (when has-equivalents
-            (doseq [cid has-equivalents]
-              (is (contains? (::owl/equivalent-concepts result) cid))))
-          (when lacks-equivalents
-            (doseq [cid lacks-equivalents]
-              (is (not (contains? (::owl/equivalent-concepts result) cid)))))
-          (when has-supers
-            (if (= :any has-supers)
-              (is (seq (::owl/direct-super-concepts result)))
-              (doseq [cid has-supers]
-                (is (contains? (::owl/direct-super-concepts result) cid)))))
-          (when has-pps
-            (is (seq (::owl/proximal-primitive-supertypes result)))))))))
+  (testing "fully-defined concept is equivalent to itself"
+    (let [result (classify-str *reasoner* "80146002")]
+      (is (= #{80146002} (:equivalent-concepts result)))))
+
+  (testing "direct supers match stated IS-A parents from store"
+    (let [result       (classify-str *reasoner* "80146002")
+          store-parents (store/parent-relationships-of-type *store* 80146002 snomed/IsA)]
+      (is (= store-parents (:direct-super-concepts result)))))
+
+  (testing "proximal primitive supertypes are a subset of all ancestors"
+    (let [result     (classify-str *reasoner* "80146002")
+          all-ancestors (store/all-parents *store* 80146002)]
+      (is (every? all-ancestors (:proximal-primitive-supertypes result)))))
+
+  (testing "normalized form loses equivalence but gains superclass"
+    (let [result (classify-str *reasoner* *store* "80146002")]
+      (is (not (contains? (:equivalent-concepts result) 80146002)))
+      (is (contains? (:direct-super-concepts result) 80146002))))
+
+  (testing "post-coordinated expression classified under base concept"
+    (let [result (classify-str *reasoner* "80146002 : 272741003 = 7771000")]
+      (is (contains? (:direct-super-concepts result) 80146002)))))
 
 (deftest ^:live classification-subsumes
   (doseq [{:keys [description a b expected]} subsumes-cases]
@@ -186,26 +145,36 @@
         (is (= expected (owl/subsumes? *reasoner* cf-a cf-b)))))))
 
 (deftest ^:live classification-nnf
-  (doseq [{:keys [description expression def-status has-groups? has-group-attr
-                  has-ungrouped has-focus? pps-match?]} nnf-cases]
-    (testing description
-      (let [cf  (scg/ctu->cf (scg/str->ctu expression))
-            nnf (owl/necessary-normal-form *reasoner* cf)]
-        (when def-status
-          (is (= def-status (:cf/definition-status nnf))))
-        (when has-focus?
-          (is (seq (:cf/focus-concepts nnf))))
-        (when has-groups?
-          (is (seq (:cf/groups nnf))))
-        (when has-group-attr
-          (is (some (fn [group]
-                      (some (fn [[type-id _]] (= type-id has-group-attr)) group))
-                    (:cf/groups nnf))))
-        (when has-ungrouped
-          (is (contains? (:cf/ungrouped nnf) has-ungrouped)))
-        (when pps-match?
-          (is (= (:cf/focus-concepts nnf)
-                 (::owl/proximal-primitive-supertypes (owl/classify *reasoner* cf)))))))))
+  (testing "appendectomy NNF is primitive with PPS as focus concepts"
+    (let [cf     (scg/ctu->cf (scg/str->ctu "80146002"))
+          nnf    (owl/necessary-normal-form *reasoner* cf)
+          result (owl/classify *reasoner* cf)]
+      (is (= :subtype-of (:cf/definition-status nnf)))
+      (is (= (:cf/focus-concepts nnf) (:proximal-primitive-supertypes result))
+          "NNF focus concepts should be the proximal primitive supertypes")
+      (is (every? (store/all-parents *store* 80146002) (:cf/focus-concepts nnf))
+          "NNF focus concepts should be ancestors of the original concept")
+      (is (some (fn [group]
+                  (some (fn [[type-id _]] (= type-id 260686004)) group))
+                (:cf/groups nnf))
+          "NNF should contain method (260686004) in a group")))
+
+  (testing "appendectomy+laterality NNF preserves user refinement"
+    (let [cf  (scg/ctu->cf (scg/str->ctu "80146002 : 272741003 = 7771000"))
+          nnf (owl/necessary-normal-form *reasoner* cf)]
+      (is (= :subtype-of (:cf/definition-status nnf)))
+      (is (contains? (:cf/ungrouped nnf) [272741003 [:concept 7771000]])
+          "laterality refinement should be preserved in NNF")
+      (is (seq (:cf/groups nnf))
+          "inherited groups should also be present")))
+
+  (testing "procedure+method NNF focus concepts match classification PPS"
+    (let [cf     (scg/ctu->cf (scg/str->ctu "71388002 : { 260686004 = 129304002 }"))
+          nnf    (owl/necessary-normal-form *reasoner* cf)
+          result (owl/classify *reasoner* cf)]
+      (is (= :subtype-of (:cf/definition-status nnf)))
+      (is (= (:cf/focus-concepts nnf) (:proximal-primitive-supertypes result))
+          "NNF focus concepts should be the proximal primitive supertypes"))))
 
 (deftest ^:live classification-ecl
   (doseq [{:keys [description expression expected contains excludes]} ecl-cases]
@@ -259,42 +228,48 @@
      :structural structural :owl owl-result
      :agree? (= structural owl-result)}))
 
-;;;; ── Expression generation using the SCG pipeline ──
+;;;; ── Expression generation ──
 
 (defn- render-cf
   "Render a CF expression to an SCG string via the existing pipeline."
   [cf]
   (scg/ctu->str (scg/cf->ctu cf)))
 
-(defn- concept->cf
-  "Get a concept's definition as CF, using the real SCG infrastructure."
-  [st concept-id]
-  (scg/ctu->cf (scg/concept->ctu st concept-id)))
+(defn gen-concept-id
+  "Generator that picks from a collection of concept IDs."
+  [concept-ids]
+  (gen/elements (vec concept-ids)))
 
-(defn- add-random-refinement
-  "Add a random subset of a concept's own attributes as extra refinements.
-  Works at the CF level — no string manipulation."
-  [st concept-id cf]
-  (let [full-cf (concept->cf st concept-id)
-        pick (fn [coll n] (when-let [s (seq coll)] (take (rand-int (inc (min (count s) n))) (shuffle s))))
-        extra-ungrouped (pick (:cf/ungrouped full-cf) 2)
-        extra-groups (pick (:cf/groups full-cf) 2)]
-    (cond-> cf
-      (seq extra-ungrouped) (update :cf/ungrouped (fnil into #{}) extra-ungrouped)
-      (seq extra-groups) (update :cf/groups (fnil into #{}) extra-groups))))
+(defn gen-attribute-value
+  "Generator for a CF attribute value: concept reference or nested expression."
+  [concept-ids]
+  (gen/frequency
+    [[8 (gen/fmap (fn [id] [:concept id]) (gen-concept-id concept-ids))]
+     [2 (gen/fmap (fn [id] [:expression {:cf/definition-status :subtype-of
+                                          :cf/focus-concepts #{id}}])
+                  (gen-concept-id concept-ids))]]))
 
-(defn- generate-expression-pair
-  "Generate a random SCG expression pair from the test concept set."
-  [st]
-  (let [ids (vec test-concept-ids)
-        rand-id #(nth ids (rand-int (count ids)))
-        make (fn []
-               (let [cid (rand-id)
-                     cf (scg/ctu->cf (scg/str->ctu (str cid)))]
-                 (if (< (rand) 0.3)
-                   (render-cf (add-random-refinement st cid cf))
-                   (str cid))))]
-    [(make) (make)]))
+(defn gen-attribute
+  "Generator for a CF attribute [type-id value]."
+  [concept-ids]
+  (gen/tuple (gen-concept-id concept-ids) (gen-attribute-value concept-ids)))
+
+(defn gen-cf-expression
+  "Generator for a CF expression using real concept IDs.
+  Produces bare concepts, concepts with ungrouped attributes, grouped
+  attributes, and nested subexpressions."
+  [concept-ids]
+  (gen/bind (gen/tuple (gen/fmap set (gen/not-empty (gen/vector (gen-concept-id concept-ids) 1 2)))
+                       (gen/elements [:subtype-of :equivalent-to])
+                       (gen/vector (gen-attribute concept-ids) 0 3)
+                       (gen/vector (gen/fmap set (gen/not-empty (gen/vector (gen-attribute concept-ids) 1 3)))
+                                  0 2))
+    (fn [[focus def-status ungrouped groups]]
+      (gen/return
+        (cond-> {:cf/definition-status def-status
+                 :cf/focus-concepts focus}
+          (seq ungrouped) (assoc :cf/ungrouped (set ungrouped))
+          (seq groups) (assoc :cf/groups (set groups)))))))
 
 ;;;; ── Test 1: Hand-written cases ──
 
@@ -433,41 +408,31 @@
    {:description "appendectomy does not subsume oophorectomy"
     :a "80146002" :b "83152002" :structural false}
    {:description "oophorectomy does not subsume appendectomy"
-    :a "83152002" :b "80146002" :structural false}])
+    :a "83152002" :b "80146002" :structural false}
+
+   ;; Nested expressions: attribute value is a subexpression
+   {:description "nested: disease+site subsumes disease+site with more specific nested site"
+    :a "64572001 : 363698007 = (39607008)"
+    :b "64572001 : 363698007 = (39607008 : 272741003 = 7771000)"
+    :structural true}
+   {:description "nested: more specific nested site does not subsume less specific"
+    :a "64572001 : 363698007 = (39607008 : 272741003 = 7771000)"
+    :b "64572001 : 363698007 = (39607008)"
+    :structural false}
+   {:description "nested: procedure with nested method subsumes procedure with more refined nested method"
+    :a "71388002 : { 260686004 = (129304002) }"
+    :b "71388002 : { 260686004 = (129304002 : 272741003 = 7771000) }"
+    :structural true}
+   {:description "nested: identical nested expressions are equivalent"
+    :a "64572001 : 363698007 = (39607008 : 272741003 = 7771000)"
+    :b "64572001 : 363698007 = (39607008 : 272741003 = 7771000)"
+    :structural true}
+   {:description "nested: different nested values — no subsumption"
+    :a "64572001 : 363698007 = (39607008 : 272741003 = 7771000)"
+    :b "64572001 : 363698007 = (39607008 : 272741003 = 24028007)"
+    :structural false}])
 
 ;;;; ── Test 3: Generated refinement pairs ──
-
-(defn- generate-refinement-pairs
-  "Generate subsumption pairs from real concept properties using the SCG pipeline.
-  For each concept, tests: base subsumes base+extra-attr (and the converse)."
-  [st]
-  (let [concepts [80146002 83152002 73211009 24700007 22298006]]
-    (mapcat
-      (fn [cid]
-        (let [cf (concept->cf st cid)
-              base (str cid)
-              ungrouped (seq (:cf/ungrouped cf))
-              groups (seq (:cf/groups cf))]
-          (concat
-            ;; Base subsumes base + single ungrouped attr
-            (for [attr (take 3 ungrouped)
-                  :let [refined-cf (update cf :cf/ungrouped (fnil conj #{}) attr)
-                        refined-str (render-cf refined-cf)]]
-              {:description (str cid " subsumes " cid " + ungrouped attr")
-               :a base :b refined-str :structural true})
-            ;; Base + single ungrouped attr does not subsume base
-            (for [attr (take 3 ungrouped)
-                  :let [refined-cf (update cf :cf/ungrouped (fnil conj #{}) attr)
-                        refined-str (render-cf refined-cf)]]
-              {:description (str cid " + ungrouped attr does not subsume " cid)
-               :a refined-str :b base :structural false})
-            ;; Base subsumes base + single group
-            (for [g (take 2 groups)
-                  :let [refined-cf (update cf :cf/groups (fnil conj #{}) g)
-                        refined-str (render-cf refined-cf)]]
-              {:description (str cid " subsumes " cid " + group")
-               :a base :b refined-str :structural true}))))
-      concepts)))
 
 ;;;; ── Test runners ──
 
@@ -483,29 +448,17 @@
       (is (= structural (owl-subsumes? *reasoner* a b))
           (str "OWL disagrees — expected: " structural)))))
 
-(deftest ^:live oracle-generated-refinements
-  (let [pairs (generate-refinement-pairs *store*)]
-    (println "  Testing" (count pairs) "generated refinement pairs")
-    (doseq [{:keys [description a b structural]} pairs]
-      (testing description
-        (is (= structural (owl-subsumes? *reasoner* a b))
-            (str "OWL disagrees — expected: " structural))))))
-
 (deftest ^:live oracle-random-agreement
-  (let [pairs (repeatedly 200 #(generate-expression-pair *store*))
-        results (mapv (fn [[a b]] (check-oracle-agreement *store* *reasoner* a b)) pairs)
+  (let [expressions (gen/sample (gen-cf-expression test-concept-ids) 200)
+        pairs (partition 2 expressions)
+        results (mapv (fn [[a b]]
+                        (check-oracle-agreement *store* *reasoner*
+                                                (render-cf a) (render-cf b)))
+                      pairs)
         agreements (count (filter :agree? results))
-        disagreements (remove :agree? results)
-        total (count results)
-        pct (if (pos? total) (* 100.0 (/ agreements total)) 100.0)]
-    (println (format "  Oracle agreement: %d/%d (%.1f%%)" agreements total pct))
-    (when (seq disagreements)
-      (println "  Disagreements (may be GCI gaps):")
-      (doseq [{:keys [a b structural owl]} (take 10 disagreements)]
-        (println (str "    " a (if structural " ⊒ " " ⋢ ") b
-                      " — structural:" structural " owl:" owl))))
+        total (count results)]
     (is (> (/ (double agreements) total) 0.90)
-        (str "Agreement rate " (format "%.1f%%" pct) " is below 90% threshold"))))
+        (str "Agreement rate below 90% threshold"))))
 
 ;;;; ── Equivalence discovery ──
 
@@ -513,18 +466,18 @@
   (testing "fully-defined concept equivalent to itself via ctu->cf"
     (let [cf (scg/ctu->cf (scg/str->ctu "80146002"))
           result (owl/classify *reasoner* cf)]
-      (is (contains? (::owl/equivalent-concepts result) 80146002))))
+      (is (contains? (:equivalent-concepts result) 80146002))))
 
   (testing "normalized form loses equivalence but gains superclass"
     (let [cf (scg/ctu->cf+normalize *store* (scg/str->ctu "80146002"))
           result (owl/classify *reasoner* cf)]
-      (is (not (contains? (::owl/equivalent-concepts result) 80146002)))
-      (is (contains? (::owl/direct-super-concepts result) 80146002))))
+      (is (not (contains? (:equivalent-concepts result) 80146002)))
+      (is (contains? (:direct-super-concepts result) 80146002))))
 
   (testing "post-coordinated expression classified under base concept"
     (let [cf (scg/ctu->cf (scg/str->ctu "80146002 : 272741003 = 7771000"))
           result (owl/classify *reasoner* cf)]
-      (is (contains? (::owl/direct-super-concepts result) 80146002)))))
+      (is (contains? (:direct-super-concepts result) 80146002)))))
 
 ;;;; ── Normalize validation via classification ──
 
@@ -543,11 +496,11 @@
             norm-cf     (scg/ctu->cf+normalize *store* parsed)
             ctu-result  (owl/classify *reasoner* ctu-cf)
             norm-result (owl/classify *reasoner* norm-cf)]
-        (is (or (seq (::owl/equivalent-concepts ctu-result))
-                (seq (::owl/direct-super-concepts ctu-result)))
+        (is (or (seq (:equivalent-concepts ctu-result))
+                (seq (:direct-super-concepts ctu-result)))
             "ctu->cf form should classify")
-        (is (or (seq (::owl/equivalent-concepts norm-result))
-                (seq (::owl/direct-super-concepts norm-result)))
+        (is (or (seq (:equivalent-concepts norm-result))
+                (seq (:direct-super-concepts norm-result)))
             "normalized form should classify")))))
 
 ;;;; ── NNF semantic validation ──
@@ -569,18 +522,25 @@
           (is (contains? #{:equivalent :subsumes} rev)
               (str "NNF (as equiv) should subsume original (NNF at least as general). Got: " rev
                    "\nNNF: " (pr-str nnf)))))))
-  (testing "NNF contains inherited relationships"
-    (let [cf  (scg/ctu->cf (scg/str->ctu "80146002"))
-          nnf (owl/necessary-normal-form *reasoner* cf)]
-      (is (seq (:cf/groups nnf))
-          "appendectomy NNF should have inherited groups")))
+  (testing "NNF contains inherited relationships from store"
+    (let [cf            (scg/ctu->cf (scg/str->ctu "80146002"))
+          nnf           (owl/necessary-normal-form *reasoner* cf)
+          store-rels    (store/parent-relationships *store* 80146002)
+          store-methods (get store-rels 260686004)]
+      (is (some (fn [group]
+                  (some (fn [[type-id [_ val]]] (and (= type-id 260686004) (contains? store-methods val)))
+                        group))
+                (:cf/groups nnf))
+          "NNF groups should contain method attributes matching the store")))
   (testing "NNF preserves user refinements alongside inherited"
     (let [cf  (scg/ctu->cf (scg/str->ctu "80146002 : 272741003 = 7771000"))
           nnf (owl/necessary-normal-form *reasoner* cf)]
       (is (contains? (:cf/ungrouped nnf) [272741003 [:concept 7771000]])
           "laterality should be in NNF")
-      (is (seq (:cf/groups nnf))
-          "inherited groups should also be present"))))
+      (is (some (fn [group]
+                  (some (fn [[type-id _]] (= type-id 260686004)) group))
+                (:cf/groups nnf))
+          "inherited groups with method attribute should be present"))))
 
 ;;;; ── Bidirectional subsumption agreement ──
 

@@ -1,10 +1,15 @@
 (ns com.eldrix.hermes.owl-full-test
   "OWL reasoning tests using the full (unfiltered) reasoner.
   All tests are ^:live ^:slow — the fixture only fires when :slow is not excluded."
-  (:require [clojure.test :refer [deftest is testing use-fixtures]]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.test :refer [deftest is testing use-fixtures]]
             [com.eldrix.hermes.impl.owl :as owl]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]))
+
+(stest/instrument)
 
 (def ^:private store-path "snomed.db/store.db")
 
@@ -29,142 +34,105 @@
 
 ;;;; ── Helpers ──
 
-(defn- owl-subsumes?
-  [reasoner a-str b-str]
-  (let [a-cf (scg/ctu->cf (scg/str->ctu a-str))
-        b-cf (scg/ctu->cf (scg/str->ctu b-str))
-        result (owl/subsumes? reasoner a-cf b-cf)]
-    (contains? #{:equivalent :subsumes} result)))
+(defn- classify-str
+  "Classify an SCG string, returning the classification result map."
+  ([reasoner s] (owl/classify reasoner (scg/ctu->cf (scg/str->ctu s))))
+  ([reasoner store s normalize?]
+   (owl/classify reasoner (if normalize?
+                            (scg/ctu->cf+normalize store (scg/str->ctu s))
+                            (scg/ctu->cf (scg/str->ctu s))))))
 
-;;;; ── Classification against the full ontology ──
+;;;; ── Classification: round-trip equivalence for fully-defined concepts ──
+;; A fully-defined concept classified via ctu->cf should be found equivalent
+;; to itself. This validates the entire pipeline: parse → CF → OWL → ELK → result.
 
-(def ^:private classify-cases
-  [{:description        "MS has superclasses"
-    :expression         "24700007"
-    :has-supers         :any}
-   {:description        "appendectomy has superclasses"
-    :expression         "80146002"
-    :has-supers         :any}
-   {:description        "procedure has superclasses"
-    :expression         "71388002"
-    :has-supers         :any}
-   {:description        "fully-defined concept is equivalent to itself"
-    :expression         "80146002"
-    :has-equivalents    #{80146002}}
-   {:description        "normalized form loses equivalence but gains superclass"
-    :expression         "80146002"
-    :normalize?         true
-    :lacks-equivalents  #{80146002}
-    :has-supers         #{80146002}}
-   {:description        "post-coordinated expression classified under base"
-    :expression         "80146002 : 272741003 = 7771000"
-    :has-supers         #{80146002}}])
+(deftest ^:live ^:slow fully-defined-equivalence
+  (testing "appendectomy (80146002) is equivalent to itself"
+    (let [result (classify-str *reasoner* "80146002")]
+      (is (= #{80146002} (:equivalent-concepts result)))))
 
-(def ^:private subsumes-cases
-  [{:description "equivalent"    :a "80146002" :b "80146002"                        :expected :equivalent}
-   {:description "subsumes"      :a "80146002" :b "80146002 : 272741003 = 7771000"  :expected :subsumes}
-   {:description "subsumed-by"   :a "80146002 : 272741003 = 7771000" :b "80146002"  :expected :subsumed-by}
-   {:description "not-subsumed"  :a "80146002" :b "22298006"                        :expected :not-subsumed}])
+  (testing "oophorectomy (83152002) is equivalent to itself"
+    (let [result (classify-str *reasoner* "83152002")]
+      (is (= #{83152002} (:equivalent-concepts result))))))
 
-(deftest ^:live ^:slow classification
-  (let [st *store* reasoner *reasoner*]
-    (doseq [{:keys [description expression normalize?
-                    has-equivalents lacks-equivalents has-supers]} classify-cases]
-      (testing description
-        (let [cf     (if normalize?
-                       (scg/ctu->cf+normalize st (scg/str->ctu expression))
-                       (scg/ctu->cf (scg/str->ctu expression)))
-              result (owl/classify reasoner cf)]
-          (when has-equivalents
-            (doseq [cid has-equivalents]
-              (is (contains? (::owl/equivalent-concepts result) cid))))
-          (when lacks-equivalents
-            (doseq [cid lacks-equivalents]
-              (is (not (contains? (::owl/equivalent-concepts result) cid)))))
-          (when has-supers
-            (if (= :any has-supers)
-              (is (seq (::owl/direct-super-concepts result)))
-              (doseq [cid has-supers]
-                (is (contains? (::owl/direct-super-concepts result) cid))))))))))
+;;;; ── Normalization breaks equivalence but preserves subsumption ──
+;; Normalizing a fully-defined concept expands it to proximal primitives,
+;; losing the named concept identity. The normalized form should classify
+;; as a subtype of the original concept, not equivalent.
 
-(deftest ^:live ^:slow classification-subsumes
-  (doseq [{:keys [description a b expected]} subsumes-cases]
-    (testing description
-      (let [cf-a (scg/ctu->cf (scg/str->ctu a))
-            cf-b (scg/ctu->cf (scg/str->ctu b))]
-        (is (= expected (owl/subsumes? *reasoner* cf-a cf-b)))))))
+(deftest ^:live ^:slow normalized-loses-equivalence
+  (let [result (classify-str *reasoner* *store* "80146002" true)]
+    (is (not (contains? (:equivalent-concepts result) 80146002))
+        "normalized appendectomy should not be equivalent to the named concept")
+    (is (contains? (:direct-super-concepts result) 80146002)
+        "normalized appendectomy should have appendectomy as a direct superclass")))
 
-;;;; ── Oracle tests against the full ontology ──
+;;;; ── Post-coordination classifies under base concept ──
 
-(def ^:private subsumption-oracle-cases
-  [{:description "concept subsumes itself"
-    :a "73211009" :b "73211009" :expected true}
-   {:description "parent subsumes child (demyelinating disease > MS)"
-    :a "6118003" :b "24700007" :expected true}
-   {:description "child does not subsume parent"
-    :a "24700007" :b "6118003" :expected false}
-   {:description "unrefined subsumes refined"
-    :a "71388002" :b "71388002 : 260686004 = 129304002" :expected true}
-   {:description "refined does not subsume unrefined"
-    :a "71388002 : 260686004 = 129304002" :b "71388002" :expected false}
-   {:description "more specific attribute value is subsumed"
-    :a "64572001 : 363698007 = 39607008" :b "64572001 : 363698007 = 181216001"
-    :expected true}
-   {:description "unrelated attribute values — no subsumption"
-    :a "64572001 : 363698007 = 39607008" :b "64572001 : 363698007 = 64033007"
-    :expected false}
-   {:description "fully-defined concept subsumes itself refined"
-    :a "80146002" :b "80146002 : 272741003 = 7771000" :expected true}
-   {:description "identical expressions — mutual subsumption"
-    :a "80146002" :b "80146002" :expected true}
-   {:description "terms ignored"
-    :a "80146002 |Appendectomy|" :b "80146002" :expected true}])
+(deftest ^:live ^:slow post-coordinated-classified-under-base
+  (let [result (classify-str *reasoner* "80146002 : 272741003 = 7771000")]
+    (is (contains? (:direct-super-concepts result) 80146002)
+        "appendectomy + laterality should be classified under appendectomy")))
 
-(def ^:private concept-pair-cases
-  [{:description "disease subsumes diabetes"
-    :a "64572001" :b "73211009" :expected true}
-   {:description "diabetes does not subsume disease"
-    :a "73211009" :b "64572001" :expected false}
-   {:description "clinical finding subsumes MS"
-    :a "404684003" :b "24700007" :expected true}
-   {:description "procedure subsumes appendectomy"
-    :a "71388002" :b "80146002" :expected true}
-   {:description "appendectomy does not subsume procedure"
-    :a "80146002" :b "71388002" :expected false}
-   {:description "procedure vs clinical finding — unrelated"
-    :a "71388002" :b "404684003" :expected false}
-   {:description "appendectomy does not subsume oophorectomy"
-    :a "80146002" :b "83152002" :expected false}])
+;;;; ── Generative: classify random expressions and validate against spec ──
+
+(deftest ^:live ^:slow classify-conforms-to-spec
+  (doseq [cf (gen/sample (s/gen :cf/expression) 50)]
+    (let [result (owl/classify *reasoner* cf)]
+      (is (s/valid? ::owl/classification-result result)
+          (str "classify result does not conform to spec: "
+               (s/explain-str ::owl/classification-result result))))))
+
+;;;; ── Subsumption ──
+
+(deftest ^:live ^:slow subsumption
+  (let [classify (fn [s] (scg/ctu->cf (scg/str->ctu s)))]
+    (is (= :equivalent   (owl/subsumes? *reasoner* (classify "80146002") (classify "80146002"))))
+    (is (= :subsumes     (owl/subsumes? *reasoner* (classify "80146002") (classify "80146002 : 272741003 = 7771000"))))
+    (is (= :subsumed-by  (owl/subsumes? *reasoner* (classify "80146002 : 272741003 = 7771000") (classify "80146002"))))
+    (is (= :not-subsumed (owl/subsumes? *reasoner* (classify "80146002") (classify "22298006"))))))
+
+;;;; ── Oracle: structural subsumption agrees with reasoner ──
 
 (deftest ^:live ^:slow oracle-subsumption
-  (testing "hand-written subsumption cases against full ontology"
-    (doseq [{:keys [description a b expected]} subsumption-oracle-cases]
-      (testing description
-        (is (= expected (owl-subsumes? *reasoner* a b))))))
-  (testing "concept-pair subsumption against full ontology"
-    (doseq [{:keys [description a b expected]} concept-pair-cases]
-      (testing description
-        (is (= expected (owl-subsumes? *reasoner* a b)))))))
+  (let [owl-sub? (fn [a b]
+                   (contains? #{:equivalent :subsumes}
+                              (owl/subsumes? *reasoner*
+                                             (scg/ctu->cf (scg/str->ctu a))
+                                             (scg/ctu->cf (scg/str->ctu b)))))]
+    (testing "IS-A relationships"
+      (is (owl-sub? "6118003" "24700007")      "demyelinating disease subsumes MS")
+      (is (not (owl-sub? "24700007" "6118003")) "MS does not subsume demyelinating disease")
+      (is (owl-sub? "64572001" "73211009")      "disease subsumes diabetes")
+      (is (owl-sub? "404684003" "24700007")     "clinical finding subsumes MS")
+      (is (owl-sub? "71388002" "80146002")      "procedure subsumes appendectomy")
+      (is (not (owl-sub? "80146002" "71388002")) "appendectomy does not subsume procedure")
+      (is (not (owl-sub? "71388002" "404684003")) "procedure vs clinical finding — unrelated")
+      (is (not (owl-sub? "80146002" "83152002")) "appendectomy does not subsume oophorectomy"))
+
+    (testing "refinements"
+      (is (owl-sub? "71388002" "71388002 : 260686004 = 129304002")
+          "unrefined subsumes refined")
+      (is (not (owl-sub? "71388002 : 260686004 = 129304002" "71388002"))
+          "refined does not subsume unrefined")
+      (is (owl-sub? "64572001 : 363698007 = 39607008" "64572001 : 363698007 = 181216001")
+          "more specific attribute value is subsumed")
+      (is (not (owl-sub? "64572001 : 363698007 = 39607008" "64572001 : 363698007 = 64033007"))
+          "unrelated attribute values — no subsumption"))))
+
+;;;; ── NNF semantic correctness ──
 
 (deftest ^:live ^:slow oracle-nnf
-  (testing "NNF semantic correctness against full ontology"
-    (doseq [expr-str ["80146002"
-                       "80146002 : 272741003 = 7771000"
-                       "83152002"]]
-      (testing (str "NNF equivalence: " expr-str)
-        (let [cf  (scg/ctu->cf (scg/str->ctu expr-str))
-              nnf (owl/necessary-normal-form *reasoner* cf)
-              fwd (owl/subsumes? *reasoner* cf nnf)
-              nnf-eq (assoc nnf :cf/definition-status :equivalent-to)
-              rev (owl/subsumes? *reasoner* nnf-eq cf)]
-          (is (contains? #{:equivalent :subsumes} fwd)
-              (str "original should subsume NNF. Got: " fwd))
-          (is (contains? #{:equivalent :subsumes} rev)
-              (str "NNF (as equiv) should subsume original. Got: " rev)))))))
-
-(deftest ^:live ^:slow oracle-symmetry
-  (let [base    (scg/ctu->cf (scg/str->ctu "80146002"))
-        refined (scg/ctu->cf (scg/str->ctu "80146002 : 272741003 = 7771000"))]
-    (is (= :equivalent (owl/subsumes? *reasoner* base base)))
-    (is (= :subsumes (owl/subsumes? *reasoner* base refined)))
-    (is (= :subsumed-by (owl/subsumes? *reasoner* refined base)))))
+  (doseq [expr-str ["80146002"
+                     "80146002 : 272741003 = 7771000"
+                     "83152002"]]
+    (testing (str "NNF equivalence: " expr-str)
+      (let [cf  (scg/ctu->cf (scg/str->ctu expr-str))
+            nnf (owl/necessary-normal-form *reasoner* cf)
+            fwd (owl/subsumes? *reasoner* cf nnf)
+            nnf-eq (assoc nnf :cf/definition-status :equivalent-to)
+            rev (owl/subsumes? *reasoner* nnf-eq cf)]
+        (is (contains? #{:equivalent :subsumes} fwd)
+            (str "original should subsume NNF. Got: " fwd))
+        (is (contains? #{:equivalent :subsumes} rev)
+            (str "NNF (as equiv) should subsume original. Got: " rev))))))

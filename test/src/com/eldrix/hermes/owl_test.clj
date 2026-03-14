@@ -1,6 +1,7 @@
 (ns com.eldrix.hermes.owl-test
   (:require [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is testing]]
             [com.eldrix.hermes.impl.owl :as owl]
             [com.eldrix.hermes.impl.scg :as scg])
@@ -8,9 +9,7 @@
            (org.semanticweb.owlapi.model OWLEquivalentClassesAxiom OWLSubClassOfAxiom)
            (org.semanticweb.owlapi.util DefaultPrefixManager)))
 
-(def ^:private manager (OWLManager/createOWLOntologyManager))
-(def ^:private factory (.getOWLDataFactory manager))
-(def ^:private pm (doto (DefaultPrefixManager.) (.setDefaultPrefix "http://snomed.info/id/")))
+(stest/instrument)
 
 (def ^:private test-cases
   [{:description "Simple IS-A (primitive, single focus concept)"
@@ -79,7 +78,10 @@
     :expected    ["EquivalentClasses(" ":404684003" ":138875005"]}])
 
 (deftest run-test-cases
-  (let [parse (owl/create-axiom-deserializer)]
+  (let [manager (OWLManager/createOWLOntologyManager)
+        factory (.getOWLDataFactory manager)
+        pm      (doto (DefaultPrefixManager.) (.setDefaultPrefix "http://snomed.info/id/"))
+        parse   (owl/create-axiom-deserializer)]
     (doseq [{:keys [description concept-id cf expected]} test-cases]
       (testing description
         (let [axiom   (owl/cf->axiom factory pm concept-id cf)
@@ -97,7 +99,10 @@
                   (str "Expected " fragment " in: " owl-str)))))))))
 
 (deftest generative-properties
-  (let [parse (owl/create-axiom-deserializer)]
+  (let [manager (OWLManager/createOWLOntologyManager)
+        factory (.getOWLDataFactory manager)
+        pm      (doto (DefaultPrefixManager.) (.setDefaultPrefix "http://snomed.info/id/"))
+        parse   (owl/create-axiom-deserializer)]
     (doseq [[cf-expr concept-id] (map vector
                                       (gen/sample (s/gen :cf/expression) 100)
                                       (gen/sample (s/gen :info.snomed.Concept/id) 100))]

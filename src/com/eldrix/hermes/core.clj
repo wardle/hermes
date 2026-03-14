@@ -624,8 +624,8 @@
 (defn classify-expression
   "Classify a post-coordinated expression using OWL reasoning.
   Accepts an SCG string or parsed CTU expression.
-  Returns a map with ::owl/equivalent-concepts, ::owl/direct-super-concepts,
-  and ::owl/proximal-primitive-supertypes, or nil if reasoning is unavailable."
+  Returns a map with :equivalent-concepts, :direct-super-concepts,
+  and :proximal-primitive-supertypes, or nil if reasoning is unavailable."
   [svc expression]
   (when-let [reasoner @(:reasoner svc)]
     (let [st (.-store ^Svc svc)

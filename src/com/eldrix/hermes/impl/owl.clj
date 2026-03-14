@@ -44,7 +44,7 @@
 (s/def ::direct-super-concepts (s/coll-of :info.snomed.Concept/id :kind set?))
 (s/def ::proximal-primitive-supertypes (s/coll-of :info.snomed.Concept/id :kind set?))
 (s/def ::classification-result
-  (s/keys :req [::equivalent-concepts ::direct-super-concepts ::proximal-primitive-supertypes]))
+  (s/keys :req-un [::equivalent-concepts ::direct-super-concepts ::proximal-primitive-supertypes]))
 
 ;;;; ── CF → OWL API ──
 
@@ -349,8 +349,8 @@
 (defprotocol Reasoner
   "Protocol for OWL reasoning over SNOMED CT expressions."
   (-classify [this cf-expression]
-    "Classify a CF expression. Returns a ::classification-result map with
-    ::equivalent-concepts, ::direct-super-concepts, and ::proximal-primitive-supertypes.")
+    "Classify a CF expression. Returns a classification result map with
+    :equivalent-concepts, :direct-super-concepts, and :proximal-primitive-supertypes.")
   (-subsumes? [this cf-a cf-b]
     "Test subsumption between two CF expressions. Returns one of:
     :equivalent, :subsumes, :subsumed-by, :not-subsumed.
@@ -442,9 +442,9 @@
         primitives (->> (proximal-primitive-supertypes ontology reasoner temp-cls)
                         (keep parse-iri->concept-id)
                         set)]
-    {::equivalent-concepts equivalents
-     ::direct-super-concepts supers
-     ::proximal-primitive-supertypes primitives}))
+    {:equivalent-concepts equivalents
+     :direct-super-concepts supers
+     :proximal-primitive-supertypes primitives}))
 
 (defn- with-temp-axioms
   "Create temporary axioms from CF expressions, add them to the ontology, flush
@@ -520,8 +520,8 @@
 
 (defn classify
   "Classify a CF expression against the loaded ontology.
-  Returns a ::classification-result map with ::equivalent-concepts,
-  ::direct-super-concepts, and ::proximal-primitive-supertypes."
+  Returns a classification result map with :equivalent-concepts,
+  :direct-super-concepts, and :proximal-primitive-supertypes."
   [reasoner cf-expression]
   (-classify reasoner cf-expression))
 
@@ -660,7 +660,7 @@
   the reasoner's classification rather than naive structural matching."
   [reasoner cf-expression]
   (let [result      (classify reasoner cf-expression)
-        equivalents (::equivalent-concepts result)]
+        equivalents (:equivalent-concepts result)]
     (if (seq equivalents)
       (str "<< " (first (sort equivalents)))
       (cf->ecl* (necessary-normal-form reasoner cf-expression)))))
@@ -678,7 +678,7 @@
   ;; to the pre-coordinated concept — something structural subsumption cannot do.
   ;; Here we express appendectomy (80146002) via its defining relationships:
   (classify reasoner (scg/ctu->cf (scg/str->ctu "80146002")))
-  ;; => ::equivalent-concepts should contain 80146002
+  ;; => :equivalent-concepts should contain 80146002
 
   ;; GCI-derived classification: clinical finding GCI axioms can infer parents
   ;; beyond the focus concept. A disorder defined by finding site + morphology
