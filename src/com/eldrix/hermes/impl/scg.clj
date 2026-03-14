@@ -506,40 +506,37 @@
       (seq ungrouped) (assoc :cf/ungrouped ungrouped)
       (seq groups) (assoc :cf/groups groups))))
 
-(defn- validate-concept
-  [store {:keys [conceptId]} role]
-  (when-not (store/concept store conceptId)
-    (throw (ex-info (str "Concept not found: " conceptId) {:type :concept-not-found :conceptId conceptId :role role}))))
+(declare valid-subexpression?)
 
-(declare validate-subexpression)
+(defn- valid-concept?
+  [store {:keys [conceptId]}]
+  (some? (store/concept store conceptId)))
 
-(defn- validate-refinements
+(defn- valid-refinements?
   [store refinements]
-  (doseq [r refinements]
-    (let [attrs (if (set? r) r [r])]
-      (doseq [[attr-name attr-value] attrs]
-        (validate-concept store attr-name :attribute-type)
-        (cond
-          (and (map? attr-value) (:focusConcepts attr-value))
-          (validate-subexpression store attr-value)
-          (and (map? attr-value) (:conceptId attr-value))
-          (validate-concept store attr-value :attribute-value))))))
+  (every? (fn [r]
+            (let [attrs (if (set? r) r [r])]
+              (every? (fn [[attr-name attr-value]]
+                        (and (valid-concept? store attr-name)
+                             (cond
+                               (and (map? attr-value) (:focusConcepts attr-value))
+                               (valid-subexpression? store attr-value)
+                               (and (map? attr-value) (:conceptId attr-value))
+                               (valid-concept? store attr-value)
+                               :else true)))
+                      attrs)))
+          refinements))
 
-(defn- validate-concepts
-  [store concepts role]
-  (doseq [c concepts]
-    (validate-concept store c role)))
-
-(defn- validate-subexpression
+(defn- valid-subexpression?
   [store {:keys [focusConcepts refinements]}]
-  (validate-concepts store focusConcepts :focus-concept)
-  (when refinements
-    (validate-refinements store refinements)))
+  (and (every? #(valid-concept? store %) focusConcepts)
+       (or (nil? refinements)
+           (valid-refinements? store refinements))))
 
-(defn validate
-  "Validate an expression, throwing on first invalid concept reference."
+(defn valid?
+  "Returns true if all concept references in an expression exist in the store."
   [store expression]
-  (validate-subexpression store (:subExpression expression)))
+  (valid-subexpression? store (:subExpression expression)))
 
 (s/fdef ctu->cf+normalize
   :args (s/cat :store any? :expression :ctu/expression))
@@ -555,7 +552,8 @@
     :cf/groups            - set of #{[type-id value] ...} attribute groups
   Throws if any referenced concepts are not found in the store."
   [store expression]
-  (validate store expression)
+  (when-not (valid? store expression)
+    (throw (ex-info "Expression contains invalid concept references" {:expression expression})))
   (let [{:keys [focusConcepts refinements]} (:subExpression expression)
         user-ungrouped (->> (filterv vector? (or refinements []))
                             (map ctu-attr->cf-attr)
@@ -662,6 +660,6 @@
   (concept->ctu st 24700007)
   (ctu->cf+normalize st (str->ctu "24700007"))
   (ctu->cf+normalize st (str->ctu "80146002"))
-  (validate st (str->ctu "24700007"))
-  (validate st (str->ctu "100000102"))
+  (valid? st (str->ctu "24700007"))
+  (valid? st (str->ctu "100000102"))
   )

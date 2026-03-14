@@ -365,7 +365,7 @@
             (is (s/valid? :ctu/expression canon)
                 (str "Canonical form fails spec for: " expression)))
           (when (and live invalid)
-            (is (thrown? clojure.lang.ExceptionInfo (scg/validate st result))))
+            (is (not (scg/valid? st result))))
           (when normalized
             (let [norm (scg/ctu->cf+normalize st result)]
               (is (= normalized norm))

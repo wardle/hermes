@@ -638,15 +638,15 @@
     (= :owl mode)
     (if-let [r @reasoner]
       (let [ctu-a (->ctu a), ctu-b (->ctu b)]
-        (scg/validate st ctu-a)
-        (scg/validate st ctu-b)
+        (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
+          (throw (ex-info "Invalid expression" {:a a :b b})))
         (reasoner/subsumes? r (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b)))
       (throw (ex-info "OWL reasoning unavailable" {:mode mode})))
 
     :else
     (let [ctu-a (->ctu a), ctu-b (->ctu b)]
-      (scg/validate st ctu-a)
-      (scg/validate st ctu-b)
+      (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
+        (throw (ex-info "Invalid expression" {:a a :b b})))
       (subsumes-ctu st ctu-a ctu-b))))
 
 (s/fdef classify-expression
@@ -663,7 +663,8 @@
   [{st :store reasoner :reasoner} expression & {:as _opts}]
   (if-let [r @reasoner]
     (let [ctu (->ctu expression)]
-      (scg/validate st ctu)
+      (when-not (scg/valid? st ctu)
+        (throw (ex-info "Invalid expression" {:expression expression})))
       (reasoner/classify r (scg/ctu->cf ctu)))
     (throw (ex-info "OWL reasoning unavailable" {}))))
 
@@ -681,7 +682,8 @@
   [{st :store reasoner :reasoner} expression & {:as _opts}]
   (if-let [r @reasoner]
     (let [ctu (->ctu expression)]
-      (scg/validate st ctu)
+      (when-not (scg/valid? st ctu)
+        (throw (ex-info "Invalid expression" {:expression expression})))
       (reasoner/necessary-normal-form r (scg/ctu->cf ctu)))
     (throw (ex-info "OWL reasoning unavailable" {}))))
 
