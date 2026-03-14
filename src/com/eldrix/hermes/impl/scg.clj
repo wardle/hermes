@@ -538,6 +538,65 @@
   [store expression]
   (valid-subexpression? store (:subExpression expression)))
 
+(defn- replace-concept
+  "Replace an inactive concept with its historical target, if available.
+  Returns the concept unchanged if active, or if no single replacement exists.
+  `refset-ids` is a set of historical association refset identifiers to use."
+  [store refset-ids {:keys [conceptId] :as concept}]
+  (let [c (store/concept store conceptId)]
+    (if (or (nil? c) (:active c))
+      concept
+      (let [items (->> (store/component-refset-items store conceptId)
+                       (filter #(and (:active %) (refset-ids (:refsetId %)))))]
+        (if (= 1 (count items))
+          (let [target-id (:targetComponentId (first items))
+                target (store/concept store target-id)]
+            (if (and target (:active target))
+              {:conceptId target-id}
+              concept))
+          concept)))))
+
+(declare replace-subexpression)
+
+(defn- replace-refinement-value
+  [store refset-ids v]
+  (cond
+    (and (map? v) (:focusConcepts v)) (replace-subexpression store refset-ids v)
+    (and (map? v) (:conceptId v))     (replace-concept store refset-ids v)
+    :else                              v))
+
+(defn- replace-refinements
+  [store refset-ids refinements]
+  (mapv (fn [r]
+          (if (set? r)
+            (set (map (fn [[attr-name attr-value]]
+                        [(replace-concept store refset-ids attr-name)
+                         (replace-refinement-value store refset-ids attr-value)])
+                      r))
+            [(replace-concept store refset-ids (first r))
+             (replace-refinement-value store refset-ids (second r))]))
+        refinements))
+
+(defn- replace-subexpression
+  [store refset-ids {:keys [focusConcepts refinements] :as subexpr}]
+  (cond-> (assoc subexpr :focusConcepts (mapv #(replace-concept store refset-ids %) focusConcepts))
+    refinements (assoc :refinements (replace-refinements store refset-ids refinements))))
+
+(s/fdef replace-historical
+  :args (s/cat :store any? :expression :ctu/expression
+               :kwargs (s/keys* :opt-un [::profile]))
+  :ret :ctu/expression)
+(defn replace-historical
+  "Replace inactive concept references in an expression with their historical
+  targets. By default, uses :HISTORY-MIN (SAME_AS only) which is the only
+  lossless replacement. Replacement occurs only when a single active target
+  exists for the given history profile.
+  Options:
+    :profile - :HISTORY-MIN (default), :HISTORY-MOD or :HISTORY-MAX"
+  [store expression & {:keys [profile] :or {profile :HISTORY-MIN}}]
+  (let [refset-ids (set (store/history-profile store profile))]
+    (update expression :subExpression #(replace-subexpression store refset-ids %))))
+
 (s/fdef ctu->cf+normalize
   :args (s/cat :store any? :expression :ctu/expression))
 
@@ -662,4 +721,6 @@
   (ctu->cf+normalize st (str->ctu "80146002"))
   (valid? st (str->ctu "24700007"))
   (valid? st (str->ctu "100000102"))
+  (replace-historical st (str->ctu "100000102"))
+  (replace-historical st (str->ctu "100000102") :profile :HISTORY-MOD)
   )

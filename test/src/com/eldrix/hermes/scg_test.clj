@@ -2,7 +2,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing run-tests]]
             [com.eldrix.hermes.impl.scg :as scg]
-            [com.eldrix.hermes.impl.store :as store]))
+            [com.eldrix.hermes.impl.store :as store]
+            [com.eldrix.hermes.snomed :as snomed]))
 
 (def test-cases
   [{:description "Simple concept ID without term"
@@ -718,6 +719,80 @@
     (doseq [s ["xxxx" "not a concept" "!!!" "" "abc123" ": = 1234"]]
       (is (thrown? Exception (scg/str->ctu s))
           (str "Expected exception for invalid expression: " (pr-str s))))))
+
+(defn- find-same-as-concept
+  "Find an inactive concept with a SAME_AS association pointing to an active
+  concept by searching backwards from a known active concept (24700007)."
+  [st]
+  (when-let [inactive-id (first (store/source-historical st 24700007 [snomed/SameAsReferenceSet]))]
+    {:inactive-id inactive-id :active-id 24700007}))
+
+(deftest ^:live replace-historical-active-unchanged
+  (with-open [st (store/open-store "snomed.db/store.db")]
+    (testing "Active concepts are not replaced"
+      (let [expr (scg/str->ctu "24700007")]
+        (is (= expr (scg/replace-historical st expr)))))
+    (testing "Active concepts with refinements are not replaced"
+      (let [expr (scg/str->ctu "73211009 : 363698007 = 113331007")]
+        (is (= expr (scg/replace-historical st expr)))))
+    (testing "Active concepts with groups are not replaced"
+      (let [expr (scg/str->ctu "71388002 : { 260686004 = 129304002 , 405813007 = 15497006 }")]
+        (is (= expr (scg/replace-historical st expr)))))
+    (testing "Non-existent concept is not replaced"
+      (let [expr (scg/str->ctu "100000102")]
+        (is (= expr (scg/replace-historical st expr)))))))
+
+(deftest ^:live replace-historical-inactive-focus
+  (with-open [st (store/open-store "snomed.db/store.db")]
+    (when-let [{:keys [inactive-id active-id]} (find-same-as-concept st)]
+      (testing "Inactive focus concept with SAME_AS is replaced"
+        (let [expr (scg/str->ctu (str inactive-id))
+              result (scg/replace-historical st expr)]
+          (is (= active-id (get-in result [:subExpression :focusConcepts 0 :conceptId])))
+          (is (s/valid? :ctu/expression result))))
+      (testing "Replaced expression can be normalized"
+        (let [expr (scg/str->ctu (str inactive-id))
+              result (-> (scg/replace-historical st expr)
+                         (->> (scg/ctu->cf+normalize st)))]
+          (is (s/valid? :cf/expression result))))
+      (testing "Inactive focus with refinement — focus replaced, refinement preserved"
+        (let [expr (scg/str->ctu (str inactive-id " : 272741003 = 7771000"))
+              result (scg/replace-historical st expr)]
+          (is (= active-id (get-in result [:subExpression :focusConcepts 0 :conceptId])))
+          (is (= [{:conceptId 272741003} {:conceptId 7771000}]
+                 (first (get-in result [:subExpression :refinements]))))))
+      (testing "Terms are dropped on replacement"
+        (let [expr (scg/str->ctu (str inactive-id " |old term|"))
+              result (scg/replace-historical st expr)]
+          (is (= active-id (get-in result [:subExpression :focusConcepts 0 :conceptId])))
+          (is (nil? (:term (get-in result [:subExpression :focusConcepts 0])))))))))
+
+(deftest ^:live replace-historical-inactive-attribute
+  (with-open [st (store/open-store "snomed.db/store.db")]
+    (when-let [{:keys [inactive-id active-id]} (find-same-as-concept st)]
+      (testing "Inactive concept in attribute value position is replaced"
+        (let [expr (scg/str->ctu (str "73211009 : 363698007 = " inactive-id))
+              result (scg/replace-historical st expr)]
+          (is (= active-id (:conceptId (second (first (get-in result [:subExpression :refinements]))))))))
+      (testing "Inactive concept in grouped attribute value is replaced"
+        (let [expr (scg/str->ctu (str "71388002 : { 260686004 = 129304002 , 363698007 = " inactive-id " }"))
+              result (scg/replace-historical st expr)
+              group (first (get-in result [:subExpression :refinements]))]
+          (is (set? group))
+          (is (some #(= active-id (:conceptId (second %))) group))))
+      (testing "Inactive concept in nested expression is replaced"
+        (let [expr (scg/str->ctu (str "243796009 : 246090004 = ( " inactive-id " )"))
+              result (scg/replace-historical st expr)
+              nested (second (first (get-in result [:subExpression :refinements])))]
+          (is (= active-id (get-in nested [:focusConcepts 0 :conceptId]))))))))
+
+(deftest ^:live replace-historical-profiles
+  (with-open [st (store/open-store "snomed.db/store.db")]
+    (testing "Active expression unchanged across all profiles"
+      (let [expr (scg/str->ctu "24700007")]
+        (is (= expr (scg/replace-historical st expr :profile :HISTORY-MIN)))
+        (is (= expr (scg/replace-historical st expr :profile :HISTORY-MOD)))
+        (is (= expr (scg/replace-historical st expr :profile :HISTORY-MAX)))))))
 
 (comment
   (run-tests))
