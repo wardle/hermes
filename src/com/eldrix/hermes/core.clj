@@ -583,71 +583,107 @@
       :else
       :unavailable)))
 
+(defn ^:private ->ctu
+  "Coerce a concept identifier, SCG string, or parsed CTU expression to CTU."
+  [x]
+  (cond
+    (int? x)    (scg/str->ctu (str x))
+    (string? x) (scg/str->ctu x)
+    :else       x))
+
+(defn ^:private subsumes-concept-ids
+  "Fast subsumption for two concept identifiers using the IS-A hierarchy."
+  [store a b]
+  (cond
+    (= a b)                                    :equivalent
+    (contains? (store/all-parents store b) a)   :subsumes
+    (contains? (store/all-parents store a) b)   :subsumed-by
+    :else                                       :not-subsumed))
+
+(defn ^:private subsumes-ctu
+  "Structural subsumption between two CTU expressions."
+  [store ctu-a ctu-b]
+  (let [cf-a (scg/ctu->cf+normalize store ctu-a)
+        cf-b (scg/ctu->cf+normalize store ctu-b)
+        a-subsumes-b (scg/cf-subsumes? store cf-a cf-b)
+        b-subsumes-a (scg/cf-subsumes? store cf-b cf-a)]
+    (cond
+      (and a-subsumes-b b-subsumes-a) :equivalent
+      a-subsumes-b                    :subsumes
+      b-subsumes-a                    :subsumed-by
+      :else                           :not-subsumed)))
+
+(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
 (s/def ::mode #{:structural :owl})
 
-(s/fdef expression-subsumes?
+(s/fdef subsumes
   :args (s/cat :svc ::svc
-               :a (s/or :string string? :ctu :ctu/expression)
-               :b (s/or :string string? :ctu :ctu/expression)
+               :a ::expression
+               :b ::expression
                :opts (s/keys* :opt-un [::mode]))
   :ret #{:equivalent :subsumes :subsumed-by :not-subsumed})
 
-(defn expression-subsumes?
-  "Does expression A subsume expression B?
-  Accepts SCG strings or parsed CTU expressions.
-  Uses structural subsumption by default. When :mode is :owl and a reasoner
-  is available, uses OWL reasoning; otherwise falls back to structural.
+(defn subsumes
+  "Test subsumption between two expressions, aligned with FHIR $subsumes.
+  Accepts concept identifiers, SCG strings, or parsed CTU expressions.
+  Uses structural subsumption by default. When :mode is :owl, uses OWL
+  reasoning; throws if the reasoner is unavailable.
 
   Returns :equivalent, :subsumes, :subsumed-by, or :not-subsumed."
-  [svc a b & {:keys [mode] :or {mode :structural}}]
-  (let [st (.-store ^Svc svc)
-        ctu-a (if (string? a) (scg/str->ctu a) a)
-        ctu-b (if (string? b) (scg/str->ctu b) b)]
-    (scg/validate st ctu-a)
-    (scg/validate st ctu-b)
-    (if-let [reasoner (and (= :owl mode) @(:reasoner svc))]
-      (reasoner/subsumes? reasoner (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b))
-      (let [cf-a (scg/ctu->cf+normalize st ctu-a)
-            cf-b (scg/ctu->cf+normalize st ctu-b)
-            a-subsumes-b (scg/cf-subsumes? st cf-a cf-b)
-            b-subsumes-a (scg/cf-subsumes? st cf-b cf-a)]
-        (cond
-          (and a-subsumes-b b-subsumes-a) :equivalent
-          a-subsumes-b                    :subsumes
-          b-subsumes-a                    :subsumed-by
-          :else                           :not-subsumed)))))
+  [{st :store reasoner :reasoner} a b & {:keys [mode] :or {mode :structural}}]
+  (cond
+    (and (int? a) (int? b) (not= :owl mode))
+    (subsumes-concept-ids st a b)
+
+    (= :owl mode)
+    (if-let [r @reasoner]
+      (let [ctu-a (->ctu a), ctu-b (->ctu b)]
+        (scg/validate st ctu-a)
+        (scg/validate st ctu-b)
+        (reasoner/subsumes? r (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b)))
+      (throw (ex-info "OWL reasoning unavailable" {:mode mode})))
+
+    :else
+    (let [ctu-a (->ctu a), ctu-b (->ctu b)]
+      (scg/validate st ctu-a)
+      (scg/validate st ctu-b)
+      (subsumes-ctu st ctu-a ctu-b))))
 
 (s/fdef classify-expression
-  :args (s/cat :svc ::svc :expression (s/or :string string? :ctu :ctu/expression))
-  :ret (s/nilable map?))
+  :args (s/cat :svc ::svc :expression ::expression
+               :opts (s/keys*))
+  :ret map?)
 
 (defn classify-expression
   "Classify a post-coordinated expression using OWL reasoning.
-  Accepts an SCG string or parsed CTU expression.
+  Accepts a concept identifier, SCG string, or parsed CTU expression.
   Returns a map with :equivalent-concepts, :direct-super-concepts,
-  and :proximal-primitive-supertypes, or nil if reasoning is unavailable."
-  [svc expression]
-  (when-let [reasoner @(:reasoner svc)]
-    (let [st (.-store ^Svc svc)
-          ctu (if (string? expression) (scg/str->ctu expression) expression)]
+  and :proximal-primitive-supertypes.
+  Throws if reasoning is unavailable."
+  [{st :store reasoner :reasoner} expression & {:as _opts}]
+  (if-let [r @reasoner]
+    (let [ctu (->ctu expression)]
       (scg/validate st ctu)
-      (reasoner/classify reasoner (scg/ctu->cf ctu)))))
+      (reasoner/classify r (scg/ctu->cf ctu)))
+    (throw (ex-info "OWL reasoning unavailable" {}))))
 
 (s/fdef necessary-normal-form
-  :args (s/cat :svc ::svc :expression (s/or :string string? :ctu :ctu/expression))
-  :ret (s/nilable :cf/expression))
+  :args (s/cat :svc ::svc :expression ::expression
+               :opts (s/keys*))
+  :ret :cf/expression)
 
 (defn necessary-normal-form
   "Compute the Necessary Normal Form of an expression using OWL reasoning.
-  Accepts an SCG string or parsed CTU expression.
+  Accepts a concept identifier, SCG string, or parsed CTU expression.
   Returns a CF expression with proximal primitive supertypes as focus
-  concepts plus all necessary relationships, or nil if unavailable."
-  [svc expression]
-  (when-let [reasoner @(:reasoner svc)]
-    (let [st (.-store ^Svc svc)
-          ctu (if (string? expression) (scg/str->ctu expression) expression)]
+  concepts plus all necessary relationships.
+  Throws if reasoning is unavailable."
+  [{st :store reasoner :reasoner} expression & {:as _opts}]
+  (if-let [r @reasoner]
+    (let [ctu (->ctu expression)]
       (scg/validate st ctu)
-      (reasoner/necessary-normal-form reasoner (scg/ctu->cf ctu)))))
+      (reasoner/necessary-normal-form r (scg/ctu->cf ctu)))
+    (throw (ex-info "OWL reasoning unavailable" {}))))
 
 (defn ^:private make-search-params
   [^Svc svc {:keys [s query constraint accept-language language-refset-ids] :as params}]

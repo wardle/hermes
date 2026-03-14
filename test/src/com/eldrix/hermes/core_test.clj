@@ -3,7 +3,8 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest testing is use-fixtures]]
-            [com.eldrix.hermes.core :as hermes]))
+            [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.reasoner :as reasoner]))
 
 (stest/instrument)
 
@@ -164,4 +165,33 @@
 #_(deftest ^:live test-historical-assumptions
     (let [counts (#'hermes/historical-association-counts *svc*)]
       (is (= 1 (get counts snomed/ReplacedByReferenceSet)))))
+
+(deftest ^:live test-subsumes-concept-ids
+  (testing "concept id fast path"
+    (is (= :equivalent (hermes/subsumes *svc* 24700007 24700007))
+        "A concept is equivalent to itself")
+    (is (= :subsumes (hermes/subsumes *svc* 6118003 24700007))
+        "Disease of CNS subsumes Multiple sclerosis")
+    (is (= :subsumed-by (hermes/subsumes *svc* 24700007 6118003))
+        "Multiple sclerosis is subsumed by Disease of CNS")
+    (is (= :not-subsumed (hermes/subsumes *svc* 24700007 73211009))
+        "Multiple sclerosis and Diabetes mellitus are unrelated")))
+
+(deftest ^:live test-subsumes-strings
+  (testing "string expressions"
+    (is (= :equivalent (hermes/subsumes *svc* "24700007" "24700007"))
+        "Same concept as string")
+    (is (= :subsumes (hermes/subsumes *svc* "6118003" "24700007"))
+        "Parent subsumes child as strings")))
+
+(deftest ^:live test-subsumes-mixed-input
+  (testing "concept id and string"
+    (is (= :subsumes (hermes/subsumes *svc* "6118003" 24700007))
+        "String and concept id can be mixed")))
+
+(deftest ^:live test-subsumes-owl-unavailable
+  (when-not @reasoner/owl-loaded?
+    (testing "throws when OWL mode requested but libraries unavailable"
+      (is (thrown? clojure.lang.ExceptionInfo
+                  (hermes/subsumes *svc* 24700007 24700007 :mode :owl))))))
 

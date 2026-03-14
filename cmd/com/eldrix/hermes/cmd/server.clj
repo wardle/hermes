@@ -310,7 +310,7 @@
            (and (= :owl mode') (not= :active (hermes/reasoning-status svc)))
            (assoc ctx :response {:status 422 :body {:error "OWL reasoning unavailable"}})
            :else
-           (assoc ctx :result {:outcome (name (hermes/expression-subsumes? svc a b :mode mode'))}))))}))
+           (assoc ctx :result {:outcome (name (hermes/subsumes svc a b :mode mode'))}))))}))
 
 (def classify-expression
   "OWL classification of a post-coordinated expression.

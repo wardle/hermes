@@ -13,6 +13,7 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 
 * a fast terminology service with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
+* optional OWL reasoning for post-coordinated expression classification, subsumption and normal forms
 * cross-mapping to and from other code systems including ICD-10, Read codes and OPCS
 * support for SNOMED CT compositional grammar (cg) and expression constraint language (ECL) v2.2.
 * a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for use with AI assistants and LLM-based tools
@@ -78,9 +79,11 @@ supports search and autocompletion using the $expand operation.
     - [Expanding SNOMED ECL (Expression Constraint Language)](#expanding-ecl-without-search)
     - [Crossmap to and from SNOMED CT - e.g. ICD-10](#crossmap-to-and-from-snomed-ct)
     - [Map a concept into a reference set](#map-a-concept-into-a-reference-set)
+    - [OWL reasoning endpoints](#owl-reasoning-endpoints)
   - [C. Embed into another application as a JVM library](#c-embed-into-another-application)
-  - [D. Development notes](#d-development)
-  - [E. Backwards compatibility and versioning](#e-backwards-compatibility-and-versioning)
+  - [D. OWL reasoning](#d-owl-reasoning)
+  - [E. Development notes](#e-development)
+  - [F. Backwards compatibility and versioning](#f-backwards-compatibility-and-versioning)
 
 # Quickstart
 
@@ -1622,6 +1625,60 @@ into subsets of terms as defined by a reference set for analytics.
 
 You could limit users to only entering the terms in a subset, but much better to allow clinicians to regard highly-specific granular terms and be able to map to less granular terms on demand.
 
+##### OWL reasoning endpoints
+
+These endpoints are available when the server is started with the `--owl` flag.
+See [OWL reasoning](#d-owl-reasoning) for setup instructions.
+
+###### Get server status
+
+```shell
+http '127.0.0.1:8080/v1/snomed/status'
+```
+
+Returns status information including the current reasoning status (`active`, `inactive`, or `unavailable`).
+
+###### Expression subsumption
+
+```shell
+http '127.0.0.1:8080/v1/snomed/subsumes?a=73211009&b=73211009|46..|:363698007=84301002'
+```
+
+Tests whether expression `a` subsumes expression `b`. Parameters:
+
+| Parameter | Required | Description                                                              |
+|-----------|----------|--------------------------------------------------------------------------|
+| `a`       | yes      | SCG expression                                                           |
+| `b`       | yes      | SCG expression                                                           |
+| `mode`    | no       | `structural` (default) or `owl`. OWL mode requires `--owl` at startup.   |
+
+Returns `{"outcome": "equivalent"}`, `{"outcome": "subsumes"}`, `{"outcome": "subsumed-by"}`, or `{"outcome": "not-subsumed"}`.
+
+###### Classify expression
+
+```shell
+http '127.0.0.1:8080/v1/snomed/classify?expression=73211009|46..|:363698007=84301002'
+```
+
+Classifies a post-coordinated expression using OWL reasoning. Returns equivalent concepts, direct super-concepts, and proximal primitive supertypes.
+
+| Parameter    | Required | Description    |
+|--------------|----------|----------------|
+| `expression` | yes      | SCG expression |
+
+###### Necessary Normal Form
+
+```shell
+http '127.0.0.1:8080/v1/snomed/necessary-normal-form?expression=73211009|46..|:363698007=84301002'
+```
+
+Computes the Necessary Normal Form (NNF) of a post-coordinated expression. The NNF
+has proximal primitive supertypes as focus concepts plus all necessary relationships.
+
+| Parameter    | Required | Description    |
+|--------------|----------|----------------|
+| `expression` | yes      | SCG expression |
+
 ### C. Embed into another application
 
 You can use git coordinates in a deps.edn file, or use maven:
@@ -1655,11 +1712,85 @@ You may need to add Clojars as a repository in your build tool. Here for maven:
 </repositories>
 ```
 
-### D. Development
+### D. OWL reasoning
 
-See [/doc/development](/doc/development.md) on how to develop, test, lint, deploy and release `hermes`. 
+Hermes provides optional OWL reasoning for post-coordinated expressions using the
+[OWL API](https://github.com/owlcs/owlapi) and the [ELK reasoner](https://github.com/liveontologies/elk-reasoner).
 
-### E. Backwards compatibility and versioning
+OWL reasoning enables:
+
+* **Classification** of post-coordinated expressions — determining equivalent concepts,
+  direct super-concepts, and proximal primitive supertypes
+* **Subsumption testing** using OWL semantics — more accurate than structural subsumption
+  for complex expressions
+* **Necessary Normal Form (NNF)** computation — a canonical representation with proximal
+  primitive supertypes as focus concepts and all necessary relationships
+
+OWL reasoning is entirely optional. When the OWL libraries are not on the classpath,
+or the `--owl` flag is not used, hermes continues to work as before with structural
+subsumption.
+
+#### Setup
+
+The OWL API and ELK reasoner are not included in the default classpath. To enable
+OWL reasoning, add the `:owl` alias when running from source:
+
+```shell
+clj -M:run:owl --db snomed.db import ~/Downloads/snomed-2021/
+clj -M:run:owl --db snomed.db --owl serve
+```
+
+When importing, the `--owl` flag controls whether OWL axiom reference set files are
+included. By default, they are excluded. When serving, the `--owl` flag activates
+the reasoner at startup, making classification, OWL subsumption, and NNF endpoints
+available.
+
+If you are using a pre-built jar that includes the OWL dependencies:
+
+```shell
+java -jar hermes.jar --db snomed.db --owl import ~/Downloads/snomed-2021/
+java -jar hermes.jar --db snomed.db --owl serve
+```
+
+The `--owl` flag is also supported by the `install` and `mcp` commands.
+
+#### Library usage
+
+When embedding hermes in another application, add the OWL dependencies to your
+project:
+
+```clojure
+net.sourceforge.owlapi/owlapi-apibinding {:mvn/version "5.5.1"
+                                           :exclusions  [net.sourceforge.owlapi/owlapi-rio
+                                                         net.sourceforge.owlapi/owlapi-oboformat
+                                                         net.sourceforge.owlapi/owlapi-tools]}
+io.github.liveontologies/elk-owlapi      {:mvn/version "0.6.0"}
+```
+
+Then use the reasoning functions from `com.eldrix.hermes.core`:
+
+```clojure
+(require '[com.eldrix.hermes.core :as hermes])
+
+(def svc (hermes/open "snomed.db"))
+(hermes/activate-reasoner svc)            ;; eagerly initialize the reasoner
+(hermes/reasoning-status svc)             ;; => :active, :inactive, or :unavailable
+
+;; Classify a post-coordinated expression
+(hermes/classify-expression svc "73211009:363698007=84301002")
+
+;; Test subsumption (structural or OWL)
+(hermes/subsumes svc "73211009" "73211009:363698007=84301002" :mode :owl)
+
+;; Compute Necessary Normal Form
+(hermes/necessary-normal-form svc "73211009:363698007=84301002")
+```
+
+### E. Development
+
+See [/doc/development](/doc/development.md) on how to develop, test, lint, deploy and release `hermes`.
+
+### F. Backwards compatibility and versioning
 
 `Hermes` uses versions of form `major.minor.commit`
 
