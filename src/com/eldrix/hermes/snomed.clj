@@ -796,7 +796,7 @@
    :info.snomed/ComplexMapRefset           parse-complex-map-refset-item
    :info.snomed/ExtendedMapRefset          parse-extended-map-refset-item
    :info.snomed/AttributeValueRefset       parse-attribute-value-refset-item
-   ;:info.snomed/OWLExpressionRefset    parse-owl-expression-refset-item})
+   :info.snomed/OWLExpressionRefset        parse-owl-expression-refset-item
    :info.snomed/ModuleDependencyRefset     parse-module-dependency-refset-item
    :info.snomed/MRCMDomainRefset           parse-mrcm-domain-refset-item
    :info.snomed/MRCMAttributeDomainRefset  parse-mrcm-attribute-domain-refset-item
@@ -1136,6 +1136,11 @@
 ;; SNOMED CT 'model' component and reference set
 (def ModelModule 900000000000012004)
 (def ModuleDependencyReferenceSet 900000000000534007)
+
+;; OWL expression reference sets
+(def RoleGroup 609096000)
+(def OWLAxiomReferenceSet 733073007)
+(def OWLOntologyReferenceSet 762103008)
 
 ;; SNOMED CT Machine Readable Concept Model (MRCM)
 (def MRCMDomainReferenceSet 723589008)

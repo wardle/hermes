@@ -63,6 +63,7 @@
                      :parse-fn keyword :validate [#{:json :edn} "Format must be 'json' or 'edn'"]]
    :dist            [nil "--dist DST" "Distribution(s) e.g. uk.nhs/sct-clinical"
                      :multi true :default [] :update-fn conj :default-desc ""]
+   :owl             [nil "--owl" "Enable OWL reasoning support"]
    :verbose         ["-v" "--verbose"]
    :progress        [nil "--progress" "Turn on progress reporting"]
    :help            ["-h" "--help"]})
@@ -136,15 +137,15 @@
     :opts [(option :help)]}
    {:cmd  "import" :usage "import [paths]"
     :desc "Import SNOMED distribution files from the path(s) specified"
-    :opts [(option :db db-mandatory) (option :help)]}
+    :opts [(option :db db-mandatory) (option :owl) (option :help)]}
    {:cmd  "available" :desc "List available distributions, or releases for 'install'"
     :opts #(make-distribution-options {:extra-opts [[nil "--username USERNAME" "Username for MLDS"]
                                                    [nil "--password PASSWORD_FILE" "Path to a file containing password for MLDS"]]} %)}
    {:cmd  "download" :usage "download [dists]" :deprecated true :warning "Use 'install' instead"
     :desc "Download and install specified distributions"
-    :opts #(make-distribution-options {:db? true} %)}
+    :opts #(make-distribution-options {:db? true :extra-opts [(option :owl)]} %)}
    {:cmd  "install" :desc "Download and install specified distribution(s)"
-    :opts #(make-distribution-options {:db? true} %)}
+    :opts #(make-distribution-options {:db? true :extra-opts [(option :owl)]} %)}
    {:cmd  "index" :desc "Build search indices"
     :opts [(option :db db-mandatory) (option :help)]}
    {:cmd  "compact" :desc "Compact database"
@@ -158,9 +159,9 @@
    {:cmd  "serve" :desc "Start a terminology server"
     :opts [(option :db db-mandatory) (option :port) (option :bind-address)
            (option :allowed-origins) (option :allowed-origin) (option :locale)
-           (option :help)]}
+           (option :owl) (option :help)]}
    {:cmd  "mcp" :desc "Start an MCP (Model Context Protocol) server"
-    :opts [(option :db db-mandatory) (option :locale) (option :help)]}])
+    :opts [(option :db db-mandatory) (option :locale) (option :owl) (option :help)]}])
 
 (def commands
   "Return information about the command specified."
@@ -201,14 +202,17 @@
         (update-in [:options :allowed-origin] #(apply conj % (str/split (:allowed-origins options) #","))))))
 
 (defn opts-for-commands
-  "Given a collection of command-line arguments, return sorted options."
-  [args]
-  (->> (filter all-commands args)
-       (map commands)
-       (map :opts)
-       (mapcat #(if (fn? %) (% args) %))
-       distinct
-       (sort-by second)))
+  "Given a collection of command-line arguments, return sorted options.
+  An optional set of option specs to exclude can be provided."
+  ([args] (opts-for-commands args #{}))
+  ([args exclude]
+   (->> (filter all-commands args)
+        (map commands)
+        (map :opts)
+        (mapcat #(if (fn? %) (% args) %))
+        (remove exclude)
+        distinct
+        (sort-by second))))
 
 (defn parse-cli
   "Parse command-line arguments and return a map containing:
@@ -218,18 +222,22 @@
   - :warnings  - a sequence of warnings, if any
   - :errors    - a sequence of errors, if any
 
-  Commands are returned in order given on the command-line."
-  [args]
-  (let [cmds (filterv all-commands args)                    ;; return commands in order given on command-line
-        opts (or (seq (opts-for-commands args)) [(option :help)])] ;; determine options for command(s)
-    (-> args
-        expand-legacy-parameters
-        (cli/parse-opts opts)
-        (update :arguments #(remove (set cmds) %))
-        (assoc :cmds cmds)
-        parse-allowed-origins
-        parse-legacy-distributions
-        warn-if-deprecated)))
+  Commands are returned in order given on the command-line.
+  An optional config map can be provided with:
+  - :exclude-opts - a set of option keywords to exclude."
+  ([args] (parse-cli args {}))
+  ([args {:keys [exclude-opts]}]
+   (let [excluded (set (keep all-options exclude-opts))
+         cmds (filterv all-commands args)
+         opts (or (seq (opts-for-commands args excluded)) [(option :help)])]
+     (-> args
+         expand-legacy-parameters
+         (cli/parse-opts opts)
+         (update :arguments #(remove (set cmds) %))
+         (assoc :cmds cmds)
+         parse-allowed-origins
+         parse-legacy-distributions
+         warn-if-deprecated))))
 
 (comment
   (def args ["--db wibble.db" "serve" "flibble"])

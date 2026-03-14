@@ -19,6 +19,7 @@
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.members :as members]
             [com.eldrix.hermes.impl.mrcm :as mrcm]
+            [com.eldrix.hermes.impl.reasoner :as reasoner]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
@@ -80,10 +81,13 @@
             ^IndexReader memberReader
             ^IndexSearcher memberSearcher
             localeMatchFn
-            mrcmDomainFn]
+            mrcmDomainFn
+            reasoner]                           ;; delay → Reasoner | nil
   Service
   Closeable
   (close [_]
+    (when-let [r (and reasoner (realized? reasoner) @reasoner)]
+      (.close ^Closeable r))
     (.close store)
     (.close indexReader)
     (.close memberReader)))
@@ -538,8 +542,112 @@
   [^Svc svc concept-ids parent-ids]
   (some (set parent-ids) (all-parents svc concept-ids)))
 
+(s/fdef parse-expression
+  :args (s/cat :svc ::svc :s string?)
+  :ret :ctu/expression)
+
 (defn parse-expression [^Svc _svc s]
-  (scg/parse s))
+  (scg/str->ctu s))
+
+(s/fdef activate-reasoner
+  :args (s/cat :svc ::svc)
+  :ret ::svc)
+
+(defn activate-reasoner
+  "Force initialization of the OWL reasoner. Returns the service unchanged.
+  Throws if the reasoner cannot be started. Call at startup to pay the
+  initialization cost upfront rather than on first query."
+  [svc]
+  (if @(:reasoner svc)
+    (do (log/info "OWL reasoner activated successfully") svc)
+    (throw (ex-info "OWL reasoning unavailable: check OWL libraries are on classpath and OWL data has been imported (use --owl during import)" {}))))
+
+(s/fdef reasoning-status
+  :args (s/cat :svc ::svc)
+  :ret #{:active :inactive :unavailable})
+
+(defn reasoning-status
+  "Return the current reasoning status without triggering initialization.
+  - :active      — reasoner is initialized and ready
+  - :inactive    — OWL classes and data are available but reasoner not yet started
+  - :unavailable — OWL libraries not on classpath or no OWL data in store"
+  [svc]
+  (let [r (:reasoner svc)]
+    (cond
+      (and r (realized? r) (some? @r))
+      :active
+
+      (reasoner/reasoning-available? (:store svc))
+      :inactive
+
+      :else
+      :unavailable)))
+
+(s/def ::mode #{:structural :owl})
+
+(s/fdef expression-subsumes?
+  :args (s/cat :svc ::svc
+               :a (s/or :string string? :ctu :ctu/expression)
+               :b (s/or :string string? :ctu :ctu/expression)
+               :opts (s/keys* :opt-un [::mode]))
+  :ret #{:equivalent :subsumes :subsumed-by :not-subsumed})
+
+(defn expression-subsumes?
+  "Does expression A subsume expression B?
+  Accepts SCG strings or parsed CTU expressions.
+  Uses structural subsumption by default. When :mode is :owl and a reasoner
+  is available, uses OWL reasoning; otherwise falls back to structural.
+
+  Returns :equivalent, :subsumes, :subsumed-by, or :not-subsumed."
+  [svc a b & {:keys [mode] :or {mode :structural}}]
+  (let [st (.-store ^Svc svc)
+        ctu-a (if (string? a) (scg/str->ctu a) a)
+        ctu-b (if (string? b) (scg/str->ctu b) b)]
+    (scg/validate st ctu-a)
+    (scg/validate st ctu-b)
+    (if-let [reasoner (and (= :owl mode) @(:reasoner svc))]
+      (reasoner/subsumes? reasoner (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b))
+      (let [cf-a (scg/ctu->cf+normalize st ctu-a)
+            cf-b (scg/ctu->cf+normalize st ctu-b)
+            a-subsumes-b (scg/cf-subsumes? st cf-a cf-b)
+            b-subsumes-a (scg/cf-subsumes? st cf-b cf-a)]
+        (cond
+          (and a-subsumes-b b-subsumes-a) :equivalent
+          a-subsumes-b                    :subsumes
+          b-subsumes-a                    :subsumed-by
+          :else                           :not-subsumed)))))
+
+(s/fdef classify-expression
+  :args (s/cat :svc ::svc :expression (s/or :string string? :ctu :ctu/expression))
+  :ret (s/nilable map?))
+
+(defn classify-expression
+  "Classify a post-coordinated expression using OWL reasoning.
+  Accepts an SCG string or parsed CTU expression.
+  Returns a map with ::owl/equivalent-concepts, ::owl/direct-super-concepts,
+  and ::owl/proximal-primitive-supertypes, or nil if reasoning is unavailable."
+  [svc expression]
+  (when-let [reasoner @(:reasoner svc)]
+    (let [st (.-store ^Svc svc)
+          ctu (if (string? expression) (scg/str->ctu expression) expression)]
+      (scg/validate st ctu)
+      (reasoner/classify reasoner (scg/ctu->cf ctu)))))
+
+(s/fdef necessary-normal-form
+  :args (s/cat :svc ::svc :expression (s/or :string string? :ctu :ctu/expression))
+  :ret (s/nilable :cf/expression))
+
+(defn necessary-normal-form
+  "Compute the Necessary Normal Form of an expression using OWL reasoning.
+  Accepts an SCG string or parsed CTU expression.
+  Returns a CF expression with proximal primitive supertypes as focus
+  concepts plus all necessary relationships, or nil if unavailable."
+  [svc expression]
+  (when-let [reasoner @(:reasoner svc)]
+    (let [st (.-store ^Svc svc)
+          ctu (if (string? expression) (scg/str->ctu expression) expression)]
+      (scg/validate st ctu)
+      (reasoner/necessary-normal-form reasoner (scg/ctu->cf ctu)))))
 
 (defn ^:private make-search-params
   [^Svc svc {:keys [s query constraint accept-language language-refset-ids] :as params}]
@@ -1221,7 +1329,8 @@
               :searcher       index-searcher
               :memberReader   member-reader
               :memberSearcher (IndexSearcher. member-reader)
-              :localeMatchFn  locale-match-fn}]
+              :localeMatchFn  locale-match-fn
+              :reasoner       (delay (reasoner/start-reasoner st))}]
      ;; report configuration when appropriate
      (when-not quiet
        (let [lang-refset-ids (locale-match-fn)]
@@ -1236,16 +1345,17 @@
 
 (s/fdef do-import-snomed
   :args (s/cat :store-file any?
-               :files (s/coll-of :info.snomed/ReleaseFile)))
+               :files (s/coll-of :info.snomed/ReleaseFile)
+               :opts (s/nilable map?)))
 (defn- do-import-snomed
   "Import a SNOMED distribution from the specified files into a local
    file-based database `store-file`.
    Blocking; will return when done. Throws an exception on the calling thread if
    there are any import problems."
-  [store-file files]
+  [store-file files opts]
   (with-open [store (store/open-store store-file {:read-only? false})]
-    (let [nthreads (.availableProcessors (Runtime/getRuntime))
-          data-c (importer/load-snomed-files files :nthreads nthreads)]
+    (let [opts (update opts :nthreads #(or % (.availableProcessors (Runtime/getRuntime))))
+          data-c (importer/load-snomed-files files opts)]
       (loop [batch (a/<!! data-c)]
         (when batch
           (if (instance? Throwable batch)
@@ -1282,8 +1392,10 @@
     3. import of non-core and extension files.
 
   Interim indexing is necessary in order to ensure correct reification in
-  subsequent import(s)."
-  [root dirs]
+  subsequent import(s).
+
+  Options are passed through to [[importer/load-snomed-files]]."
+  [root dirs & {:as opts}]
   (let [manifest (open-manifest root true)
         store-file (io/file root (:store manifest))]
     (doseq [dir dirs]
@@ -1291,10 +1403,10 @@
       (let [files (importer/importable-files dir)]
         (if (seq files)
           (do
-            (do-import-snomed store-file (->> files (filter #(core-components (:component %)))))
+            (do-import-snomed store-file (->> files (filter #(core-components (:component %)))) opts)
             (with-open [st (store/open-store store-file {:read-only? false})]
               (store/index st))
-            (do-import-snomed store-file (->> files (remove #(core-components (:component %))))))
+            (do-import-snomed store-file (->> files (remove #(core-components (:component %)))) opts))
           (log/warn "no importable files found when processing:" dir))))))
 
 (defn compact

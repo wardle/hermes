@@ -49,5 +49,13 @@
             "1434181000001106" "ABC01256Q" ""] (first data))
         "Empty last column should be returned as empty string")))
 
+(deftest process-file-exclude-nil
+  (testing "passing :exclude nil should not throw NPE"
+    (let [f   (io/resource "example-snapshot/Terminology/sct2_Concept_Snapshot_INT_20230131.txt")
+          ch  (async/chan 100)]
+      (is (nil? (imp/process-file f ch :exclude nil))
+          ":exclude nil should be treated as 'exclude nothing', not throw NPE")
+      (async/close! ch))))
+
 
 

@@ -284,7 +284,59 @@
      (fn [{svc ::svc :as ctx}]
        (assoc ctx :result (hermes/mrcm-domains svc)))}))
 
-(def routes
+(def get-status
+  (intc/interceptor
+    {:name ::get-status
+     :enter
+     (fn [{::keys [svc] :as ctx}]
+       (assoc ctx :result (assoc (hermes/status* svc {})
+                                 :reasoning (hermes/reasoning-status svc))))}))
+
+(def expression-subsumes
+  "Expression-level subsumption testing, aligned with FHIR CodeSystem/$subsumes.
+  Parameters: a, b (SCG expressions), mode ('owl' or 'structural', default structural).
+  Returns 422 if mode=owl and reasoning is unavailable."
+  (intc/interceptor
+    {:name ::expression-subsumes
+     :enter
+     (fn [{::keys [svc] :as ctx}]
+       (let [{:keys [a b mode]} (get-in ctx [:request :params])
+             mode' (if (= "owl" mode) :owl :structural)]
+         (cond
+           (str/blank? a)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: a"}})
+           (str/blank? b)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: b"}})
+           (and (= :owl mode') (not= :active (hermes/reasoning-status svc)))
+           (assoc ctx :response {:status 422 :body {:error "OWL reasoning unavailable"}})
+           :else
+           (assoc ctx :result {:outcome (name (hermes/expression-subsumes? svc a b :mode mode'))}))))}))
+
+(def classify-expression
+  "OWL classification of a post-coordinated expression.
+  Parameters: expression (SCG string)."
+  (intc/interceptor
+    {:name ::classify-expression
+     :enter
+     (fn [{::keys [svc] :as ctx}]
+       (let [expression (get-in ctx [:request :params :expression])]
+         (if (str/blank? expression)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: expression"}})
+           (assoc ctx :result (hermes/classify-expression svc expression)))))}))
+
+(def get-necessary-normal-form
+  "Compute the Necessary Normal Form (NNF) of a post-coordinated expression.
+  Parameters: expression (SCG string)."
+  (intc/interceptor
+    {:name ::get-necessary-normal-form
+     :enter
+     (fn [{::keys [svc] :as ctx}]
+       (let [expression (get-in ctx [:request :params :expression])]
+         (if (str/blank? expression)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: expression"}})
+           (assoc ctx :result (hermes/necessary-normal-form svc expression)))))}))
+
+(def ^:private base-routes
   #{["/v1/snomed/concepts/:concept-id" :get get-concept :constraints {:concept-id #"[0-9]+"}]
     ["/v1/snomed/concepts/:concept-id/descriptions" :get get-concept-descriptions :constraints {:concept-id #"[0-9]+"}]
     ["/v1/snomed/concepts/:concept-id/properties" :get get-concept-properties :constraints {:concept-id #"[0-9]+"}]
@@ -297,7 +349,20 @@
     ["/v1/snomed/crossmap/:refset-id/:code" :get get-map-from :constraints {:refset-id #"[0-9]+"}]
     ["/v1/snomed/search" :get get-search]
     ["/v1/snomed/expand" :get get-expand]
-    ["/v1/snomed/mrcm-domains" :get get-mrcm-domains]})
+    ["/v1/snomed/mrcm-domains" :get get-mrcm-domains]
+    ["/v1/snomed/status" :get get-status]
+    ["/v1/snomed/subsumes" :get expression-subsumes]})
+
+(def ^:private owl-routes
+  #{["/v1/snomed/classify" :get classify-expression]
+    ["/v1/snomed/necessary-normal-form" :get get-necessary-normal-form]})
+
+(defn routes
+  "Return the set of routes, conditionally including OWL reasoning endpoints."
+  [svc]
+  (cond-> base-routes
+    (= :active (hermes/reasoning-status svc))
+    (into owl-routes)))
 
 
 (defn create-connector
@@ -324,7 +389,7 @@
          service-error-handler
          content-neg-intc
          entity-render])
-      (conn/with-routes routes)
+      (conn/with-routes (routes svc))
       (jetty/create-connector {:join? join?})))
 
 (defn start! [svc config]

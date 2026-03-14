@@ -56,4 +56,4 @@ jobs:
         run: clojure -M:run --db snomed.db status
 
       - name: Clojure tests
-        run: clojure -M:test
+        run: clojure -M:test -e :slow

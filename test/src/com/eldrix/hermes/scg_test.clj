@@ -60,7 +60,7 @@
     :expression  "774586009 |Amoxicillin| : 189999999103 |Has strength value| = #500"
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 774586009 :term "Amoxicillin"}]
-                                     :refinements   [[{:conceptId 189999999103 :term "Has strength value"} 500]]}}}
+                                     :refinements   [[{:conceptId 189999999103 :term "Has strength value"} 500.0]]}}}
 
    {:description "Numeric (decimal) concrete value"
     :expression  "91143003 |Albuterol| : 189999999103 |Has strength value| = #0.083"
@@ -116,7 +116,7 @@
                                                      #{[{:conceptId 127489000 :term "Has active ingredient"}
                                                         {:conceptId 372687004 :term "Amoxicillin"}]
                                                        [{:conceptId 189999999103 :term "Has strength value"}
-                                                        500]}]}}}
+                                                        500.0]}]}}}
 
    {:description "Multiple focus concepts with shared refinement"
     :expression  "119189000 |Ulna part| + 312845000 |Epiphysis of upper limb| : 272741003 |Laterality| = 7771000 |Left|"
@@ -186,7 +186,7 @@
                                                        [{:conceptId 179999999100 :term "Has basis of strength"}
                                                         {:conceptId 372687004 :term "Amoxicillin"}]
                                                        [{:conceptId 189999999103 :term "Has strength value"}
-                                                        500]
+                                                        500.0]
                                                        [{:conceptId 199999999101 :term "Has strength unit"}
                                                         {:conceptId 258684004 :term "mg"}]}]}}}
 
@@ -203,7 +203,7 @@
     :expression  "774586009 |Amoxicillin| : 189999999103 |Has strength value| = #-10"
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 774586009 :term "Amoxicillin"}]
-                                     :refinements   [[{:conceptId 189999999103 :term "Has strength value"} -10]]}}}
+                                     :refinements   [[{:conceptId 189999999103 :term "Has strength value"} -10.0]]}}}
 
    {:description "String value with escaped quote"
     :expression  "322236009 |Paracetamol 500mg tablet| : 209999999104 |Has trade name| = \"PAN\\\"ADOL\""
@@ -260,7 +260,7 @@
     :live        true
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 100000102}]}}
-    :errors      [{:type :concept-not-found :conceptId 100000102 :role :focus-concept}]}
+    :invalid     {:conceptId 100000102 :role :focus-concept}}
 
    {:description "Non-existent attribute type"
     :expression  "73211009 : 100000102 = 7771000"
@@ -268,7 +268,7 @@
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 73211009}]
                                      :refinements   [[{:conceptId 100000102} {:conceptId 7771000}]]}}
-    :errors      [{:type :concept-not-found :conceptId 100000102 :role :attribute-type}]}
+    :invalid     {:conceptId 100000102 :role :attribute-type}}
 
    {:description "Non-existent attribute value"
     :expression  "73211009 : 272741003 = 100000102"
@@ -276,16 +276,15 @@
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 73211009}]
                                      :refinements   [[{:conceptId 272741003} {:conceptId 100000102}]]}}
-    :errors      [{:type :concept-not-found :conceptId 100000102 :role :attribute-value}]}
+    :invalid     {:conceptId 100000102 :role :attribute-value}}
 
-   {:description "Multiple errors — bad focus and bad value"
+   {:description "Non-existent focus and value — throws on first"
     :expression  "100000102 : 272741003 = 100000102"
     :live        true
     :parsed      {:definitionStatus :equivalent-to
                   :subExpression    {:focusConcepts [{:conceptId 100000102}]
                                      :refinements   [[{:conceptId 272741003} {:conceptId 100000102}]]}}
-    :errors      [{:type :concept-not-found :conceptId 100000102 :role :focus-concept}
-                  {:type :concept-not-found :conceptId 100000102 :role :attribute-value}]}
+    :invalid     {:conceptId 100000102 :role :focus-concept}}
 
    {:description "Valid grouped attributes"
     :expression  "80146002 : { 260686004 = 129304002 , 405813007 = 66754008 }"
@@ -302,7 +301,7 @@
                   :subExpression    {:focusConcepts [{:conceptId 73211009}]}}
     :normalized  {:cf/definition-status :subtype-of
                   :cf/focus-concepts    #{73211009}
-                  :cf/groups           #{#{[363698007 113331007]}}}}
+                  :cf/groups           #{#{[363698007 [:concept 113331007]]}}}}
 
    {:description "Fully-defined concept — normalize expands to proximal primitives"
     :expression  "80146002"
@@ -311,8 +310,8 @@
                   :subExpression    {:focusConcepts [{:conceptId 80146002}]}}
     :normalized  {:cf/definition-status :subtype-of
                   :cf/focus-concepts    #{71388002 118698009 387713003}
-                  :cf/groups           #{#{[260686004 129304002]
-                                          [405813007 66754008]}}}}
+                  :cf/groups           #{#{[260686004 [:concept 129304002]]
+                                          [405813007 [:concept 66754008]]}}}}
 
    {:description "Post-coordinated — user refinement merged with defining attrs"
     :expression  "80146002 : 272741003 = 7771000"
@@ -322,9 +321,9 @@
                                      :refinements   [[{:conceptId 272741003} {:conceptId 7771000}]]}}
     :normalized  {:cf/definition-status :subtype-of
                   :cf/focus-concepts    #{71388002 118698009 387713003}
-                  :cf/ungrouped        #{[272741003 7771000]}
-                  :cf/groups           #{#{[260686004 129304002]
-                                          [405813007 66754008]}}}}
+                  :cf/ungrouped        #{[272741003 [:concept 7771000]]}
+                  :cf/groups           #{#{[260686004 [:concept 129304002]]
+                                          [405813007 [:concept 66754008]]}}}}
 
    {:description "Primitive with user refinement — own attrs included"
     :expression  "73211009 : 272741003 = 7771000"
@@ -334,8 +333,8 @@
                                      :refinements   [[{:conceptId 272741003} {:conceptId 7771000}]]}}
     :normalized  {:cf/definition-status :subtype-of
                   :cf/focus-concepts    #{73211009}
-                  :cf/ungrouped        #{[272741003 7771000]}
-                  :cf/groups           #{#{[363698007 113331007]}}}}
+                  :cf/ungrouped        #{[272741003 [:concept 7771000]]}
+                  :cf/groups           #{#{[363698007 [:concept 113331007]]}}}}
 
    {:description "Simple laterality — normalize preserves user refinement on primitive"
     :expression  "182201002 : 272741003 = 24028007"
@@ -345,19 +344,19 @@
                                      :refinements   [[{:conceptId 272741003} {:conceptId 24028007}]]}}
     :normalized  {:cf/definition-status :subtype-of
                   :cf/focus-concepts    #{182201002}
-                  :cf/ungrouped        #{[272741003 24028007]}}}])
+                  :cf/ungrouped        #{[272741003 [:concept 24028007]]}}}])
 
 (deftest ^:live expression-tests
   (with-open [st (store/open-store "snomed.db/store.db")]
-    (doseq [{:keys [description expression parsed errors normalized live]} test-cases]
+    (doseq [{:keys [description expression parsed invalid normalized live]} test-cases]
       (testing description
-        (let [result (scg/parse expression)]
+        (let [result (scg/str->ctu expression)]
           (is (= parsed result) (str "Parse mismatch for: " expression))
           (is (s/valid? :ctu/expression result)
               (str "Spec failure for: " expression "\n"
                    (s/explain-str :ctu/expression result)))
-          (let [rendered (scg/render result)
-                reparsed (scg/parse rendered)]
+          (let [rendered (scg/ctu->str result)
+                reparsed (scg/str->ctu rendered)]
             (is (= result reparsed)
                 (str "Roundtrip mismatch for: " expression "\n  rendered: " rendered)))
           (let [canon (scg/canonicalize result)]
@@ -365,14 +364,14 @@
                 (str "Canonicalize not idempotent for: " expression))
             (is (s/valid? :ctu/expression canon)
                 (str "Canonical form fails spec for: " expression)))
-          (when live
-            (is (= errors (scg/errors st result))))
+          (when (and live invalid)
+            (is (thrown? clojure.lang.ExceptionInfo (scg/validate st result))))
           (when normalized
-            (let [norm (scg/normalize st result)]
+            (let [norm (scg/ctu->cf+normalize st result)]
               (is (= normalized norm))
               (is (s/valid? :cf/expression norm)
                   (s/explain-str :cf/expression norm))
-              (let [round-tripped (scg/normalize st (scg/classifiable->ctu norm))]
+              (let [round-tripped (scg/ctu->cf+normalize st (scg/cf->ctu norm))]
                 (is (= norm round-tripped)
                     "Normalization should be idempotent through round-trip")))))))))
 
@@ -390,14 +389,14 @@
 
 (deftest canonicalize-equivalence
   (doseq [exprs canonical-equivalences]
-    (let [canonical-forms (map (comp scg/canonicalize scg/parse) exprs)]
+    (let [canonical-forms (map (comp scg/canonicalize scg/str->ctu) exprs)]
       (is (apply = canonical-forms)
           (str "Not canonically equivalent: " (pr-str exprs))))))
 
 (deftest ^:live updating-terms
   (with-open [st (store/open-store "snomed.db/store.db")]
-    (let [parsed (scg/parse "91143003 |Albuterol| : 411116001 |Has manufactured dose form| = 385023001 |oral solution| , { 127489000 |Has active ingredient| = 372897005 |Albuterol| , 179999999100 |Has basis of strength| = 372897005 |Albuterol| , 189999999103 |Has strength value| = #0.083 , 199999999101 |Has strength numerator unit| = 118582008 |%| }")
-          updated (scg/parse (scg/render st parsed {:update-terms? true :accept-language "en-GB"}))
+    (let [parsed (scg/str->ctu "91143003 |Albuterol| : 411116001 |Has manufactured dose form| = 385023001 |oral solution| , { 127489000 |Has active ingredient| = 372897005 |Albuterol| , 179999999100 |Has basis of strength| = 372897005 |Albuterol| , 189999999103 |Has strength value| = #0.083 , 199999999101 |Has strength numerator unit| = 118582008 |%| }")
+          updated (scg/str->ctu (scg/ctu->str st parsed {:update-terms? true :accept-language "en-GB"}))
           group2 (second (get-in updated [:subExpression :refinements]))
           active-ingredient-pair (first (filter #(= 127489000 (:conceptId (first %))) group2))]
       (is (= {:conceptId 372897005 :term "Salbutamol"} (second active-ingredient-pair))
@@ -405,7 +404,7 @@
 
 
 
-(def concept->expression*-cases
+(def concept->ctu*-cases
   [{:description "Primitive concept (Clinical finding) — itself as sole focus, <<< status"
     :concept-id  404684003
     :defined?    false
@@ -441,26 +440,26 @@
                                      :refinements   [#{[{:conceptId 260686004} {:conceptId 129304002}]
                                                        [{:conceptId 405813007} {:conceptId 66754008}]}]}}}])
 
-(deftest concept->expression*
-  (doseq [{:keys [description concept-id defined? properties expected]} concept->expression*-cases]
+(deftest concept->ctu*
+  (doseq [{:keys [description concept-id defined? properties expected]} concept->ctu*-cases]
     (testing description
-      (let [expr (scg/concept->expression* concept-id defined? properties)]
+      (let [expr (scg/concept->ctu* concept-id defined? properties)]
         (is (= expected expr))
         (is (s/valid? :ctu/expression expr)
             (s/explain-str :ctu/expression expr))
         (is (= expr (scg/canonicalize expr))
             "Should already be in canonical form")
-        (let [rendered (scg/render (scg/strip-terms expr))
-              reparsed (scg/parse rendered)]
+        (let [rendered (scg/ctu->str (scg/strip-terms expr))
+              reparsed (scg/str->ctu rendered)]
           (is (= expr reparsed)
               (str "Round-trip failed. Rendered: " rendered)))))))
 
 
 
-(deftest ^:live concept->expression
+(deftest ^:live concept->ctu
   (with-open [st (store/open-store "snomed.db/store.db")]
     (testing "Primitive concept (Multiple sclerosis) — self as focus, <<< status"
-      (let [expr (scg/concept->expression st 24700007)]
+      (let [expr (scg/concept->ctu st 24700007)]
         (is (= :subtype-of (:definitionStatus expr)))
         (is (= [{:conceptId 24700007}] (get-in expr [:subExpression :focusConcepts])))
         (is (seq (get-in expr [:subExpression :refinements]))
@@ -470,7 +469,7 @@
         (is (= expr (scg/canonicalize expr))
             "Should already be in canonical form")))
     (testing "Fully-defined concept (Appendectomy) — IS-A parents as foci, === status"
-      (let [expr (scg/concept->expression st 80146002)]
+      (let [expr (scg/concept->ctu st 80146002)]
         (is (= :equivalent-to (:definitionStatus expr)))
         (is (< 1 (count (get-in expr [:subExpression :focusConcepts])))
             "Fully-defined concept should have multiple focus concepts (IS-A parents)")
@@ -481,7 +480,7 @@
         (is (= expr (scg/canonicalize expr))
             "Should already be in canonical form")))
     (testing "Concept with no non-IS-A properties (Clinical finding)"
-      (let [expr (scg/concept->expression st 404684003)]
+      (let [expr (scg/concept->ctu st 404684003)]
         (is (= :subtype-of (:definitionStatus expr)))
         (is (= [{:conceptId 404684003}] (get-in expr [:subExpression :focusConcepts])))
         (is (nil? (get-in expr [:subExpression :refinements]))
@@ -489,13 +488,13 @@
         (is (s/valid? :ctu/expression expr))))
     (testing "Round-trip through render and parse"
       (doseq [concept-id [24700007 80146002 404684003]]
-        (let [expr (scg/concept->expression st concept-id)
-              rendered (scg/render (scg/strip-terms expr))
-              reparsed (scg/parse rendered)]
+        (let [expr (scg/concept->ctu st concept-id)
+              rendered (scg/ctu->str (scg/strip-terms expr))
+              reparsed (scg/str->ctu rendered)]
           (is (= expr reparsed)
               (str "Round-trip failed for " concept-id ". Rendered: " rendered)))))
     (testing "Non-existent concept returns nil"
-      (is (nil? (scg/concept->expression st 100000102))))))
+      (is (nil? (scg/concept->ctu st 100000102))))))
 
 (def subsumption-test-cases
   "Test cases for expression subsumption.
@@ -554,18 +553,171 @@
   (with-open [st (store/open-store "snomed.db/store.db")]
     (doseq [{:keys [description exp a b]} subsumption-test-cases]
       (testing description
-        (is (= exp (scg/subsumes? st (scg/parse a) (scg/parse b))))))))
+        (is (= exp (scg/subsumes? st (scg/str->ctu a) (scg/str->ctu b))))))))
+
+(deftest ^:live subsumption-invalid-concepts
+  (with-open [st (store/open-store "snomed.db/store.db")]
+    (testing "non-existent focus concept should throw"
+      (is (thrown? clojure.lang.ExceptionInfo (scg/subsumes? st (scg/str->ctu "100000102") (scg/str->ctu "24700007")))))
+    (testing "valid concept compared to non-existent concept should throw"
+      (is (thrown? clojure.lang.ExceptionInfo (scg/subsumes? st (scg/str->ctu "24700007") (scg/str->ctu "100000102")))))
+    (testing "two non-existent concepts should throw"
+      (is (thrown? clojure.lang.ExceptionInfo (scg/subsumes? st (scg/str->ctu "100000102") (scg/str->ctu "100000102")))))
+    (testing "non-existent attribute value should throw"
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (scg/subsumes? st
+                                  (scg/str->ctu "73211009 : 272741003 = 100000102")
+                                  (scg/str->ctu "73211009 : 272741003 = 7771000")))))))
 
 (deftest ^:live subsumption-symmetry
   (with-open [st (store/open-store "snomed.db/store.db")]
     (testing "mutual subsumption = equivalence"
-      (let [a (scg/parse "80146002")
-            b (scg/parse "80146002")]
+      (let [a (scg/str->ctu "80146002")
+            b (scg/str->ctu "80146002")]
         (is (and (scg/subsumes? st a b) (scg/subsumes? st b a)))))
     (testing "terms don't affect symmetry"
-      (let [a (scg/parse "80146002 |Appendectomy|")
-            b (scg/parse "80146002")]
+      (let [a (scg/str->ctu "80146002 |Appendectomy|")
+            b (scg/str->ctu "80146002")]
         (is (and (scg/subsumes? st a b) (scg/subsumes? st b a)))))))
+
+(def ctu->cf-test-cases
+  [{:description "Bare concept preserves :equivalent-to and concept ID"
+    :expression  "80146002"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{80146002}}}
+
+   {:description "Explicit subtype-of preserved"
+    :expression  "<<< 73211009 : 363698007 = 113331007"
+    :expected    {:cf/definition-status :subtype-of
+                  :cf/focus-concepts    #{73211009}
+                  :cf/ungrouped        #{[363698007 [:concept 113331007]]}}}
+
+   {:description "Ungrouped refinement"
+    :expression  "80146002 : 272741003 = 7771000"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{80146002}
+                  :cf/ungrouped        #{[272741003 [:concept 7771000]]}}}
+
+   {:description "Grouped refinement"
+    :expression  "71388002 : { 260686004 = 129304002 , 405813007 = 15497006 }"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{71388002}
+                  :cf/groups           #{#{[260686004 [:concept 129304002]]
+                                          [405813007 [:concept 15497006]]}}}}
+
+   {:description "Nested expression in attribute value"
+    :expression  "397956004 : 363704007 = ( 24136001 : 272741003 = 7771000 )"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{397956004}
+                  :cf/ungrouped        #{[363704007
+                                          [:expression {:cf/definition-status :equivalent-to
+                                                        :cf/focus-concepts    #{24136001}
+                                                        :cf/ungrouped        #{[272741003 [:concept 7771000]]}}]]}}}
+
+   {:description "Multiple focus concepts"
+    :expression  "421720008 + 7946007"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{421720008 7946007}}}
+
+   {:description "Terms are stripped — only IDs remain"
+    :expression  "80146002 |Appendectomy| : 272741003 |Laterality| = 7771000 |Left|"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{80146002}
+                  :cf/ungrouped        #{[272741003 [:concept 7771000]]}}}
+
+   {:description "Numeric integer value tagged as :numeric"
+    :expression  "774586009 : 189999999103 = #500"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{774586009}
+                  :cf/ungrouped        #{[189999999103 [:numeric 500.0]]}}}
+
+   {:description "Numeric decimal value tagged as :numeric"
+    :expression  "91143003 : 189999999103 = #0.083"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{91143003}
+                  :cf/ungrouped        #{[189999999103 [:numeric 0.083]]}}}
+
+   {:description "String value tagged as :string"
+    :expression  "91143003 : 189999999103 = \"hello\""
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{91143003}
+                  :cf/ungrouped        #{[189999999103 [:string "hello"]]}}}
+
+   {:description "Boolean true tagged as :boolean"
+    :expression  "91143003 : 189999999103 = true"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{91143003}
+                  :cf/ungrouped        #{[189999999103 [:boolean true]]}}}
+
+   {:description "Boolean false tagged as :boolean"
+    :expression  "91143003 : 189999999103 = false"
+    :expected    {:cf/definition-status :equivalent-to
+                  :cf/focus-concepts    #{91143003}
+                  :cf/ungrouped        #{[189999999103 [:boolean false]]}}}])
+
+(deftest ctu->cf
+  (doseq [{:keys [description expression expected]} ctu->cf-test-cases]
+    (testing description
+      (let [parsed (scg/str->ctu expression)
+            result (scg/ctu->cf parsed)]
+        (is (= expected result))
+        (is (s/valid? :cf/expression result)
+            (s/explain-str :cf/expression result))))))
+
+(deftest cf-to-ctu-round-trip
+  (testing "CF→CTU→CF round-trip preserves all value types"
+    (doseq [{:keys [description expected]} ctu->cf-test-cases]
+      (testing description
+        (let [round-tripped (scg/ctu->cf (scg/cf->ctu expected))]
+          (is (= expected round-tripped)
+              (str "Round-trip failed: " (pr-str expected) " → " (pr-str round-tripped))))))))
+
+(def cf-subsumes-concrete-cases
+  "Test cases for cf-subsumes? with concrete (non-concept) attribute values.
+  Uses nil as the store since all focus concepts are identical and concrete
+  values never invoke is-a? — equality checks short-circuit.
+  Uses real SNOMED concept IDs to satisfy Verhoeff spec instrumentation."
+  [{:description "identical numeric ungrouped — subsumes"
+    :exp true
+    :a {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:numeric 500.0]]}}
+    :b {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:numeric 500.0]]}}}
+   {:description "different numeric values — no subsumption"
+    :exp false
+    :a {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:numeric 500.0]]}}
+    :b {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:numeric 250.0]]}}}
+   {:description "identical string in group — subsumes"
+    :exp true
+    :a {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/groups #{#{[363698007 [:string "hello"]]}}}
+    :b {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/groups #{#{[363698007 [:string "hello"]]}}}}
+   {:description "identical boolean — subsumes"
+    :exp true
+    :a {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:boolean true]]}}
+    :b {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:boolean true]]}}}
+   {:description "mismatched value tags — no subsumption"
+    :exp false
+    :a {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:numeric 1]]}}
+    :b {:cf/definition-status :subtype-of :cf/focus-concepts #{73211009}
+        :cf/ungrouped #{[363698007 [:string "1"]]}}}])
+
+(deftest cf-subsumes-concrete-values
+  (doseq [{:keys [description exp a b]} cf-subsumes-concrete-cases]
+    (testing description
+      (is (= exp (scg/cf-subsumes? nil a b))))))
+
+(deftest invalid-expressions
+  (testing "Invalid SCG expressions should throw"
+    (doseq [s ["xxxx" "not a concept" "!!!" "" "abc123" ": = 1234"]]
+      (is (thrown? Exception (scg/str->ctu s))
+          (str "Expected exception for invalid expression: " (pr-str s))))))
 
 (comment
   (run-tests))

@@ -13,6 +13,7 @@
     </root>
 
     <logger name="com.eldrix" level="warn"/>
+    <logger name="org.semanticweb.elk.reasoner.completeness" level="error"/>
     <logger name="org.eclipse.jetty.server.Server" level="info"/>
 
 </configuration>

@@ -46,6 +46,12 @@
        (filter #(= (:release-type %) "Snapshot"))
        (filter :parser)))
 
+(def default-exclude
+  "Default set of identifiers to exclude from import.
+  OWL expression reference set files are large and only needed for OWL
+  reasoning support, so are excluded by default."
+  #{:info.snomed/OWLExpressionRefset})
+
 (def ^:private metadata-parsers
   {:effectiveTime snomed/parse-date
    :deltaToDate   snomed/parse-date
@@ -105,36 +111,45 @@
 
 (defn process-file
   "Process the specified file, streaming batched results to the channel
-  specified, blocking if channel not being drained. 
+  specified, blocking if channel not being drained.
   Parameters:
-  - f     : anything coercible using clojure.java.io/reader
+  - f       : anything coercible using clojure.java.io/reader
+  - out-c   : output channel
+  - options :
+    - :batch-size : number of rows per batch (default 1000)
+    - :include    : predicate on identifier; only matching files processed
+    - :exclude    : predicate on identifier; matching files skipped
 
   Each batch is a map with keys
    - :type      : a type of SNOMED component
    - :parser    : a parser that can take each row and give you data
    - :headings  : a sequence of headings from the original file
    - :data      : a sequence of vectors representing each column."
-  [f out-c & {:keys [batch-size] :or {batch-size 1000}}]
-  (let [{:keys [identifier parser filename component]} (parse-filename f)]
+  [f out-c & {:keys [batch-size include exclude]
+              :or   {batch-size 1000 include (constantly true) exclude default-exclude}}]
+  (let [{:keys [identifier parser filename component]} (parse-filename f)
+        exclude (or exclude #{})]
     (when parser
-      (with-open [reader (io/reader f)]
-        (let [csv-data (csv/read-csv reader :separator \tab :quote \u0000)
-              headings (first csv-data)
-              data (rest csv-data)
-              batches (->> data
-                           (partition-all batch-size)
-                           (map #(hash-map :file f
-                                           :type identifier
-                                           :parser parser
-                                           :headings headings
-                                           :data %)))]
-          (log/info "Processing: " filename " type: " component)
-          (log/debug "Processing " (count batches) " batches")
-          (doseq [batch batches]
-            (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
-            (when-not (a/>!! out-c batch)
-              (log/debug "Processing cancelled (output channel closed)")
-              (throw (InterruptedException. "process cancelled")))))))))
+      (if (and (include identifier) (not (exclude identifier)))
+        (with-open [reader (io/reader f)]
+          (let [csv-data (csv/read-csv reader :separator \tab :quote \u0000)
+                headings (first csv-data)
+                data (rest csv-data)
+                batches (->> data
+                             (partition-all batch-size)
+                             (map #(hash-map :file f
+                                             :type identifier
+                                             :parser parser
+                                             :headings headings
+                                             :data %)))]
+            (log/info "Processing: " filename " type: " component)
+            (log/debug "Processing " (count batches) " batches")
+            (doseq [batch batches]
+              (log/debug "Processing batch " {:batch (dissoc batch :data) :first-data (-> batch :data first)})
+              (when-not (a/>!! out-c batch)
+                (log/debug "Processing cancelled (output channel closed)")
+                (throw (InterruptedException. "process cancelled"))))))
+        (log/info "Skipping: " filename " type: " component)))))
 
 (defn import-file
   "Import a SNOMED file, returning a map containing :type :headings :parser 
@@ -149,20 +164,21 @@
 
 (s/fdef load-snomed-files
   :args (s/cat :files (s/coll-of :info.snomed/ReleaseFile)
-               :opts (s/keys* :opt-un [::nthreads ::batch-size])))
+               :opts (s/keys* :opt-un [::nthreads ::batch-size ::include ::exclude])))
 
 (defn load-snomed-files
   "Imports a SNOMED-CT distribution from the specified files, returning
   results on the returned channel which will be closed once all files have been
-  sent through. Any exceptions will be passed on the channel."
-  [files & {:keys [nthreads batch-size] :or {nthreads 4 batch-size 5000}}]
+  sent through. Any exceptions will be passed on the channel.
+  Options are passed through to [[process-file]]."
+  [files & {:keys [nthreads] :or {nthreads 4} :as opts}]
   (let [raw-c (a/chan)                                  ;; CSV data in batches with :type, :headings and :data, :data as a vector of raw strings
         processed-c (a/chan)]                           ;; CSV data in batches with :type, :headings and :data, :data as a vector of SNOMED entities
     (a/thread
       (log/debug "Processing " (count files) " files")
       (try
         (doseq [file files]
-          (process-file (:path file) raw-c :batch-size batch-size))
+          (process-file (:path file) raw-c opts))
         (catch Throwable e
           (log/debug "Error during raw SNOMED file import: " e)
           (a/>!! processed-c e)))

@@ -1,4 +1,4 @@
-; Copyright (c) 2020-2024 Mark Wardle and Eldrix Ltd
+; Copyright (c) 2020-2026 Mark Wardle and Eldrix Ltd
 ;
 ; This program and the accompanying materials are made available under the
 ; terms of the Eclipse Public License 2.0 which is available at
@@ -10,7 +10,8 @@
   "MRCM (Machine Readable Concept Model) operations.
   Provides attribute domain and range lookups for validating SNOMED CT
   expressions against MRCM constraints."
-  (:require [com.eldrix.hermes.impl.ecl :as ecl]
+  (:require [clojure.spec.alpha :as s]
+            [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.members :as members]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
@@ -29,6 +30,9 @@
                (map :mrcmRuleRefsetId)
                (filter #(store/is-a? store % type-id)))
          (members/search memberSearcher (members/q-refset-id snomed/MRCMModuleScopeReferenceSet)))))
+
+(s/fdef domains
+  :ret (s/coll-of :info.snomed/MRCMDomainRefset))
 
 (defn domains
   "Return a sequence of MRCM Domain reference set items."

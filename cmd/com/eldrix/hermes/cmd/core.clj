@@ -18,6 +18,7 @@
    [com.eldrix.hermes.cmd.server :as server]
    [com.eldrix.hermes.core :as hermes]
    [com.eldrix.hermes.download :as download]
+   [com.eldrix.hermes.impl.reasoner :as reasoner]
    [com.eldrix.hermes.importer :as importer]
    [expound.alpha :as expound])
   (:import (clojure.lang ExceptionInfo)
@@ -44,10 +45,10 @@
      (uncaughtException [_ thread ex]
        (log/error ex "Uncaught exception on" (.getName thread))))))
 
-(defn import-from [{:keys [db]} args]
+(defn import-from [{:keys [db owl]} args]
   (set-default-uncaught-exception-handler)
   (let [dirs (if (zero? (count args)) ["."] args)]
-    (hermes/import-snomed db dirs)))
+    (hermes/import-snomed db dirs :exclude (when-not owl importer/default-exclude))))
 
 (defn list-from [_ args]
   (let [dirs (if (zero? (count args)) ["."] args)
@@ -99,12 +100,13 @@
       :json (json/pprint st)
       (clojure.pprint/pprint st))))
 
-(defn mcp [{:keys [db locale]} _]
+(defn mcp [{:keys [db locale owl]} _]
   (with-open [svc (hermes/open db {:default-locale locale})]
     (log-module-dependency-problems svc)
+    (when owl (hermes/activate-reasoner svc))
     (mcp/start! svc)))
 
-(defn serve [{:keys [db _port _bind-address allowed-origin locale] :as params} _]
+(defn serve [{:keys [db _port _bind-address allowed-origin locale owl] :as params} _]
   (let [svc (hermes/open db {:default-locale locale})
         params' (cond (= ["*"] allowed-origin) (assoc params :allowed-origins (constantly true))
                       (seq allowed-origin) (assoc params :allowed-origins allowed-origin)
@@ -113,6 +115,7 @@
                         (select-keys ["os.name" "os.arch" "os.version" "java.vm.name" "java.vm.version"])
                         (update-keys keyword)))
     (log-module-dependency-problems svc)
+    (when owl (hermes/activate-reasoner svc))
     (log/info "starting terminology server " (dissoc params' :allowed-origin))
     (server/start! svc params')))
 
@@ -161,7 +164,8 @@
     (exit 1 "ERROR: not implemented ")))
 
 (defn -main [& args]
-  (let [{:keys [cmds options arguments summary errors warnings]} (cli/parse-cli args)]
+  (let [{:keys [cmds options arguments summary errors warnings]}
+        (cli/parse-cli args {:exclude-opts (when-not @reasoner/owl-loaded? #{:owl})})]
     (doseq [warning warnings] (log/warn warning))
     (cond
       ;; asking for help with a specific command?
