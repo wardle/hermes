@@ -36,7 +36,7 @@ jobs:
         run: clojure -P -M:test
 
       - name: Compilation check
-        run:  clojure -M:dev:check
+        run:  clojure -M:dev:owl:check
 
       - name: Clojure tests
         run: clojure -M:test -e :live
