@@ -13,13 +13,16 @@ Hermes provides a set of terminology tools built around SNOMED CT including:
 
 * a fast terminology service with full-text search functionality; ideal for driving autocompletion in user interfaces
 * an inference engine in order to analyse SNOMED CT expressions and concepts and derive meaning
-* optional OWL reasoning for post-coordinated expression classification, subsumption and normal forms
+* OWL reasoning for post-coordinated expression classification, subsumption and normal forms
 * cross-mapping to and from other code systems including ICD-10, Read codes and OPCS
 * support for SNOMED CT compositional grammar (cg) and expression constraint language (ECL) v2.2.
 * a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for use with AI assistants and LLM-based tools
 * optional HL7 FHIR terminology server via [hades](https://github.com/wardle/hades)
 
 It is designed as both a library for embedding into larger applications and as a standalone microservice.
+It is read-only at runtime, with no external dependencies beyond a filesystem, making it easy to
+deploy anywhere — from a personal laptop as an MCP server, to a single instance serving thousands
+of users, to a horizontally scaled deployment behind an API gateway.
 
 It is fast, both for import and for use. It imports and indexes the International
 and UK editions of SNOMED CT in less than 5 minutes; you can have a server
@@ -1714,10 +1717,12 @@ You may need to add Clojars as a repository in your build tool. Here for maven:
 
 ### D. OWL reasoning
 
-Hermes provides optional OWL reasoning for post-coordinated expressions using the
+Hermes provides OWL reasoning for post-coordinated expressions using the
 [OWL API](https://github.com/owlcs/owlapi) and the [ELK reasoner](https://github.com/liveontologies/elk-reasoner).
+This provides full description logic-based inference, correctly handling GCI axioms
+and other features that structural subsumption alone cannot.
 
-OWL reasoning enables:
+OWL reasoning provides:
 
 * **Classification** of post-coordinated expressions — determining equivalent concepts,
   direct super-concepts, and proximal primitive supertypes
@@ -1726,9 +1731,9 @@ OWL reasoning enables:
 * **Necessary Normal Form (NNF)** computation — a canonical representation with proximal
   primitive supertypes as focus concepts and all necessary relationships
 
-OWL reasoning is entirely optional. When the OWL libraries are not on the classpath,
-or the `--owl` flag is not used, hermes continues to work as before with structural
-subsumption.
+OWL reasoning is opt-in at startup via the `--owl` flag, keeping the default footprint
+small. When the OWL libraries are not on the classpath, or the flag is not used, hermes
+continues to provide structural subsumption.
 
 #### Setup
 

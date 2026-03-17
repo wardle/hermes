@@ -3,6 +3,20 @@
 This log documents significant changes for each release.
 
 
+## [1.4.1538] - 2026-03-17
+
+* Add SNOMED CT compositional grammar (SCG) support (issue #84): parsing, rendering, normalization to long normal form, structural expression subsumption, and validation
+* Add OWL reasoning via ELK reasoner with opt-in initialization: expression classification, necessary normal form, and OWL-based expression subsumption
+* New library API functions: `subsumes`, `classify-expression`, `necessary-normal-form`, `activate-reasoner`, `reasoning-status`, `validate-expression`, `render-expression`, `render-expression*`, `refinements`, `refinements*`
+* New HTTP endpoints: `/v1/snomed/subsumes` (FHIR-aligned expression subsumption), `/v1/snomed/classify`, `/v1/snomed/necessary-normal-form`
+* New MCP tools: `expression_subsumes` (structural/OWL modes), `validate_expression`, `render_expression`, `refinements`
+* New `--owl` CLI flag for `import`, `install`, `serve` and `mcp` commands to enable OWL reasoning
+* MCP server now initializes OWL reasoner in background thread, avoiding connection timeout during startup
+* Extract MRCM operations into dedicated `impl.mrcm` namespace with attribute range constraint lookups
+* Fix ECL member filter conjunction — filters within `{{ }}` were incorrectly combined with OR instead of AND
+* Add default `active=true` filtering for ECL member filter constraints per the ECL specification
+* Streamline MCP tool descriptions to reduce context token usage
+
 ## [1.4.1520] - 2026-03-03
 
 * Fix CLI 'available' list to work gracefully if user does not have MLDS credentials
