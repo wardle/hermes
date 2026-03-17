@@ -14,7 +14,6 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.string :as str]
             [clojure.walk :as walk]
-            [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
@@ -182,7 +181,6 @@
                               :opt [:cf/ungrouped :cf/groups]))
 
 (s/def ::update-terms? boolean?)
-(s/def ::accept-language string?)
 (s/def ::hide-terms? boolean?)
 
 (defn strip-terms
@@ -278,17 +276,21 @@
                          (seq refinements)
                          (assoc :refinements refinements))}))
 
+(defn- lookup-term
+  [{:keys [store language-refset-ids]} concept-id]
+  (when (and store language-refset-ids)
+    (:term (store/preferred-synonym store concept-id language-refset-ids))))
+
 (defn- render-concept
-  [config concept]
-  (str (:conceptId concept)
-       (when-not (:hide-terms? config)
-         (let [has-term (or (:term concept) (:get-preferred-synonym-fn config))]
-           (str
-             (when has-term "|")
-             (if-let [f (:get-preferred-synonym-fn config)]
-               (or (:term (f (:conceptId concept))) (:term concept))
-               (:term concept))
-             (when has-term "|"))))))
+  [{:keys [terms] :as ctx} {:keys [conceptId term]}]
+  (let [rendered-term (case terms
+                        :strip  nil
+                        :update (or (lookup-term ctx conceptId) term)
+                        :add    (or term (lookup-term ctx conceptId))
+                        term)]
+    (if rendered-term
+      (str conceptId "|" rendered-term "|")
+      (str conceptId))))
 
 (declare render-subexpression)
 
@@ -329,29 +331,23 @@
     (if refinements (str focus-concepts ":" (render-refinements config refinements)) focus-concepts)))
 
 (s/fdef ctu->str
-  :args (s/cat :store (s/? any?)
-               :expression :ctu/expression
-               :opts (s/? (s/keys :opt-un [::update-terms? ::accept-language ::hide-terms?]))))
+  :args (s/cat :expression :ctu/expression
+               :store (s/? any?)
+               :opts (s/? map?)))
 
 (defn ctu->str
   "Render an expression into string form.
   Single-arity renders using terms already present in the expression.
-  Three-arity takes a store, expression, and options map:
-    :update-terms?     - update terms to preferred synonyms for specified locale
-    :accept-language   - Accept-Language header value (e.g. \"en-GB\")
-    :hide-terms?       - omit terms entirely"
+  Three-arity takes a store and options:
+    :terms              - :strip, :update, :add, or nil (passthrough, default)
+    :language-refset-ids - required for :update and :add"
   ([expression]
    (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
         " " (render-subexpression {} (:subExpression expression))))
-  ([store expression]
-   (ctu->str store expression {:update-terms? false}))
-  ([store expression {:keys [update-terms? accept-language] :as opts}]
-   (let [lang-refsets (lang/match store accept-language)
-         cfg (if (and update-terms? (seq lang-refsets))
-               (assoc opts :get-preferred-synonym-fn (fn [concept-id] (store/preferred-synonym store concept-id lang-refsets)))
-               (or opts {}))]
+  ([expression store {:keys [terms language-refset-ids] :as opts}]
+   (let [ctx (assoc opts :store store)]
      (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
-          " " (render-subexpression cfg (:subExpression expression))))))
+          " " (render-subexpression ctx (:subExpression expression))))))
 
 
 (s/fdef concept->ctu
@@ -391,26 +387,35 @@
   "Recursively expand a concept to proximal primitive supertypes, collecting
   all defining (non-IS-A) attributes from the concept and its fully-defined
   ancestors. Primitive concepts include their own defining attributes but
-  do not recurse further.
+  do not recurse further. Results are memoized within a single call to avoid
+  redundant expansion of shared ancestors.
   Returns {:primitives #{id ...} :ungrouped #{[tid vid] ...} :groups #{#{[tid vid] ...} ...}}"
   [store concept-id]
-  (let [c (store/concept store concept-id)]
-    (cond
-      (nil? c)
-      {:primitives #{} :ungrouped #{} :groups #{}}
+  (let [cache (volatile! {})
+        collect (fn collect [concept-id]
+                  (if-let [cached (get @cache concept-id)]
+                    cached
+                    (let [c (store/concept store concept-id)
+                          result
+                          (cond
+                            (nil? c)
+                            {:primitives #{} :ungrouped #{} :groups #{}}
 
-      (snomed/primitive? c)
-      (let [{:keys [ungrouped groups]} (properties->attributes (store/properties-by-group store concept-id))]
-        {:primitives #{concept-id} :ungrouped ungrouped :groups groups})
+                            (snomed/primitive? c)
+                            (let [{:keys [ungrouped groups]} (properties->attributes (store/properties-by-group store concept-id))]
+                              {:primitives #{concept-id} :ungrouped ungrouped :groups groups})
 
-      :else
-      (let [props (store/properties-by-group store concept-id)
-            {:keys [ungrouped groups]} (properties->attributes props)
-            parent-ids (get (get props 0) snomed/IsA)
-            parent-results (mapv #(collect-primitives-and-attributes store %) parent-ids)]
-        {:primitives (into #{} (mapcat :primitives) parent-results)
-         :ungrouped (into ungrouped (mapcat :ungrouped parent-results))
-         :groups (into groups (mapcat :groups parent-results))}))))
+                            :else
+                            (let [props (store/properties-by-group store concept-id)
+                                  {:keys [ungrouped groups]} (properties->attributes props)
+                                  parent-ids (get (get props 0) snomed/IsA)
+                                  parent-results (mapv collect parent-ids)]
+                              {:primitives (into #{} (mapcat :primitives) parent-results)
+                               :ungrouped (into ungrouped (mapcat :ungrouped parent-results))
+                               :groups (into groups (mapcat :groups parent-results))}))]
+                      (vswap! cache assoc concept-id result)
+                      result)))]
+    (collect concept-id)))
 
 (defn- concept-valued?
   "True if an attribute's value is a concept reference."

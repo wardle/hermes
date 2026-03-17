@@ -64,6 +64,8 @@
 (s/def ::properties (s/map-of int? int?))
 (s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
 
+(s/def ::result #(instance? Result %))
+
 (s/def ::search-params
   (s/keys :req-un [(or ::s ::constraint)]
           :opt-un [::max-hits ::fuzzy ::fallback-fuzzy ::query
@@ -549,9 +551,48 @@
 (defn parse-expression [^Svc _svc s]
   (scg/str->ctu s))
 
+(defn ^:private ->ctu
+  "Coerce a concept identifier, SCG string, or parsed CTU expression to CTU."
+  [x]
+  (cond
+    (int? x)    (scg/str->ctu (str x))
+    (string? x) (scg/str->ctu x)
+    :else       x))
+
+(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
+
+(defn ^:private error->str
+  "Convert an MRCM error map to a human-readable message."
+  [{:keys [error concept-id attribute-id value-id]}]
+  (case error
+    :concept-not-found       (str "Concept " concept-id " not found")
+    :concept-inactive        (str "Concept " concept-id " is inactive")
+    :attribute-not-in-domain (str "Attribute " attribute-id " not valid for domain")
+    :value-out-of-range      (str "Value " value-id " out of range for attribute " attribute-id)
+    :attribute-must-be-grouped   (str "Attribute " attribute-id " must be grouped")
+    :attribute-must-be-ungrouped (str "Attribute " attribute-id " must not be grouped")
+    (str "Validation error: " error)))
+
+(s/fdef validate-expression
+  :args (s/cat :svc ::svc :expression ::expression))
+
+(defn validate-expression
+  "Validate a SNOMED CT expression. Returns nil if valid, or a sequence of
+  error message strings if invalid. Combines structural validation (concept
+  existence/active status) with MRCM constraint checking (attribute domain,
+  range, grouping).
+  Accepts a concept identifier, SCG string, or parsed CTU expression."
+  [svc expression]
+  (let [ctu (->ctu expression)
+        store (.-store ^Svc svc)]
+    (seq
+      (if-not (scg/valid? store ctu)
+        ["Expression contains invalid or inactive concept references"]
+        (when-let [errs (mrcm/expression-errors svc ctu snomed/PostcoordinatedContent)]
+          (mapv error->str errs))))))
+
 (s/fdef activate-reasoner
-  :args (s/cat :svc ::svc)
-  :ret ::svc)
+  :args (s/cat :svc ::svc))
 
 (defn activate-reasoner
   "Force initialization of the OWL reasoner. Returns the service unchanged.
@@ -571,25 +612,17 @@
   - :active      — reasoner is initialized and ready
   - :inactive    — OWL classes and data are available but reasoner not yet started
   - :unavailable — OWL libraries not on classpath or no OWL data in store"
-  [svc]
-  (let [r (:reasoner svc)]
+  [^Svc svc]
+  (let [r (.-reasoner svc)]
     (cond
       (and r (realized? r) (some? @r))
       :active
 
-      (reasoner/reasoning-available? (:store svc))
+      (reasoner/reasoning-available? (.-store svc))
       :inactive
 
       :else
       :unavailable)))
-
-(defn ^:private ->ctu
-  "Coerce a concept identifier, SCG string, or parsed CTU expression to CTU."
-  [x]
-  (cond
-    (int? x)    (scg/str->ctu (str x))
-    (string? x) (scg/str->ctu x)
-    :else       x))
 
 (defn ^:private subsumes-concept-ids
   "Fast subsumption for two concept identifiers using the IS-A hierarchy."
@@ -613,7 +646,6 @@
       b-subsumes-a                    :subsumed-by
       :else                           :not-subsumed)))
 
-(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
 (s/def ::mode #{:structural :owl})
 
 (s/fdef subsumes
@@ -630,29 +662,29 @@
   reasoning; throws if the reasoner is unavailable.
 
   Returns :equivalent, :subsumes, :subsumed-by, or :not-subsumed."
-  [{st :store reasoner :reasoner} a b & {:keys [mode] :or {mode :structural}}]
-  (cond
-    (and (int? a) (int? b) (not= :owl mode))
-    (subsumes-concept-ids st a b)
+  [^Svc svc a b & {:keys [mode] :or {mode :structural}}]
+  (let [st (.-store svc)
+        reasoner (.-reasoner svc)]
+    (cond
+      (and (int? a) (int? b) (not= :owl mode))
+      (subsumes-concept-ids st a b)
 
-    (= :owl mode)
-    (if-let [r @reasoner]
+      (= :owl mode)
+      (if-let [r @reasoner]
+        (let [ctu-a (->ctu a), ctu-b (->ctu b)]
+          (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
+            (throw (ex-info "Invalid expression" {:a a :b b})))
+          (reasoner/subsumes? r (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b)))
+        (throw (ex-info "OWL reasoning unavailable" {:mode mode})))
+
+      :else
       (let [ctu-a (->ctu a), ctu-b (->ctu b)]
         (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
           (throw (ex-info "Invalid expression" {:a a :b b})))
-        (reasoner/subsumes? r (scg/ctu->cf ctu-a) (scg/ctu->cf ctu-b)))
-      (throw (ex-info "OWL reasoning unavailable" {:mode mode})))
-
-    :else
-    (let [ctu-a (->ctu a), ctu-b (->ctu b)]
-      (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
-        (throw (ex-info "Invalid expression" {:a a :b b})))
-      (subsumes-ctu st ctu-a ctu-b))))
+        (subsumes-ctu st ctu-a ctu-b)))))
 
 (s/fdef classify-expression
-  :args (s/cat :svc ::svc :expression ::expression
-               :opts (s/keys*))
-  :ret map?)
+  :args (s/cat :svc ::svc :expression ::expression))
 
 (defn classify-expression
   "Classify a post-coordinated expression using OWL reasoning.
@@ -660,17 +692,17 @@
   Returns a map with :equivalent-concepts, :direct-super-concepts,
   and :proximal-primitive-supertypes.
   Throws if reasoning is unavailable."
-  [{st :store reasoner :reasoner} expression & {:as _opts}]
-  (if-let [r @reasoner]
-    (let [ctu (->ctu expression)]
-      (when-not (scg/valid? st ctu)
-        (throw (ex-info "Invalid expression" {:expression expression})))
-      (reasoner/classify r (scg/ctu->cf ctu)))
-    (throw (ex-info "OWL reasoning unavailable" {}))))
+  [^Svc svc expression]
+  (let [st (.-store svc)]
+    (if-let [r @(.-reasoner svc)]
+      (let [ctu (->ctu expression)]
+        (when-not (scg/valid? st ctu)
+          (throw (ex-info "Invalid expression" {:expression expression})))
+        (reasoner/classify r (scg/ctu->cf ctu)))
+      (throw (ex-info "OWL reasoning unavailable" {})))))
 
 (s/fdef necessary-normal-form
-  :args (s/cat :svc ::svc :expression ::expression
-               :opts (s/keys*))
+  :args (s/cat :svc ::svc :expression ::expression)
   :ret :cf/expression)
 
 (defn necessary-normal-form
@@ -679,13 +711,14 @@
   Returns a CF expression with proximal primitive supertypes as focus
   concepts plus all necessary relationships.
   Throws if reasoning is unavailable."
-  [{st :store reasoner :reasoner} expression & {:as _opts}]
-  (if-let [r @reasoner]
-    (let [ctu (->ctu expression)]
-      (when-not (scg/valid? st ctu)
-        (throw (ex-info "Invalid expression" {:expression expression})))
-      (reasoner/necessary-normal-form r (scg/ctu->cf ctu)))
-    (throw (ex-info "OWL reasoning unavailable" {}))))
+  [^Svc svc expression]
+  (let [st (.-store svc)]
+    (if-let [r @(.-reasoner svc)]
+      (let [ctu (->ctu expression)]
+        (when-not (scg/valid? st ctu)
+          (throw (ex-info "Invalid expression" {:expression expression})))
+        (reasoner/necessary-normal-form r (scg/ctu->cf ctu)))
+      (throw (ex-info "OWL reasoning unavailable" {})))))
 
 (defn ^:private make-search-params
   [^Svc svc {:keys [s query constraint accept-language language-refset-ids] :as params}]
@@ -1187,6 +1220,66 @@
   [svc]
   (mrcm/domains svc))
 
+
+(s/def ::terms #{:strip :update :add})
+(s/def ::render-opts (s/keys :opt-un [::terms ::language-refset-ids]))
+
+(s/fdef render-expression*
+  :args (s/cat :svc ::svc :expression ::expression
+               :opts (s/? (s/nilable ::render-opts))))
+
+(defn render-expression*
+  "Render a SNOMED CT expression to compositional grammar string form.
+  opts is a map with optional keys:
+    :terms               - :strip (remove all terms), :update (replace with
+                           preferred synonyms), :add (add where missing), or
+                           nil (passthrough, render terms already present)
+    :language-refset-ids - ordered language reference set ids, required
+                           for :update and :add"
+  ([^Svc svc expression]
+   (scg/ctu->str (->ctu expression)))
+  ([^Svc svc expression {:keys [terms language-refset-ids] :as opts}]
+   (if (and (#{:update :add} terms) (not language-refset-ids))
+     (throw (ex-info "language-refset-ids required for :update and :add" {:opts opts}))
+     (scg/ctu->str (->ctu expression) (.-store svc) opts))))
+
+(s/fdef render-expression
+  :args (s/cat :svc ::svc :expression ::expression
+               :language-range (s/? (s/nilable string?))))
+
+(defn render-expression
+  "Render a SNOMED CT expression to compositional grammar string form with
+  preferred synonyms. Convenience wrapper around [[render-expression*]]."
+  ([^Svc svc expression]
+   (render-expression svc expression nil))
+  ([^Svc svc expression language-range]
+   (render-expression* svc expression {:terms :update :language-refset-ids (match-locale svc language-range true)})))
+
+(s/fdef refinements*
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
+               :language-refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+
+(defn refinements*
+  "Return the MRCM-permitted attributes for postcoordinating a concept.
+  Each entry is a map with :conceptId, :grouped and :rangeConstraint.
+  When language-refset-ids are provided, each entry also includes :term."
+  ([^Svc svc concept-id]
+   (mrcm/allowed-attributes svc concept-id snomed/PostcoordinatedContent))
+  ([^Svc svc concept-id language-refset-ids]
+   (mapv #(assoc % :term (:term (preferred-synonym* svc (:conceptId %) language-refset-ids)))
+         (refinements* svc concept-id))))
+
+(s/fdef refinements
+  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
+               :language-range (s/? (s/nilable string?))))
+
+(defn refinements
+  "Return the MRCM-permitted attributes for postcoordinating a concept, with
+  human-readable attribute names. Convenience wrapper around [[refinements*]]."
+  ([^Svc svc concept-id]
+   (refinements svc concept-id nil))
+  ([^Svc svc concept-id language-range]
+   (refinements* svc concept-id (match-locale svc language-range true))))
 
 (defn ^:private -fix-property-values
   "Given a map of attributes and values (props), unwrap any values for

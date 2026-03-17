@@ -66,6 +66,48 @@
         result  (json/read-str (get (first content) "text"))]
     (is (= 2 (count result)))))
 
+(deftest ^:live test-tool-refinements
+  (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 23
+                                  "method"  "tools/call"
+                                  "params"  {"name" "refinements"
+                                             "arguments" {"concept_id" 441806004}}})
+        text (json/read-str (get (first (get-in resp ["result" "content"])) "text"))]
+    (is (seq text))
+    (is (some #(= 363698007 (get % "conceptId")) text) "Finding site should be permitted")))
+
+(deftest ^:live test-tool-validate-expression
+  (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 20
+                                  "method"  "tools/call"
+                                  "params"  {"name" "validate_expression"
+                                             "arguments" {"expression" "73211009 : { 363698007 = 39057004 }"}}})
+        text (json/read-str (get (first (get-in resp ["result" "content"])) "text"))]
+    (is (true? (get text "valid"))))
+  (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 21
+                                  "method"  "tools/call"
+                                  "params"  {"name" "validate_expression"
+                                             "arguments" {"expression" "80146002 : { 363698007 = 181255000 }"}}})
+        text (json/read-str (get (first (get-in resp ["result" "content"])) "text"))]
+    (is (false? (get text "valid")))
+    (is (seq (get text "errors")))))
+
+(deftest ^:live test-tool-render-expression
+  (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 30
+                                  "method"  "tools/call"
+                                  "params"  {"name" "render_expression"
+                                             "arguments" {"expression" "73211009 : { 363698007 = 39057004 }"
+                                                          "accept_language" "en-GB"}}})
+        text (get (first (get-in resp ["result" "content"])) "text")]
+    (is (str/includes? text "Diabetes mellitus"))
+    (is (str/includes? text "Finding site"))))
+
+(deftest ^:live test-tool-expression-subsumes
+  (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 22
+                                  "method"  "tools/call"
+                                  "params"  {"name" "expression_subsumes"
+                                             "arguments" {"a" "6118003" "b" "24700007"}}})
+        text (json/read-str (get (first (get-in resp ["result" "content"])) "text"))]
+    (is (= "subsumes" (get text "outcome")))))
+
 (deftest ^:live test-tool-unknown
   (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 12
                                   "method"  "tools/call"

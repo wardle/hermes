@@ -189,6 +189,22 @@
 (defn- tool-refset-members [svc {:keys [refset_id]}]
   (vec (hermes/refset-members svc refset_id)))
 
+(defn- tool-render-expression [svc {:keys [expression accept_language]}]
+  (hermes/render-expression svc expression accept_language))
+
+(defn- tool-refinements [svc {:keys [concept_id accept_language]}]
+  (let [lang (hermes/match-locale svc accept_language true)]
+    (for-concept concept_id #(hermes/refinements* svc % lang))))
+
+(defn- tool-validate-expression [svc {:keys [expression]}]
+  (let [errors (hermes/validate-expression svc expression)]
+    {:valid (nil? errors) :errors (or errors [])}))
+
+(defn- tool-expression-subsumes [svc {:keys [a b mode]}]
+  {:outcome (name (if mode
+                    (hermes/subsumes svc a b :mode (keyword mode))
+                    (hermes/subsumes svc a b)))})
+
 (defn- tool-server-info [svc _args]
   (hermes/status* svc {:counts? false :modules? false :installed-refsets? true}))
 
@@ -373,7 +389,35 @@
     :description "List all installed reference sets, grouped by type (simple map, language, association, etc.)."
     :inputSchema {:type       "object"
                   :properties {}}
-    :handler     tool-refsets}])
+    :handler     tool-refsets}
+   {:name        "render_expression"
+    :description "Render a SNOMED CT compositional grammar expression with preferred synonyms for the specified locale."
+    :inputSchema {:type       "object"
+                  :properties {:expression      {:type "string" :description "SNOMED CT compositional grammar expression (e.g. '73211009 : { 363698007 = 39057004 }')"}
+                               :accept_language accept-language-schema}
+                  :required   ["expression"]}
+    :handler     tool-render-expression}
+   {:name        "refinements"
+    :description "Get the permitted MRCM refinements (attributes) for postcoordinating a SNOMED CT concept. Shows what attributes can be added, whether they must be grouped, and what values are allowed."
+    :inputSchema {:type       "object"
+                  :properties {:concept_id      concept-id-schema
+                               :accept_language accept-language-schema}
+                  :required   ["concept_id"]}
+    :handler     tool-refinements}
+   {:name        "validate_expression"
+    :description "Validate a SNOMED CT compositional grammar expression. Checks syntax, concept existence, and MRCM constraints (attribute domain, range, grouping)."
+    :inputSchema {:type       "object"
+                  :properties {:expression {:type "string" :description "SNOMED CT compositional grammar expression (e.g. '73211009 : { 363698007 = 39057004 }')"}}
+                  :required   ["expression"]}
+    :handler     tool-validate-expression}
+   {:name        "expression_subsumes"
+    :description "Test subsumption between two SNOMED CT expressions. Returns 'equivalent', 'subsumes', 'subsumed-by', or 'not-subsumed'."
+    :inputSchema {:type       "object"
+                  :properties {:a    {:type "string" :description "First SNOMED CT expression (concept ID or compositional grammar)"}
+                               :b    {:type "string" :description "Second SNOMED CT expression (concept ID or compositional grammar)"}
+                               :mode {:type "string" :enum ["structural" "owl"] :description "Subsumption mode: 'structural' (default) or 'owl' (requires OWL reasoning)"}}
+                  :required   ["a" "b"]}
+    :handler     tool-expression-subsumes}])
 
 (defn tools
   "Return tool definitions for the wire — :name, :description and :inputSchema only."
@@ -729,7 +773,25 @@ Use 'server_info' to find specific reference set IDs.
                                           "   - Filters (e.g., {{ C definitionStatus = defined }} or {{ term = \"...\", dialect = en-us (prefer) }})\n"
                                           "6. If the value set needs to match historical/legacy coded data, add a history supplement: {{ + HISTORY-MIN }} for high precision or {{ + HISTORY-MOD }} for balanced recall\n"
                                           "7. Present the final ECL expression and a sample of matching concepts\n"
-                                          "\nRead 'hermes://guides/ecl' for full ECL syntax. Explain your reasoning at each refinement step.")}}])}])
+                                          "\nRead 'hermes://guides/ecl' for full ECL syntax. Explain your reasoning at each refinement step.")}}])}
+   {:name        "postcoordination"
+    :description "Build a SNOMED CT postcoordinated expression for a clinical meaning not captured by a single pre-coordinated concept."
+    :arguments   [{:name        "clinical_meaning"
+                   :description "The clinical meaning to express (e.g., 'laparoscopic repair of inguinal hernia using mesh')"
+                   :required    true}]
+    :messages-fn (fn [{:strs [clinical_meaning]}]
+                   [{:role "user"
+                     :content {:type "text"
+                               :text (str "I need a SNOMED CT postcoordinated expression for: \"" clinical_meaning "\"\n\n"
+                                          "Follow these steps:\n"
+                                          "1. Use 'search' to find the closest pre-coordinated focus concept\n"
+                                          "2. Use 'properties' to see its defining attributes — check what aspects of the meaning are already modelled\n"
+                                          "3. Use 'refinements' to discover which attributes are permitted for postcoordination (MRCM). Each result shows the attribute, grouping rule, and allowed value range as an ECL expression\n"
+                                          "4. For each aspect not already captured, pick an attribute from the permitted refinements and use 'search' with the range ECL as a constraint to find the value\n"
+                                          "5. Build the expression: focusConcept : { attr1 = val1, attr2 = val2 }\n"
+                                          "6. Use 'validate_expression' to check MRCM compliance\n"
+                                          "7. Use 'render_expression' to produce a human-readable version with terms\n"
+                                          "\nPrefer a pre-coordinated concept if one already captures the full meaning. Explain your reasoning at each step.")}}])}])
 
 (defn prompts
   "Return prompt definitions for the wire — :name, :description and :arguments only."

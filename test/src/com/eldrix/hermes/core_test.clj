@@ -2,6 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
+            [clojure.string]
             [clojure.test :refer [deftest testing is use-fixtures]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.reasoner :as reasoner]))
@@ -113,13 +114,19 @@
     (is (seq (filter #{"Secondary progressive multiple sclerosis"} (map :term synonyms))))))
 
 (deftest ^:live test-search
-  (is (contains? (set (map :conceptId (hermes/search *svc* {:s "MND"}))) 37340000) "Search for MND should find motor neurone disease")
-  (is (= 5 (count (map :conceptId (hermes/search *svc* {:s "multiple sclerosis" :max-hits 5})))))
+  (let [ret-spec (:ret (s/get-spec `hermes/search))
+        results (hermes/search *svc* {:s "MND"})]
+    (is (s/valid? ret-spec results))
+    (is (contains? (set (map :conceptId results)) 37340000) "Search for MND should find motor neurone disease"))
+  (is (= 5 (count (hermes/search *svc* {:s "multiple sclerosis" :max-hits 5}))))
   (is (thrown? Exception (hermes/search *svc* {:s "huntington" :max-hits "abc"}))))
 
 (deftest ^:live test-search-concept-ids
-  (let [r1 (vec (hermes/search-concept-ids *svc* {:accept-language "en-US"} [24700007 37340000 80146002]))
+  (let [ret-spec (:ret (s/get-spec `hermes/search-concept-ids))
+        r1 (vec (hermes/search-concept-ids *svc* {:accept-language "en-US"} [24700007 37340000 80146002]))
         r2 (vec (hermes/search-concept-ids *svc* {:accept-language "en-GB"} [24700007 37340000 80146002]))]
+    (is (s/valid? ret-spec r1))
+    (is (s/valid? ret-spec r2))
     (is (= 24700007 (get-in r1 [0 :conceptId]) (get-in r2 [0 :conceptId])))
     (is (= "Multiple sclerosis" (get-in r1 [0 :term]) (get-in r2 [0 :term])))
     (is (= 37340000 (get-in r1 [1 :conceptId]) (get-in r2 [1 :conceptId])))
@@ -166,16 +173,98 @@
     (let [counts (#'hermes/historical-association-counts *svc*)]
       (is (= 1 (get counts snomed/ReplacedByReferenceSet)))))
 
+(deftest ^:live test-render-expression
+  (testing "passthrough preserves existing terms"
+    (is (clojure.string/includes? (hermes/render-expression* *svc* "24700007 |Multiple sclerosis|") "Multiple sclerosis")))
+  (testing "passthrough without terms renders bare ids"
+    (is (= "=== 24700007" (hermes/render-expression* *svc* "24700007"))))
+  (testing "strip removes terms"
+    (is (= "=== 24700007" (hermes/render-expression* *svc* "24700007 |Multiple sclerosis|" {:terms :strip}))))
+  (testing "update replaces terms"
+    (let [lang (hermes/match-locale *svc* "en-GB" true)]
+      (is (clojure.string/includes?
+            (hermes/render-expression* *svc* "24700007" {:terms :update :language-refset-ids lang})
+            "Multiple sclerosis"))))
+  (testing "add fills in missing terms"
+    (let [lang (hermes/match-locale *svc* "en-GB" true)]
+      (is (clojure.string/includes?
+            (hermes/render-expression* *svc* "24700007" {:terms :add :language-refset-ids lang})
+            "Multiple sclerosis"))))
+  (testing "add preserves existing terms"
+    (let [lang (hermes/match-locale *svc* "en-GB" true)]
+      (is (clojure.string/includes?
+            (hermes/render-expression* *svc* "24700007 |My custom term|" {:terms :add :language-refset-ids lang})
+            "My custom term"))))
+  (testing "convenience wrapper renders with terms"
+    (is (clojure.string/includes? (hermes/render-expression *svc* "24700007") "Multiple sclerosis")))
+  (testing "accepts concept id"
+    (is (= "=== 24700007" (hermes/render-expression* *svc* 24700007)))))
+
+(deftest ^:live test-refinements
+  (testing "clinical finding has expected attributes"
+    (let [attrs (hermes/refinements* *svc* 441806004)]
+      (is (seq attrs))
+      (is (every? :conceptId attrs))
+      (is (every? #(contains? % :grouped) attrs))
+      (is (every? :rangeConstraint attrs))
+      (is (some #(= 363698007 (:conceptId %)) attrs) "Finding site should be permitted")
+      (is (some #(= 246075003 (:conceptId %)) attrs) "Causative agent should be permitted")))
+  (testing "lateralizable body structure has laterality"
+    (let [attrs (hermes/refinements* *svc* 78277001)]
+      (is (some #(and (= 272741003 (:conceptId %)) (not (:grouped %))) attrs)
+          "Laterality should be permitted and ungrouped")))
+  (testing "with language refset ids includes terms"
+    (let [lang (hermes/match-locale *svc*)
+          attrs (hermes/refinements* *svc* 441806004 lang)]
+      (is (every? :term attrs))
+      (is (some #(= "Finding site" (:term %)) attrs))))
+  (testing "convenience wrapper includes terms"
+    (let [attrs (hermes/refinements *svc* 441806004)]
+      (is (every? :term attrs)))))
+
+(deftest ^:live test-validate-expression
+  (testing "valid expressions"
+    (is (nil? (hermes/validate-expression *svc* "24700007"))
+        "Simple active concept should be valid")
+    (is (nil? (hermes/validate-expression *svc* "73211009 : { 363698007 = 39057004 }"))
+        "Finding with grouped finding site should be valid")
+    (is (nil? (hermes/validate-expression *svc* "80146002 : { 260686004 = 129304002 , 405813007 = 181255000 }"))
+        "Procedure with grouped method + site should be valid"))
+  (testing "unparseable expression throws"
+    (is (thrown? Exception (hermes/validate-expression *svc* "not a valid expression!!!"))))
+  (testing "invalid expressions return strings"
+    (let [errs (hermes/validate-expression *svc* "100000102")]
+      (is (seq errs) "Non-existent concept should be invalid")
+      (is (every? string? errs)))
+    (let [errs (hermes/validate-expression *svc* "80146002 : { 363698007 = 181255000 }")]
+      (is (seq errs) "Finding site on procedure should be invalid")
+      (is (every? string? errs)))
+    (let [errs (hermes/validate-expression *svc* "73211009 : { 363698007 = 73211009 }")]
+      (is (seq errs) "Clinical finding as finding site value should be invalid")
+      (is (every? string? errs)))
+    (let [errs (hermes/validate-expression *svc* "73211009 : 363698007 = 39057004")]
+      (is (seq errs) "Grouped attribute used ungrouped should be invalid")
+      (is (every? string? errs))))
+  (testing "accepts different input types"
+    (let [parsed (hermes/parse-expression *svc* "24700007")
+          ret-spec (:ret (s/get-spec `hermes/parse-expression))]
+      (is (s/valid? ret-spec parsed) "parse-expression return must match ret spec")
+      (is (nil? (hermes/validate-expression *svc* parsed))
+          "Should accept pre-parsed CTU expression"))
+    (is (nil? (hermes/validate-expression *svc* 24700007))
+        "Should accept a concept identifier")))
+
 (deftest ^:live test-subsumes-concept-ids
-  (testing "concept id fast path"
-    (is (= :equivalent (hermes/subsumes *svc* 24700007 24700007))
-        "A concept is equivalent to itself")
-    (is (= :subsumes (hermes/subsumes *svc* 6118003 24700007))
-        "Disease of CNS subsumes Multiple sclerosis")
-    (is (= :subsumed-by (hermes/subsumes *svc* 24700007 6118003))
-        "Multiple sclerosis is subsumed by Disease of CNS")
-    (is (= :not-subsumed (hermes/subsumes *svc* 24700007 73211009))
-        "Multiple sclerosis and Diabetes mellitus are unrelated")))
+  (let [ret-spec (:ret (s/get-spec `hermes/subsumes))]
+    (testing "concept id fast path"
+      (doseq [[a b expected msg]
+              [[24700007 24700007 :equivalent "A concept is equivalent to itself"]
+               [6118003 24700007 :subsumes "Disease of CNS subsumes Multiple sclerosis"]
+               [24700007 6118003 :subsumed-by "Multiple sclerosis is subsumed by Disease of CNS"]
+               [24700007 73211009 :not-subsumed "Multiple sclerosis and Diabetes mellitus are unrelated"]]]
+        (let [result (hermes/subsumes *svc* a b)]
+          (is (= expected result) msg)
+          (is (s/valid? ret-spec result)))))))
 
 (deftest ^:live test-subsumes-strings
   (testing "string expressions"
@@ -194,4 +283,30 @@
     (testing "throws when OWL mode requested but libraries unavailable"
       (is (thrown? clojure.lang.ExceptionInfo
                   (hermes/subsumes *svc* 24700007 24700007 :mode :owl))))))
+
+(deftest ^:live test-history-profile
+  (let [ret-spec (:ret (s/get-spec `hermes/history-profile))]
+    (doseq [profile [:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX]]
+      (let [result (hermes/history-profile *svc* profile)]
+        (is (s/valid? ret-spec result) (str "history-profile " profile " must match ret spec"))
+        (is (seq result) (str "history-profile " profile " should return at least one refset id"))))))
+
+(deftest ^:live test-reasoning-status
+  (let [ret-spec (:ret (s/get-spec `hermes/reasoning-status))
+        result (hermes/reasoning-status *svc*)]
+    (is (s/valid? ret-spec result))))
+
+(deftest ^:live test-expand-ecl*
+  (let [ret-spec (:ret (s/get-spec `hermes/expand-ecl*))
+        lang (hermes/match-locale *svc* "en-GB" true)
+        results (hermes/expand-ecl* *svc* "<<24700007" lang)]
+    (is (s/valid? ret-spec results))
+    (is (seq results))))
+
+(deftest ^:live test-expand-ecl-historic
+  (let [ret-spec (:ret (s/get-spec `hermes/expand-ecl-historic))
+        results (hermes/expand-ecl-historic *svc* "<24700007")]
+    (is (s/valid? ret-spec results))
+    (is (seq results))))
+
 

@@ -1,6 +1,8 @@
 (ns com.eldrix.hermes.scg-test
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing run-tests]]
+            [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.snomed :as snomed]))
@@ -351,11 +353,12 @@
   (with-open [st (store/open-store "snomed.db/store.db")]
     (doseq [{:keys [description expression parsed invalid normalized live]} test-cases]
       (testing description
-        (let [result (scg/str->ctu expression)]
+        (let [result (scg/str->ctu expression)
+              ret-spec (:ret (s/get-spec `scg/str->ctu))]
           (is (= parsed result) (str "Parse mismatch for: " expression))
-          (is (s/valid? :ctu/expression result)
+          (is (s/valid? ret-spec result)
               (str "Spec failure for: " expression "\n"
-                   (s/explain-str :ctu/expression result)))
+                   (s/explain-str ret-spec result)))
           (let [rendered (scg/ctu->str result)
                 reparsed (scg/str->ctu rendered)]
             (is (= result reparsed)
@@ -397,7 +400,8 @@
 (deftest ^:live updating-terms
   (with-open [st (store/open-store "snomed.db/store.db")]
     (let [parsed (scg/str->ctu "91143003 |Albuterol| : 411116001 |Has manufactured dose form| = 385023001 |oral solution| , { 127489000 |Has active ingredient| = 372897005 |Albuterol| , 179999999100 |Has basis of strength| = 372897005 |Albuterol| , 189999999103 |Has strength value| = #0.083 , 199999999101 |Has strength numerator unit| = 118582008 |%| }")
-          updated (scg/str->ctu (scg/ctu->str st parsed {:update-terms? true :accept-language "en-GB"}))
+          lang-refset-ids (lang/match st "en-GB")
+          updated (scg/str->ctu (scg/ctu->str parsed st {:terms :update :language-refset-ids lang-refset-ids}))
           group2 (second (get-in updated [:subExpression :refinements]))
           active-ingredient-pair (first (filter #(= 127489000 (:conceptId (first %))) group2))]
       (is (= {:conceptId 372897005 :term "Salbutamol"} (second active-ingredient-pair))
@@ -660,10 +664,11 @@
   (doseq [{:keys [description expression expected]} ctu->cf-test-cases]
     (testing description
       (let [parsed (scg/str->ctu expression)
-            result (scg/ctu->cf parsed)]
+            result (scg/ctu->cf parsed)
+            ret-spec (:ret (s/get-spec `scg/ctu->cf))]
         (is (= expected result))
-        (is (s/valid? :cf/expression result)
-            (s/explain-str :cf/expression result))))))
+        (is (s/valid? ret-spec result)
+            (s/explain-str ret-spec result))))))
 
 (deftest cf-to-ctu-round-trip
   (testing "CF→CTU→CF round-trip preserves all value types"
@@ -747,9 +752,10 @@
     (when-let [{:keys [inactive-id active-id]} (find-same-as-concept st)]
       (testing "Inactive focus concept with SAME_AS is replaced"
         (let [expr (scg/str->ctu (str inactive-id))
-              result (scg/replace-historical st expr)]
+              result (scg/replace-historical st expr)
+              ret-spec (:ret (s/get-spec `scg/replace-historical))]
           (is (= active-id (get-in result [:subExpression :focusConcepts 0 :conceptId])))
-          (is (s/valid? :ctu/expression result))))
+          (is (s/valid? ret-spec result))))
       (testing "Replaced expression can be normalized"
         (let [expr (scg/str->ctu (str inactive-id))
               result (-> (scg/replace-historical st expr)
