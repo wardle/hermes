@@ -3,7 +3,7 @@
 This log documents significant changes for each release.
 
 
-## [1.4.1538] - 2026-03-17
+## [1.4.1540] - 2026-03-17
 
 * Add SNOMED CT compositional grammar (SCG) support (issue #84): parsing, rendering, normalization to long normal form, structural expression subsumption, and validation
 * Add OWL reasoning via ELK reasoner with opt-in initialization: expression classification, necessary normal form, and OWL-based expression subsumption
