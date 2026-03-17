@@ -103,7 +103,10 @@
 (defn mcp [{:keys [db locale owl]} _]
   (with-open [svc (hermes/open db {:default-locale locale})]
     (log-module-dependency-problems svc)
-    (when owl (hermes/activate-reasoner svc))
+    (when owl
+      (when-not @reasoner/owl-loaded?
+        (throw (ex-info "OWL libraries not found on classpath" {})))
+      (future (hermes/activate-reasoner svc)))
     (mcp/start! svc)))
 
 (defn serve [{:keys [db _port _bind-address allowed-origin locale owl] :as params} _]
