@@ -35,7 +35,7 @@ jobs:
         run: clojure -P -M:test
 
       - name: Compilation check
-        run:  clojure -M:dev:check
+        run:  clojure -M:dev:owl:check
 
       - name: Create TRUD cache directory
         run: mkdir trud

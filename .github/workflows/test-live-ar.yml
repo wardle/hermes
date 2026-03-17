@@ -33,7 +33,7 @@ jobs:
         run: clojure -P -M:test
 
       - name: Compilation check
-        run:  clojure -M:dev:check
+        run:  clojure -M:dev:owl:check
 
       - name: Write out MLDS password from secrets
         run: echo ${{ secrets.MLDS_PASSWORD }} >> mlds-password.txt
