@@ -368,8 +368,15 @@
                 (str "Canonicalize not idempotent for: " expression))
             (is (s/valid? :ctu/expression canon)
                 (str "Canonical form fails spec for: " expression)))
-          (when (and live invalid)
-            (is (not (scg/valid? st result))))
+          (when live
+            (let [valid (scg/valid? st result)
+                  errs  (scg/errors st result)]
+              (when (not valid)
+                (is (seq errs)
+                    (str "valid? returned false but errors returned nil for: " expression)))
+              (when invalid
+                (is (not valid))
+                (is (seq errs)))))
           (when normalized
             (let [norm (scg/ctu->cf+normalize st result)]
               (is (= normalized norm))
@@ -401,7 +408,7 @@
   (with-open [st (store/open-store "snomed.db/store.db")]
     (let [parsed (scg/str->ctu "91143003 |Albuterol| : 411116001 |Has manufactured dose form| = 385023001 |oral solution| , { 127489000 |Has active ingredient| = 372897005 |Albuterol| , 179999999100 |Has basis of strength| = 372897005 |Albuterol| , 189999999103 |Has strength value| = #0.083 , 199999999101 |Has strength numerator unit| = 118582008 |%| }")
           lang-refset-ids (lang/match st "en-GB")
-          updated (scg/str->ctu (scg/ctu->str parsed st {:terms :update :language-refset-ids lang-refset-ids}))
+          updated (scg/str->ctu (scg/ctu->str st parsed {:terms :update :language-refset-ids lang-refset-ids}))
           group2 (second (get-in updated [:subExpression :refinements]))
           active-ingredient-pair (first (filter #(= 127489000 (:conceptId (first %))) group2))]
       (is (= {:conceptId 372897005 :term "Salbutamol"} (second active-ingredient-pair))

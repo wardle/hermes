@@ -330,24 +330,33 @@
         refinements (:refinements subexp)]
     (if refinements (str focus-concepts ":" (render-refinements config refinements)) focus-concepts)))
 
+(s/def ::terms #{:strip :update :add})
+(s/def ::definition-status #{:auto :always})
+(s/def ::render-opts (s/keys :opt-un [::terms ::definition-status]))
+
 (s/fdef ctu->str
-  :args (s/cat :expression :ctu/expression
-               :store (s/? any?)
-               :opts (s/? map?)))
+  :args (s/alt :unary  (s/cat :expression :ctu/expression)
+               :ternary (s/cat :store any? :expression :ctu/expression :opts ::render-opts))
+  :ret string?)
 
 (defn ctu->str
   "Render an expression into string form.
   Single-arity renders using terms already present in the expression.
   Three-arity takes a store and options:
     :terms              - :strip, :update, :add, or nil (passthrough, default)
-    :language-refset-ids - required for :update and :add"
+    :language-refset-ids - required for :update and :add
+    :definition-status  - :always (always include, default) or :auto (only
+                          include when not the default :equivalent-to)"
   ([expression]
    (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
         " " (render-subexpression {} (:subExpression expression))))
-  ([expression store {:keys [terms language-refset-ids] :as opts}]
-   (let [ctx (assoc opts :store store)]
-     (str ({:equivalent-to "===" :subtype-of "<<<"} (:definitionStatus expression))
-          " " (render-subexpression ctx (:subExpression expression))))))
+  ([store expression {:keys [definition-status] :as opts}]
+   (let [ctx (assoc opts :store store)
+         ds (:definitionStatus expression)
+         prefix (case (or definition-status :always)
+                  :always (str ({:equivalent-to "===" :subtype-of "<<<"} ds) " ")
+                  :auto   (when (= :subtype-of ds) "<<< "))]
+     (str prefix (render-subexpression ctx (:subExpression expression))))))
 
 
 (s/fdef concept->ctu
@@ -542,6 +551,47 @@
   "Returns true if all concept references in an expression exist in the store."
   [store expression]
   (valid-subexpression? store (:subExpression expression)))
+
+(declare errors-subexpression)
+
+(defn- concept-error
+  "Return an error map for a concept reference, or nil if valid and active."
+  [store {:keys [conceptId]}]
+  (let [c (store/concept store conceptId)]
+    (cond
+      (nil? c)         {:error :concept-not-found :concept-id conceptId}
+      (not (:active c)) {:error :concept-inactive :concept-id conceptId})))
+
+(defn- errors-refinements
+  [store refinements]
+  (into []
+        (mapcat (fn [r]
+                  (let [attrs (if (set? r) r [r])]
+                    (mapcat (fn [[attr-name attr-value]]
+                              (into (if-let [e (concept-error store attr-name)] [e] [])
+                                    (cond
+                                      (and (map? attr-value) (:focusConcepts attr-value))
+                                      (errors-subexpression store attr-value)
+                                      (and (map? attr-value) (:conceptId attr-value))
+                                      (if-let [e (concept-error store attr-value)] [e])
+                                      :else nil)))
+                            attrs))))
+        refinements))
+
+(defn- errors-subexpression
+  [store {:keys [focusConcepts refinements]}]
+  (into (vec (keep #(concept-error store %) focusConcepts))
+        (when refinements
+          (errors-refinements store refinements))))
+
+(defn errors
+  "Return a sequence of error maps for concept existence/active status problems
+  in the expression. Returns nil if all concepts are valid and active.
+  Each error is a map with :error (:concept-not-found or :concept-inactive)
+  and :concept-id. Unlike [[valid?]], does not short-circuit and checks active
+  status per SCG spec section 7.3."
+  [store expression]
+  (seq (errors-subexpression store (:subExpression expression))))
 
 (defn- replace-concept
   "Replace an inactive concept with its historical target, if available.

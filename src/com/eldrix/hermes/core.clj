@@ -73,6 +73,21 @@
                    ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
                    ::remove-duplicates? ::properties ::concept-refsets]))
 
+(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
+(s/def ::mode #{:structural :owl})
+
+(s/def ::transitive-synonym-params
+  (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
+
+(s/def ::render-opts (s/merge ::scg/render-opts (s/keys :opt-un [::language-refset-ids])))
+
+(s/def ::expand boolean?)
+
+(s/def ::fmt #{:map-id-syn :vec-id-syn :str-id-syn :syn :id})
+(s/def ::key-fmt ::fmt)
+(s/def ::value-fmt ::fmt)
+(s/def ::language-range string?)
+
 ;; for backwards compatibility in case a client referenced the old concrete deftype
 (definterface ^:deprecated Service)
 
@@ -559,37 +574,40 @@
     (string? x) (scg/str->ctu x)
     :else       x))
 
-(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
-
-(defn ^:private error->str
-  "Convert an MRCM error map to a human-readable message."
-  [{:keys [error concept-id attribute-id value-id]}]
-  (case error
-    :concept-not-found       (str "Concept " concept-id " not found")
-    :concept-inactive        (str "Concept " concept-id " is inactive")
-    :attribute-not-in-domain (str "Attribute " attribute-id " not valid for domain")
-    :value-out-of-range      (str "Value " value-id " out of range for attribute " attribute-id)
-    :attribute-must-be-grouped   (str "Attribute " attribute-id " must be grouped")
-    :attribute-must-be-ungrouped (str "Attribute " attribute-id " must not be grouped")
-    (str "Validation error: " error)))
+(defn ^:private assoc-error-message
+  "Assoc a human-readable :message into a validation error map.
+  Works with both concept errors from scg/errors and MRCM errors from
+  mrcm/expression-errors."
+  [{:keys [error concept-id attribute-id value-id] :as err}]
+  (assoc err :message
+         (case error
+           :concept-not-found       (str "Concept " concept-id " not found")
+           :concept-inactive        (str "Concept " concept-id " is inactive")
+           :attribute-not-in-domain (str "Attribute " attribute-id " not valid for domain")
+           :value-out-of-range      (str "Value " value-id " out of range for attribute " attribute-id)
+           :attribute-must-be-grouped   (str "Attribute " attribute-id " must be grouped")
+           :attribute-must-be-ungrouped (str "Attribute " attribute-id " must not be grouped")
+           (str "Validation error: " error))))
 
 (s/fdef validate-expression
-  :args (s/cat :svc ::svc :expression ::expression))
+  :args (s/cat :svc ::svc :expression ::expression
+               :opts (s/? (s/nilable (s/keys :opt-un [::mrcm]))))
+  :ret (s/nilable (s/coll-of ::mrcm/expression-error)))
 
 (defn validate-expression
   "Validate a SNOMED CT expression. Returns nil if valid, or a sequence of
-  error message strings if invalid. Combines structural validation (concept
-  existence/active status) with MRCM constraint checking (attribute domain,
-  range, grouping).
-  Accepts a concept identifier, SCG string, or parsed CTU expression."
-  [svc expression]
-  (let [ctu (->ctu expression)
-        store (.-store ^Svc svc)]
-    (seq
-      (if-not (scg/valid? store ctu)
-        ["Expression contains invalid or inactive concept references"]
-        (when-let [errs (mrcm/expression-errors svc ctu snomed/PostcoordinatedContent)]
-          (mapv error->str errs))))))
+  error maps if invalid. Each error map contains :error, :message, and
+  context-specific keys such as :concept-id or :attribute-id.
+  Accepts a concept identifier, SCG string, or parsed CTU expression.
+  Options:
+    :mrcm - when false, skip MRCM constraint checking and only validate
+            syntax and concept existence/active status (default true)."
+  ([svc expression]
+   (validate-expression svc expression nil))
+  ([^Svc svc expression {:keys [mrcm] :or {mrcm true}}]
+   (let [ctu (->ctu expression)
+         store (.-store svc)]
+     (seq (map assoc-error-message (or (scg/errors store ctu) (when mrcm (mrcm/expression-errors svc ctu snomed/PostcoordinatedContent))))))))
 
 (s/fdef activate-reasoner
   :args (s/cat :svc ::svc))
@@ -646,13 +664,8 @@
       b-subsumes-a                    :subsumed-by
       :else                           :not-subsumed)))
 
-(s/def ::mode #{:structural :owl})
-
 (s/fdef subsumes
-  :args (s/cat :svc ::svc
-               :a ::expression
-               :b ::expression
-               :opts (s/keys* :opt-un [::mode]))
+  :args (s/cat :svc ::svc :a ::expression :b ::expression :opts (s/keys* :opt-un [::mode]))
   :ret #{:equivalent :subsumes :subsumed-by :not-subsumed})
 
 (defn subsumes
@@ -669,6 +682,12 @@
       (and (int? a) (int? b) (not= :owl mode))
       (subsumes-concept-ids st a b)
 
+      (= :structural mode)
+      (let [ctu-a (->ctu a), ctu-b (->ctu b)]
+        (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
+          (throw (ex-info "Invalid expression" {:a a :b b})))
+        (subsumes-ctu st ctu-a ctu-b))
+
       (= :owl mode)
       (if-let [r @reasoner]
         (let [ctu-a (->ctu a), ctu-b (->ctu b)]
@@ -678,10 +697,7 @@
         (throw (ex-info "OWL reasoning unavailable" {:mode mode})))
 
       :else
-      (let [ctu-a (->ctu a), ctu-b (->ctu b)]
-        (when (or (not (scg/valid? st ctu-a)) (not (scg/valid? st ctu-b)))
-          (throw (ex-info "Invalid expression" {:a a :b b})))
-        (subsumes-ctu st ctu-a ctu-b)))))
+      (throw (ex-info "invalid subsumption mode:" {:mode mode})))))
 
 (s/fdef classify-expression
   :args (s/cat :svc ::svc :expression ::expression))
@@ -929,9 +945,6 @@
         historic-query (search/q-concept-ids historic-concept-ids)
         query (search/q-and [(search/q-or [base-query historic-query]) (search/q-synonym)])]
     (search/do-query-for-results (.-searcher svc) query (match-locale svc))))
-
-(s/def ::transitive-synonym-params
-  (s/or :by-search map? :by-ecl string? :by-concept-ids coll?))
 
 (s/fdef transitive-synonyms
   :args (s/cat :svc ::svc
@@ -1221,8 +1234,6 @@
   (mrcm/domains svc))
 
 
-(s/def ::terms #{:strip :update :add})
-(s/def ::render-opts (s/keys :opt-un [::terms ::language-refset-ids]))
 
 (s/fdef render-expression*
   :args (s/cat :svc ::svc :expression ::expression
@@ -1235,13 +1246,15 @@
                            preferred synonyms), :add (add where missing), or
                            nil (passthrough, render terms already present)
     :language-refset-ids - ordered language reference set ids, required
-                           for :update and :add"
+                           for :update and :add
+    :definition-status   - :always (always include prefix, default) or :auto
+                           (only include when not the default :equivalent-to)"
   ([^Svc svc expression]
    (scg/ctu->str (->ctu expression)))
   ([^Svc svc expression {:keys [terms language-refset-ids] :as opts}]
    (if (and (#{:update :add} terms) (not language-refset-ids))
      (throw (ex-info "language-refset-ids required for :update and :add" {:opts opts}))
-     (scg/ctu->str (->ctu expression) (.-store svc) opts))))
+     (scg/ctu->str (.-store svc) (->ctu expression) opts))))
 
 (s/fdef render-expression
   :args (s/cat :svc ::svc :expression ::expression
@@ -1296,7 +1309,6 @@
                          (#{"0..1" "1..1"} (kw ad))    ;; convert to single if cardinality permits
                          (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
-(s/def ::expand boolean?)
 (s/fdef properties
   :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
                :opts (s/? (s/nilable (s/keys :opt-un [::expand])))))
@@ -1334,10 +1346,7 @@
               {} (if expand (store/properties-expanded (.-store svc) concept-id)
                      (store/properties (.-store svc) concept-id)))))
 
-(s/def ::fmt #{:map-id-syn :vec-id-syn :str-id-syn :syn :id})
-(s/def ::key-fmt ::fmt)
-(s/def ::value-fmt ::fmt)
-(s/def ::language-range string?)
+
 (s/fdef pprint-properties
   :args (s/cat :svc ::svc, :props map?, :opts (s/? (s/nilable (s/keys :opt-un [::key-fmt ::value-fmt ::fmt ::language-range])))))
 (defn pprint-properties

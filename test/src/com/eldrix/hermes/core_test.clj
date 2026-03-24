@@ -198,7 +198,19 @@
   (testing "convenience wrapper renders with terms"
     (is (clojure.string/includes? (hermes/render-expression *svc* "24700007") "Multiple sclerosis")))
   (testing "accepts concept id"
-    (is (= "=== 24700007" (hermes/render-expression* *svc* 24700007)))))
+    (is (= "=== 24700007" (hermes/render-expression* *svc* 24700007))))
+  (testing "definition-status :auto omits default === prefix"
+    (is (= "24700007"
+           (hermes/render-expression* *svc* "24700007" {:terms :strip :definition-status :auto}))
+        "=== (default) should be omitted with :auto")
+    (is (clojure.string/starts-with?
+          (hermes/render-expression* *svc* "<<< 24700007" {:terms :strip :definition-status :auto})
+          "<<<")
+        "<<< (non-default) should be kept with :auto")
+    (is (clojure.string/starts-with?
+          (hermes/render-expression* *svc* "24700007" {:terms :strip :definition-status :always})
+          "===")
+        ":always should always include prefix")))
 
 (deftest ^:live test-refinements
   (testing "clinical finding has expected attributes"
@@ -232,19 +244,34 @@
         "Procedure with grouped method + site should be valid"))
   (testing "unparseable expression throws"
     (is (thrown? Exception (hermes/validate-expression *svc* "not a valid expression!!!"))))
-  (testing "invalid expressions return strings"
-    (let [errs (hermes/validate-expression *svc* "100000102")]
-      (is (seq errs) "Non-existent concept should be invalid")
-      (is (every? string? errs)))
-    (let [errs (hermes/validate-expression *svc* "80146002 : { 363698007 = 181255000 }")]
-      (is (seq errs) "Finding site on procedure should be invalid")
-      (is (every? string? errs)))
-    (let [errs (hermes/validate-expression *svc* "73211009 : { 363698007 = 73211009 }")]
-      (is (seq errs) "Clinical finding as finding site value should be invalid")
-      (is (every? string? errs)))
-    (let [errs (hermes/validate-expression *svc* "73211009 : 363698007 = 39057004")]
-      (is (seq errs) "Grouped attribute used ungrouped should be invalid")
-      (is (every? string? errs))))
+  (let [ret-spec (:ret (s/get-spec `hermes/validate-expression))
+        error-cases
+        [{:description "Non-existent concept"
+          :expression  "100000102"
+          :error       :concept-not-found}
+         {:description "Finding site on procedure (MRCM domain)"
+          :expression  "80146002 : { 363698007 = 181255000 }"
+          :error       :attribute-not-in-domain}
+         {:description "Clinical finding as finding site value (MRCM range)"
+          :expression  "73211009 : { 363698007 = 73211009 }"
+          :error       :value-out-of-range}
+         {:description "Grouped attribute used ungrouped"
+          :expression  "73211009 : 363698007 = 39057004"
+          :error       :attribute-must-be-grouped}]]
+    (testing "invalid expressions return error maps"
+      (doseq [{:keys [description expression error]} error-cases]
+        (testing description
+          (let [errs (hermes/validate-expression *svc* expression)]
+            (is (s/valid? ret-spec errs) (s/explain-str ret-spec errs))
+            (is (= error (:error (first errs)))))))))
+  (testing "mrcm false skips MRCM checking"
+    (is (nil? (hermes/validate-expression *svc* "367430006:{272741003=24028007}" {:mrcm false}))
+        "Expression with valid concepts should pass when MRCM is skipped")
+    (is (seq (hermes/validate-expression *svc* "367430006:{272741003=24028007}"))
+        "Same expression should fail with default MRCM checking")
+    (is (= [{:error :concept-not-found :concept-id 100000102
+             :message "Concept 100000102 not found"}]
+           (hermes/validate-expression *svc* "100000102" {:mrcm false}))))
   (testing "accepts different input types"
     (let [parsed (hermes/parse-expression *svc* "24700007")
           ret-spec (:ret (s/get-spec `hermes/parse-expression))]
