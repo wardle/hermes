@@ -3,6 +3,11 @@
 This log documents significant changes for each release.
 
 
+## [1.4.1542] - 2026-03-24
+
+* `validate-expression` returns structured error maps instead of plain strings, with `:mrcm` option to skip MRCM constraint checking
+* Add `:definition-status` rendering option for `render-expression*` (`:auto` omits default `===` prefix)
+
 ## [1.4.1540] - 2026-03-17
 
 * Add SNOMED CT compositional grammar (SCG) support (issue #84): parsing, rendering, normalization to long normal form, structural expression subsumption, and validation
