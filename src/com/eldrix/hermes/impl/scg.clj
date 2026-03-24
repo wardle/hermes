@@ -33,65 +33,65 @@
   (remove #(or (nil? %) (syntax-literal? %)) args))
 
 (def ^:private scg-transform
-  {:ws               (constantly nil)
-   :SP               str
-   :HTAB             (constantly nil)
-   :CR               (constantly nil)
-   :LF               (constantly nil)
-   :digit            str
-   :digitNonZero     str
-   :zero             (constantly "0")
-   :sctId            (fn [& chars] (parse-long (apply str chars)))
-   :conceptId        identity
-   :term             (fn [& parts] (apply str parts))
-   :nonwsNonPipe     str
-   :conceptReference (fn [& args]
-                       (let [parts (vec (remove-noise args))]
-                         (if (= 1 (count parts))
-                           {:conceptId (first parts)}
-                           {:conceptId (first parts) :term (second parts)})))
-   :focusConcept     (fn [& args] (vec (remove-noise args)))
-   :attributeName    identity
-   :stringValue      (fn [& chars] (apply str chars))
+  {:ws                (constantly nil)
+   :SP                str
+   :HTAB              (constantly nil)
+   :CR                (constantly nil)
+   :LF                (constantly nil)
+   :digit             str
+   :digitNonZero      str
+   :zero              (constantly "0")
+   :sctId             (fn [& chars] (parse-long (apply str chars)))
+   :conceptId         identity
+   :term              (fn [& parts] (apply str parts))
+   :nonwsNonPipe      str
+   :conceptReference  (fn [& args]
+                        (let [parts (vec (remove-noise args))]
+                          (if (= 1 (count parts))
+                            {:conceptId (first parts)}
+                            {:conceptId (first parts) :term (second parts)})))
+   :focusConcept      (fn [& args] (vec (remove-noise args)))
+   :attributeName     identity
+   :stringValue       (fn [& chars] (apply str chars))
    :anyNonEscapedChar str
-   :escapedChar      (fn [_bs ch] (if (nil? ch) "\"" "\\"))
-   :integerValue     (fn [& chars] (apply str chars))
-   :decimalValue     (fn [& parts] (apply str parts))
-   :numericValue     (fn [& parts] (parse-double (apply str parts)))
-   :true             (constantly true)
-   :false            (constantly false)
-   :booleanValue     identity
-   :QM               (constantly nil)
-   :BS               (constantly ::backslash)
-   :expressionValue  (fn [& args] (first (remove-noise args)))
-   :attributeValue   (fn [& args] (first (remove-noise args)))
-   :attribute        (fn [& args] (vec (remove-noise args)))
-   :attributeSet     (fn [& args] (vec (remove-noise args)))
-   :attributeGroup   (fn [& args]
-                       (set (first (remove-noise args))))
-   :refinement       (fn [& args]
-                       (vec (mapcat (fn [x]
-                                      (cond
-                                        (nil? x) nil
-                                        (syntax-literal? x) nil
-                                        (set? x) [x]
-                                        (vector? x) x
-                                        :else [x]))
-                                    args)))
-   :subExpression    (fn [& args]
-                       (let [parts (vec (remove-noise args))
-                             focus (first parts)
-                             refinement (second parts)]
-                         (cond-> {:focusConcepts focus}
-                           refinement (assoc :refinements refinement))))
-   :definitionStatus identity
-   :equivalentTo     (constantly :equivalent-to)
-   :subtypeOf        (constantly :subtype-of)
-   :expression       (fn [& args]
-                       (let [parts (vec (remove-noise args))]
-                         (if (= 1 (count parts))
-                           {:definitionStatus :equivalent-to :subExpression (first parts)}
-                           {:definitionStatus (first parts) :subExpression (second parts)})))})
+   :escapedChar       (fn [_bs ch] (if (nil? ch) "\"" "\\"))
+   :integerValue      (fn [& chars] (apply str chars))
+   :decimalValue      (fn [& parts] (apply str parts))
+   :numericValue      (fn [& parts] (parse-double (apply str parts)))
+   :true              (constantly true)
+   :false             (constantly false)
+   :booleanValue      identity
+   :QM                (constantly nil)
+   :BS                (constantly ::backslash)
+   :expressionValue   (fn [& args] (first (remove-noise args)))
+   :attributeValue    (fn [& args] (first (remove-noise args)))
+   :attribute         (fn [& args] (vec (remove-noise args)))
+   :attributeSet      (fn [& args] (vec (remove-noise args)))
+   :attributeGroup    (fn [& args]
+                        (set (first (remove-noise args))))
+   :refinement        (fn [& args]
+                        (vec (mapcat (fn [x]
+                                       (cond
+                                         (nil? x) nil
+                                         (syntax-literal? x) nil
+                                         (set? x) [x]
+                                         (vector? x) x
+                                         :else [x]))
+                                     args)))
+   :subExpression     (fn [& args]
+                        (let [parts (vec (remove-noise args))
+                              focus (first parts)
+                              refinement (second parts)]
+                          (cond-> {:focusConcepts focus}
+                            refinement (assoc :refinements refinement))))
+   :definitionStatus  identity
+   :equivalentTo      (constantly :equivalent-to)
+   :subtypeOf         (constantly :subtype-of)
+   :expression        (fn [& args]
+                        (let [parts (vec (remove-noise args))]
+                          (if (= 1 (count parts))
+                            {:definitionStatus :equivalent-to :subExpression (first parts)}
+                            {:definitionStatus (first parts) :subExpression (second parts)})))})
 
 ;;
 ;; Specs for the close-to-user (CTU) expression IR.
@@ -102,15 +102,15 @@
 (s/def :ctu/term string?)
 (s/def :ctu/concept (s/keys :req-un [:ctu/conceptId] :opt-un [:ctu/term]))
 (s/def :ctu/focusConcepts (s/coll-of :ctu/concept :kind vector? :min-count 1))
-(s/def :ctu/attributeValue (s/or :concept    :ctu/concept
-                                  :expression :ctu/subExpression
-                                  :numeric    number?
-                                  :boolean    boolean?
-                                  :string     string?))
+(s/def :ctu/attributeValue (s/or :concept :ctu/concept
+                                 :expression :ctu/subExpression
+                                 :numeric number?
+                                 :boolean boolean?
+                                 :string string?))
 (s/def :ctu/attribute (s/tuple :ctu/concept :ctu/attributeValue))
 (s/def :ctu/group (s/coll-of :ctu/attribute :kind set? :min-count 1))
 (s/def :ctu/refinements (s/cat :ungrouped (s/* :ctu/attribute)
-                               :groups    (s/* :ctu/group)))
+                               :groups (s/* :ctu/group)))
 (s/def :ctu/subExpression (s/keys :req-un [:ctu/focusConcepts] :opt-un [:ctu/refinements]))
 (s/def :ctu/definitionStatus #{:equivalent-to :subtype-of})
 (s/def :ctu/expression (s/keys :req-un [:ctu/definitionStatus :ctu/subExpression]))
@@ -161,7 +161,7 @@
   "Generator for a simple nested CF expression (single focus concept, no further nesting)."
   []
   (gen/fmap (fn [[fc ds]]
-              [:expression {:cf/focus-concepts #{fc}
+              [:expression {:cf/focus-concepts    #{fc}
                             :cf/definition-status ds}])
             (gen/tuple (s/gen :info.snomed.Concept/id)
                        (gen/elements [:subtype-of :equivalent-to]))))
@@ -284,9 +284,9 @@
 (defn- render-concept
   [{:keys [terms] :as ctx} {:keys [conceptId term]}]
   (let [rendered-term (case terms
-                        :strip  nil
+                        :strip nil
                         :update (or (lookup-term ctx conceptId) term)
-                        :add    (or term (lookup-term ctx conceptId))
+                        :add (or term (lookup-term ctx conceptId))
                         term)]
     (if rendered-term
       (str conceptId "|" rendered-term "|")
@@ -335,7 +335,7 @@
 (s/def ::render-opts (s/keys :opt-un [::terms ::definition-status]))
 
 (s/fdef ctu->str
-  :args (s/alt :unary  (s/cat :expression :ctu/expression)
+  :args (s/alt :unary (s/cat :expression :ctu/expression)
                :ternary (s/cat :store any? :expression :ctu/expression :opts ::render-opts))
   :ret string?)
 
@@ -355,7 +355,7 @@
          ds (:definitionStatus expression)
          prefix (case (or definition-status :always)
                   :always (str ({:equivalent-to "===" :subtype-of "<<<"} ds) " ")
-                  :auto   (when (= :subtype-of ds) "<<< "))]
+                  :auto (when (= :subtype-of ds) "<<< "))]
      (str prefix (render-subexpression ctx (:subExpression expression))))))
 
 
@@ -388,8 +388,8 @@
                     (into #{}
                           (map (fn [attrs]
                                  (set (mapcat (fn [[tid targets]]
-                                               (map #(vector tid [:concept %]) targets))
-                                             attrs))))))]
+                                                (map #(vector tid [:concept %]) targets))
+                                              attrs))))))]
     {:ungrouped ungrouped :groups groups}))
 
 (defn- collect-primitives-and-attributes
@@ -420,8 +420,8 @@
                                   parent-ids (get (get props 0) snomed/IsA)
                                   parent-results (mapv collect parent-ids)]
                               {:primitives (into #{} (mapcat :primitives) parent-results)
-                               :ungrouped (into ungrouped (mapcat :ungrouped parent-results))
-                               :groups (into groups (mapcat :groups parent-results))}))]
+                               :ungrouped  (into ungrouped (mapcat :ungrouped parent-results))
+                               :groups     (into groups (mapcat :groups parent-results))}))]
                       (vswap! cache assoc concept-id result)
                       result)))]
     (collect concept-id)))
@@ -481,8 +481,8 @@
    (cond
      (and (map? attr-value) (:conceptId attr-value)) [:concept (:conceptId attr-value)]
      (and (map? attr-value) (:focusConcepts attr-value)) [:expression attr-value] ;; nested subExpression, normalized later
-     (number? attr-value)  [:numeric attr-value]
-     (string? attr-value)  [:string attr-value]
+     (number? attr-value) [:numeric attr-value]
+     (string? attr-value) [:string attr-value]
      (boolean? attr-value) [:boolean attr-value]
      :else (throw (ex-info "Unsupported CTU attribute value" {:value attr-value})))])
 
@@ -522,33 +522,35 @@
 
 (declare valid-subexpression?)
 
-(defn- valid-concept?
+(defn valid-concept?
   [store {:keys [conceptId]}]
-  (some? (store/concept store conceptId)))
+  (:active (store/concept store conceptId)))
 
-(defn- valid-refinements?
-  [store refinements]
-  (every? (fn [r]
-            (let [attrs (if (set? r) r [r])]
-              (every? (fn [[attr-name attr-value]]
-                        (and (valid-concept? store attr-name)
-                             (cond
-                               (and (map? attr-value) (:focusConcepts attr-value))
-                               (valid-subexpression? store attr-value)
-                               (and (map? attr-value) (:conceptId attr-value))
-                               (valid-concept? store attr-value)
-                               :else true)))
-                      attrs)))
-          refinements))
+(defn valid-attribute?
+  [store [attr-name attr-value]]
+  (and (valid-concept? store attr-name)
+       (cond
+         (and (map? attr-value) (:focusConcepts attr-value))
+         (valid-subexpression? store attr-value)
+         (and (map? attr-value) (:conceptId attr-value))
+         (valid-concept? store attr-value)
+         :else true)))
 
-(defn- valid-subexpression?
+(defn valid-refinement?
+  [store refinement]
+  ;; a refinement is either a single attribute (vector pair) or a group (set of attributes)
+  (if (set? refinement)
+    (every? #(valid-attribute? store %) refinement)
+    (valid-attribute? store refinement)))
+
+(defn valid-subexpression?
   [store {:keys [focusConcepts refinements]}]
   (and (every? #(valid-concept? store %) focusConcepts)
        (or (nil? refinements)
-           (valid-refinements? store refinements))))
+           (every? #(valid-refinement? store %) refinements))))
 
 (defn valid?
-  "Returns true if all concept references in an expression exist in the store."
+  "Returns true if all concept references in an expression exist and are active."
   [store expression]
   (valid-subexpression? store (:subExpression expression)))
 
@@ -559,24 +561,40 @@
   [store {:keys [conceptId]}]
   (let [c (store/concept store conceptId)]
     (cond
-      (nil? c)         {:error :concept-not-found :concept-id conceptId}
+      (nil? c) {:error :concept-not-found :concept-id conceptId}
       (not (:active c)) {:error :concept-inactive :concept-id conceptId})))
+
+(defn attribute-type-error
+  "Return an error if the concept is not a valid SNOMED CT attribute type
+  (descendant of ConceptModelAttribute or LinkageConcept), or nil."
+  [store concept-id]
+  (when-not (or (store/is-a? store concept-id snomed/ConceptModelAttribute)
+                (store/is-a? store concept-id snomed/LinkageConcept))
+    {:error :attribute-invalid :concept-id concept-id}))
+
+(defn- errors-attribute
+  "Return errors for a single attribute name-value pair."
+  [store [attr-name attr-value]]
+  (let [name-err (or (concept-error store attr-name)
+                     (attribute-type-error store (:conceptId attr-name)))
+        value-errs (cond
+                     (and (map? attr-value) (:focusConcepts attr-value))
+                     (errors-subexpression store attr-value)
+                     (and (map? attr-value) (:conceptId attr-value))
+                     (when-let [e (concept-error store attr-value)] [e]))]
+    (cond-> (if name-err [name-err] [])
+      value-errs (into value-errs))))
+
+(defn- errors-refinement
+  "Return errors for a refinement (single attribute or group of attributes)."
+  [store r]
+  (if (set? r)
+    (mapcat #(errors-attribute store %) r)
+    (errors-attribute store r)))
 
 (defn- errors-refinements
   [store refinements]
-  (into []
-        (mapcat (fn [r]
-                  (let [attrs (if (set? r) r [r])]
-                    (mapcat (fn [[attr-name attr-value]]
-                              (into (if-let [e (concept-error store attr-name)] [e] [])
-                                    (cond
-                                      (and (map? attr-value) (:focusConcepts attr-value))
-                                      (errors-subexpression store attr-value)
-                                      (and (map? attr-value) (:conceptId attr-value))
-                                      (if-let [e (concept-error store attr-value)] [e])
-                                      :else nil)))
-                            attrs))))
-        refinements))
+  (mapcat #(errors-refinement store %) refinements))
 
 (defn- errors-subexpression
   [store {:keys [focusConcepts refinements]}]
@@ -585,11 +603,14 @@
           (errors-refinements store refinements))))
 
 (defn errors
-  "Return a sequence of error maps for concept existence/active status problems
-  in the expression. Returns nil if all concepts are valid and active.
-  Each error is a map with :error (:concept-not-found or :concept-inactive)
-  and :concept-id. Unlike [[valid?]], does not short-circuit and checks active
-  status per SCG spec section 7.3."
+  "Return a sequence of error maps for structural problems in the expression.
+  Returns nil if all concepts are valid and active and structurally correct.
+  Each error is a map with :error and :concept-id. Error types:
+  - :concept-not-found — concept does not exist
+  - :concept-inactive — concept is inactive
+  - :attribute-invalid — concept used as attribute is not a valid attribute type
+  Unlike [[valid?]], does not short-circuit and checks active status per SCG
+  spec section 7.3."
   [store expression]
   (seq (errors-subexpression store (:subExpression expression))))
 
@@ -617,8 +638,8 @@
   [store refset-ids v]
   (cond
     (and (map? v) (:focusConcepts v)) (replace-subexpression store refset-ids v)
-    (and (map? v) (:conceptId v))     (replace-concept store refset-ids v)
-    :else                              v))
+    (and (map? v) (:conceptId v)) (replace-concept store refset-ids v)
+    :else v))
 
 (defn- replace-refinements
   [store refset-ids refinements]
@@ -699,8 +720,8 @@
   "Convert a classifiable form tagged attribute value to a CTU attribute value."
   [[tag v]]
   (case tag
-    :concept         {:conceptId v}
-    :expression      (:subExpression (cf->ctu v))
+    :concept {:conceptId v}
+    :expression (:subExpression (cf->ctu v))
     (:numeric :string :boolean) v
     (throw (ex-info "Unknown CF attribute value tag" {:tag tag :value v}))))
 
@@ -724,9 +745,9 @@
                              vec))
         refinements (into (or ungrouped-attrs []) (or grouped-attrs []))]
     {:definitionStatus definition-status
-     :subExpression (cond-> {:focusConcepts focus}
-                      (seq refinements)
-                      (assoc :refinements refinements))}))
+     :subExpression    (cond-> {:focusConcepts focus}
+                         (seq refinements)
+                         (assoc :refinements refinements))}))
 
 (s/fdef cf-subsumes?
   :args (s/cat :store any? :a :cf/expression :b :cf/expression))

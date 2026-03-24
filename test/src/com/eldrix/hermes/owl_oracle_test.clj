@@ -40,7 +40,7 @@
     71388002     ;; Procedure
     83152002     ;; Oophorectomy
     38102005     ;; Cholecystectomy
-    397956004    ;; Hip replacement
+    398010007    ;; Prosthetic arthroplasty of hip
     129304002    ;; Excision
     39607008     ;; Lung
     181216001    ;; Entire lung
@@ -83,6 +83,11 @@
       (println "WARNING: Skipping OWL subset tests — no OWL axioms in" store-path))))
 
 (use-fixtures :once live-fixture)
+
+(deftest ^:live test-concept-ids-active
+  (doseq [id test-concept-ids]
+    (is (:active (store/concept *store* id))
+        (str "Test concept " id " is inactive — replace with an active equivalent"))))
 
 ;;;; ── Classification tests ──
 

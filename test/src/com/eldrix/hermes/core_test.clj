@@ -249,6 +249,9 @@
         [{:description "Non-existent concept"
           :expression  "100000102"
           :error       :concept-not-found}
+         {:description "Non-attribute concept used as attribute"
+          :expression  "367430006 : { 24028007 = 272741003 }"
+          :error       :attribute-invalid}
          {:description "Finding site on procedure (MRCM domain)"
           :expression  "80146002 : { 363698007 = 181255000 }"
           :error       :attribute-not-in-domain}
@@ -264,9 +267,12 @@
           (let [errs (hermes/validate-expression *svc* expression)]
             (is (s/valid? ret-spec errs) (s/explain-str ret-spec errs))
             (is (= error (:error (first errs)))))))))
-  (testing "mrcm false skips MRCM checking"
+  (testing "mrcm false validates structure including attribute types"
     (is (nil? (hermes/validate-expression *svc* "367430006:{272741003=24028007}" {:mrcm false}))
-        "Expression with valid concepts should pass when MRCM is skipped")
+        "Valid attribute type should pass when MRCM is skipped")
+    (is (= :attribute-invalid
+           (:error (first (hermes/validate-expression *svc* "367430006:{24028007=272741003}" {:mrcm false}))))
+        "Non-attribute concept as attribute should fail even without MRCM")
     (is (seq (hermes/validate-expression *svc* "367430006:{272741003=24028007}"))
         "Same expression should fail with default MRCM checking")
     (is (= [{:error :concept-not-found :concept-id 100000102

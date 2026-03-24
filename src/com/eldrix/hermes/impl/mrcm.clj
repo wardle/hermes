@@ -13,7 +13,7 @@
   (:require [clojure.spec.alpha :as s]
             [com.eldrix.hermes.impl.ecl :as ecl]
             [com.eldrix.hermes.impl.members :as members]
-            [com.eldrix.hermes.impl.scg]
+            [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
@@ -145,6 +145,7 @@
 (def error-types
   #{:concept-not-found
     :concept-inactive
+    :attribute-invalid
     :attribute-not-in-domain
     :value-out-of-range
     :attribute-must-be-grouped
@@ -208,10 +209,16 @@
 
 (defn check-domain
   "Check the attribute is in domain for the focus concepts. Sets ::stop if not."
-  [{::keys [stop] :as ctx} focus-concept-ids attr-id content-type-id]
+  [{::keys [stop] :keys [store] :as ctx} focus-concept-ids attr-id content-type-id]
   (cond
     stop
     ctx
+
+    (scg/attribute-type-error store attr-id)
+    (-> ctx
+        (update ::errors conj {:error :attribute-invalid
+                               :concept-id attr-id})
+        (assoc ::stop true))
 
     (attribute-in-domain? ctx focus-concept-ids attr-id content-type-id)
     ctx

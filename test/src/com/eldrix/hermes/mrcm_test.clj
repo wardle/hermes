@@ -33,6 +33,10 @@
     :expression  "73211009 : { 363698007 = 100000102 }"
     :expected    :concept-not-found}
 
+{:description "Non-attribute concept used as attribute"
+    :expression  "367430006 : { 24028007 = 272741003 }"
+    :expected    :attribute-invalid}
+
 {:description "Finding site on procedure — wrong domain (SNOMED Postcoordination Guide)"
     :expression  "80146002 : { 363698007 = 181255000 }"
     :expected    :attribute-not-in-domain}

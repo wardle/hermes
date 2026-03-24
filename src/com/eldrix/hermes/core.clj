@@ -583,6 +583,7 @@
          (case error
            :concept-not-found       (str "Concept " concept-id " not found")
            :concept-inactive        (str "Concept " concept-id " is inactive")
+           :attribute-invalid       (str "Concept " concept-id " is not a valid attribute type")
            :attribute-not-in-domain (str "Attribute " attribute-id " not valid for domain")
            :value-out-of-range      (str "Value " value-id " out of range for attribute " attribute-id)
            :attribute-must-be-grouped   (str "Attribute " attribute-id " must be grouped")
@@ -601,7 +602,9 @@
   Accepts a concept identifier, SCG string, or parsed CTU expression.
   Options:
     :mrcm - when false, skip MRCM constraint checking and only validate
-            syntax and concept existence/active status (default true)."
+            syntax, concept existence/active status, and structural validity
+            (e.g. attribute concepts must be valid attribute types)
+            (default true)."
   ([svc expression]
    (validate-expression svc expression nil))
   ([^Svc svc expression {:keys [mrcm] :or {mrcm true}}]
