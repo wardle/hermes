@@ -8,6 +8,7 @@
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/wardle/hermes)](https://github.com/wardle/hermes/releases/latest)
 [![Clojars Project](https://img.shields.io/clojars/v/com.eldrix/hermes.svg)](https://clojars.org/com.eldrix/hermes)
 [![cljdoc badge](https://cljdoc.org/badge/com.eldrix/hermes)](https://cljdoc.org/d/com.eldrix/hermes)
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/hermes)
 
 Hermes provides a set of terminology tools built around SNOMED CT including:
 
