@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: clojure -P -M:test
 
+      - name: Compile Java sources
+        run: clojure -T:build compile-java
+
       - name: Compilation check
         run:  clojure -M:dev:owl:check
 
