@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1548] - 2026-03-25
+
+* Update Java API to expose reference set and compositional grammar API
+* Migrate Java API source code into project and add build step compilation for mixed Clojure/Java build
+* Improve import for demonstration and conformance test datasets that lack valid 'effectiveTime' fields
 
 ## [1.4.1545] - 2026-03-24
 

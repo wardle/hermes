@@ -1239,11 +1239,14 @@
 
 
 (s/fdef render-expression*
-  :args (s/cat :svc ::svc :expression ::expression
-               :opts (s/? (s/nilable ::render-opts))))
+  :args (s/alt :unary (s/cat :expression ::expression)
+               :binary (s/cat :svc ::svc :expression ::expression)
+               :ternary (s/cat :svc ::svc :expression ::expression
+                               :opts (s/nilable ::render-opts))))
 
 (defn render-expression*
   "Render a SNOMED CT expression to compositional grammar string form.
+  Single-arity renders using terms already present in the expression.
   opts is a map with optional keys:
     :terms               - :strip (remove all terms), :update (replace with
                            preferred synonyms), :add (add where missing), or
@@ -1252,8 +1255,10 @@
                            for :update and :add
     :definition-status   - :always (always include prefix, default) or :auto
                            (only include when not the default :equivalent-to)"
-  ([^Svc svc expression]
+  ([expression]
    (scg/ctu->str (->ctu expression)))
+  ([^Svc svc expression]
+   (render-expression* svc expression nil))
   ([^Svc svc expression {:keys [terms language-refset-ids] :as opts}]
    (if (and (#{:update :add} terms) (not language-refset-ids))
      (throw (ex-info "language-refset-ids required for :update and :add" {:opts opts}))
