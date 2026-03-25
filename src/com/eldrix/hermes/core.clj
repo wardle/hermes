@@ -1258,7 +1258,7 @@
   ([expression]
    (scg/ctu->str (->ctu expression)))
   ([^Svc svc expression]
-   (render-expression* svc expression nil))
+   (render-expression* svc expression {}))
   ([^Svc svc expression {:keys [terms language-refset-ids] :as opts}]
    (if (and (#{:update :add} terms) (not language-refset-ids))
      (throw (ex-info "language-refset-ids required for :update and :add" {:opts opts}))

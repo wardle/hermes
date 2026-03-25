@@ -332,7 +332,7 @@
 
 (s/def ::terms #{:strip :update :add})
 (s/def ::definition-status #{:auto :always})
-(s/def ::render-opts (s/keys :opt-un [::terms ::definition-status]))
+(s/def ::render-opts (s/nilable (s/keys :opt-un [::terms ::definition-status])))
 
 (s/fdef ctu->str
   :args (s/alt :unary (s/cat :expression :ctu/expression)
