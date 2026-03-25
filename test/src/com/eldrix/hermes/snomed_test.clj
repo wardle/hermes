@@ -326,6 +326,16 @@
     (let [d' (gen/generate (rf2/gen-description d))]
       (is (= expected (snomed/term->lowercase d'))))))
 
+(deftest test-parse-effective-date
+  (is (= (LocalDate/of 2025 1 1) (snomed/parse-effective-date "20250101")))
+  (is (= LocalDate/EPOCH (snomed/parse-effective-date "")))
+  (is (= LocalDate/EPOCH (snomed/parse-effective-date "not-a-date"))))
+
+(deftest test-parse-date
+  (is (= (LocalDate/of 2025 1 1) (snomed/parse-date "20250101")))
+  (is (nil? (snomed/parse-date "")))
+  (is (nil? (snomed/parse-date "not-a-date"))))
+
 (comment
   (run-tests)
   (snomed/parse-snomed-filename "sct2_sRefset_OWLExpressionUKEDSnapshot_GB_20210512.txt")

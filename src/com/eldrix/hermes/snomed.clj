@@ -40,11 +40,23 @@
            [java.time.format DateTimeFormatter DateTimeParseException]
            (java.io File)
            (java.util UUID)
-           (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult IConcreteValue)))
+           (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult IConcreteValue
+                                  IRefsetItem ISimpleRefsetItem IAssociationRefsetItem
+                                  ILanguageRefsetItem ISimpleMapRefsetItem IComplexMapRefsetItem
+                                  IExtendedMapRefsetItem IAttributeValueRefsetItem
+                                  IModuleDependencyRefsetItem IOWLExpressionRefsetItem
+                                  IRefsetDescriptorRefsetItem)))
 
 (defmulti ->vec "Turn a SNOMED entity into a vector" type)
 
-(defn parse-date ^LocalDate [^String s] (try (LocalDate/parse s DateTimeFormatter/BASIC_ISO_DATE) (catch DateTimeParseException _)))
+(defn parse-date
+  "Parse a date or nil"
+  ^LocalDate [^String s] (try (LocalDate/parse s DateTimeFormatter/BASIC_ISO_DATE) (catch DateTimeParseException _)))
+
+(defn parse-effective-date
+  "Parse a date, or returns EPOCH."                         ;; a blank effectiveTime occurs in demonstration distributions, authoring-stage content and FHIR conformance tests
+  ^LocalDate [^String s] (try (LocalDate/parse s DateTimeFormatter/BASIC_ISO_DATE) (catch DateTimeParseException _ LocalDate/EPOCH)))
+
 (defn parse-bool ^Boolean [^String s] (= "1" s))
 (defn unsafe-parse-uuid ^UUID [^String s] (UUID/fromString s))
 
@@ -70,7 +82,7 @@
   (effectiveTime [_] effectiveTime)
   (active [_] active)
   (moduleId [_] moduleId)
-  (definitionStatusId [_] moduleId))
+  (definitionStatusId [_] definitionStatusId))
 
 (defrecord Description
   [^long id
@@ -145,7 +157,18 @@
    ^long referencedComponentId
    ^long attributeDescriptionId
    ^long attributeTypeId
-   ^int attributeOrder])
+   ^int attributeOrder]
+  IRefsetDescriptorRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] nil)
+  (attributeDescriptionId [_] attributeDescriptionId)
+  (attributeTypeId [_] attributeTypeId)
+  (attributeOrder [_] attributeOrder))
 
 ;; SimpleReferenceSet is a simple reference set usable for defining subsets
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.1+Simple+Reference+Set
@@ -156,7 +179,15 @@
    ^long moduleId
    ^long refsetId
    ^long referencedComponentId
-   fields])
+   fields]
+  ISimpleRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields))
 
 ;; An Association reference set is a reference set used to represent associations between components
 (defrecord AssociationRefsetItem
@@ -167,7 +198,16 @@
    ^long refsetId
    ^long referencedComponentId
    ^long targetComponentId
-   fields])
+   fields]
+  IAssociationRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (targetComponentId [_] targetComponentId))
 
 ;; LanguageReferenceSet is a A 900000000000506000 |Language type reference set| supporting the representation of
 ;; language and dialects preferences for the use of particular descriptions.
@@ -198,7 +238,16 @@
    ^long refsetId
    ^long referencedComponentId
    ^long acceptabilityId
-   fields])
+   fields]
+  ILanguageRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (acceptabilityId [_] acceptabilityId))
 
 ;; SimpleMapReferenceSet is a straightforward one-to-one map between SNOMED-CT concepts and another
 ;; coding system. This is appropriate for simple maps.
@@ -211,7 +260,16 @@
    ^long refsetId
    ^long referencedComponentId
    ^String mapTarget
-   fields])
+   fields]
+  ISimpleMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (mapTarget [_] mapTarget))
 
 ;; ComplexMapReferenceSet represents a complex one-to-many map between SNOMED-CT and another
 ;; coding system.
@@ -233,7 +291,21 @@
    ^String mapAdvice                                        ;; Human-readable advice, that may be employed by the software vendor to give an end-user advice on selection of the appropriate target code from the alternatives presented to him within the group.
    ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
    ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
-   fields])
+   fields]
+  IComplexMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (mapGroup [_] mapGroup)
+  (mapPriority [_] mapPriority)
+  (mapRule [_] mapRule)
+  (mapAdvice [_] mapAdvice)
+  (mapTarget [_] mapTarget)
+  (correlationId [_] correlationId))
 
 ;; An 609331003 |Extended map type reference set|adds an additional field to allow categorization of maps.
 ;; https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.10+Complex+and+Extended+Map+Reference+Sets
@@ -251,7 +323,22 @@
    ^String mapTarget                                        ;; The target code in the target terminology, classification or code system.
    ^long correlationId                                      ;; A child of 447247004 |SNOMED CT source code to target map code correlation value|in the metadata hierarchy, identifying the correlation between the SNOMED CT concept and the target code.
    ^long mapCategoryId                                      ;; Identifies the SNOMED CT concept in the metadata hierarchy which represents the MapCategory for the associated map member.
-   fields])
+   fields]
+  IExtendedMapRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (mapGroup [_] mapGroup)
+  (mapPriority [_] mapPriority)
+  (mapRule [_] mapRule)
+  (mapAdvice [_] mapAdvice)
+  (mapTarget [_] mapTarget)
+  (correlationId [_] correlationId)
+  (mapCategoryId [_] mapCategoryId))
 
 ;; AttributeValueReferenceSet provides a way to associate arbitrary attributes with a SNOMED-CT component
 ;; See https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.3+Attribute+Value+Reference+Set
@@ -263,7 +350,16 @@
    ^long refsetId
    ^long referencedComponentId                              ;;
    ^long valueId
-   fields])
+   fields]
+  IAttributeValueRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (valueId [_] valueId))
 
 ;; The Module dependency reference set is used to represent dependencies between modules, taking account of module versioning.
 ;; see https://confluence.ihtsdotools.org/display/DOCRELFMT/5.2.4.2+Module+Dependency+Reference+Set
@@ -276,7 +372,17 @@
    ^long referencedComponentId                              ;; The value of this attribute is the id of the module on which the source module (referred to by the moduleId attribute) is dependent.
    ^LocalDate sourceEffectiveTime                           ;; The effective time of the dependent source module (identified by moduleId). This specifies a version of that module, consisting of all components that have the same moduleId as this refset member in their states as at the specified targetEffectiveTime .
    ^LocalDate targetEffectiveTime                           ;; The effective time of the target module required to satisfy the dependency (identified by referencedComponentId). This specifies a version of that module, consisting of all components with the moduleId specified by referencedComponentId in their states as at the specified targetEffectiveTime.
-   fields])
+   fields]
+  IModuleDependencyRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (sourceEffectiveTime [_] sourceEffectiveTime)
+  (targetEffectiveTime [_] targetEffectiveTime))
 
 ;; OWLExpressionRefsetItem provides a way of linking an OWL expression to every SNOMED CT component.
 ;; see https://confluence.ihtsdotools.org/display/REUSE/OWL+Expression+Reference+Set
@@ -288,7 +394,16 @@
    ^long refsetId                                           ;; a subtype descendant of: 762676003 |OWL expression type reference set (foundation metadata concept)
    ^long referencedComponentId
    ^String owlExpression
-   fields])
+   fields]
+  IOWLExpressionRefsetItem
+  (id [_] id)
+  (effectiveTime [_] effectiveTime)
+  (active [_] active)
+  (moduleId [_] moduleId)
+  (refsetId [_] refsetId)
+  (referencedComponentId [_] referencedComponentId)
+  (fields [_] fields)
+  (owlExpression [_] owlExpression))
 
 ;; MRCM Domain Reference Set Item
 ;; see https://confluence.ihtsdotools.org/display/DOCMRCM/5.1+MRCM+Domain+Reference+Set
@@ -373,7 +488,7 @@
 (defn parse-concept [v]
   (->Concept
     (Long/parseLong (v 0))
-    (parse-date (v 1))
+    (parse-effective-date (v 1))
     (parse-bool (v 2))
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))))
@@ -384,7 +499,7 @@
 (defn parse-description [v]
   (->Description
     (Long/parseLong (v 0))
-    (parse-date (v 1))
+    (parse-effective-date (v 1))
     (parse-bool (v 2))
     (Long/parseLong (v 3))
     (Long/parseLong (v 4))
@@ -400,7 +515,7 @@
 (defn parse-relationship [v]
   (->Relationship
     (Long/parseLong (v 0))
-    (parse-date (v 1))
+    (parse-effective-date (v 1))
     (parse-bool (v 2))
     (Long/parseLong (v 3))                                  ;; moduleId
     (Long/parseLong (v 4))                                  ;; sourceId
@@ -417,7 +532,7 @@
 (defn parse-concrete-value [v]
   (->ConcreteValue
     (Long/parseLong (v 0))                                  ;; relationship id
-    (parse-date (v 1))                                      ;; effectiveTime
+    (parse-effective-date (v 1))                                      ;; effectiveTime
     (parse-bool (v 2))                                      ;; active
     (Long/parseLong (v 3))                                  ;; moduleId
     (Long/parseLong (v 4))                                  ;; sourceId
@@ -534,7 +649,7 @@
 (defn parse-simple-refset-item [pattern v]
   (->SimpleRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -548,7 +663,7 @@
 (defn parse-association-refset-item [pattern v]
   (->AssociationRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -564,7 +679,7 @@
 (defn parse-language-refset-item [pattern v]
   (->LanguageRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -580,7 +695,7 @@
 (defn parse-refset-descriptor-item [_pattern v]
   (->RefsetDescriptorRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -596,7 +711,7 @@
 (defn parse-simple-map-refset-item [pattern v]
   (->SimpleMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -612,7 +727,7 @@
 (defn parse-complex-map-refset-item [pattern v]
   (->ComplexMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -633,7 +748,7 @@
 (defn parse-extended-map-refset-item [pattern v]
   (->ExtendedMapRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -655,7 +770,7 @@
 (defn parse-attribute-value-refset-item [pattern v]
   (->AttributeValueRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -671,7 +786,7 @@
 (defn parse-owl-expression-refset-item [pattern v]
   (->OWLExpressionRefsetItem
     (unsafe-parse-uuid (v 0))                               ;; component id
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -687,7 +802,7 @@
 (defn parse-module-dependency-refset-item [pattern v]
   (->ModuleDependencyRefsetItem
     (unsafe-parse-uuid (v 0))
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -704,7 +819,7 @@
 (defn parse-mrcm-domain-refset-item [_pattern v]
   (->MRCMDomainRefsetItem
     (unsafe-parse-uuid (v 0))
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -726,7 +841,7 @@
 (defn parse-mrcm-attribute-domain-refset-item [_pattern v]
   (->MRCMAttributeDomainRefsetItem
     (unsafe-parse-uuid (v 0))
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -747,7 +862,7 @@
 (defn parse-mrcm-attribute-range-refset-item [_pattern v]
   (->MRCMAttributeRangeRefsetItem
     (unsafe-parse-uuid (v 0))
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
@@ -765,7 +880,7 @@
 (defn parse-mrcm-module-scope-refset-item [_pattern v]
   (->MRCMModuleScopeRefsetItem
     (unsafe-parse-uuid (v 0))
-    (parse-date (v 1))                                      ;; effective time
+    (parse-effective-date (v 1))                                      ;; effective time
     (parse-bool (v 2))                                      ;; active?
     (Long/parseLong (v 3))                                  ;; module Id
     (Long/parseLong (v 4))                                  ;; refset Id
