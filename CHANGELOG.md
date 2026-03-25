@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.4.1548] - 2026-03-25
+## [1.4.1550] - 2026-03-25
 
 * Update Java API to expose reference set and compositional grammar API
 * Migrate Java API source code into project and add build step compilation for mixed Clojure/Java build
