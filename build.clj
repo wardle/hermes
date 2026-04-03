@@ -33,23 +33,12 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(def java-class-dir "target/java")
-
-(defn compile-java
-  "Compile Java source files."
-  [{:keys [target] :or {target java-class-dir}}]
-  (b/javac {:src-dirs   ["java"]
-            :class-dir  target
-            :basis      @jar-basis
-            :javac-opts ["--release" "11"]}))
-
 (defn update-citation [_]
   (spit "CITATION.cff" citation))
 
 (defn jar [_]
   (update-citation nil)
   (clean nil)
-  (compile-java {:target class-dir})
   (println "Building" jar-file)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
@@ -113,7 +102,6 @@
   (spit (str class-dir "/version.edn") (pr-str (assoc version :version version-str)))
   (b/copy-file {:src "cmd/logback.xml", :target (str class-dir "/logback.xml")})
   (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "LICENSE"])})
-  (compile-java {:target class-dir})
   (b/compile-clj {:basis        @uber-basis
                   :src-dirs     ["src" "cmd"]
                   :ns-compile   ['com.eldrix.hermes.cmd.core]
