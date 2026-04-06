@@ -90,7 +90,7 @@
                  :test-ns-path ["test"]}}
 
   :bench
-  {:extra-paths ["cmd" "test" "test/resources"]
+  {:extra-paths ["cmd" "test/src" "test/resources"]
    :extra-deps  {org.clojure/test.check    {:mvn/version "1.1.3"}
                  com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                             :sha     "3f288f1f16d167723ad87cc35b1dfee3c1681e10"}
