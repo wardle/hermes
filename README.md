@@ -448,6 +448,35 @@ them. Of course, these data are fairly crude, because in real-life you'll be
 doing more complex concurrent calls. In real deployments, I've only needed one instance for hundreds of concurrent
 users, but it is nice to know I can scale easily.
 
+#### Indicative benchmarks
+
+Measured against the SNOMED CT International Edition on a MacBook Pro M1 (2021), JVM 17, running from source.
+
+**Clojure API** (in-process, measured with [criterium](https://github.com/hugoduncan/criterium)):
+
+| Operation | Mean | Notes |
+|---|---|---|
+| Concept lookup | 0.82 µs | `hermes/concept` by SCTID |
+| Bulk lookup (15 concepts) | 14.6 µs | sequential `hermes/concept` × 15 |
+| Free-text search | 141–184 µs | `hermes/search`, 10 results |
+| All children | 230–243 µs | `hermes/all-children`, ~121–125 descendants |
+| All parents | 19–69 µs | `hermes/all-parents`, 10–32 ancestors |
+| Subsumption test | 13–69 µs | `hermes/subsumed-by?` |
+
+**HTTP API** (localhost, measured with [wrk](https://github.com/wg/wrk)):
+
+| Operation | Mean latency | req/s |
+|---|---|---|
+| Concept lookup | 74 µs | 13,816 |
+| Extended concept | 401 µs | 2,496 |
+| Concept descriptions | 92 µs | 10,914 |
+| Free-text search (10 results) | 307–378 µs | 2,642–3,254 |
+| Subsumption test | 90 µs | 11,131 |
+
+Under concurrent load, throughput scales well — 50 concurrent connections
+searching for "heart attack" sustains 27,392 req/s (p50 0.93 ms), and
+concept lookups reach 82,549 req/s (p50 314 µs).
+
 ### Can I use `hermes` with containers?
 
 Yes. It is designed to be containerised, although I have a mixture of different
