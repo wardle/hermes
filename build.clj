@@ -12,7 +12,6 @@
 (def version-str (format "%s.%s" (:version version) (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def jar-basis (delay (b/create-basis {:project "deps.edn"})))
-(def uber-basis (delay (b/create-basis {:project "deps.edn", :aliases [:run]})))
 (def jar-file (format "target/%s-lib-%s.jar" (name lib) version-str))
 (def uber-file (format "target/%s-%s.jar" (name lib) version-str))
 
@@ -92,27 +91,33 @@
     (println "Building with jdk" jvm-version)))
 
 (defn uber
-  "Build an executable uberjar file for HTTP server and CLI tooling."
-  [{:keys [out] :or {out uber-file}}]
-  (check-jvm)
-  (println "Building uberjar:" out)
-  (update-citation nil)
-  (clean nil)
-  (b/copy-dir {:src-dirs ["resources"], :target-dir class-dir})
-  (spit (str class-dir "/version.edn") (pr-str (assoc version :version version-str)))
-  (b/copy-file {:src "cmd/logback.xml", :target (str class-dir "/logback.xml")})
-  (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "LICENSE"])})
-  (b/compile-clj {:basis        @uber-basis
-                  :src-dirs     ["src" "cmd"]
-                  :ns-compile   ['com.eldrix.hermes.cmd.core]
-                  :compile-opts {:elide-meta     [:doc :added]
-                                 :direct-linking true}
-                  :java-opts    ["-Dlogback.configurationFile=logback-build.xml"]
-                  :class-dir    class-dir})
-  (b/uber {:class-dir class-dir
-           :uber-file out
-           :basis     @uber-basis
-           :main      'com.eldrix.hermes.cmd.core}))
+  "Build an executable uberjar file for HTTP server and CLI tooling.
+  Options:
+  - :out     - output file (default: target/hermes-<version>.jar)
+  - :aliases - additional deps.edn aliases (e.g. [:lucene10])"
+  [{:keys [out aliases] :or {out uber-file}}]
+  (when-not (seq aliases) (check-jvm))
+  (let [basis (b/create-basis {:project "deps.edn", :aliases (into [:run] aliases)})]
+    (println "Building uberjar:" out)
+    (update-citation nil)
+    (clean nil)
+    (b/copy-dir {:src-dirs ["resources"], :target-dir class-dir})
+    (spit (str class-dir "/version.edn") (pr-str (assoc version :version version-str)))
+    (b/copy-file {:src "cmd/logback.xml", :target (str class-dir "/logback.xml")})
+    (b/copy-file {:src "LICENSE" :target (str/join "/" [class-dir "LICENSE"])})
+    (b/compile-clj {:basis        basis
+                    :src-dirs     ["src" "cmd"]
+                    :ns-compile   ['com.eldrix.hermes.cmd.core]
+                    :compile-opts {:elide-meta     [:doc :added]
+                                   :direct-linking true}
+                    :java-opts    ["-Dlogback.configurationFile=logback-build.xml"]
+                    :class-dir    class-dir})
+    (b/uber {:class-dir class-dir
+             :uber-file out
+             :basis     basis
+             :main      'com.eldrix.hermes.cmd.core})))
+
+(def uber-lucene10-file (format "target/%s-%s-lucene10.jar" (name lib) version-str))
 
 (defn release
   "Deploy release to GitHub. Requires valid token in GITHUB_TOKEN environmental
@@ -125,3 +130,16 @@
                         :tag    (str "v" version-str)
                         :file   uber-file
                         :sha256 true}))
+
+(defn release-lucene10
+  "Build a Lucene 10 uberjar (requires JDK 21+) and upload to the same GitHub
+  release. Run after 'release'. Requires GITHUB_TOKEN environment variable."
+  [_]
+  (uber {:out uber-lucene10-file :aliases [:lucene10]})
+  (println "Uploading Lucene 10 uberjar to GitHub release")
+  (gh/release-artifact {:org       "wardle"
+                        :repo      "hermes"
+                        :tag       (str "v" version-str)
+                        :file      uber-lucene10-file
+                        :sha256    true
+                        :overwrite true}))

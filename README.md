@@ -93,12 +93,22 @@ supports search and autocompletion using the $expand operation.
 You can have a terminology server running in minutes.
 Full documentation is below, but here is a quickstart.
 
-Before you begin, you will need to have Java version 17 or greater installed. 
+Before you begin, you will need to have Java version 17 or greater installed,
+or use Homebrew which will install Java automatically.
 
 ### 1. Download hermes
 
-You can choose to run a jar file by downloading a release and running using Java, 
-or run from source code using Clojure:
+There are three ways to install hermes:
+
+##### Install using Homebrew (macOS/Linux)
+
+```shell
+brew install wardle/tools/hermes
+hermes --help
+```
+
+This installs `hermes` on your PATH. In the examples below, use `hermes`
+wherever you see `java -jar hermes.jar` or `clj -M:run`.
 
 ##### Download a release and run using Java
 
