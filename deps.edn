@@ -3,7 +3,7 @@
 
  :deps
  {org.clojure/clojure                      {:mvn/version "1.12.4"}
-  org.clojure/core.async                   {:mvn/version "1.8.741"}
+  org.clojure/core.async                   {:mvn/version "1.9.865"}
   org.clojure/core.match                   {:mvn/version "1.1.1"}
   org.clojure/data.csv                     {:mvn/version "1.1.1"}
   org.clojure/data.xml                     {:mvn/version "0.2.0-alpha10"}
@@ -21,14 +21,14 @@
 
  :aliases
  {:build
-  {:deps       {io.github.clojure/tools.build          {:mvn/version "0.10.11"}
+  {:deps       {io.github.clojure/tools.build          {:mvn/version "0.10.13"}
                 slipset/deps-deploy                    {:mvn/version "0.2.2"}
                 io.github.borkdude/gh-release-artifact {:git/sha "4a9a74f0e50e897c45df8cc70684360eb30fce80"}}
    :ns-default build}
 
   :run
   {:extra-paths ["cmd"]
-   :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.3.250"}
+   :extra-deps  {org.clojure/tools.cli          {:mvn/version "1.4.256"}
                  org.clojure/data.json          {:mvn/version "2.5.2"}
                  expound/expound                {:mvn/version "0.9.0"}
                  ch.qos.logback/logback-classic {:mvn/version "1.5.32"}
@@ -38,7 +38,7 @@
 
   :dev
   {:extra-paths ["cmd" "test/src" "test/resources"]
-   :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.3.250"}
+   :extra-deps  {org.clojure/tools.cli            {:mvn/version "1.4.256"}
                  ch.qos.logback/logback-classic   {:mvn/version "1.5.32"}
                  io.pedestal/pedestal.service     {:mvn/version "0.8.1"}
                  io.pedestal/pedestal.error       {:mvn/version "0.8.1"}
@@ -135,7 +135,7 @@
    :main-opts  ["-m" "eastwood.lint" {:source-paths ["src"]}]}
 
   :lint/splint
-  {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.23.1"}}
+  {:extra-deps {io.github.noahtheduke/splint {:mvn/version "1.24.0"}}
    :main-opts  ["-m" "noahtheduke.splint" "src" "cmd" "test"]}
 
   :codox
