@@ -14,39 +14,85 @@
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.impl.lmdb :as kv]
+            [com.eldrix.hermes.impl.lmdb :as lmdb]
             [com.eldrix.hermes.snomed :as snomed])
-  (:import (com.eldrix.hermes.snomed Concept Description ExtendedConcept SimpleRefsetItem)
+  (:import (com.eldrix.hermes.impl.lmdb LmdbStore)
+           (com.eldrix.hermes.snomed Concept Description ExtendedConcept SimpleRefsetItem)
            (java.io Closeable)
            (java.util Collection)))
 
 (s/def ::store any?)
 
-;; this is a temporary approach to permit parallel evaluation of the
-;; backing key stores
-
-(def concept kv/concept)
-(def concept-descriptions kv/concept-descriptions)
-(def concrete-values kv/concrete-values)
-(def installed-reference-sets kv/installed-reference-sets)
-(def component-refset-items kv/component-refset-items)
-(def stream-all-refset-items kv/stream-all-refset-items)
-(def refset-field-names kv/refset-field-names)
-(def refset-item kv/refset-item)
-(def status kv/status)
-(def component-refset-ids kv/component-refset-ids)
-(def stream-all-concepts kv/stream-all-concepts)
-(def description kv/description)
-(def relationship kv/relationship)
-(def compact-and-close kv/compact-and-close)
-(def source-association-referenced-components kv/source-association-referenced-components)
-(def source-associations kv/source-associations)
+;; Functions that delegate directly to lmdb (transaction managed internally)
+(def concept lmdb/concept)
+(def installed-reference-sets lmdb/installed-reference-sets)
+(def stream-all-refset-items lmdb/stream-all-refset-items)
+(def refset-field-names lmdb/refset-field-names)
+(def refset-item lmdb/refset-item)
+(def status lmdb/status)
+(def stream-all-concepts lmdb/stream-all-concepts)
+(def description lmdb/description)
+(def relationship lmdb/relationship)
+(def compact-and-close lmdb/compact-and-close)
 (defn open-store
-  (^Closeable [] (kv/open-store))
-  (^Closeable [f] (kv/open-store f))
-  (^Closeable [f opts] (kv/open-store f opts)))
+  (^Closeable [] (lmdb/open-store))
+  (^Closeable [f] (lmdb/open-store f))
+  (^Closeable [f opts] (lmdb/open-store f opts)))
+(def close lmdb/close)
 
-(def close kv/close)
+
+(defn concept-descriptions
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (lmdb/concept-descriptions* store txn concept-id)))
+
+(defn concrete-values
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (lmdb/concrete-values* store txn concept-id)))
+
+(defn component-refset-items
+  "Get the refset items for the given component, optionally limited to the
+  refset specified."
+  ([^LmdbStore store component-id]
+   (lmdb/with-txn [core-txn store :core]
+     (lmdb/with-txn [refsets-txn store :refsets]
+       (lmdb/component-refset-items* store core-txn refsets-txn component-id))))
+  ([^LmdbStore store component-id refset-id]
+   (lmdb/with-txn [core-txn store :core]
+     (lmdb/with-txn [refsets-txn store :refsets]
+       (lmdb/component-refset-items* store core-txn refsets-txn component-id refset-id)))))
+
+(defn component-refset-ids
+  "Return a set of refset-ids to which this component belongs."
+  [^LmdbStore store component-id]
+  (lmdb/with-txn [txn store :core]
+    (lmdb/component-refset-ids* store txn component-id)))
+
+(defn component-in-refsets?
+  "Is the given component a member of the reference sets specified?"
+  [^LmdbStore store component-id refset-ids]
+  (lmdb/with-txn [txn store :core]
+    (lmdb/component-in-refsets?* store txn component-id refset-ids)))
+
+(defn source-association-referenced-components
+  [^LmdbStore store component-id refset-id]
+  (lmdb/with-txn [txn store :core]
+    (lmdb/source-association-referenced-components* store txn component-id refset-id)))
+
+(defn all-parents*
+  "Returns all parent concepts for the concept(s), including that concept or
+  those concepts, by design. Uses an existing core read transaction."
+  [store txn concept-id-or-ids type-id]
+  (loop [work (if (number? concept-id-or-ids) #{concept-id-or-ids} (set concept-id-or-ids))
+         result (transient #{})]
+    (if-not (seq work)
+      (persistent! result)
+      (let [id (first work)
+            done-already? (contains? result id)
+            parent-ids (if done-already? () (map last (lmdb/raw-parent-relationships* store txn id type-id)))]
+        (recur (apply conj (rest work) parent-ids)
+               (conj! result id))))))
 
 (defn all-parents
   "Returns all parent concepts for the concept(s), including that concept or
@@ -57,16 +103,17 @@
    - `type-id`, defaults to 'IS-A' (116680003)."
   ([store concept-id-or-ids]
    (all-parents store concept-id-or-ids snomed/IsA))
-  ([store concept-id-or-ids type-id]
-   (loop [work (if (number? concept-id-or-ids) #{concept-id-or-ids} (set concept-id-or-ids))
-          result (transient #{})]
-     (if-not (seq work)
-       (persistent! result)
-       (let [id (first work)
-             done-already? (contains? result id)
-             parent-ids (if done-already? () (map last (kv/raw-parent-relationships store id type-id)))]
-         (recur (apply conj (rest work) parent-ids)
-                (conj! result id)))))))
+  ([^LmdbStore store concept-id-or-ids type-id]
+   (lmdb/with-txn [txn store :core]
+     (all-parents* store txn concept-id-or-ids type-id))))
+
+(defn parent-relationships*
+  "Returns a map of the parent relationships using an existing core read
+  transaction. See [[parent-relationships]]."
+  [store txn concept-id]
+  (->> (lmdb/raw-parent-relationships* store txn concept-id)
+       (reduce (fn [acc v]
+                 (update acc (v 1) (fnil conj #{}) (v 3))) {}))) ;; tuple [concept-id type-id group destination-id] so return indices 1+3
 
 (defn parent-relationships
   "Returns a map of the parent relationships, with each value a set of
@@ -77,54 +124,85 @@
 
   See `get-parent-relationships-expanded` to get each target expanded via
   transitive closure tables."
-  [store concept-id]
-  (->> (kv/raw-parent-relationships store concept-id)
-       (reduce (fn [acc v]
-                 (update acc (v 1) (fnil conj #{}) (v 3))) {}))) ;; tuple [concept-id type-id group destination-id] so return indices 1+3
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (parent-relationships* store txn concept-id)))
+
+(defn parent-relationships-of-type*
+  "Returns a set of identifiers representing the parent relationships of the
+  specified type, using an existing core read transaction."
+  [store txn concept-id type-concept-id]
+  (->> (lmdb/raw-parent-relationships* store txn concept-id type-concept-id)
+       (reduce (fn [acc v] (conj acc (v 3))) #{})))
 
 (defn parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
-  [store concept-id type-concept-id]
-  (->> (kv/raw-parent-relationships store concept-id type-concept-id)
-       (reduce (fn [acc v] (conj acc (v 3))) #{})))
+  [^LmdbStore store concept-id type-concept-id]
+  (lmdb/with-txn [txn store :core]
+    (parent-relationships-of-type* store txn concept-id type-concept-id)))
 
 (defn parent-relationships-of-types
-  [store concept-id type-concept-ids]
-  (set (mapcat #(parent-relationships-of-type store concept-id %) type-concept-ids)))
+  [^LmdbStore store concept-id type-concept-ids]
+  (lmdb/with-txn [txn store :core]
+    (into #{} (mapcat #(parent-relationships-of-type* store txn concept-id %)) type-concept-ids)))
+
+(defn parent-relationships-expanded*
+  "Returns a map of the parent relationships expanded via transitive closure,
+  using an existing core read transaction. See [[parent-relationships-expanded]]."
+  ([store txn concept-id]
+   (->> (lmdb/raw-parent-relationships* store txn concept-id)
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)) {})
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (all-parents* store txn v snomed/IsA))) {})))
+  ([store txn concept-id type-id]
+   (->> (lmdb/raw-parent-relationships* store txn concept-id type-id)
+        (reduce (fn [acc [_source-id type-id _group target-id]]
+                  (update acc type-id conj target-id)) {})
+        (reduce-kv (fn [acc k v]
+                     (assoc acc k (all-parents* store txn v snomed/IsA))) {}))))
 
 (defn parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets and their transitive closure tables. This
   makes it trivial to build queries that find all concepts with, for example, a
   common finding site at any level of granularity."
-  ([store concept-id]
-   (->> (kv/raw-parent-relationships store concept-id)
-        (reduce (fn [acc [_source-id type-id _group target-id]]
-                  (update acc type-id conj target-id)) {})
-        (reduce-kv (fn [acc k v]
-                     (assoc acc k (all-parents store v))) {})))
-  ([store concept-id type-id]
-   (->> (kv/raw-parent-relationships store concept-id type-id)
-        (reduce (fn [acc [_source-id type-id _group target-id]]
-                  (update acc type-id conj target-id)) {})
-        (reduce-kv (fn [acc k v]
-                     (assoc acc k (all-parents store v))) {}))))
+  ([^LmdbStore store concept-id]
+   (lmdb/with-txn [txn store :core]
+     (parent-relationships-expanded* store txn concept-id)))
+  ([^LmdbStore store concept-id type-id]
+   (lmdb/with-txn [txn store :core]
+     (parent-relationships-expanded* store txn concept-id type-id))))
 
 (defn proximal-parent-ids
   "Returns a sequence of identifiers for the proximal parents of the given type,
   defaulting to the 'IS-A' relationship if no type is given."
-  ([store concept-id type-concept-id]
-   (map peek (kv/raw-parent-relationships store concept-id type-concept-id)))
+  ([^LmdbStore store concept-id type-concept-id]
+   (lmdb/with-txn [txn store :core]
+     (map peek (lmdb/raw-parent-relationships* store txn concept-id type-concept-id))))
   ([store concept-id]
-   (map peek (kv/raw-parent-relationships store concept-id snomed/IsA))))
+   (proximal-parent-ids store concept-id snomed/IsA)))
 
 (defn child-relationships-of-type
-  "Returns a set of identifiers representing the parent relationships of the
+  "Returns a set of identifiers representing the child relationships of the
   specified type of the specified concept."
-  [store concept-id type-concept-id]
-  (->> (kv/raw-child-relationships store concept-id type-concept-id)
-       (reduce (fn [acc v] (conj acc (v 3))) #{})))
+  [^LmdbStore store concept-id type-concept-id]
+  (lmdb/with-txn [txn store :core]
+    (->> (lmdb/raw-child-relationships* store txn concept-id type-concept-id)
+         (reduce (fn [acc v] (conj acc (v 3))) #{}))))
+
+(defn paths-to-root*
+  "Return paths from concept to root using an existing core read transaction.
+  See [[paths-to-root]]."
+  [store txn concept-id]
+  (loop [parent-ids (map last (lmdb/raw-parent-relationships* store txn concept-id snomed/IsA))
+         results []]
+    (let [parent (first parent-ids)]
+      (if-not parent
+        (if (seq results) (map #(conj % concept-id) results) (list (list concept-id)))
+        (recur (rest parent-ids)
+               (into results (paths-to-root* store txn parent)))))))
 
 (defn paths-to-root
   "Return a sequence of paths from the concept to root node.
@@ -141,36 +219,46 @@
     (24700007 39367000 23853001 246556002 118234003 404684003 138875005)
     (24700007 6118003 80690008 23853001 246556002 118234003 404684003 138875005))
   ```"
-  [store concept-id]
-  (loop [parent-ids (map last (kv/raw-parent-relationships store concept-id snomed/IsA))
-         results []]
-    (let [parent (first parent-ids)]
-      (if-not parent
-        (if (seq results) (map #(conj % concept-id) results) (list (list concept-id)))
-        (recur (rest parent-ids)
-               (concat results (paths-to-root store parent)))))))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (paths-to-root* store txn concept-id)))
+
+(defn all-children*
+  "Returns all child concepts using an existing core read transaction.
+  See [[all-children]]."
+  [store txn concept-id type-id]
+  (loop [work #{concept-id}
+         result #{}]
+    (if-not (seq work)
+      result
+      (let [id (first work)
+            done-already? (contains? result id)
+            children (if done-already? () (map last (lmdb/raw-child-relationships* store txn id type-id)))]
+        (recur (apply conj (rest work) children)
+               (conj result id))))))
 
 (defn all-children
   "Returns all child concepts for the concept.
-  It takes 3500 milliseconds on my 2013 laptop to return all child concepts
+  It takes 2300 milliseconds on my 2021 M1 Pro laptop to return all child concepts
   of the root SNOMED CT concept, so this should only be used for more granular
   concepts generally, or used asynchronously / via streaming.
-   
+
    Parameters:
    - store
    - `concept-id`
    - `type-id`, defaults to 'IS-A' (116680003)."
   ([store concept-id] (all-children store concept-id snomed/IsA))
-  ([store concept-id type-id]
-   (loop [work #{concept-id}
-          result #{}]
-     (if-not (seq work)
-       result
-       (let [id (first work)
-             done-already? (contains? result id)
-             children (if done-already? () (map last (kv/raw-child-relationships store id type-id)))]
-         (recur (apply conj (rest work) children)
-                (conj result id)))))))
+  ([^LmdbStore store concept-id type-id]
+   (lmdb/with-txn [txn store :core]
+     (all-children* store txn concept-id type-id))))
+
+(defn properties-by-group*
+  "Returns a concept's properties grouped by group-id, using an existing core
+  read transaction. See [[properties-by-group]]."
+  [store txn concept-id]
+  (->> (lmdb/raw-parent-relationships* store txn concept-id)
+       (reduce (fn [acc [_ type-id group-id target-id]]
+                 (update-in acc [group-id type-id] (fnil conj #{}) target-id)) {})))
 
 (defn properties-by-group
   "Returns a concept's properties as a map of group-id to a map of type-id
@@ -183,15 +271,21 @@
    1 {116676008 #{32693004}, 363698007 #{21483005}, 370135005 #{769247005}},
    2 {116676008 #{409774005}, 363698007 #{21483005}, 370135005 #{769247005}}}
   ```"
-  [store concept-id]
-  (->> (kv/raw-parent-relationships store concept-id)
-       (reduce (fn [acc [_ type-id group-id target-id]]
-                 (update-in acc [group-id type-id] (fnil conj #{}) target-id)) {})))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (properties-by-group* store txn concept-id)))
+
+(defn properties-by-group-expanded*
+  "Returns properties grouped by group-id with values expanded via transitive
+  closure, using an existing core read transaction."
+  [store txn concept-id]
+  (update-vals (properties-by-group* store txn concept-id)
+               (fn [group] (update-vals group #(all-parents* store txn % snomed/IsA)))))
 
 (defn properties-by-group-expanded
-  [store concept-id]
-  (update-vals (properties-by-group store concept-id)
-               (fn [group] (update-vals group #(all-parents store %)))))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (properties-by-group-expanded* store txn concept-id)))
 
 (defn properties
   "Returns a concept's properties, including concrete values. Ungrouped
@@ -217,20 +311,22 @@
   Note: All values are returned as sets. It is only through access to the MRCM
   that cardinality rules could be applied safely, but that requires support for
   ECL, which is not available at this low level of the library."
-  [store concept-id]
-  (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
-            (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
-          (properties-by-group store concept-id)
-          (concrete-values store concept-id)))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
+              (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
+            (properties-by-group* store txn concept-id)
+            (lmdb/concrete-values* store txn concept-id))))
 
 (defn properties-expanded
   "Return all properties grouped by relationship group, with results containing
   concept identifiers expanded to include transitive relationships."
-  [store concept-id]
-  (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
-            (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
-          (properties-by-group-expanded store concept-id)
-          (concrete-values store concept-id)))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (reduce (fn [acc {:keys [typeId relationshipGroup value]}]
+              (update-in acc [relationshipGroup typeId] (fnil conj #{}) value))
+            (properties-by-group-expanded* store txn concept-id)
+            (lmdb/concrete-values* store txn concept-id))))
 
 (defn properties-by-type
   "Return a concept's properties as a map of type-id to a map of group-id to a
@@ -244,10 +340,11 @@
    363698007 {1 #{21483005}, 2 #{21483005}},
    370135005 {1 #{769247005}, 2 #{769247005}}}
   ```"
-  [store concept-id]
-  (->> (kv/raw-parent-relationships store concept-id)
-       (reduce (fn [acc [_ type-id group-id target-id]]
-                 (update-in acc [type-id group-id] (fnil conj #{}) target-id)) {})))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [txn store :core]
+    (->> (lmdb/raw-parent-relationships* store txn concept-id)
+         (reduce (fn [acc [_ type-id group-id target-id]]
+                   (update-in acc [type-id group-id] (fnil conj #{}) target-id)) {}))))
 
 (defn leaves
   "Returns the subset of the specified `concept-ids` such that no member of the
@@ -263,10 +360,11 @@
 
   Parameters:
   - concept-ids  : a collection of concept identifiers."
-  ^Collection [store concept-ids]
-  (set/difference          ;; remove all parents of the concepts from the set
-   (set concept-ids)
-   (into #{} (mapcat #(disj (all-parents store %) %)) concept-ids)))
+  ^Collection [^LmdbStore store concept-ids]
+  (lmdb/with-txn [txn store :core]
+    (set/difference                                         ;; remove all parents of the concepts from the set
+     (set concept-ids)
+     (into #{} (mapcat #(disj (all-parents* store txn % snomed/IsA) %)) concept-ids))))
 
 (defn top-leaves
   "Returns the subset of the specified `concept-ids` such that no member of the
@@ -287,36 +385,28 @@
 
   Parameters:
   - concept-ids : a collection of concept identifiers."
-  ^Collection [store concept-ids]
-  (set/difference          ;; remove all children of the concepts from the set
-   (set concept-ids)
-   (into #{} (mapcat #(disj (all-children store %) %)) concept-ids)))
+  ^Collection [^LmdbStore store concept-ids]
+  (lmdb/with-txn [txn store :core]
+    (set/difference                                         ;; remove all children of the concepts from the set
+     (set concept-ids)
+     (into #{} (mapcat #(disj (all-children* store txn % snomed/IsA) %)) concept-ids))))
 
 (defn transitive-synonyms
   "Returns all synonyms of the specified concept, including those of its
   descendants."
   ([store concept-id] (transitive-synonyms store concept-id {}))
-  ([store concept-id {:keys [include-inactive?]}]
-   (let [concepts (conj (all-children store concept-id) concept-id)
-         ds (mapcat (partial kv/concept-descriptions store) concepts)
-         ds' (if include-inactive? ds (filter :active ds))]
-     (filter #(= snomed/Synonym (:typeId %)) ds'))))
+  ([^LmdbStore store concept-id {:keys [include-inactive?]}]
+   (lmdb/with-txn [txn store :core]
+     (let [concepts (conj (all-children* store txn concept-id snomed/IsA) concept-id)
+           ds (mapcat #(lmdb/concept-descriptions* store txn %) concepts)
+           ds' (if include-inactive? ds (filter :active ds))]
+       (filterv #(= snomed/Synonym (:typeId %)) ds')))))
 
-(defn description-refsets
-  "Get the refsets and language applicability for a description.
-  
-   Returns a map containing:
-  - refsets       : a set of refsets to which this description is a member
-  - preferredIn  : refsets for which this description is preferred
-  - acceptableIn : refsets for which this description is acceptable.
-
-  Example:
-  ``` 
-  (map #(merge % (description-refsets store (:id %)))
-       (concept-descriptions store 24700007))
-  ```"
-  [store description-id]
-  (let [refset-items (kv/component-refset-items store description-id)
+(defn description-refsets*
+  "Get the refsets and language applicability for a description using existing
+  transactions. See [[description-refsets]]."
+  [store core-txn refsets-txn description-id]
+  (let [refset-items (lmdb/component-refset-items* store core-txn refsets-txn description-id)
         refsets (into #{} (map :refsetId) refset-items)
         preferred-in (into #{}
                            (comp (filter #(= snomed/Preferred (:acceptabilityId %))) (map :refsetId))
@@ -328,13 +418,24 @@
      :preferredIn  preferred-in
      :acceptableIn acceptable-in}))
 
-(defn component-in-refsets?
-  "Is the given component a member of any of the reference sets specified?"
-  [store component-id refset-ids]
-  (when-let [refset-id (first refset-ids)]
-    (if (kv/component-in-refset? store component-id refset-id)
-      true
-      (recur store component-id (rest refset-ids)))))
+(defn description-refsets
+  "Get the refsets and language applicability for a description.
+
+   Returns a map containing:
+  - refsets       : a set of refsets to which this description is a member
+  - preferredIn  : refsets for which this description is preferred
+  - acceptableIn : refsets for which this description is acceptable.
+
+  Example:
+  ```
+  (map #(merge % (description-refsets store (:id %)))
+       (concept-descriptions store 24700007))
+  ```"
+  [^LmdbStore store description-id]
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (description-refsets* store core-txn refsets-txn description-id))))
+
 
 (s/fdef language-synonyms
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id))
@@ -343,11 +444,12 @@
   "Return synonyms for the concept that are active and present in the language
   reference sets specified. This means that they are either preferred or
   acceptable in those languages."
-  [store concept-id language-refset-ids]
-  (filter #(and (:active %)
-                (= snomed/Synonym (:typeId %))
-                (component-in-refsets? store (:id %) language-refset-ids))
-          (kv/concept-descriptions store concept-id)))
+  [^LmdbStore store concept-id language-refset-ids]
+  (lmdb/with-txn [txn store :core]
+    (filterv #(and (:active %)
+                   (= snomed/Synonym (:typeId %))
+                   (lmdb/component-in-refsets?* store txn (:id %) language-refset-ids))
+             (lmdb/concept-descriptions* store txn concept-id))))
 
 (s/fdef preferred-description
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
@@ -366,18 +468,21 @@
    900000000000003001: fully specified name
   ```
   Example language-refset-ids:
-  ``` 
+  ```
    900000000000509007: US English language reference set
    999001261000000100: UK English (clinical) language reference set
   ```"
-  ^Description [store concept-id description-type-id language-refset-id]
-  (let [descriptions (->> (kv/concept-descriptions store concept-id)
-                          (filter #(and (:active %) (= description-type-id (:typeId %)))))
-        item (->> (mapcat #(kv/component-refset-items store (:id %) language-refset-id) descriptions)
-                  (filter #(= snomed/Preferred (:acceptabilityId %))) ;; only PREFERRED
-                  (first))
-        preferred (:referencedComponentId item)]
-    (when preferred (kv/description store concept-id preferred))))
+  ^Description [^LmdbStore store concept-id description-type-id language-refset-id]
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (loop [ds (lmdb/concept-descriptions* store core-txn concept-id)]
+        (when-let [d (first ds)]
+          (if (and (:active d)
+                   (= description-type-id (:typeId d))
+                   (some #(= snomed/Preferred (:acceptabilityId %))
+                         (lmdb/component-refset-items* store core-txn refsets-txn (:id d) language-refset-id)))
+            d
+            (recur (rest ds))))))))
 
 (defn preferred-synonym
   "Returns the preferred synonym for the concept specified, looking in the language reference sets
@@ -423,33 +528,43 @@
   match *and* `fallback?` is true, then the first description of type FSN will be returned."
   ([store concept-id]
    (fully-specified-name store concept-id [] true))
-  ([store concept-id language-refset-ids fallback?]
+  ([^LmdbStore store concept-id language-refset-ids fallback?]
    (if-not (seq language-refset-ids)
-     (first (filter snomed/fully-specified-name? (kv/concept-descriptions store concept-id)))
+     (lmdb/with-txn [txn store :core]
+       (first (filter snomed/fully-specified-name? (lmdb/concept-descriptions* store txn concept-id))))
      (let [preferred (preferred-fully-specified-name store concept-id language-refset-ids)]
        (if (and fallback? (nil? preferred))
          (fully-specified-name store concept-id)
          preferred)))))
 
+(defn- make-extended-concept*
+  "Build an ExtendedConcept using existing transactions."
+  [store core-txn refsets-txn {concept-id :id :as c}]
+  (let [descriptions (mapv #(merge % (description-refsets* store core-txn refsets-txn (:id %)))
+                           (lmdb/concept-descriptions* store core-txn concept-id))
+        parent-rels (parent-relationships-expanded* store core-txn concept-id)
+        direct-parent-rels (parent-relationships* store core-txn concept-id)
+        concrete (lmdb/concrete-values* store core-txn concept-id)
+        refsets (lmdb/component-refset-ids* store core-txn concept-id)]
+    (snomed/->ExtendedConcept c descriptions parent-rels direct-parent-rels concrete refsets)))
+
 (s/fdef make-extended-concept
   :args (s/cat :store ::store :concept :info.snomed/Concept)
   :ret (s/nilable #(instance? ExtendedConcept %)))
-(defn make-extended-concept [store {concept-id :id :as c}]
-  (let [descriptions (map #(merge % (description-refsets store (:id %)))
-                          (kv/concept-descriptions store concept-id))
-        parent-rels (parent-relationships-expanded store concept-id)
-        direct-parent-rels (parent-relationships store concept-id)
-        concrete (concrete-values store concept-id)
-        refsets (kv/component-refset-ids store concept-id)]
-    (snomed/->ExtendedConcept c descriptions parent-rels direct-parent-rels concrete refsets)))
+(defn make-extended-concept [^LmdbStore store {concept-id :id :as c}]
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (make-extended-concept* store core-txn refsets-txn c))))
 
 (s/fdef extended-concept
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
 (defn extended-concept
   "Get an extended concept for the concept specified."
-  [store concept-id]
-  (when-let [c (kv/concept store concept-id)]
-    (make-extended-concept store c)))
+  [^LmdbStore store concept-id]
+  (lmdb/with-txn [core-txn store :core]
+    (when-let [c (lmdb/concept* store core-txn concept-id)]
+      (lmdb/with-txn [refsets-txn store :refsets]
+        (make-extended-concept* store core-txn refsets-txn c)))))
 
 (defn installed-language-reference-sets
   "Returns a set of identifiers representing installed language reference sets
@@ -463,12 +578,13 @@
   Ordering will be by date except that the description for the 'core' module
   will always be first.
   See https://confluence.ihtsdotools.org/display/DOCTIG/4.1.+Root+and+top-level+Concepts"
-  [st]
-  (let [root-synonyms (sort-by :effectiveTime (filter :active (kv/concept-descriptions st snomed/Root)))
-        ;; get core date by looking for descriptions in 'CORE' module and get the latest
-        core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
-        others (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
-    (cons core others)))
+  [^LmdbStore st]
+  (lmdb/with-txn [txn st :core]
+    (let [root-synonyms (sort-by :effectiveTime (filter :active (lmdb/concept-descriptions* st txn snomed/Root)))
+          ;; get core date by looking for descriptions in 'CORE' module and get the latest
+          core (last (filter #(= snomed/CoreModule (:moduleId %)) root-synonyms))
+          others (filter #(not= snomed/CoreModule (:moduleId %)) root-synonyms)]
+      (cons core others))))
 
 (s/fdef history-profile
   :args (s/cat :store ::store :profile (s/? (s/nilable #{:HISTORY-MIN :HISTORY-MOD :HISTORY-MAX})))
@@ -482,15 +598,23 @@
    (case (or profile :HISTORY-MAX)
      :HISTORY-MIN [snomed/SameAsReferenceSet]
      :HISTORY-MOD [snomed/SameAsReferenceSet snomed/ReplacedByReferenceSet snomed/WasAReferenceSet snomed/PartiallyEquivalentToReferenceSet]
-     :HISTORY-MAX (all-children st snomed/HistoricalAssociationReferenceSet))))
+     :HISTORY-MAX (all-children st snomed/HistoricalAssociationReferenceSet snomed/IsA))))
+
+(defn source-historical*
+  "Return the requested historical associations using an existing core read
+  transaction. See [[source-historical]]."
+  [store txn component-id refset-ids]
+  (into #{} (mapcat #(lmdb/source-association-referenced-components* store txn component-id %)) refset-ids))
 
 (defn source-historical
   "Return the requested historical associations for the component of types as
   defined by refset-ids, or all association refsets if omitted."
-  ([st component-id]
-   (source-historical st component-id (all-children st snomed/HistoricalAssociationReferenceSet)))
-  ([st component-id refset-ids]
-   (mapcat #(kv/source-association-referenced-components st component-id %) refset-ids)))
+  ([^LmdbStore st component-id]
+   (lmdb/with-txn [txn st :core]
+     (source-historical* st txn component-id (all-children* st txn snomed/HistoricalAssociationReferenceSet snomed/IsA))))
+  ([^LmdbStore st component-id refset-ids]
+   (lmdb/with-txn [txn st :core]
+     (source-historical* st txn component-id refset-ids))))
 
 (s/fdef with-historical
   :args (s/cat :st ::store
@@ -506,28 +630,48 @@
 
   By default, all active types of historical associations except MoveTo and
   MovedFrom are included, but this is configurable. "
-  ([st concept-ids]
-   (with-historical st concept-ids
-     (disj (all-children st snomed/HistoricalAssociationReferenceSet) snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)))
-  ([st concept-ids historical-refset-ids]
-   (let [refset-ids (set historical-refset-ids)
-         future-ids (map :targetComponentId (filter #(refset-ids (:refsetId %)) (mapcat #(kv/component-refset-items st %) concept-ids)))
-         modern-ids (set/union (set concept-ids) (set future-ids))
-         historic-ids (set (mapcat #(source-historical st % refset-ids) modern-ids))]
-     (set/union modern-ids historic-ids))))
+  ([^LmdbStore st concept-ids]
+   (lmdb/with-txn [core-txn st :core]
+     (let [refset-ids (disj (all-children* st core-txn snomed/HistoricalAssociationReferenceSet snomed/IsA)
+                            snomed/MovedToReferenceSet snomed/MovedFromReferenceSet)]
+       (lmdb/with-txn [refsets-txn st :refsets]
+         (let [future-ids (into []
+                                (comp (mapcat #(lmdb/component-refset-items* st core-txn refsets-txn %))
+                                      (filter #(refset-ids (:refsetId %)))
+                                      (map :targetComponentId))
+                                concept-ids)
+               modern-ids (set/union (set concept-ids) (set future-ids))
+               historic-ids (into #{} (mapcat #(source-historical* st core-txn % refset-ids)) modern-ids)]
+           (set/union modern-ids historic-ids))))))
+  ([^LmdbStore st concept-ids historical-refset-ids]
+   (lmdb/with-txn [core-txn st :core]
+     (lmdb/with-txn [refsets-txn st :refsets]
+       (let [refset-ids (set historical-refset-ids)
+             future-ids (into []
+                              (comp (mapcat #(lmdb/component-refset-items* st core-txn refsets-txn %))
+                                    (filter #(refset-ids (:refsetId %)))
+                                    (map :targetComponentId))
+                              concept-ids)
+             modern-ids (set/union (set concept-ids) (set future-ids))
+             historic-ids (into #{} (mapcat #(source-historical* st core-txn % refset-ids)) modern-ids)]
+         (set/union modern-ids historic-ids))))))
 
 (defn refset-descriptors
-  [store refset-id]
-  (->> (kv/component-refset-items store refset-id 900000000000456007)
-       (sort-by :attributeOrder)))
+  [^LmdbStore store refset-id]
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (->> (lmdb/component-refset-items* store core-txn refsets-txn refset-id 900000000000456007)
+           (sort-by :attributeOrder)))))
 
 (defn refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
   set."
-  [store refset-id]
-  (->> (kv/component-refset-items store refset-id 900000000000456007)
-       (sort-by :attributeOrder)
-       (mapv :attributeDescriptionId)))
+  [^LmdbStore store refset-id]
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (->> (lmdb/component-refset-items* store core-txn refsets-txn refset-id 900000000000456007)
+           (sort-by :attributeOrder)
+           (mapv :attributeDescriptionId)))))
 
 (defn reify-refset-item
   "Reifies a refset item when possible, turning it into a concrete class.
@@ -583,16 +727,16 @@
           The implementation will be chosen via the :type of the batch."
   (fn [_store batch] (:type batch)))
 (defmethod write-batch :info.snomed/Concept [store {data :data}]
-  (kv/write-concepts store data))
+  (lmdb/write-concepts store data))
 (defmethod write-batch :info.snomed/Description [store {data :data}]
-  (kv/write-descriptions store data))
+  (lmdb/write-descriptions store data))
 (defmethod write-batch :info.snomed/Relationship [store {data :data}]
-  (kv/write-relationships store data))
+  (lmdb/write-relationships store data))
 (defmethod write-batch :info.snomed/ConcreteValue [store {data :data}]
-  (kv/write-concrete-values store data))
+  (lmdb/write-concrete-values store data))
 (defmethod write-batch :info.snomed/Refset [store {:keys [headings data]}]
   (let [items (map #(reify-refset-item store %) data)]
-    (kv/write-refset-items store headings items)))
+    (lmdb/write-refset-items store headings items)))
 
 (defn write-batch-one-by-one
   "Write out a batch one item at a time. "
@@ -616,8 +760,8 @@
       (write-batch-one-by-one store batch))))
 
 (defn index [store]
-  (kv/index-relationships store)
-  (kv/index-refsets store))
+  (lmdb/index-relationships store)
+  (lmdb/index-refsets store))
 
 (defmulti is-a? (fn [_store x _parent-id] (class x)))
 

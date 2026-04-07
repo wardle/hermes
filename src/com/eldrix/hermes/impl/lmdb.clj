@@ -27,7 +27,7 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [com.eldrix.hermes.impl.ser :as ser])
-  (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags]
+  (:import [org.lmdbjava Env EnvFlags DbiFlags Dbi ByteBufProxy PutFlags Txn GetOp CopyFlags Cursor]
            (java.nio.file.attribute FileAttribute)
            (io.netty.buffer PooledByteBufAllocator ByteBuf)
            (java.nio.charset StandardCharsets)
@@ -42,25 +42,25 @@
 (s/def ::store any?)
 
 (deftype LmdbStore
-         [^Path rootPath
+  [^Path rootPath
    ;;;; core env
-          ^Env coreEnv
+   ^Env coreEnv
    ;; core stores - simple or compound keys and values
-          ^Dbi concepts                                            ;; conceptId = concept
-          ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
-          ^Dbi relationships                                       ;; relationshipId = relationship
-          ^Dbi concreteValues                                      ;; conceptId-relationshipId = concreteValue
+   ^Dbi concepts                                            ;; conceptId = concept
+   ^Dbi conceptDescriptions                                 ;; conceptId-descriptionId = description
+   ^Dbi relationships                                       ;; relationshipId = relationship
+   ^Dbi concreteValues                                      ;; conceptId-relationshipId = concreteValue
 
    ;; core indices - compound keys with empty values
-          ^Dbi descriptionConcept                                  ;; descriptionId - conceptId
-          ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
-          ^Dbi conceptChildRelationships                           ;; destinationId - typeId - group - sourceId
-          ^Dbi componentRefsets                                    ;; referencedComponentId - refsetId - msb - lsb
-          ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
+   ^Dbi descriptionConcept                                  ;; descriptionId - conceptId
+   ^Dbi conceptParentRelationships                          ;; sourceId - typeId - group - destinationId
+   ^Dbi conceptChildRelationships                           ;; destinationId - typeId - group - sourceId
+   ^Dbi componentRefsets                                    ;; referencedComponentId - refsetId - msb - lsb
+   ^Dbi associations                                        ;; targetComponentId - refsetId - referencedComponentId - msb - lsb
    ;;;; refset env
-          ^Env refsetsEnv
-          ^Dbi refsetItems                                         ;; refset-item-id = refset-item
-          ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
+   ^Env refsetsEnv
+   ^Dbi refsetItems                                         ;; refset-item-id = refset-item
+   ^Dbi refsetFieldNames]                                   ;; refset-id = field-names]
   Closeable
   (close [_]
     (when-not (.isReadOnly coreEnv)
@@ -270,22 +270,22 @@
           child-idx-key (.directBuffer PooledByteBufAllocator/DEFAULT 32) ;; destinationId -- typeId -- group -- sourceId
           idx-val (.directBuffer PooledByteBufAllocator/DEFAULT 0)] ;; empty value
       (try
-        (.drop parent-idx write-txn) ;; delete all parent and child indices
+        (.drop parent-idx write-txn)                        ;; delete all parent and child indices
         (.drop child-idx write-txn)
         (loop [continue? (.first cursor)]
           (when continue?
             (let [^Relationship relationship (ser/read-relationship (.val cursor))]
               (when (.-active relationship)
                 (doto parent-idx-key .clear
-                      (.writeLong (.-sourceId relationship))
-                      (.writeLong (.-typeId relationship))
-                      (.writeLong (.-relationshipGroup relationship))
-                      (.writeLong (.-destinationId relationship)))
+                                     (.writeLong (.-sourceId relationship))
+                                     (.writeLong (.-typeId relationship))
+                                     (.writeLong (.-relationshipGroup relationship))
+                                     (.writeLong (.-destinationId relationship)))
                 (doto child-idx-key .clear
-                      (.writeLong (.-destinationId relationship))
-                      (.writeLong (.-typeId relationship))
-                      (.writeLong (.-relationshipGroup relationship))
-                      (.writeLong (.-sourceId relationship)))
+                                    (.writeLong (.-destinationId relationship))
+                                    (.writeLong (.-typeId relationship))
+                                    (.writeLong (.-relationshipGroup relationship))
+                                    (.writeLong (.-sourceId relationship)))
                 (.put parent-idx write-txn parent-idx-key idx-val put-flags)
                 (.put child-idx write-txn child-idx-key idx-val put-flags)))
             (.resetReaderIndex ^ByteBuf (.val cursor))      ;; reset position in value otherwise .next will throw an exception on second item
@@ -351,7 +351,7 @@
           assoc-kb (.directBuffer PooledByteBufAllocator/DEFAULT 40) ;; targetComponentId -- refsetId -- referencedComponentId - msb - lsb
           idx-val (.directBuffer PooledByteBufAllocator/DEFAULT 0)]
       (try
-        (.drop components-db write-txn)   ;; delete all existing indices prior to re-indexing
+        (.drop components-db write-txn)                     ;; delete all existing indices prior to re-indexing
         (.drop assocs-db write-txn)
         (loop [continue? (.first cursor)]
           (when continue?
@@ -396,18 +396,51 @@
            (recur (.next cursor)))
          (when close? (a/close! ch)))))))
 
-(defn get-object [^Env env ^Dbi dbi ^long id read-fn]
-  (with-open [txn (.txnRead env)]
-    (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 8)]
-      (try
-        (.writeLong kb id)
-        (when-let [rb (.get dbi txn kb)]
-          (read-fn rb))
-        (finally (.release kb))))))
+(defmacro with-txn
+  "Execute body with a read transaction bound to sym for the given environment.
+  env is :core or :refsets."
+  [[sym store env] & body]
+  `(with-open [~sym (Env/.txnRead ~(case env :core `(.-coreEnv ~store) :refsets `(.-refsetsEnv ~store)))]
+     ~@body))
+
+(defmacro ^:private with-cursor
+  "Execute body with a cursor bound to sym, opened on dbi with txn."
+  [[sym dbi txn] & body]
+  `(with-open [~sym (Dbi/.openCursor ~dbi ~txn)]
+     ~@body))
+
+(defn- get-object*
+  "Fetch a single object by long id using an existing transaction."
+  [^Dbi dbi ^Txn txn ^long id read-fn]
+  (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 8)]
+    (try
+      (.writeLong kb id)
+      (when-let [rb (.get dbi txn kb)]
+        (read-fn rb))
+      (finally (.release kb)))))
+
+(defn concept*
+  "Fetch a concept by id using an existing core read transaction."
+  [^LmdbStore store ^Txn txn ^long concept-id]
+  (get-object* (.-concepts store) txn concept-id ser/read-concept))
 
 (defn concept
+  "Fetch a concept by id."
   [^LmdbStore store ^long concept-id]
-  (get-object (.-coreEnv store) (.-concepts store) concept-id ser/read-concept))
+  (with-txn [txn store :core]
+    (get-object* (.-concepts store) txn concept-id ser/read-concept)))
+
+(defn- description*
+  "Fetch a description by concept-id and description-id using an existing
+  core read transaction."
+  [^LmdbStore store ^Txn txn ^long concept-id ^long description-id]
+  (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
+    (try
+      (.writeLong kb concept-id)
+      (.writeLong kb description-id)
+      (when-let [rb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
+        (ser/read-description rb))
+      (finally (.release kb)))))
 
 (defn description
   "Return the description with the given `concept-id` and `description-id`.
@@ -420,37 +453,25 @@
    (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
      (try
        (doto kb (.writeLong description-id) (.writeLong 0))
-       (with-open [txn ^Txn (.txnRead ^Env (.-coreEnv store))
-                   cursor (.openCursor ^Dbi (.-descriptionConcept store) txn)]
-         (when (.get cursor kb GetOp/MDB_SET_RANGE)         ;; put cursor on first entry with this description identifier
-           (let [^ByteBuf kb' (.key cursor)
-                 did (.readLong kb')
-                 concept-id (.readLong kb')]
-             (when (= description-id did)
-               (doto kb
-                 .clear
-                 (.writeLong concept-id)
-                 (.writeLong description-id))
-               (when-let [vb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
-                 (ser/read-description vb))))))
+       (with-txn [txn store :core]
+         (with-cursor [cursor (.-descriptionConcept store) txn]
+           (when (.get cursor kb GetOp/MDB_SET_RANGE)
+             (let [^ByteBuf kb' (.key cursor)
+                   did (.readLong kb')
+                   concept-id (.readLong kb')]
+               (when (= description-id did)
+                 (description* store txn concept-id description-id))))))
        (finally (.release kb)))))
   ([^LmdbStore store ^long concept-id ^long description-id]
-   (with-open [txn (.txnRead ^Env (.-coreEnv store))]
-     (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
-       (try
-         (.writeLong kb concept-id)
-         (.writeLong kb description-id)
-         (when-let [rb (.get ^Dbi (.-conceptDescriptions store) txn kb)]
-           (ser/read-description rb))
-         (finally (.release kb)))))))
+   (with-txn [txn store :core]
+     (description* store txn concept-id description-id))))
 
-(defn map-keys-in-range*
+(defn- map-keys-in-range*
   "Returns a vector consisting of the result of applying f to the keys in the
   inclusive range between start-key and end-key. 'f' is called with a ByteBuf
-  representing a key within the range."
-  [^Env env ^Dbi dbi ^ByteBuf start-kb ^ByteBuf end-kb f]
-  (with-open [^Txn txn (.txnRead env)
-              cursor (.openCursor dbi txn)]
+  representing a key within the range. Requires an open read transaction."
+  [^Dbi dbi ^Txn txn ^ByteBuf start-kb ^ByteBuf end-kb f]
+  (with-open [cursor (.openCursor dbi txn)]
     (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
       (loop [results (transient []), continue? true]
         (let [^ByteBuf kb (.key cursor)]
@@ -458,18 +479,32 @@
             (recur (conj! results (f kb)) (.next cursor))
             (persistent! results)))))))
 
+(defn- any-key-in-range?
+  "Returns true if there is any key in the inclusive range between start-key and
+  end-key. Uses a single cursor seek without materializing results.
+  Can accept either a [dbi txn] pair (opens and closes a cursor) or an existing
+  cursor for reuse across multiple checks."
+  ([^Dbi dbi ^Txn txn ^ByteBuf start-kb ^ByteBuf end-kb]
+   (with-open [cursor (.openCursor dbi txn)]
+     (any-key-in-range? cursor start-kb end-kb)))
+  ([^Cursor cursor ^ByteBuf start-kb ^ByteBuf end-kb]
+   (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
+     (let [^ByteBuf kb (.key cursor)]
+       (and (>= (.compareTo kb start-kb) 0)
+            (>= (.compareTo end-kb kb) 0))))))
+
 (defmacro write-longs
   [buf xs]
   (cons 'do (for [x xs] `(.writeLong ~buf ~x))))
 
-(defmacro map-keys-in-range
+(defmacro ^:private map-keys-in-range
   "Returns a vector consisting of the result of applying f to the keys in the
   inclusive range between start-key and end-key. 'f' is called with a ByteBuf
-  representing a key within the range.
+  representing a key within the range. Requires an open read transaction.
   While each key should be a vector of longs, comparison is character-wise. As
-  such,minimum long is 0 and maximum long is -1 (FFFF...) and not Long/MIN_VALUE
-   and Long/MAX_VALUE as might be expected."
-  [^Env env ^Dbi dbi start-key end-key f]
+  such, minimum long is 0 and maximum long is -1 (FFFF...) and not Long/MIN_VALUE
+  and Long/MAX_VALUE as might be expected."
+  [^Dbi dbi ^Txn txn start-key end-key f]
   (assert (vector? start-key) "start-key must be a vector")
   (assert (vector? end-key) "end-key must be a vector")
   (assert (= (count start-key) (count end-key)) "start-key and end-key must be same length")
@@ -479,39 +514,40 @@
        (try
          (write-longs start-kb# ~start-key)
          (write-longs end-kb# ~end-key)
-         (map-keys-in-range* ~env ~dbi start-kb# end-kb# ~f)
+         (map-keys-in-range* ~dbi ~txn start-kb# end-kb# ~f)
          (finally (.release start-kb#) (.release end-kb#))))))
 
-(defn concept-descriptions
-  "Returns a vector of descriptions for the given concept."
-  [^LmdbStore store ^long concept-id]
+
+(defn concept-descriptions*
+  "Returns a vector of descriptions for the given concept using an existing
+  core read transaction."
+  [^LmdbStore store ^Txn txn ^long concept-id]
   (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
-      (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
-                  cursor (.openCursor ^Dbi (.-conceptDescriptions store) txn)]
-        (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
+      (with-cursor [cursor (.-conceptDescriptions store) txn]
+        (when (.get cursor start-kb GetOp/MDB_SET_RANGE)
           (loop [results (transient []) continue? true]
             (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
               (persistent! results)
               (let [d (ser/read-description (.val cursor))]
-                (.resetReaderIndex ^ByteBuf (.val cursor))  ;; reset position in value otherwise .next will throw an exception on second item
+                (.resetReaderIndex ^ByteBuf (.val cursor))
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
 
 (defn relationship
   [^LmdbStore store ^long relationship-id]
-  (get-object (.-coreEnv store) (.-relationships store) relationship-id ser/read-relationship))
+  (with-txn [txn store :core]
+    (get-object* (.-relationships store) txn relationship-id ser/read-relationship)))
 
-(defn concrete-values
-  "Return concrete values for the specified concept, if the underlying store
-  supports concrete values. Only active concrete values are returned."
-  [^LmdbStore store ^long concept-id]
+(defn concrete-values*
+  "Return concrete values for the specified concept using an existing
+  core read transaction."
+  [^LmdbStore store ^Txn txn ^long concept-id]
   (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
     (try
       (doto start-kb (.writeLong concept-id) (.writeLong 0))
-      (with-open [^Txn txn (.txnRead ^Env (.-coreEnv store))
-                  cursor (.openCursor ^Dbi (.-concreteValues store) txn)]
+      (with-cursor [cursor (.-concreteValues store) txn]
         (when (.get cursor start-kb GetOp/MDB_SET_RANGE)    ;; get cursor to first key greater than or equal to specified key.
           (loop [results (transient []) continue? true]
             (if-not (and continue? (= concept-id (.getLong ^ByteBuf (.key cursor) 0)))
@@ -520,6 +556,16 @@
                 (.resetReaderIndex ^ByteBuf (.val cursor))  ;; reset position in value otherwise .next will throw an exception on second item
                 (recur (conj! results d) (.next cursor)))))))
       (finally (.release start-kb)))))
+
+(defn- refset-item*
+  "Fetch a refset item using an existing refsets transaction."
+  [^LmdbStore store ^Txn txn ^long msb ^long lsb]
+  (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
+    (try
+      (doto kb (.writeLong msb) (.writeLong lsb))
+      (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
+        (ser/read-refset-item vb))
+      (finally (.release kb)))))
 
 (defn refset-item
   "Get the specified refset item.
@@ -530,64 +576,57 @@
   ([^LmdbStore store ^UUID uuid]
    (refset-item store (.getMostSignificantBits uuid) (.getLeastSignificantBits uuid)))
   ([^LmdbStore store ^long msb ^long lsb]
-   (with-open [txn (.txnRead ^Env (.-refsetsEnv store))]
-     (let [kb (.directBuffer PooledByteBufAllocator/DEFAULT 16)]
-       (try
-         (doto kb (.writeLong msb) (.writeLong lsb))
-         (when-let [vb (.get ^Dbi (.-refsetItems store) txn kb)]
-           (ser/read-refset-item vb))
-         (finally (.release kb)))))))
+   (with-txn [txn store :refsets]
+     (refset-item* store txn msb lsb))))
 
-(defn raw-parent-relationships
-  "Return either all parent relationships of the given concept or only those
-  relationships of the given type.
-  Returns a vector of tuples [from--type--group--to]."
-  ([^LmdbStore store ^long concept-id]
-   (map-keys-in-range (.-coreEnv store) (.-conceptParentRelationships store)
+(defn raw-parent-relationships*
+  "Return parent relationships using an existing core read transaction."
+  ([^LmdbStore store ^Txn txn ^long concept-id]
+   (map-keys-in-range (.-conceptParentRelationships store) txn
                       [concept-id 0 0 0]
                       [concept-id -1 -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b)))))
-  ([^LmdbStore store ^long concept-id ^long type-id]
-   (map-keys-in-range (.-coreEnv store) (.-conceptParentRelationships store)
+  ([^LmdbStore store ^Txn txn ^long concept-id ^long type-id]
+   (map-keys-in-range (.-conceptParentRelationships store) txn
                       [concept-id type-id 0 0]
                       [concept-id type-id -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
 
-(defn raw-child-relationships
-  "Return the child relationships of the given concept.
-  Returns a vector of tuples [from--type--group--to]."
-  ([^LmdbStore store ^long concept-id]
-   (map-keys-in-range (.-coreEnv store) (.-conceptChildRelationships store)
+(defn raw-child-relationships*
+  "Return child relationships using an existing core read transaction."
+  ([^LmdbStore store ^Txn txn ^long concept-id]
+   (map-keys-in-range (.-conceptChildRelationships store) txn
                       [concept-id 0 0 0]
                       [concept-id -1 -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b)))))
-  ([^LmdbStore store ^long concept-id ^long type-id]
-   (map-keys-in-range (.-coreEnv store) (.-conceptChildRelationships store)
+  ([^LmdbStore store ^Txn txn ^long concept-id ^long type-id]
+   (map-keys-in-range (.-conceptChildRelationships store) txn
                       [concept-id type-id 0 0]
                       [concept-id type-id -1 -1]
                       (fn [^ByteBuf b] (vector (.readLong b) (.readLong b) (.readLong b) (.readLong b))))))
 
-(defn component-refset-items
-  "Get the refset items for the given component, optionally
-   limited to the refset specified.
-   - store
-   - component-id : id of the component (e.g concept-id or description-id)
-   - refset-id    : (optional) - limit to this refset."
-  ([^LmdbStore store ^long component-id]
-   (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
-                      [component-id 0 0 0]
-                      [component-id -1 -1 -1]
-                      (fn [^ByteBuf b] (refset-item store (.getLong b 16) (.getLong b 24)))))
-  ([^LmdbStore store ^long component-id ^long refset-id]
-   (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
-                      [component-id refset-id 0 0]
-                      [component-id refset-id -1 -1]
-                      (fn [^ByteBuf b] (refset-item store (.getLong b 16) (.getLong b 24))))))
+(defn component-refset-items*
+  "Get refset items for a component using existing transactions."
+  ([^LmdbStore store ^Txn core-txn ^Txn refsets-txn ^long component-id]
+   (let [keys (map-keys-in-range (.-componentRefsets store) core-txn
+                                 [component-id 0 0 0]
+                                 [component-id -1 -1 -1]
+                                 (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
+     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) keys)))
+  ([^LmdbStore store ^Txn core-txn ^Txn refsets-txn component-id refset-id]
+   (let [component-id (long component-id)
+         refset-id (long refset-id)
+         keys (map-keys-in-range (.-componentRefsets store) core-txn
+                                 [component-id refset-id 0 0]
+                                 [component-id refset-id -1 -1]
+                                 (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
+     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) keys))))
 
-(defn component-refset-ids
-  "Return a set of refset-ids to which this component belongs."
-  [^LmdbStore store ^long component-id]
-  (set (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
+(defn component-refset-ids*
+  "Return a set of refset-ids to which this component belongs,
+  using an existing core read transaction."
+  [^LmdbStore store ^Txn txn ^long component-id]
+  (set (map-keys-in-range (.-componentRefsets store) txn
                           [component-id 0 0 0]
                           [component-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 8)))))
@@ -595,10 +634,32 @@
 (defn component-in-refset?
   "Is the component in the reference set specified?"
   [^LmdbStore store ^long component-id ^long refset-id]
-  (some true? (map-keys-in-range (.-coreEnv store) (.-componentRefsets store)
-                                 [component-id refset-id 0 0]
-                                 [component-id refset-id -1 -1]
-                                 (fn [_] true))))
+  (with-txn [txn store :core]
+    (with-cursor [cursor (.-componentRefsets store) txn]
+      (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 32)
+            end-kb (.directBuffer PooledByteBufAllocator/DEFAULT 32)]
+        (try
+          (doto start-kb (.writeLong component-id) (.writeLong refset-id) (.writeLong 0) (.writeLong 0))
+          (doto end-kb (.writeLong component-id) (.writeLong refset-id) (.writeLong -1) (.writeLong -1))
+          (boolean (any-key-in-range? cursor start-kb end-kb))
+          (finally (.release start-kb) (.release end-kb)))))))
+
+(defn component-in-refsets?*
+  "Is the component a member of the reference sets specified?
+  Uses an existing core read transaction."
+  [^LmdbStore store ^Txn txn ^long component-id refset-ids]
+  (with-cursor [cursor (.-componentRefsets store) txn]
+    (let [start-kb (.directBuffer PooledByteBufAllocator/DEFAULT 32)
+          end-kb (.directBuffer PooledByteBufAllocator/DEFAULT 32)]
+      (try
+        (boolean
+          (some (fn [^long refset-id]
+                  (doto start-kb .clear (.writeLong component-id) (.writeLong refset-id) (.writeLong 0) (.writeLong 0))
+                  (doto end-kb .clear (.writeLong component-id) (.writeLong refset-id) (.writeLong -1) (.writeLong -1))
+                  (any-key-in-range? cursor start-kb end-kb))
+                refset-ids))
+        (finally (.release start-kb) (.release end-kb))))))
+
 
 (defn stream-all-concepts
   "Streams all concepts to the channel specified, and, by default, closes the
@@ -622,7 +683,8 @@
   identifier in the original source file. On import, we store those column names
   and provide the lookup here."
   [^LmdbStore store ^long refset-id]
-  (get-object (.-refsetsEnv store) (.-refsetFieldNames store) refset-id ser/read-field-names))
+  (with-txn [txn store :refsets]
+    (get-object* (.-refsetFieldNames store) txn refset-id ser/read-field-names)))
 
 (defn installed-reference-sets
   "Returns a set of identifiers representing installed reference sets.
@@ -636,52 +698,39 @@
   reference set items, thus ensuring we have a list that contains only
   reference sets with members."
   [^LmdbStore store]
-  (with-open [^Txn txn (.txnRead ^Env (.-refsetsEnv store))
-              cursor (.openCursor ^Dbi (.-refsetFieldNames store) txn)]
-    (loop [results (transient #{})
-           continue? (.first cursor)]
-      (if continue?
-        (recur (conj! results (.readLong ^ByteBuf (.key cursor))) (.next cursor))
-        (persistent! results)))))
+  (with-txn [txn store :refsets]
+    (with-cursor [cursor (.-refsetFieldNames store) txn]
+      (loop [results (transient #{})
+             continue? (.first cursor)]
+        (if continue?
+          (recur (conj! results (.readLong ^ByteBuf (.key cursor))) (.next cursor))
+          (persistent! results))))))
 
-(defn source-associations
-  "Returns the associations in which this component is the target.
-  targetComponentId -- refsetId -- referencedComponentId - itemId1 - itemId2"
-  ([^LmdbStore store ^long component-id]
-   (map-keys-in-range (.-coreEnv store) (.-associations store)
-                      [component-id 0 0 0 0]
-                      [component-id -1 -1 -1 -1]
-                      (fn [^ByteBuf b] (refset-item store (.getLong b 24) (.getLong b 32)))))
-  ([^LmdbStore store ^long component-id ^long refset-id]
-   (map-keys-in-range (.-coreEnv store) (.-associations store)
-                      [component-id refset-id 0 0 0]
-                      [component-id refset-id -1 -1 -1]
-                      (fn [^ByteBuf b] (refset-item store (.getLong b 24) (.getLong b 32))))))
-
-(defn source-association-referenced-components
-  "Returns a sequence of component identifiers that reference the specified
-  component in the specified association reference set."
-  [^LmdbStore store ^long component-id ^long refset-id]
-  (set (map-keys-in-range (.-coreEnv store) (.-associations store)
+(defn source-association-referenced-components*
+  "Returns a set of component identifiers that reference the specified
+  component in the specified association reference set, using an existing
+  core read transaction."
+  [^LmdbStore store ^Txn txn ^long component-id ^long refset-id]
+  (set (map-keys-in-range (.-associations store) txn
                           [component-id refset-id 0 0 0]
                           [component-id refset-id -1 -1 -1]
                           (fn [^ByteBuf b] (.getLong b 16)))))
 
 (defn status
   [^LmdbStore store]
-  (with-open [^Txn core-txn (.txnRead ^Env (.-coreEnv store))
-              ^Txn refsets-txn (.txnRead ^Env (.-refsetsEnv store))]
-    {:concepts        (.entries (.stat ^Dbi (.-concepts store) core-txn))
-     :descriptions    (.entries (.stat ^Dbi (.-conceptDescriptions store) core-txn))
-     :relationships   (.entries (.stat ^Dbi (.-relationships store) core-txn))
-     :concrete-values (.entries (.stat ^Dbi (.-concreteValues store) core-txn))
-     :refsets         (.entries (.stat ^Dbi (.-refsetFieldNames store) refsets-txn))
-     :refset-items    (.entries (.stat ^Dbi (.-refsetItems store) refsets-txn))
-     :indices         {:descriptions-concept         (.entries (.stat ^Dbi (.-descriptionConcept store) core-txn))
-                       :concept-parent-relationships (.entries (.stat ^Dbi (.-conceptParentRelationships store) core-txn))
-                       :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
-                       :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
-                       :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}}))
+  (with-txn [core-txn store :core]
+    (with-txn [refsets-txn store :refsets]
+      {:concepts        (.entries (.stat ^Dbi (.-concepts store) core-txn))
+       :descriptions    (.entries (.stat ^Dbi (.-conceptDescriptions store) core-txn))
+       :relationships   (.entries (.stat ^Dbi (.-relationships store) core-txn))
+       :concrete-values (.entries (.stat ^Dbi (.-concreteValues store) core-txn))
+       :refsets         (.entries (.stat ^Dbi (.-refsetFieldNames store) refsets-txn))
+       :refset-items    (.entries (.stat ^Dbi (.-refsetItems store) refsets-txn))
+       :indices         {:descriptions-concept         (.entries (.stat ^Dbi (.-descriptionConcept store) core-txn))
+                         :concept-parent-relationships (.entries (.stat ^Dbi (.-conceptParentRelationships store) core-txn))
+                         :concept-child-relationships  (.entries (.stat ^Dbi (.-conceptChildRelationships store) core-txn))
+                         :component-refsets            (.entries (.stat ^Dbi (.-componentRefsets store) core-txn))
+                         :associations                 (.entries (.stat ^Dbi (.-associations store) core-txn))}})))
 
 (defn- dbi-stat
   "Return internal statistics regarding a DBI. Total size is calculated from the
@@ -703,23 +752,23 @@
   "Internal statistics for the store. Returns a sequence with an item per
   environment"
   [^LmdbStore store]
-  (with-open [^Txn core-txn (.txnRead ^Env (.-coreEnv store))
-              ^Txn refsets-txn (.txnRead ^Env (.-refsetsEnv store))]
-    (->> [{:env      :core
-           :map-size (.mapSize (.info ^Env (.coreEnv store)))
-           :dbs      [(dbi-stat (.-concepts store) core-txn)
-                      (dbi-stat (.-conceptDescriptions store) core-txn)
-                      (dbi-stat (.-relationships store) core-txn)
-                      (dbi-stat (.-concreteValues store) core-txn)
-                      (dbi-stat (.-descriptionConcept store) core-txn)
-                      (dbi-stat (.-conceptParentRelationships store) core-txn)
-                      (dbi-stat (.-conceptChildRelationships store) core-txn)
-                      (dbi-stat (.-componentRefsets store) core-txn)
-                      (dbi-stat (.-associations store) core-txn)]}
-          {:env      :refsets
-           :map-size (.mapSize (.info ^Env (.-refsetsEnv store)))
-           :dbs      [(dbi-stat (.-refsetFieldNames store) refsets-txn)
-                      (dbi-stat (.-refsetItems store) refsets-txn)]}]
-         (mapv #(assoc % :total-size (->> % :dbs (map :size) (reduce +))))
-         (mapv #(assoc % :map-used (float (/ (:total-size %) (:map-size %))))))))
+  (with-txn [core-txn store :core]
+    (with-txn [refsets-txn store :refsets]
+      (->> [{:env      :core
+             :map-size (.mapSize (.info ^Env (.coreEnv store)))
+             :dbs      [(dbi-stat (.-concepts store) core-txn)
+                        (dbi-stat (.-conceptDescriptions store) core-txn)
+                        (dbi-stat (.-relationships store) core-txn)
+                        (dbi-stat (.-concreteValues store) core-txn)
+                        (dbi-stat (.-descriptionConcept store) core-txn)
+                        (dbi-stat (.-conceptParentRelationships store) core-txn)
+                        (dbi-stat (.-conceptChildRelationships store) core-txn)
+                        (dbi-stat (.-componentRefsets store) core-txn)
+                        (dbi-stat (.-associations store) core-txn)]}
+            {:env      :refsets
+             :map-size (.mapSize (.info ^Env (.-refsetsEnv store)))
+             :dbs      [(dbi-stat (.-refsetFieldNames store) refsets-txn)
+                        (dbi-stat (.-refsetItems store) refsets-txn)]}]
+           (mapv #(assoc % :total-size (->> % :dbs (map :size) (reduce +))))
+           (mapv #(assoc % :map-used (float (/ (:total-size %) (:map-size %)))))))))
 
