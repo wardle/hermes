@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.4.1660] - 2026-04-07
+## [1.4.1560] - 2026-04-07
 
 * Optimise LMDB read transactions — composite operations now share a single read transaction, reducing overhead
 * Use hermes-java-api dependency from Clojars instead of in-tree Java source
