@@ -36,27 +36,27 @@
 ;; which, frankly, is pretty indefensible. Here we manage the incompatibility
 ;; dynamically by looking at the Lucene version at compile time and choosing
 ;; the right accessor based on version. This means we can support Lucene 10
-;; when running on Java 21 and above, and yet still run on Java 11 and above
+;; when running on Java 21 and above, and yet still run on Java 17 and above
 ;; using Lucene 9.
 ;;
 
 (when-v >= 10
 
-        (defn query-for-boolean-clause
-          [^BooleanClause clause]
-          (.query clause))
-        (defn occur-for-boolean-clause
-          [^BooleanClause clause]
-          (.occur clause)))
+  (defn query-for-boolean-clause
+    [^BooleanClause clause]
+    (.query clause))
+  (defn occur-for-boolean-clause
+    [^BooleanClause clause]
+    (.occur clause)))
 
 (when-v < 10
 
-        (defn query-for-boolean-clause
-          [^BooleanClause clause]
-          (.getQuery clause))
-        (defn occur-for-boolean-clause
-          [^BooleanClause clause]
-          (.getOccur clause)))
+  (defn query-for-boolean-clause
+    [^BooleanClause clause]
+    (.getQuery clause))
+  (defn occur-for-boolean-clause
+    [^BooleanClause clause]
+    (.getOccur clause)))
 
 (comment
   Version/LUCENE_CURRENT
@@ -78,7 +78,7 @@
   (getLeafCollector [_ ctx]
     (let [base-id (.-docBase ctx)]
       (reify LeafCollector
-        (^void setScorer [_ ^Scorable _scorer])                             ;; NOP
+        (^void setScorer [_ ^Scorable _scorer])             ;; NOP
         (^void collect [_ ^int doc-id]
           (.add coll (+ base-id doc-id))))))
   (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
@@ -98,7 +98,7 @@
   (getLeafCollector [_ ctx]
     (let [base-id (.-docBase ctx)]
       (reify LeafCollector
-        (^void setScorer [_ ^Scorable _scorer])                             ;; NOP
+        (^void setScorer [_ ^Scorable _scorer])             ;; NOP
         (^void collect [_ ^int doc-id]
           (when-not (a/>!! ch (+ base-id doc-id))           ;; put the document on the channel, but if channel closed...
             (throw (CollectionTerminatedException.)))))))   ;; ... then prematurely terminate collection of the current leaf
