@@ -419,34 +419,31 @@ and [lmdb](https://www.symas.com/lmdb), and from some fundamental design
 decisions including read-only operation and memory-mapped data files. It provides a
 HTTP server using the lightweight and reliable [jetty web server](https://www.eclipse.org/jetty/).
 
-I have a small i3 NUC server on my local wifi network, and here is an example of
-load testing, in which users are typing 'mnd' and expecting an autocompletion:
+Here is an example of load testing, simulating users typing 'mnd' and expecting
+autocompletion, running on a MacBook Pro M1 (2021):
 
 ```shell
-mark@jupiter classes % wrk -c300 -t12 -d30s --latency  'http://nuc:8080/v1/snomed/search?s=mnd'
-Running 30s test @ http://nuc:8080/v1/snomed/search?s=mnd
+$ wrk -c300 -t12 -d30s --latency 'http://127.0.0.1:8090/v1/snomed/search?s=mnd'
+Running 30s test @ http://127.0.0.1:8090/v1/snomed/search?s=mnd
   12 threads and 300 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    40.36ms   19.97ms 565.73ms   92.08%
-    Req/Sec   632.19     66.79     0.85k    68.70%
+    Latency    15.36ms   20.59ms 303.51ms   88.03%
+    Req/Sec     2.78k   611.24     5.43k    72.19%
   Latency Distribution
-     50%   38.76ms
-     75%   45.93ms
-     90%   54.09ms
-     99%   79.31ms
-  226942 requests in 30.09s, 125.75MB read
-Requests/sec:   7540.91
-Transfer/sec:      4.18MB
+     50%    9.90ms
+     75%   22.50ms
+     90%   39.47ms
+     99%   96.58ms
+  997174 requests in 30.05s, 771.24MB read
+Requests/sec:  33178.93
+Transfer/sec:     25.66MB
 ```
 
-This uses 12 threads to make 300 concurrent HTTP connections.
-On 99% of occasions, that would provide a fast enough response for
-autocompletion (<79ms). Of course, that is users typing at exactly the same time,
-so a single instance could support more concurrent users than that. Given its design, Hermes is designed to easily scale
-horizontally, because you can simply run more servers and load balance across
-them. Of course, these data are fairly crude, because in real-life you'll be
-doing more complex concurrent calls. In real deployments, I've only needed one instance for hundreds of concurrent
-users, but it is nice to know I can scale easily.
+This uses 12 threads to make 300 concurrent HTTP connections sustaining over
+33,000 requests per second with a median latency under 10ms. Given its design,
+Hermes scales easily horizontally — simply run more servers and load balance
+across them. In real deployments, I've only needed one instance for hundreds of
+concurrent users.
 
 #### Indicative benchmarks
 
