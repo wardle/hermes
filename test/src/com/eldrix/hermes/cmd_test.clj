@@ -94,12 +94,64 @@
    {:s    "Test MCP with missing database"
     :args ["mcp"]
     :test (fn [{:keys [errors]}]
-            (is (seq errors)))}])
+            (is (seq errors)))}
+   {:s    "Test install with --owl"
+    :args ["--db" "snomed.db" "install" "--owl" "--dist" "uk.nhs/sct-clinical" "--api-key=api-key.txt"]
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors) "--owl should be accepted by install")
+            (is (true? (:owl options))))}
+   {:s    "Test download with --owl"
+    :args ["--db" "snomed.db" "download" "--owl" "--dist" "uk.nhs/sct-clinical" "--api-key=api-key.txt"]
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors) "--owl should be accepted by download")
+            (is (true? (:owl options))))}
+   {:s    "Test import with --owl"
+    :args ["--db" "snomed.db" "import" "--owl" "/Downloads/snomed/"]
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors) "--owl should be accepted by import")
+            (is (true? (:owl options))))}
+   {:s    "Test serve with --owl"
+    :args ["--db" "snomed.db" "serve" "--owl"]
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors) "--owl should be accepted by serve")
+            (is (true? (:owl options))))}
+   {:s    "Test MCP with --owl"
+    :args ["--db" "snomed.db" "mcp" "--owl"]
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors) "--owl should be accepted by mcp")
+            (is (true? (:owl options))))}
+   {:s    "Excluding :owl makes --owl an error for serve"
+    :args ["--db" "snomed.db" "serve" "--owl"]
+    :cfg  {:exclude-opts #{:owl}}
+    :test (fn [{:keys [errors]}]
+            (is (some #(re-find #"--owl" %) errors)))}
+   {:s    "Excluding :owl makes --owl an error for install"
+    :args ["--db" "snomed.db" "install" "--owl" "--dist" "uk.nhs/sct-clinical" "--api-key=api-key.txt"]
+    :cfg  {:exclude-opts #{:owl}}
+    :test (fn [{:keys [errors]}]
+            (is (some #(re-find #"--owl" %) errors)))}
+   {:s    "Excluding :owl makes --owl an error for import"
+    :args ["--db" "snomed.db" "import" "--owl" "/Downloads/snomed/"]
+    :cfg  {:exclude-opts #{:owl}}
+    :test (fn [{:keys [errors]}]
+            (is (some #(re-find #"--owl" %) errors)))}
+   {:s    "Excluding :owl makes --owl an error for mcp"
+    :args ["--db" "snomed.db" "mcp" "--owl"]
+    :cfg  {:exclude-opts #{:owl}}
+    :test (fn [{:keys [errors]}]
+            (is (some #(re-find #"--owl" %) errors)))}
+   {:s    "Excluding :owl still allows normal parsing"
+    :args ["--db" "snomed.db" "serve" "--port" "9090"]
+    :cfg  {:exclude-opts #{:owl}}
+    :test (fn [{:keys [options errors]}]
+            (is (nil? errors))
+            (is (= (:db options) "snomed.db"))
+            (is (= (:port options) 9090)))}])
 
 (deftest test-parse-cli-options
-  (doseq [{s :s args :args test-fn :test} cli-tests]
+  (doseq [{s :s args :args cfg :cfg test-fn :test} cli-tests]
     (testing s
-      (test-fn (cli/parse-cli args)))))
+      (test-fn (cli/parse-cli args (or cfg {}))))))
 
 (deftest test-allowed-origins
   (is (= (cli/parse-cli ["serve" "--db=snomed.db" "--allowed-origins" "example.com,example.net"])

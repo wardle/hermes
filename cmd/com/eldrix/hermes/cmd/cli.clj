@@ -75,26 +75,14 @@
 
 (def db-mandatory {:missing "No path to database directory specified"})
 
-(defn- make-distribution-options*
-  "Create CLI options for a given distribution. "
-  ([db?] (make-distribution-options* db? nil))
-  ([db? extra-opts] (concat (when db? [(option :db db-mandatory)])
-                            [(option :dist)]
-                            extra-opts
-                            [(option :progress)
-                             (option :help)])))
-
 (defn make-distribution-options
-  "Generate a dynamic sequence of cli options for an distribution based on
-  command-line arguments. This performs a two-pass parse, first with the basic
-  options specification, ignoring errors, and then using that parsed result to
-  identify any chosen distributions. Those are then used to generate the full
-  required options specification dynamically."
-  [{:keys [db?]} args]
-  (let [{:keys [arguments options]} (clojure.tools.cli/parse-opts args (make-distribution-options* db?))
-        possible (into (set (:dist options)) (set arguments)) ;; all possibly selected distributions
-        opts (distinct (mapcat distribution-opts possible))]
-    (make-distribution-options* db? opts)))
+  "Return CLI options for a distribution command, combining the given base
+  options with any distribution-specific options detected from args."
+  [base-opts args]
+  (let [{:keys [arguments options]} (cli/parse-opts args base-opts)
+        possible (into (set (:dist options)) (set arguments))
+        dist-opts (distinct (mapcat distribution-opts possible))]
+    (into base-opts dist-opts)))
 
 (defn expand-legacy-parameters
   "Parse a sequence of well-known string arguments returning a vector of
@@ -136,12 +124,12 @@
     :desc "Import SNOMED distribution files from the path(s) specified"
     :opts [(option :db db-mandatory) (option :owl) (option :help)]}
    {:cmd  "available" :desc "List available distributions, or releases for 'install'"
-    :opts #(make-distribution-options {} %)}
+    :opts #(make-distribution-options [(option :dist) (option :progress) (option :help)] %)}
    {:cmd  "download" :usage "download [dists]" :deprecated true :warning "Use 'install' instead"
     :desc "Download and install specified distributions"
-    :opts #(make-distribution-options {:db? true :extra-opts [(option :owl)]} %)}
+    :opts #(make-distribution-options [(option :db db-mandatory) (option :dist) (option :owl) (option :progress) (option :help)] %)}
    {:cmd  "install" :desc "Download and install specified distribution(s)"
-    :opts #(make-distribution-options {:db? true :extra-opts [(option :owl)]} %)}
+    :opts #(make-distribution-options [(option :db db-mandatory) (option :dist) (option :owl) (option :progress) (option :help)] %)}
    {:cmd  "index" :desc "Build search indices"
     :opts [(option :db db-mandatory) (option :help)]}
    {:cmd  "compact" :desc "Compact database"
