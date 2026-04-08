@@ -608,19 +608,19 @@
 (defn component-refset-items*
   "Get refset items for a component using existing transactions."
   ([^LmdbStore store ^Txn core-txn ^Txn refsets-txn ^long component-id]
-   (let [keys (map-keys-in-range (.-componentRefsets store) core-txn
-                                 [component-id 0 0 0]
-                                 [component-id -1 -1 -1]
-                                 (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
-     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) keys)))
+   (let [ks (map-keys-in-range (.-componentRefsets store) core-txn
+                               [component-id 0 0 0]
+                               [component-id -1 -1 -1]
+                               (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
+     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) ks)))
   ([^LmdbStore store ^Txn core-txn ^Txn refsets-txn component-id refset-id]
    (let [component-id (long component-id)
          refset-id (long refset-id)
-         keys (map-keys-in-range (.-componentRefsets store) core-txn
-                                 [component-id refset-id 0 0]
-                                 [component-id refset-id -1 -1]
-                                 (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
-     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) keys))))
+         ks (map-keys-in-range (.-componentRefsets store) core-txn
+                               [component-id refset-id 0 0]
+                               [component-id refset-id -1 -1]
+                               (fn [^ByteBuf b] (vector (.getLong b 16) (.getLong b 24))))]
+     (mapv (fn [[msb lsb]] (refset-item* store refsets-txn msb lsb)) ks))))
 
 (defn component-refset-ids*
   "Return a set of refset-ids to which this component belongs,

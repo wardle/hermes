@@ -433,7 +433,7 @@
                          (remove (fn [^OWLClass c] (.isOWLNothing c)))
                          (keep parse-iri->concept-id)
                          set)
-        supers     (->> (.getSuperClasses reasoner temp-cls true)
+        super-ids  (->> (.getSuperClasses reasoner temp-cls true)
                         (.getFlattened)
                         (remove (fn [^OWLClass c] (.isOWLThing c)))
                         (keep parse-iri->concept-id)
@@ -442,7 +442,7 @@
                         (keep parse-iri->concept-id)
                         set)]
     {:equivalent-concepts equivalents
-     :direct-super-concepts supers
+     :direct-super-concepts super-ids
      :proximal-primitive-supertypes primitives}))
 
 (defn- with-temp-axioms
@@ -667,7 +667,6 @@
 
 (comment
   (require '[com.eldrix.hermes.core :as hermes])
-  (require '[com.eldrix.hermes.impl.scg :as scg])
   (def svc (hermes/open "snomed-owl.db"))
   (def st (.-store svc))
   (def reasoner (start-reasoner st))
