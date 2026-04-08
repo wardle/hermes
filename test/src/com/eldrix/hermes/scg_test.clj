@@ -1,7 +1,6 @@
 (ns com.eldrix.hermes.scg-test
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing run-tests]]
-            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.language :as lang]
             [com.eldrix.hermes.impl.scg :as scg]
             [com.eldrix.hermes.impl.store :as store]

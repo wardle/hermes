@@ -41,7 +41,7 @@
            (java.io File)
            (java.util UUID)
            (com.eldrix.hermes.sct IConcept IDescription IExtendedConcept IResult IConcreteValue
-                                  IRefsetItem ISimpleRefsetItem IAssociationRefsetItem
+                                  ISimpleRefsetItem IAssociationRefsetItem
                                   ILanguageRefsetItem ISimpleMapRefsetItem IComplexMapRefsetItem
                                   IExtendedMapRefsetItem IAttributeValueRefsetItem
                                   IModuleDependencyRefsetItem IOWLExpressionRefsetItem

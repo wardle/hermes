@@ -7,8 +7,7 @@
   The OWL side uses ctu->cf to preserve concept identity — the reasoner already
   knows concept definitions from the ontology, so normalization would lose
   information."
-  (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as gen]
+  (:require [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [com.eldrix.hermes.impl.owl :as owl]

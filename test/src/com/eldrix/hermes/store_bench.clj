@@ -2,7 +2,6 @@
   "Benchmarks for the store layer."
   (:require [clojure.test :refer [deftest use-fixtures]]
             [com.eldrix.hermes.impl.store :as store]
-            [com.eldrix.hermes.snomed :as snomed]
             [criterium.core :as crit]))
 
 (def ^:dynamic *store* nil)

@@ -3,8 +3,7 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is testing]]
-            [com.eldrix.hermes.impl.owl :as owl]
-            [com.eldrix.hermes.impl.scg :as scg])
+            [com.eldrix.hermes.impl.owl :as owl])
   (:import (org.semanticweb.owlapi.apibinding OWLManager)
            (org.semanticweb.owlapi.model OWLEquivalentClassesAxiom OWLSubClassOfAxiom)
            (org.semanticweb.owlapi.util DefaultPrefixManager)))
