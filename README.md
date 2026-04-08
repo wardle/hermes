@@ -437,16 +437,16 @@ $ wrk -c300 -t12 -d30s --latency 'http://127.0.0.1:8090/v1/snomed/search?s=mnd'
 Running 30s test @ http://127.0.0.1:8090/v1/snomed/search?s=mnd
   12 threads and 300 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    15.36ms   20.59ms 303.51ms   88.03%
-    Req/Sec     2.78k   611.24     5.43k    72.19%
+    Latency    16.32ms   22.03ms 285.38ms   87.34%
+    Req/Sec     2.84k   681.23     5.83k    70.78%
   Latency Distribution
-     50%    9.90ms
-     75%   22.50ms
-     90%   39.47ms
-     99%   96.58ms
-  997174 requests in 30.05s, 771.24MB read
-Requests/sec:  33178.93
-Transfer/sec:     25.66MB
+     50%    9.74ms
+     75%   24.29ms
+     90%   43.40ms
+     99%  103.14ms
+  1017269 requests in 30.05s, 786.79MB read
+Requests/sec:  33848.17
+Transfer/sec:     26.18MB
 ```
 
 This uses 12 threads to make 300 concurrent HTTP connections sustaining over
@@ -474,15 +474,15 @@ Measured against the SNOMED CT International Edition on a MacBook Pro M1 (2021),
 
 | Operation | Mean latency | req/s |
 |---|---|---|
-| Concept lookup | 74 µs | 13,816 |
-| Extended concept | 401 µs | 2,496 |
-| Concept descriptions | 92 µs | 10,914 |
-| Free-text search (10 results) | 307–378 µs | 2,642–3,254 |
-| Subsumption test | 90 µs | 11,131 |
+| Concept lookup | 59 µs | 15,546 |
+| Extended concept | 364 µs | 2,663 |
+| Concept descriptions | 81 µs | 11,891 |
+| Free-text search (10 results) | 292–378 µs | 2,642–3,312 |
+| Subsumption test | 81 µs | 11,801 |
 
 Under concurrent load, throughput scales well — 50 concurrent connections
 searching for "heart attack" sustains 27,392 req/s (p50 0.93 ms), and
-concept lookups reach 82,549 req/s (p50 314 µs).
+concept lookups reach 86,167 req/s (p50 311 µs).
 
 ### Can I use `hermes` with containers?
 
