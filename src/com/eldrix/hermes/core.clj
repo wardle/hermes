@@ -44,6 +44,13 @@
    :search  "search.db"
    :members "members.db"})
 
+(def hermes-version
+  "Hermes software version, lazily read from version.edn on the classpath.
+  In an uberjar, build.clj enriches this with the git commit count (e.g. \"1.4.1342\").
+  During development, this will be the base version (e.g. \"1.4\")."
+  (delay (try (:version (edn/read-string (slurp (io/resource "version.edn"))))
+              (catch Exception _ "unknown"))))
+
 (s/def ::svc any?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 (s/def ::component-id (s/and pos-int? verhoeff/valid?))
@@ -1119,6 +1126,21 @@
                    (mapcat #(component-refset-items svc % snomed/ModuleDependencyReferenceSet)))]
     (module-dependencies* items)))
 
+(s/fdef module-versions
+  :args (s/cat :svc ::svc))
+(defn module-versions
+  "Returns a map of installed module versions, keyed by module concept id.
+  Each value is a map of :name (string) and :version (java.time.LocalDate)."
+  [^Svc svc]
+  (reduce (fn [acc {source :source}]
+            (let [module-id (:moduleId source)]
+              (if (contains? acc module-id)
+                acc
+                (assoc acc module-id
+                       {:name    (:term (fully-specified-name svc module-id))
+                        :version (:version source)}))))
+          {} (module-dependencies svc)))
+
 (s/fdef module-dependency-problems
   :args (s/cat :svc ::svc))
 (defn module-dependency-problems
@@ -1599,35 +1621,33 @@
 (defn status*
   "Return status information for the given service. Returns a map containing:
 
+  - `:version`           : hermes software version as a string e.g. \"v1.4.1560\"
   - `:releases`          : a sequence of strings for installed distributions
   - `:locales`           : installed/supported locales
   - `:components`        : a map of component counts and indices
-  - `:modules`           : a map of module id to term, for installed modules
+  - `:modules`           : a map of module id to {:name \"...\" :version ...}
   - `:installed-refsets` : a map of reference set id to term
 
   What is returned is configurable using options:
 
-  - `:counts?`            : whether to include counts of components
-  - `:modules?`           : whether to include installed modules
-  - `:installed-refsets?` : whether to include installed reference sets"
+  - `:counts?`            : whether to include counts of components, default true
+  - `:modules?`           : whether to include installed modules, default false
+  - `:installed-refsets?` : whether to include installed reference sets, default false"
   [^Svc svc {:keys [counts? modules? installed-refsets?] :or {counts? true installed-refsets? false modules? false}}]
-  (merge
-   {:releases (map :term (release-information svc))
-    :locales  (lang/available-locales (.-store svc))}
-   (when counts?
-     {:components (-> (store/status (.-store svc))
-                      (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
-                      (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc))))})
-   (when modules?
-     {:modules (let [results (reduce (fn [acc {source :source}]
-                                       (assoc acc (:moduleId source) (str (:term (fully-specified-name svc (:moduleId source))) ": " (:version source))))
-                                     {} (module-dependencies svc))]
-                 (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})
-
-   (when installed-refsets?
-     {:installed-refsets (let [results (->> (installed-reference-sets svc)
-                                            (reduce (fn [acc id] (assoc acc id (:term (fully-specified-name svc id)))) {}))]
-                           (into (sorted-map-by #(compare (safe-lower-case (get results %1)) (safe-lower-case (get results %2)))) results))})))
+  (let [s (reasoning-status svc)]
+    (cond-> {:version   @hermes-version
+             :releases  (map :term (release-information svc))
+             :locales   (lang/available-locales (.-store svc))
+             :reasoning {:available (not= :unavailable s) :active (= :active s)}}
+      counts?
+      (assoc :components (-> (store/status (.-store svc))
+                             (assoc-in [:indices :descriptions-search] (.numDocs ^IndexReader (.-indexReader svc)))
+                             (assoc-in [:indices :members-search] (.numDocs ^IndexReader (.-memberReader svc)))))
+      modules?
+      (assoc :modules (module-versions svc))
+      installed-refsets?
+      (assoc :installed-refsets (let [results (reduce #(assoc %1 %2 (:term (fully-specified-name svc %2))) {} (installed-reference-sets svc))]
+                                  (into (sorted-map-by #(compare (safe-lower-case (results %1)) (safe-lower-case (results %2)))) results))))))
 
 (defn status
   "Return status information for the database at 'root' where `root` is

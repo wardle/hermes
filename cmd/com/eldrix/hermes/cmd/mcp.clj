@@ -37,8 +37,7 @@
                       "resources" {}
                       "prompts"   {}}
    "serverInfo"      {"name"    "hermes"
-                      "version" (try (:version (edn/read-string (slurp (io/resource "version.edn"))))
-                                     (catch Exception _ "unknown"))}})
+                      "version" @hermes/hermes-version}})
 
 (defn- handle-initialize [id _params]
   (json-rpc-response id server-info))

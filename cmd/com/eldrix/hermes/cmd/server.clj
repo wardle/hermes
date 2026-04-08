@@ -289,8 +289,7 @@
     {:name ::get-status
      :enter
      (fn [{::keys [svc] :as ctx}]
-       (assoc ctx :result (assoc (hermes/status* svc {})
-                                 :reasoning (hermes/reasoning-status svc))))}))
+       (assoc ctx :result (hermes/status* svc {:modules? true})))}))
 
 (def expression-subsumes
   "Expression-level subsumption testing, aligned with FHIR CodeSystem/$subsumes.
