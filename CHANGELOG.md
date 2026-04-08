@@ -2,6 +2,12 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1575] - 2026-04-08
+
+* Improve `status*` response: add hermes version, reasoning status, and structured module versions (name + date instead of flat string)
+* Add homebrew installation instructions
+* Code quality: fix shadowed vars, clean up unused requires/imports
+
 ## [1.4.1560] - 2026-04-07
 
 * Optimise LMDB read transactions — composite operations now share a single read transaction, reducing overhead
