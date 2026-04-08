@@ -13,56 +13,22 @@
            (org.apache.lucene.search CollectionTerminatedException CollectorManager IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
                                      MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector Scorable ScoreMode)))
 
-(defmacro when-v
-  "Evaluate body depending on Lucene major version.
-  Supported operators: = <= < > >=
-  For example
-  ```
-  (lucene/when-v > 8 ...)
-  ```"
-  [op version & body]
-  (let [latest (.major Version/LATEST)]
-    (list 'when (list 'cond
-                      (list = '= op) `(= ~version ~latest)
-                      (list = '>= op) `(>= ~latest ~version)
-                      (list = '> op) `(> ~latest ~version)
-                      (list = '< op) `(< ~latest ~version)
-                      (list = '<= op) `(<= ~latest ~version)
-                      :else `(throw (ex-info "Invalid operand" {:op ~op})))
-          (cons 'do body))))
-
 ;;
-;; Lucene 10 breaks backwards compatibility in a trivial rename of an accessor
-;; which, frankly, is pretty indefensible. Here we manage the incompatibility
-;; dynamically by looking at the Lucene version at compile time and choosing
-;; the right accessor based on version. This means we can support Lucene 10
-;; when running on Java 21 and above, and yet still run on Java 17 and above
-;; using Lucene 9.
+;; Lucene 10 renames BooleanClause accessors (getQuery/getOccur -> query/occur)
+;; because it became a Java record. We select the right accessor at load time
+;; using `eval` so that only the live branch is compiled, avoiding AOT issues
+;; where dead-branch `defn` class files overwrite the live ones.
 ;;
 
-(when-v >= 10
+(def query-for-boolean-clause
+  (eval (if (>= (.major Version/LATEST) 10)
+          '(fn [^org.apache.lucene.search.BooleanClause clause] (.query clause))
+          '(fn [^org.apache.lucene.search.BooleanClause clause] (.getQuery clause)))))
 
-  (defn query-for-boolean-clause
-    [^BooleanClause clause]
-    (.query clause))
-  (defn occur-for-boolean-clause
-    [^BooleanClause clause]
-    (.occur clause)))
-
-(when-v < 10
-
-  (defn query-for-boolean-clause
-    [^BooleanClause clause]
-    (.getQuery clause))
-  (defn occur-for-boolean-clause
-    [^BooleanClause clause]
-    (.getOccur clause)))
-
-(comment
-  Version/LUCENE_CURRENT
-  (println Version/LUCENE_CURRENT)
-  (println Version/MIN_SUPPORTED_MAJOR)
-  (.MIN_SUPPORTED_MAJOR Version/LATEST))
+(def occur-for-boolean-clause
+  (eval (if (>= (.major Version/LATEST) 10)
+          '(fn [^org.apache.lucene.search.BooleanClause clause] (.occur clause))
+          '(fn [^org.apache.lucene.search.BooleanClause clause] (.getOccur clause)))))
 
 ;;
 ;;

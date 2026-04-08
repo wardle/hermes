@@ -2,8 +2,7 @@
            instaparse.core/defparser                      clojure.core/def}
 
  :hooks {:analyze-call {com.eldrix.hermes.impl.lmdb/with-txn    hooks.com.eldrix.hermes.impl.lmdb/with-txn
-                        com.eldrix.hermes.impl.lmdb/with-cursor hooks.com.eldrix.hermes.impl.lmdb/with-cursor
-                        com.eldrix.hermes.impl.lucene/when-v    hooks.com.eldrix.hermes.impl.lucene/when-v}}
+                        com.eldrix.hermes.impl.lmdb/with-cursor hooks.com.eldrix.hermes.impl.lmdb/with-cursor}}
 
  :linters {:unsorted-required-namespaces {:level :warning}
            :invalid-arity                {:level :error}
