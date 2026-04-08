@@ -41,7 +41,7 @@
    :digit             str
    :digitNonZero      str
    :zero              (constantly "0")
-   :sctId             (fn [& chars] (parse-long (apply str chars)))
+   :sctId             (fn [& chs] (parse-long (apply str chs)))
    :conceptId         identity
    :term              (fn [& parts] (apply str parts))
    :nonwsNonPipe      str
@@ -52,10 +52,10 @@
                             {:conceptId (first parts) :term (second parts)})))
    :focusConcept      (fn [& args] (vec (remove-noise args)))
    :attributeName     identity
-   :stringValue       (fn [& chars] (apply str chars))
+   :stringValue       (fn [& chs] (apply str chs))
    :anyNonEscapedChar str
    :escapedChar       (fn [_bs ch] (if (nil? ch) "\"" "\\"))
-   :integerValue      (fn [& chars] (apply str chars))
+   :integerValue      (fn [& chs] (apply str chs))
    :decimalValue      (fn [& parts] (apply str parts))
    :numericValue      (fn [& parts] (parse-double (apply str parts)))
    :true              (constantly true)
@@ -204,8 +204,8 @@
 
 (defn- canonicalize-attribute
   "Canonicalize a single attribute pair, recursing into its value."
-  [[name value]]
-  [name (canonicalize-value value)])
+  [[attr-name value]]
+  [attr-name (canonicalize-value value)])
 
 (defn- sort-attributes
   "Sort a collection of attribute pairs by their name concept ID."
