@@ -2,8 +2,11 @@
 
 This log documents significant changes for each release.
 
-## [1.4.1575] - 2026-04-08
+## [1.4.1580] - 2026-04-08
 
+* Add support for '!=' in ECL term filters
+* Undo changes from '1.4.1518' as credentials no longer needed to view available distributions from MLDS
+* Fix AOT compiling for different versions of Lucene
 * Improve `status*` response: add hermes version, reasoning status, and structured module versions (name + date instead of flat string)
 * Add homebrew installation instructions
 * Code quality: fix shadowed vars, clean up unused requires/imports
