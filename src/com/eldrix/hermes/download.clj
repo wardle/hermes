@@ -33,16 +33,17 @@
 (s/def ::mlds (s/keys :req-un [::username ::password]))
 
 (defn download-from-trud
-  "Download an item from TRUD
+  "Download an item from TRUD, or list available releases.
   Parameters:
   - item-identifier : item wanted, (e.g. 101)
   - config: a map containing:
-    :api-key : path to file containing TRUD api-key (e.g.\"/var/hermes/api-key.txt\")
-    :cache-dir : TRUD download cache directory (e.g. \"/tmp/trud\")
-    :progress  : print progress?
-    :release-date : (optional) an ISO 8601 date e.g. \"2022-02-03\"
-  Returns TRUD metadata about the item specified.
-  See com.eldrix.trud.core/get-latest for information about return value."
+    :api-key      : path to file containing TRUD api-key
+    :cache-dir    : TRUD download cache directory
+    :progress     : print progress?
+    :release-date : an ISO 8601 date, \"list\" to print available releases, or
+                    nil to fetch the latest release.
+  Returns TRUD release metadata including :archiveFilePath when downloading,
+  or nil when listing releases (prints a table as a side effect)."
   [item-identifier {:keys [api-key cache-dir progress release-date]}]
   (let [trud-key (str/trim-newline (slurp api-key))]
     (if release-date
@@ -61,9 +62,9 @@
   "Returns a function that will download and unzip a release from TRUD."
   [item-identifier]
   (fn [params]
-    (-> (download-from-trud item-identifier params)
-        :archiveFilePath
-        (trud/unzip))))
+    (some-> (download-from-trud item-identifier params)
+            :archiveFilePath
+            (trud/unzip))))
 
 (def trud-distributions
   [{:id   "uk.nhs/sct-clinical"
