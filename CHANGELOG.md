@@ -2,7 +2,7 @@
 
 This log documents significant changes for each release.
 
-## [1.4.1580] - 2026-04-08
+## [1.4.1582] - 2026-04-08
 
 * Add support for '!=' in ECL term filters
 * Undo changes from '1.4.1518' as credentials no longer needed to view available distributions from MLDS
