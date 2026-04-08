@@ -460,9 +460,10 @@
                                                 (render-cf a) (render-cf b)))
                       pairs)
         agreements (count (filter :agree? results))
-        total (count results)]
-    (is (> (/ (double agreements) total) 0.90)
-        (str "Agreement rate below 90% threshold"))))
+        total (count results)
+        rate (/ (double agreements) total)]
+    (is (> rate 0.90)
+        (format "Agreement rate %.1f%% below 90%% threshold" (* 100.0 rate)))))
 
 ;;;; ── Equivalence discovery ──
 
