@@ -89,15 +89,12 @@
   command-line arguments. This performs a two-pass parse, first with the basic
   options specification, ignoring errors, and then using that parsed result to
   identify any chosen distributions. Those are then used to generate the full
-  required options specification dynamically. Extra-opts, if provided, are
-  always included unless a distribution-specific option defines the same flag."
-  [{:keys [db? extra-opts]} args]
-  (let [{:keys [arguments options]} (clojure.tools.cli/parse-opts args (make-distribution-options* db? extra-opts))
+  required options specification dynamically."
+  [{:keys [db?]} args]
+  (let [{:keys [arguments options]} (clojure.tools.cli/parse-opts args (make-distribution-options* db?))
         possible (into (set (:dist options)) (set arguments)) ;; all possibly selected distributions
-        dist-opts (distinct (mapcat distribution-opts possible))
-        dist-opt-ids (set (map second dist-opts))
-        safe-extra (remove #(dist-opt-ids (second %)) (or extra-opts []))]
-    (make-distribution-options* db? (concat safe-extra dist-opts))))
+        opts (distinct (mapcat distribution-opts possible))]
+    (make-distribution-options* db? opts)))
 
 (defn expand-legacy-parameters
   "Parse a sequence of well-known string arguments returning a vector of
@@ -139,8 +136,7 @@
     :desc "Import SNOMED distribution files from the path(s) specified"
     :opts [(option :db db-mandatory) (option :owl) (option :help)]}
    {:cmd  "available" :desc "List available distributions, or releases for 'install'"
-    :opts #(make-distribution-options {:extra-opts [[nil "--username USERNAME" "Username for MLDS"]
-                                                   [nil "--password PASSWORD_FILE" "Path to a file containing password for MLDS"]]} %)}
+    :opts #(make-distribution-options {} %)}
    {:cmd  "download" :usage "download [dists]" :deprecated true :warning "Use 'install' instead"
     :desc "Download and install specified distributions"
     :opts #(make-distribution-options {:db? true :extra-opts [(option :owl)]} %)}

@@ -64,7 +64,7 @@
 (defn install [{:keys [dist] :as opts} _]
   (if-not (seq dist)
     (do (println "No distribution specified. Specify with --dist.")
-        (println "Use 'available' to list distributions."))
+        (download/print-providers))
     (try
       (doseq [distribution dist]
         (when-let [unzipped-path (download/download distribution (dissoc opts :dist))]
@@ -83,7 +83,7 @@
 
 (defn available [{:keys [dist] :as opts} _]
   (if-not (seq dist)
-    (download/print-providers opts)
+    (download/print-providers)
     (install (assoc opts :release-date "list") [])))
 
 (defn build-index [{:keys [db]} _]
