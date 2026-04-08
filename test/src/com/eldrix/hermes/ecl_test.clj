@@ -274,6 +274,15 @@
             r3 (set (hermes/expand-ecl *svc* (str "<  64572001 |Disease|  {{ term = match:\"" s "\"}}")))]
         (is (= r1 r2 r3))))))
 
+(deftest ^:live test-term-filter-not-equals
+  (testing "!= term filter excludes matching concepts"
+    (let [all-diseases (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term = \"heart\" }}"))
+          not-heart    (set (hermes/expand-ecl *svc* "<  64572001 |Disease|  {{ term != \"heart\" }}"))]
+      (is (seq all-diseases) "There should be diseases matching 'heart'")
+      (is (seq not-heart) "There should be diseases NOT matching 'heart'")
+      (is (empty? (clojure.set/intersection all-diseases not-heart))
+          "!= results should not overlap with = results"))))
+
 (deftest ^:live test-ecl-parses
   (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"heart\" }}"))
   (is (hermes/valid-ecl? "<  64572001 |Disease|  {{ term = \"hjärt\" }}")

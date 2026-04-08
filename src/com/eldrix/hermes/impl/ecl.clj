@@ -198,7 +198,12 @@
       (and (= "=" op) typed-search-term-set)
       typed-search-term-set
 
-      ;; TODO: support "!=" as a boolean comparison operator
+      (and (= "!=" op) typed-search-term)
+      (search/q-not (search/q-match-all) typed-search-term)
+
+      (and (= "!=" op) typed-search-term-set)
+      (search/q-not (search/q-match-all) typed-search-term-set)
+
       :else
       (throw (ex-info "unsupported term filter" {:s         (zx/text loc)
                                                  :op        op
