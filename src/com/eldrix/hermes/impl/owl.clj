@@ -26,7 +26,6 @@
            (org.semanticweb.owlapi.model AxiomType IRI OWLAxiom OWLClass OWLClassExpression
                                          OWLDataFactory OWLOntology
                                          OWLOntologyLoaderConfiguration
-                                         OWLOntologyManager
                                          OWLSubPropertyChainOfAxiom
                                          OWLTransitiveObjectPropertyAxiom)
            (org.semanticweb.owlapi.reasoner OWLReasoner InferenceType)
