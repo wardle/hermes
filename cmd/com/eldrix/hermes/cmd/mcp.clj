@@ -9,11 +9,11 @@
 (ns com.eldrix.hermes.cmd.mcp
   "A native MCP (Model Context Protocol) server for hermes.
   Communicates via stdio using newline-delimited JSON-RPC 2.0."
+  (:refer-clojure :exclude [name])
   (:require [clojure.data.json :as json]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.mcp :as mcp])
   (:import (java.io BufferedReader InputStreamReader PrintStream)))
 
