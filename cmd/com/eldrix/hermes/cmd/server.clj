@@ -272,7 +272,7 @@
            include-historic?
            (assoc ctx :result (hermes/expand-ecl-historic svc ecl))
            preferred?
-           (let [refset-ids (or dialect-id (take 1 (hermes/match-locale svc (get-in ctx [:request :headers "accept-language"]) true)))]
+           (let [refset-ids (or dialect-id (hermes/match-locale svc (get-in ctx [:request :headers "accept-language"]) true))]
              (assoc ctx :result (hermes/expand-ecl* svc ecl refset-ids)))
            :else
            (assoc ctx :result (hermes/expand-ecl svc ecl)))))}))

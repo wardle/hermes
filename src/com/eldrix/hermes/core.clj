@@ -889,16 +889,18 @@
   :args (s/cat :svc ::svc :ecl ::non-blank-string :language-refset-ids (s/coll-of :info.snomed.Concept/id))
   :ret (s/coll-of ::result))
 (defn expand-ecl*
-  "Expand an ECL expression returning only preferred descriptions for the language reference set(s) specified.
-  Use [[match-locale]] to determine a set of language reference set ids for a given 'Accept-Language' language range
-  as defined in RFC3066, or manually specify language reference set ids if required. In order to return a single
-  term per concept, use a single language reference set. Also see [[expand-ecl]] and [[expand-ecl-historic]]."
+  "Expand an ECL expression returning preferred synonyms, one per concept.
+  Results include the preferred synonym from the highest priority language
+  reference set in `language-refset-ids`. Use [[match-locale]] to determine
+  language reference set ids for a given 'Accept-Language' language range as
+  defined in RFC3066. Also see [[expand-ecl]] and [[expand-ecl-historic]]."
   [^Svc svc ecl language-refset-ids]
   (let [q1 (ecl/parse svc ecl)
         q2 (search/q-synonym)
         q3 (search/q-acceptabilityAny :preferred-in language-refset-ids)]
-    ;; we deliberatively pass 'nil' here for the language reference sets as the term IS the preferred term
-    (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]) nil)))
+    (sequence (comp (filter #(= (:term %) (:preferredTerm %)))
+                    (search/distinct-by :conceptId))
+              (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]) language-refset-ids))))
 
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))

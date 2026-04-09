@@ -336,6 +336,16 @@
     (is (s/valid? ret-spec results))
     (is (seq results))))
 
+(deftest ^:live test-expand-ecl*-all-refsets
+  (testing "expand-ecl* returns results for concepts regardless of which language refset covers them"
+    (let [lang-refset-ids (hermes/match-locale *svc*)
+          ecl "< 763158003 : { << 127489000 = << 372687004 }"
+          results (hermes/expand-ecl* *svc* ecl lang-refset-ids)
+          concept-ids (into #{} (map :conceptId) results)]
+      (is (seq results) "drug concepts with grouped attributes should return results")
+      (is (= (count results) (count concept-ids)) "should return exactly one result per concept")
+      (is (every? :preferredTerm results) "every result should have a preferred term"))))
+
 (deftest ^:live test-expand-ecl-historic
   (let [ret-spec (:ret (s/get-spec `hermes/expand-ecl-historic))
         results (hermes/expand-ecl-historic *svc* "<24700007")]

@@ -65,6 +65,21 @@
   ([] (gen/fmap snomed/map->Result (s/gen ::result)))
   ([result] (gen/fmap #(merge % result) (gen-result))))
 
+(defn distinct-by
+  "Returns a stateful transducer that removes duplicates as determined by `kf`."
+  [kf]
+  (fn [rf]
+    (let [seen (volatile! (transient #{}))]
+      (fn
+        ([] (rf))
+        ([result] (rf result))
+        ([result input]
+         (let [k (kf input)]
+           (if (contains? @seen k)
+             result
+             (do (vswap! seen conj! k)
+                 (rf result input)))))))))
+
 (defn remove-duplicates
   "Returns a lazy sequence removing consecutive duplicates in coll with
   duplicates determined by equality function `equality-fn`.
