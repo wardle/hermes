@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1585] - 2026-04-09
+
+* Improve localisation / preferred term selection when expanding ECL expressions
+* Much improved documentation
+
 ## [1.4.1582] - 2026-04-08
 
 * Add support for '!=' in ECL term filters
