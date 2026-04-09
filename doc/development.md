@@ -33,6 +33,7 @@ The other top-level namespaces comprise:
 * `com.eldrix.hermes.graph`: Graph-API using multiple discrete resolvers via [Pathom](https://pathom3.wsscode.com).
 * `com.eldrix.hermes.download`: API to download SNOMED distributions
 * `com.eldrix.hermes.importer`: API to examine and consume SNOMED distributions
+* `com.eldrix.hermes.mcp`: Model Context Protocol (MCP) server for AI assistants
 * `com.eldrix.hermes.rf2`: Specifications for SNOMED RF2 to enable validation and runtime synthetic distribution generation
 * `com.eldrix.hermes.snomed`: Core SNOMED model data types and well known identifiers
 * `com.eldrix.hermes.verhoeff`: Implementation of the Verhoeff check digit algorithm
@@ -49,9 +50,15 @@ Namespaces in `com.eldrix.hermes.impl` should be regarded as private and subject
 * `com.eldrix.hermes.impl.members` : Search index for refset members
 * `com.eldrix.hermes.impl.language` : Language and Locale matching
 * `com.eldrix.hermes.impl.ecl` : Implementation of the SNOMED expression constraint language
-* `com.eldrix.hermes.impl.scg` : A partial implementation of compositional grammar
+* `com.eldrix.hermes.impl.scg` : Implementation of SNOMED CT compositional grammar (parsing, rendering, normalization, subsumption)
+* `com.eldrix.hermes.impl.mrcm` : Machine Readable Concept Model support
+* `com.eldrix.hermes.impl.owl` : OWL axiom processing
+* `com.eldrix.hermes.impl.reasoner` : OWL reasoning via ELK
 
 The LMDB implementation was deliberately not designed to be a generic key value store, but instead optimised for the domain, and therefore speed of access. That decision could be changed in the future. 
+
+The reasoner/OWL/Elk implementation was deliberatively designed to be opt-in, so uses dynamic loading when the classes
+are available and the feature is turned on at the command-line/programmatically.
 
 ## How to build from source code
 
@@ -80,6 +87,7 @@ Additional test coverage reports and linting are also available:
 clj -M:test/cloverage
 clj -M:lint/kondo
 clj -M:lint/eastwood
+clj -M:lint/splint
 ```
 
 #### View outdated dependencies
