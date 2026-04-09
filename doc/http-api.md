@@ -187,7 +187,7 @@ curl -s -H 'Accept-Language: en-US' \
 Returns defining relationships grouped by role group, optionally with 
 human-readable labels.
 
-Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties](http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties)
+Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?format=id:syn](http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?format=id:syn)
 
 ```shell
 curl -s -H 'Accept-Language: en-GB' \
