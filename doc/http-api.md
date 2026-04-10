@@ -68,8 +68,7 @@ transitive closures), concrete values and reference set memberships. If an
 Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/24700007/extended](http://128.140.5.148:8080/v1/snomed/concepts/24700007/extended)
 
 ```shell
-curl -s -H 'Accept-Language: en-GB' \
-  'http://localhost:8080/v1/snomed/concepts/24700007/extended' | jq .
+curl -s -H 'Accept-Language: en-GB' 'http://localhost:8080/v1/snomed/concepts/24700007/extended' | jq .
 ```
 
 The response includes all descriptions (with `acceptableIn` and `preferredIn` 
@@ -173,12 +172,10 @@ Locale-aware preferred term:
 Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/80146002/preferred](http://128.140.5.148:8080/v1/snomed/concepts/80146002/preferred)
 
 ```shell
-curl -s -H 'Accept-Language: en-GB' \
-  'http://localhost:8080/v1/snomed/concepts/80146002/preferred' | jq .term
+curl -s -H 'Accept-Language: en-GB' 'http://localhost:8080/v1/snomed/concepts/80146002/preferred' | jq .term
 # => "Appendicectomy"
 
-curl -s -H 'Accept-Language: en-US' \
-  'http://localhost:8080/v1/snomed/concepts/80146002/preferred' | jq .term
+curl -s -H 'Accept-Language: en-US' 'http://localhost:8080/v1/snomed/concepts/80146002/preferred' | jq .term
 # => "Appendectomy"
 ```
 
@@ -190,8 +187,7 @@ human-readable labels.
 Try it live: [http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?format=id:syn](http://128.140.5.148:8080/v1/snomed/concepts/1231295007/properties?format=id:syn)
 
 ```shell
-curl -s -H 'Accept-Language: en-GB' \
-  'http://localhost:8080/v1/snomed/concepts/1231295007/properties?format=id:syn' | jq .
+curl -s -H 'Accept-Language: en-GB' 'http://localhost:8080/v1/snomed/concepts/1231295007/properties?format=id:syn' | jq .
 ```
 
 ```json
@@ -303,8 +299,7 @@ No search term is needed — you can search with just an ECL constraint.
 All drugs with exactly three active ingredients:
 
 ```shell
-curl -s -G 'http://localhost:8080/v1/snomed/search' \
-  --data-urlencode 'constraint=<373873005|Pharmaceutical / biologic product| : [3..3] 127489000 |Has active ingredient| = < 105590001 |Substance|' | jq .
+curl -s -G 'http://localhost:8080/v1/snomed/search' --data-urlencode 'constraint=<373873005|Pharmaceutical / biologic product| : [3..3] 127489000 |Has active ingredient| = < 105590001 |Substance|' | jq .
 ```
 
 [Try it live](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
@@ -312,8 +307,7 @@ curl -s -G 'http://localhost:8080/v1/snomed/search' \
 All disorders of the lung associated with oedema:
 
 ```shell
-curl -s -G 'http://localhost:8080/v1/snomed/search' \
-  --data-urlencode 'constraint=<19829001 AND <301867009' | jq .
+curl -s -G 'http://localhost:8080/v1/snomed/search' --data-urlencode 'constraint=<19829001 AND <301867009' | jq .
 ```
 
 [Try it live](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
@@ -324,8 +318,7 @@ If you are expanding an ECL expression without search terms, use the `expand`
 endpoint.
 
 ```shell
-curl -s -G 'http://localhost:8080/v1/snomed/expand' \
-  --data-urlencode 'ecl=<19829001 AND <301867009' -d includeHistoric=true | jq .
+curl -s -G 'http://localhost:8080/v1/snomed/expand' --data-urlencode 'ecl=<19829001 AND <301867009' -d includeHistoric=true | jq .
 ```
 
 [Try it live](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C19829001%20AND%20%3C301867009&includeHistoric=true)
