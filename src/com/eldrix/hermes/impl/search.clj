@@ -35,6 +35,12 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:private ^Analyzer analyzer
+  "A shared StandardAnalyzer instance for tokenizing search queries.
+  StandardAnalyzer is thread-safe; it uses per-thread TokenStreamComponents
+  reuse via CloseableThreadLocal internally."
+  (StandardAnalyzer.))
+
 (s/def ::store any?)
 (s/def ::searcher #(instance? IndexSearcher %))
 (s/def ::writer #(instance? IndexWriter %))
@@ -244,15 +250,14 @@
   [[make-ranked-search-tokens-query]]."
   (^BooleanQuery [field-name s] (make-autocomplete-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
-   (with-open [analyzer (StandardAnalyzer.)]
-     (when-not (str/blank? s) 
-       (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
-         (if (> (count qs) 1)
-           (let [builder (BooleanQuery$Builder.)]
-             (doseq [q qs]
-               (.add builder q BooleanClause$Occur/MUST))
-             (.build builder))
-           (first qs)))))))
+   (when-not (str/blank? s)
+     (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
+       (if (> (count qs) 1)
+         (let [builder (BooleanQuery$Builder.)]
+           (doseq [q qs]
+             (.add builder q BooleanClause$Occur/MUST))
+           (.build builder))
+         (first qs))))))
 
 (defn make-ranked-search-tokens-query
   "Create a query that searches using the tokens in `s`. This should be used
@@ -264,17 +269,16 @@
   (^BooleanQuery [field-name s]
    (make-ranked-search-tokens-query field-name s 0))
   (^BooleanQuery [field-name s fuzzy]
-   (with-open [analyzer (StandardAnalyzer.)]
-     (or
-      (when s
-        (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
-          (if (pos-int? (count qs))
-            (let [builder (BooleanQuery$Builder.)]
-              (doseq [q qs]
-                (.add builder q BooleanClause$Occur/SHOULD))
-              (.build builder))
-            (first qs))))
-      (MatchNoDocsQuery.)))))     ;; fallback to always returning a query that will match no results
+   (or
+    (when s
+      (let [qs (map #(make-token-query field-name % fuzzy) (tokenize analyzer field-name s))]
+        (if (pos-int? (count qs))
+          (let [builder (BooleanQuery$Builder.)]
+            (doseq [q qs]
+              (.add builder q BooleanClause$Occur/SHOULD))
+            (.build builder))
+          (first qs))))
+    (MatchNoDocsQuery.))))     ;; fallback to always returning a query that will match no results
 
 (defn q-or [queries]
   (lucene/q-or queries))
