@@ -1,5 +1,6 @@
 (ns com.eldrix.hermes.search-test
   (:require [clojure.core.async :as async]
+            [clojure.set]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest is testing]]
             [com.eldrix.hermes.core :as hermes]
@@ -41,6 +42,26 @@
     (let [q (search/q-descendantOrSelfOf 24700007)]
       (is (= (search/do-query-for-concept-ids (:searcher svc) q)
              (into #{} (map :conceptId) (search/do-query-for-results (:searcher svc) q nil)))))))
+
+(deftest ^:live test-concrete-not-equal
+  (testing "q-concrete!= should match concepts that have at least one value != n (ECL spec 6.5)"
+    (with-open [svc (hermes/open "snomed.db")]
+      (let [searcher (:searcher svc)
+            ;; 1142135004 = "Has presentation strength numerator value"
+            type-id 1142135004
+            value 250.0
+            eq-results (search/do-query-for-concept-ids searcher (search/q-concrete= type-id value))
+            neq-results (search/do-query-for-concept-ids searcher (search/q-concrete!= type-id value))
+            lt-results (search/do-query-for-concept-ids searcher (search/q-concrete< type-id value))
+            gt-results (search/do-query-for-concept-ids searcher (search/q-concrete> type-id value))]
+        (is (pos? (count eq-results))
+            "Should find concepts with presentation strength numerator value = 250")
+        (is (pos? (count lt-results))
+            "Should find concepts with presentation strength numerator value < 250")
+        (is (pos? (count gt-results))
+            "Should find concepts with presentation strength numerator value > 250")
+        (is (= neq-results (clojure.set/union lt-results gt-results))
+            "q-concrete!= should be equivalent to (< n) OR (> n)")))))
 
 (defn ch->set
   "Drain the clojure.core.async channel `ch` and return results as a set."

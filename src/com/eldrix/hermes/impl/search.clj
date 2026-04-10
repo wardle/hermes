@@ -750,7 +750,7 @@ items."
 
 (defn q-concrete!=
   [type-id n]
-  (q-and [(q-concrete< type-id n) (q-concrete> type-id n)]))
+  (q-or [(q-concrete< type-id n) (q-concrete> type-id n)]))
 
 (defn rewrite-query
   "Rewrites a query separating out any top-level 'inclusions' from 'exclusions'.
