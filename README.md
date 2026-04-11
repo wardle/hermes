@@ -39,6 +39,8 @@ Hermes is widely used in production systems across the World. It is fully open s
 
 You need Java 17+ installed, or use Homebrew which installs Java automatically.
 
+[![Getting started with hermes](https://img.youtube.com/vi/_w-omAIuc28/maxresdefault.jpg)](https://www.youtube.com/watch?v=_w-omAIuc28)
+
 > **Note:** Throughout this documentation, `hermes` refers to the Homebrew-installed
 > command. If you downloaded the jar, use `java -jar hermes.jar` instead.
 > If you're running from source, use `clj -M:run`. All three are equivalent.

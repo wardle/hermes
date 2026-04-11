@@ -4,6 +4,8 @@ Hermes provides a native [Model Context Protocol (MCP)](https://modelcontextprot
 server, allowing AI assistants and LLM-based tools to query SNOMED CT directly.
 The MCP server communicates via stdio using JSON-RPC 2.0.
 
+[![Using hermes as an MCP server](https://img.youtube.com/vi/3xzBifq_O-o/maxresdefault.jpg)](https://www.youtube.com/watch?v=3xzBifq_O-o)
+
 ## Setup
 
 ### Claude Code
