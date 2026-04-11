@@ -451,6 +451,20 @@
                    (lmdb/component-in-refsets?* store txn (:id %) language-refset-ids))
              (lmdb/concept-descriptions* store txn concept-id))))
 
+(defn- preferred-description*
+  "Return the preferred description for the concept specified as defined by
+  the language reference set specified for the description type, using existing
+  transactions."
+  ^Description [^LmdbStore store core-txn refsets-txn concept-id description-type-id language-refset-id]
+  (loop [ds (lmdb/concept-descriptions* store core-txn concept-id)]
+    (when-let [d (first ds)]
+      (if (and (:active d)
+               (= description-type-id (:typeId d))
+               (some #(= snomed/Preferred (:acceptabilityId %))
+                     (lmdb/component-refset-items* store core-txn refsets-txn (:id d) language-refset-id)))
+        d
+        (recur (rest ds))))))
+
 (s/fdef preferred-description
   :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
   :ret (s/nilable :info.snomed/Description))
@@ -475,14 +489,7 @@
   ^Description [^LmdbStore store concept-id description-type-id language-refset-id]
   (lmdb/with-txn [core-txn store :core]
     (lmdb/with-txn [refsets-txn store :refsets]
-      (loop [ds (lmdb/concept-descriptions* store core-txn concept-id)]
-        (when-let [d (first ds)]
-          (if (and (:active d)
-                   (= description-type-id (:typeId d))
-                   (some #(= snomed/Preferred (:acceptabilityId %))
-                         (lmdb/component-refset-items* store core-txn refsets-txn (:id d) language-refset-id)))
-            d
-            (recur (rest ds))))))))
+      (preferred-description* store core-txn refsets-txn concept-id description-type-id language-refset-id))))
 
 (defn preferred-synonym
   "Returns the preferred synonym for the concept specified, looking in the language reference sets
@@ -500,9 +507,12 @@
   999000691000001104 : NHS Realm language (pharmacy part)  (supercedes the old dm+d realm subset 30001000001134).
   This means that we need to be able to submit *multiple* language reference set identifiers."
   ([store concept-id language-refset-ids]
-   (when-let [refset-id (first language-refset-ids)]
-     (let [d (preferred-description store concept-id snomed/Synonym refset-id)]
-       (or d (recur store concept-id (rest language-refset-ids)))))))
+   (lmdb/with-txn [core-txn store :core]
+     (lmdb/with-txn [refsets-txn store :refsets]
+       (loop [refset-ids language-refset-ids]
+         (when-let [refset-id (first refset-ids)]
+           (or (preferred-description* store core-txn refsets-txn concept-id snomed/Synonym refset-id)
+               (recur (rest refset-ids)))))))))
 
 (s/fdef preferred-fully-specified-name
   :args (s/cat :store ::store
@@ -510,9 +520,12 @@
                :language-refset-ids (s/coll-of :info.snomed.Concept/id))
   :ret (s/nilable :info.snomed/Description))
 (defn preferred-fully-specified-name [store concept-id language-refset-ids]
-  (when-let [refset-id (first language-refset-ids)]
-    (let [d (preferred-description store concept-id snomed/FullySpecifiedName refset-id)]
-      (or d (recur store concept-id (rest language-refset-ids))))))
+  (lmdb/with-txn [core-txn store :core]
+    (lmdb/with-txn [refsets-txn store :refsets]
+      (loop [refset-ids language-refset-ids]
+        (when-let [refset-id (first refset-ids)]
+          (or (preferred-description* store core-txn refsets-txn concept-id snomed/FullySpecifiedName refset-id)
+              (recur (rest refset-ids))))))))
 
 (s/fdef fully-specified-name
   :args (s/alt
