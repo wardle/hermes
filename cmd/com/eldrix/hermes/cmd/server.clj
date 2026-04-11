@@ -277,6 +277,27 @@
            :else
            (assoc ctx :result (hermes/expand-ecl svc ecl)))))}))
 
+(def get-intersect
+  (intc/interceptor
+    {:name ::get-intersect
+     :enter
+     (fn [{::keys [svc] :as ctx}]
+       (let [ecl (get-in ctx [:request :params :ecl])
+             concept-id-param (get-in ctx [:request :params :conceptId])
+             concept-ids (cond
+                           (string? concept-id-param) [(Long/parseLong concept-id-param)]
+                           (coll? concept-id-param) (map Long/parseLong concept-id-param)
+                           :else nil)
+             include-historic? (parse-flag (get-in ctx [:request :params :includeHistoric]))]
+         (cond
+           (str/blank? ecl)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: ecl"}})
+           (empty? concept-ids)
+           (assoc ctx :response {:status 400 :body {:error "missing parameter: conceptId"}})
+           :else
+           (let [concept-ids' (if include-historic? (hermes/with-historical svc concept-ids) concept-ids)]
+             (assoc ctx :result (hermes/intersect-ecl svc concept-ids' ecl))))))}))
+
 (def get-mrcm-domains
   (intc/interceptor
     {:name ::get-mrcm-domains
@@ -348,6 +369,7 @@
     ["/v1/snomed/crossmap/:refset-id/:code" :get get-map-from :constraints {:refset-id #"[0-9]+"}]
     ["/v1/snomed/search" :get get-search]
     ["/v1/snomed/expand" :get get-expand]
+    ["/v1/snomed/intersect" :get get-intersect]
     ["/v1/snomed/mrcm-domains" :get get-mrcm-domains]
     ["/v1/snomed/status" :get get-status]
     ["/v1/snomed/subsumes" :get expression-subsumes]})

@@ -72,6 +72,27 @@
     (testing "invalid concept ID (bad check digit) returns 400"
       (is (= 400 (:status (response-for *connector* :get (str subsumes-url "?a=24700007&b=24700001"))))))))
 
+(deftest ^:live get-intersect
+  (let [intersect-url (*url-for* ::server/get-intersect)]
+    (testing "concept in ECL result set"
+      (let [resp (response-for *connector* :get (str intersect-url "?ecl=<<24700007&conceptId=24700007"))]
+        (is (= 200 (:status resp)))
+        (is (contains? (set (json/read-str (:body resp))) 24700007))))
+    (testing "concept not in ECL result set"
+      (let [resp (response-for *connector* :get (str intersect-url "?ecl=<24700007&conceptId=24700007"))]
+        (is (= 200 (:status resp)))
+        (is (empty? (json/read-str (:body resp))))))
+    (testing "multiple concept IDs"
+      (let [resp (response-for *connector* :get (str intersect-url "?ecl=<<24700007&conceptId=24700007&conceptId=6118003"))]
+        (is (= 200 (:status resp)))
+        (is (contains? (set (json/read-str (:body resp))) 24700007))))
+    (testing "missing ecl parameter"
+      (is (= 400 (:status (response-for *connector* :get (str intersect-url "?conceptId=24700007"))))))
+    (testing "missing conceptId parameter"
+      (is (= 400 (:status (response-for *connector* :get (str intersect-url "?ecl=<<24700007"))))))
+    (testing "invalid conceptId returns 400"
+      (is (= 400 (:status (response-for *connector* :get (str intersect-url "?ecl=<<24700007&conceptId=abc"))))))))
+
 (comment
   (def *svc* (hermes/open "snomed.db"))
   (def *connector* (server/create-connector *svc* {}))

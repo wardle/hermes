@@ -34,6 +34,7 @@ Locale-aware endpoints respect the `Accept-Language` header.
 | `GET /v1/snomed/crossmap/:refset-id/:code` | Reverse map from external code to SNOMED |
 | `GET /v1/snomed/search` | Full-text search with ECL constraints |
 | `GET /v1/snomed/expand` | Expand an ECL expression |
+| `GET /v1/snomed/intersect` | Test concept IDs against an ECL expression |
 | `GET /v1/snomed/subsumes` | Expression-level subsumption |
 | `GET /v1/snomed/classify` | OWL classification (requires `--owl`) |
 | `GET /v1/snomed/necessary-normal-form` | Necessary Normal Form (requires `--owl`) |
@@ -369,6 +370,33 @@ amoxicillin in an oral dose form:
 ```
 
 Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=<763158003...](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C%20763158003%20%7CMedicinal%20product%20%28product%29%7C%20%3A%0A%20%20%20%20%20411116001%20%7CHas%20manufactured%20dose%20form%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20385268001%20%7COral%20dose%20form%20%28dose%20form%29%7C%20%2C%0A%20%20%20%20%7B%20%20%20%20%3C%3C%20%20127489000%20%7CHas%20active%20ingredient%20%28attribute%29%7C%20%20%3D%20%3C%3C%20%20372687004%20%7CAmoxicillin%20%28substance%29%7C%20%2C%0A%20%20%20%20%20%20%20%20%20%201142135004%20%7CHas%20presentation%20strength%20numerator%20value%20%28attribute%29%7C%20%20%3D%20%23250%2C%0A%20%20%20%20%20%20%20%20%20732945000%20%7CHas%20presentation%20strength%20numerator%20unit%20%28attribute%29%7C%20%20%3D%20%20258684004%20%7Cmilligram%20%28qualifier%20value%29%7C%7D)
+
+## ECL intersection
+
+Given a list of concept identifiers, return the subset that satisfy an ECL 
+expression as a JSON array of concept identifiers. For example, you can check 
+whether a list of a patient's diagnoses or problems meet a particular constraint 
+without expanding the full result set.
+
+```shell
+curl -s 'http://localhost:8080/v1/snomed/intersect?ecl=<<6118003&conceptId=24700007&conceptId=26929004' | jq .
+```
+
+```json
+[24700007]
+```
+
+Parameters:
+
+| Parameter | Required | Description |
+|---|---|---|
+| `ecl` | Yes | ECL expression |
+| `conceptId` | Yes | One or more concept identifiers to test (repeat for multiple) |
+| `includeHistoric` | No | Expand input concept IDs to include historical associations before intersecting |
+
+Historical associations can also be handled via ECL history supplements 
+(e.g. `<<6118003 {{ +HISTORY-MIN }}`) — the `includeHistoric` parameter is 
+provided for convenience and consistency with the `expand` endpoint.
 
 ## Cross-mapping
 
