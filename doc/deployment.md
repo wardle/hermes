@@ -47,18 +47,7 @@ a horizontally scaled deployment. Each instance is stateless and disposable.
 
 ## Updating
 
-When a new SNOMED CT release is available, update in place:
-
-```shell
-hermes --progress --db snomed.db \
-  install --dist uk.nhs/sct-monolith --api-key trud-api-key.txt --cache-dir /tmp/trud \
-  index
-```
-
-This downloads the latest release, adds the new data and rebuilds the indices.
-
-For production deployments, you may prefer to build a new ephemeral service and 
-switch traffic at the load balancer:
+Build a new database from the latest release:
 
 ```shell
 hermes --progress --db snomed-2024-07.db \
@@ -66,7 +55,8 @@ hermes --progress --db snomed-2024-07.db \
   index compact
 ```
 
-Deploy alongside the existing version, switch, roll back if needed.
+Deploy the new database and switch traffic at the load balancer. Keep old
+databases around for reproducibility and rollback.
 
 ## Automation
 
