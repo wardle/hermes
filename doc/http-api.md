@@ -238,7 +238,7 @@ curl -s 'http://localhost:8080/v1/snomed/concepts/24700007/subsumed-by/6118003' 
 curl -s 'http://localhost:8080/v1/snomed/search?s=mnd&constraint=<64572001&maxHits=5' | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/search?s=mnd&constraint=%3C64572001&maxHits=5)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?s=mnd&constraint=<64572001&maxHits=5](http://128.140.5.148:8080/v1/snomed/search?s=mnd&constraint=%3C64572001&maxHits=5)
 
 ```json
 [
@@ -294,7 +294,7 @@ and duplicate removal for autocompletion:
 curl -s 'http://localhost:8080/v1/snomed/search?s=amlodipine&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500' | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/search?s=amlodipine&constraint=%3C10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?s=amlodipine&constraint=<10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500](http://128.140.5.148:8080/v1/snomed/search?s=amlodipine&constraint=%3C10363601000001109&fallbackFuzzy=true&removeDuplicates=true&maxHits=500)
 
 No search term is needed — you can search with just an ECL constraint. 
 All drugs with exactly three active ingredients:
@@ -303,7 +303,7 @@ All drugs with exactly three active ingredients:
 curl -s -G 'http://localhost:8080/v1/snomed/search' --data-urlencode 'constraint=<373873005|Pharmaceutical / biologic product| : [3..3] 127489000 |Has active ingredient| = < 105590001 |Substance|' | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?constraint=<373873005|Pharmaceutical / biologic product| : [3..3] 127489000 |Has active ingredient| = < 105590001 |Substance|](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C373873005%7CPharmaceutical%20/%20biologic%20product%7C%20:%20%5B3..3%5D%20%20127489000%20%7CHas%20active%20ingredient%7C%20%20=%20%3C%20%20105590001%20%7CSubstance%7C)
 
 All disorders of the lung associated with oedema:
 
@@ -311,7 +311,7 @@ All disorders of the lung associated with oedema:
 curl -s -G 'http://localhost:8080/v1/snomed/search' --data-urlencode 'constraint=<19829001 AND <301867009' | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
+Try it live: [http://128.140.5.148:8080/v1/snomed/search?constraint=<19829001 AND <301867009](http://128.140.5.148:8080/v1/snomed/search?constraint=%3C19829001%20AND%20%3C301867009)
 
 ## ECL expansion
 
@@ -322,7 +322,7 @@ endpoint.
 curl -s -G 'http://localhost:8080/v1/snomed/expand' --data-urlencode 'ecl=<19829001 AND <301867009' -d includeHistoric=true | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C19829001%20AND%20%3C301867009&includeHistoric=true)
+Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=<19829001 AND <301867009&includeHistoric=true](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C19829001%20AND%20%3C301867009&includeHistoric=true)
 
 See [Search and ECL](search-and-ecl.md) for full details.
 
@@ -345,7 +345,7 @@ considered inactive or duplicate:
 <<195967001 |Asthma| {{ +HISTORY-MOD }}
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
+Try it live: [http://128.140.5.148:8080/v1/snomed/expand?ecl=<<195967001 |Asthma| {{ +HISTORY-MOD }}](http://128.140.5.148:8080/v1/snomed/expand?ecl=%3C%3C%20195967001%20%7CAsthma%7C%20%7B%7B%20%2BHISTORY-MOD%20%7D%7D)
 
 As a concept identifier is a valid ECL expression, you can find historical 
 associations for a single concept:
@@ -382,7 +382,7 @@ without expanding the full result set.
 curl -s 'http://localhost:8080/v1/snomed/intersect?ecl=<<6118003&conceptId=24700007&conceptId=26929004' | jq .
 ```
 
-[Try it live](http://128.140.5.148:8080/v1/snomed/intersect?ecl=%3C%3C6118003&conceptId=24700007&conceptId=26929004)
+Try it live: [http://128.140.5.148:8080/v1/snomed/intersect?ecl=<<6118003&conceptId=24700007&conceptId=26929004](http://128.140.5.148:8080/v1/snomed/intersect?ecl=%3C%3C6118003&conceptId=24700007&conceptId=26929004)
 
 ```json
 [24700007]
