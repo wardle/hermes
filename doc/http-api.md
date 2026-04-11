@@ -382,6 +382,8 @@ without expanding the full result set.
 curl -s 'http://localhost:8080/v1/snomed/intersect?ecl=<<6118003&conceptId=24700007&conceptId=26929004' | jq .
 ```
 
+[Try it live](http://128.140.5.148:8080/v1/snomed/intersect?ecl=%3C%3C6118003&conceptId=24700007&conceptId=26929004)
+
 ```json
 [24700007]
 ```
