@@ -24,7 +24,9 @@
             [instaparse.combinators :as c]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher)
-           (java.time LocalDate)))
+           (java.time LocalDate)
+           (java.util.regex Pattern)
+           (com.eldrix.hermes.snomed Result)))
 
 (s/def ::query #(instance? Query %))
 (s/def ::store any?)
@@ -161,36 +163,134 @@
   (let [refset-id (first (localeMatchFn))]
     (lang/fold refset-id s)))
 
+(defn match-by-wildcard
+  "Return a function that, given a search [[Result]], returns the description
+  id when its folded lowercase term matches `pattern`, otherwise nil. Intended
+  for use with `keep` over a sequence of results."
+  [ctx ^Pattern pattern]
+  (fn [^Result r]
+    (let [term (.term r)]
+      (when (and term (re-matches pattern (str/lower-case (fold ctx term))))
+        (.id r)))))
+
 (defn parse-match-search-term-set
   [ctx loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)]
     (search/q-and (map #(search/q-term (fold ctx %)) terms))))
 
-(defn parse-wild-search-term-set
-  "wildSearchTermSet = QM wildSearchTerm QM"
-  [ctx loc]
-  (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
-    (search/q-wildcard (fold ctx term))))
+(s/fdef ecl-wildcard->pattern
+  :args (s/cat :s string?))
+(defn ecl-wildcard->pattern
+  "Compile a folded ECL wildcard string into a regex pattern intended for
+  `re-matches` (which requires the whole input to match). ECL uses '*' as the
+  only wildcard character. '\\*', '\\\\' and '\\\"' represent literal '*',
+  '\\' and '\"' respectively."
+  ^Pattern [^String s]
+  (let [sb (StringBuilder.)]
+    (loop [i 0]
+      (if (>= i (count s))
+        (Pattern/compile (.toString sb))
+        (let [ch (.charAt s i)]
+          (if (= ch \\)
+            (if (< (inc i) (count s))
+              (let [next-ch (.charAt s (inc i))]
+                (case next-ch
+                  \* (do (.append sb (Pattern/quote "*"))
+                         (recur (+ i 2)))
+                  \\ (do (.append sb (Pattern/quote "\\"))
+                         (recur (+ i 2)))
+                  \" (do (.append sb (Pattern/quote "\""))
+                         (recur (+ i 2)))
+                  (do (.append sb (Pattern/quote "\\"))
+                      (recur (inc i)))))
+              (do (.append sb (Pattern/quote "\\"))
+                  (recur (inc i))))
+            (do
+              (.append sb (if (= ch \*) ".*" (Pattern/quote (str ch))))
+              (recur (inc i)))))))))
 
-(declare parse-typed-search-term)
+(defn wildcard-prefilter-clause
+  "Build the fastest available Lucene query for wildcard string `s`:
+  1. Pure alphanumeric `foo`        → `q-term` (exact token match)
+  2. Alphanumeric then trailing `*` → `q-wildcard` (term-dictionary prefix scan)
+  3. Otherwise                      → `q-and` of `*run*` wildcards, one per
+                                      contiguous alphanumeric run (term-dictionary contains scan)
+
+  Returns nil when `s` has no alphanumeric content (e.g. a bare `*`)."
+  [s]
+  (cond
+    (re-matches #"(?u)\p{Alnum}+" s)
+    (search/q-term s)
+
+    (re-matches #"(?u)\p{Alnum}+\*+" s)
+    (search/q-wildcard s)
+
+    :else
+    (when-let [runs (seq (re-seq #"(?u)\p{Alnum}+" s))]
+      (search/q-and (map #(search/q-wildcard (str "*" % "*")) runs)))))
+
+(defn wildcard-prefilter-query
+  "Generate a best-effort candidate query for a folded ECL wildcard string.
+  Correctness comes from the whole-term post-filter, so the prefilter only
+  needs to be a sound (no false-negative) approximation.
+
+  Falls back to match-all when no component contains any alphanumeric content
+  (e.g. a bare `*`). **Callers must guard this fallback**: running the
+  Java-side post-filter against every description in the index is an
+  O(all-descriptions) scan. [[parse-wild-search-term-set]] enforces the guard
+  by requiring a narrowing outer subexpression before accepting a match-all
+  prefilter; any future caller must do the same."
+  [folded-term]
+  (let [clauses (->> (str/split folded-term #"\s+")
+                     (remove str/blank?)
+                     (map wildcard-prefilter-clause)
+                     (remove nil?))]
+    (or (search/q-and clauses) (search/q-match-all))))
+
+(defn parse-wild-search-term-set
+  "wildSearchTermSet = QM wildSearchTerm QM
+
+  When `base-query` is supplied and is not a match-all, it is ANDed with the
+  wildcard prefilter before iterating descriptions. This restricts the Java-
+  side regex post-filter to descriptions whose concept is in the outer
+  substrate, avoiding a full description-index scan for expressions like
+  `<< 24700007 {{ D term = wild:\"*sclero*\" }}`. A wildcard with no
+  alphanumeric content (e.g. bare `*`) produces a match-all candidate; we
+  reject it unless the outer substrate can narrow the scan, to avoid
+  iterating every description in the index."
+  [ctx base-query loc]
+  (let [term (zx/xml1-> loc :wildSearchTerm zx/text)
+        folded-term (str/lower-case (fold ctx term))
+        pattern (ecl-wildcard->pattern folded-term)
+        candidate-query (wildcard-prefilter-query folded-term)
+        narrowing-base? (and base-query (not (search/q-match-all? base-query)))]
+    (when (and (not narrowing-base?) (search/q-match-all? candidate-query))
+      (throw (ex-info "wildcard term with no alphanumeric content requires an outer subexpression to narrow the description scan"
+                      {:term term})))
+    (let [narrowed-query (if narrowing-base?
+                           (search/q-and [base-query candidate-query])
+                           candidate-query)]
+      (->> (search/do-query-for-results (:searcher ctx) narrowed-query nil)
+           (into #{} (keep (match-by-wildcard ctx pattern)))
+           (search/q-description-ids)))))
+
+(defn parse-typed-search-term
+  [ctx base-query loc]
+  (or (zx/xml1-> loc :matchSearchTermSet #(parse-match-search-term-set ctx %))
+      (zx/xml1-> loc :wildSearchTermSet #(parse-wild-search-term-set ctx base-query %))))
 
 (defn parse-typed-search-term-set
   "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
-  [ctx loc]
-  (let [terms (zx/xml-> loc :typedSearchTerm #(parse-typed-search-term ctx %))]
+  [ctx base-query loc]
+  (let [terms (zx/xml-> loc :typedSearchTerm #(parse-typed-search-term ctx base-query %))]
     (search/q-or terms)))
-
-(defn parse-typed-search-term
-  [ctx loc]
-  (or (zx/xml1-> loc :matchSearchTermSet #(parse-match-search-term-set ctx %))
-      (zx/xml1-> loc :wildSearchTermSet #(parse-wild-search-term-set ctx %))))
 
 (defn parse-term-filter
   "termFilter = termKeyword ws stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet)\n"
-  [ctx loc]
+  [ctx base-query loc]
   (let [op (zx/xml1-> loc :stringComparisonOperator zx/text) ;; "=" or "!="
-        typed-search-term (zx/xml1-> loc :typedSearchTerm #(parse-typed-search-term ctx %))
-        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet #(parse-typed-search-term-set ctx %))]
+        typed-search-term (zx/xml1-> loc :typedSearchTerm #(parse-typed-search-term ctx base-query %))
+        typed-search-term-set (zx/xml1-> loc :typedSearchTermSet #(parse-typed-search-term-set ctx base-query %))]
     (cond
       (and (= "=" op) typed-search-term)
       typed-search-term
@@ -198,6 +298,12 @@
       (and (= "=" op) typed-search-term-set)
       typed-search-term-set
 
+      ;; SNOMED ECL description-filter negation is existential at the
+      ;; description level. A concept matches `term != "x"` if it has any
+      ;; matching description that does not satisfy the positive term query.
+      ;; The spec's description-filter examples explicitly note that concepts
+      ;; may match via a different synonym, and that universal concept-level
+      ;; negation should be expressed with MINUS instead.
       (and (= "!=" op) typed-search-term)
       (search/q-not (search/q-match-all) typed-search-term)
 
@@ -403,8 +509,8 @@
 (defn parse-description-filter
   "2.0: descriptionFilter = termFilter / languageFilter / typeFilter / dialectFilter / moduleFilter / effectiveTimeFilter / activeFilter\n
   1.5: filter = termFilter / languageFilter / typeFilter / dialectFilter"
-  [ctx loc]
-  (or (zx/xml1-> loc :termFilter #(parse-term-filter ctx %))
+  [ctx base-query loc]
+  (or (zx/xml1-> loc :termFilter #(parse-term-filter ctx base-query %))
       (zx/xml1-> loc :languageFilter parse-language-filter)
       (zx/xml1-> loc :typeFilter #(parse-type-filter ctx %))
       (zx/xml1-> loc :dialectFilter #(parse-dialect-filter ctx %))
@@ -416,9 +522,13 @@
   1.5 : filterConstraint = {{ ws filter *(ws , ws filter) ws }}
   At the moment, search term text folding (removing diacritics) uses the database default language reference set. This
   is a reasonable assumption, and could be the default if instead we used any specific language or dialect choices at
-  this level within the ECL itself. TODO: implement more local choice on locale to use for case folding."
-  [ctx loc]
-  (search/q-and (zx/xml-> loc :descriptionFilter #(parse-description-filter ctx %))))
+  this level within the ECL itself. TODO: implement more local choice on locale to use for case folding.
+
+  When `base-query` is supplied, it is threaded through to the wildcard term
+  filter to narrow the Java-side regex scan to descriptions whose concept is
+  in the outer substrate."
+  [ctx base-query loc]
+  (search/q-and (zx/xml-> loc :descriptionFilter #(parse-description-filter ctx base-query %))))
 
 (defn parse-concept-active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue"
@@ -463,6 +573,27 @@
     (if (and incl excl)
       (search/q-not (f incl-concepts) (f excl-concepts))
       (f incl-concepts))))
+
+(defn q-or-or-none
+  "Build a disjunction of queries, falling back to MatchNoDocs when empty."
+  [queries]
+  (or (search/q-or (remove nil? queries))
+      (search/q-match-none)))
+
+(defn q-wildcard-attribute-in-set
+  "Lucene query matching concepts with any active concept-model-attribute
+  relationship whose direct target is in `value-concept-ids`. Projects sources
+  via the LMDB child-relationships index instead of building one Lucene clause
+  per attribute type (which would blow past BooleanQuery's maxClauseCount).
+  Filters to descendants of 410662002 |Concept model attribute| per ECL §8.5,
+  so IS-A (116680003) — a taxonomic relationship, not an attribute — is
+  excluded."
+  [{:keys [store]} value-concept-ids]
+  (let [attribute-types (store/all-children store snomed/ConceptModelAttribute)
+        sources (store/child-relationships-of-types store value-concept-ids attribute-types)]
+    (if (seq sources)
+      (search/q-concept-ids sources)
+      (search/q-match-none))))
 
 (defn make-attribute-query
   "Generate a nested query for the attributes specified, rewriting any
@@ -528,6 +659,158 @@
       :else
       (throw (ex-info "invalid attribute query" {:text (zx/text loc)})))))
 
+;; Group constraint evaluation
+;; ---------------------------
+;; Predicates that interpret ECL operator semantics (:in :not-in :minus :*
+;; := :!= :> :< :>= :<=) over a concept's raw relationship data, plus the
+;; concrete-value wire-format parser ('#N', '"s"', 'true'/'false') used to
+;; coerce stored values for numeric and typed comparisons. Consumed by
+;; `parse-ecl-attribute` (ungrouped) and `parse-ecl-attribute-group` (grouped)
+;; below.
+
+(defn parse-concrete-value
+  "Parse a concrete value string to its typed value.
+  Returns a number for '#N', a string for '\"text\"', a boolean for
+  'true'/'false', or nil for non-concrete values (e.g. concept ID longs)."
+  [v]
+  (when (string? v)
+    (cond
+      (str/starts-with? v "#")  (parse-double (subs v 1))
+      (str/starts-with? v "\"") (subs v 1 (dec (count v)))
+      :else                     (parse-boolean v))))
+
+(defn constraint-satisfied?
+  "Does a single group's properties satisfy a constraint?
+  `group-props` is {type-id #{values}} for one group.
+  `constraint` is [op attribute-ids value]. `attribute-ids` may be the
+  keyword `:wildcard` meaning 'any concept model attribute'; when present,
+  `cma-types` (a set of CMA descendant type-ids) restricts which group types
+  are considered. Without `cma-types`, `:wildcard` matches any type in the
+  group (a tighter restriction from callers is recommended to honour
+  ECL §8.5)."
+  ([group-props constraint]
+   (constraint-satisfied? group-props nil constraint))
+  ([group-props cma-types [op attribute-ids value]]
+   (let [actuals (if (= :wildcard attribute-ids)
+                   (into #{} cat (vals (if cma-types
+                                         (select-keys group-props cma-types)
+                                         group-props)))
+                   (into #{} (mapcat #(get group-props %)) attribute-ids))]
+    (case op
+      :in     (boolean (some value actuals))
+      ;; ECL '!=' is existential rather than vacuous: the attribute must exist,
+      ;; and at least one value in the group must fall outside the target set.
+      ;; Absence is expressed separately with cardinality, e.g. [0..0].
+      :not-in (boolean (some #(not (value %)) actuals))
+      :minus  (boolean (some #(not (value %)) actuals))
+      :*      (boolean (seq actuals))
+      (let [parsed (keep parse-concrete-value actuals)]
+        (case op
+          :=  (boolean (some #(= % value) parsed))
+          :!= (boolean (some #(not= % value) parsed))
+          (let [v (double value)]                         ;; numeric comparisons only
+            (case op
+              :>  (boolean (some #(> (double %) v) parsed))
+              :<  (boolean (some #(< (double %) v) parsed))
+              :>= (boolean (some #(>= (double %) v) parsed))
+              :<= (boolean (some #(<= (double %) v) parsed))))))))))
+
+(s/def ::group-operator #{:in :not-in :minus :* := :!= :> :< :>= :<=})
+(s/def ::group-constraint-value
+  (s/or :concept-ids (s/every :info.snomed.Concept/id :kind set?)
+        :number number?
+        :string string?
+        :boolean boolean?
+        :nil nil?))
+(s/def ::group-constraint-attribute-ids
+  (s/or :wildcard #{:wildcard}
+        :ids      (s/every :info.snomed.Concept/id :kind set?)))
+(s/def ::group-constraint
+  (s/tuple ::group-operator
+           ::group-constraint-attribute-ids
+           ::group-constraint-value))
+
+(s/fdef group-constraints-satisfied?
+  :args (s/cat :properties map?
+               :cma-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
+               :constraints (s/coll-of ::group-constraint)))
+(defn group-constraints-satisfied?
+  "Does at least one non-zero relationship group satisfy all constraints?
+  `properties` is {group-id {type-id #{values}}} as from [[store/properties]].
+  Relationship values must be raw targets, not ancestor-expanded values,
+  otherwise negative operators such as :not-in and :minus become unsound.
+  `cma-types`, when supplied, is the set of type-ids that are descendants of
+  410662002 |Concept model attribute| (ECL §8.5); it restricts which group
+  types are considered for `:wildcard` constraints.
+  `constraints` is a coll of [op attribute-ids value] tuples where:
+  - op is a keyword: :in, :not-in, :minus, :*, :=, :!=, :>, :<, :>=, :<=
+  - attribute-ids is a set of type concept IDs, or the keyword `:wildcard`
+  - value is a set of concept IDs (for :in/:not-in/:minus), nil (for :*),
+    or a number/string/boolean (for comparison operators)"
+  ([properties constraints]
+   (group-constraints-satisfied? properties nil constraints))
+  ([properties cma-types constraints]
+   (boolean
+     (some (fn [[group-id group-props]]
+             (when (pos? group-id)
+               (every? #(constraint-satisfied? group-props cma-types %) constraints)))
+           properties))))
+
+(defn wildcard-constraint? [[_ attribute-ids _]]
+  (= :wildcard attribute-ids))
+
+(s/fdef concept-satisfies-group-constraints?
+  :args (s/cat :store ::store
+               :cma-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
+               :concept-id :info.snomed.Concept/id
+               :constraints (s/coll-of ::group-constraint)))
+(defn concept-satisfies-group-constraints?
+  "Does at least one non-zero relationship group of concept-id satisfy all
+  constraints? Fetches [[store/properties]] and delegates to
+  [[group-constraints-satisfied?]]. `cma-types`, when supplied, is the set
+  of Concept model attribute descendants (ECL §8.5) to restrict `:wildcard`
+  matching; callers iterating many candidates should pre-resolve it with
+  [[cma-attribute-types]] to avoid repeated store lookups."
+  ([store concept-id constraints]
+   (concept-satisfies-group-constraints? store nil concept-id constraints))
+  ([store cma-types concept-id constraints]
+   (group-constraints-satisfied?
+     (store/properties store concept-id) cma-types constraints)))
+
+(defn cma-attribute-types
+  "Resolve the set of type-ids that are descendants of 410662002
+  |Concept model attribute|, if needed by any constraint in `constraints`.
+  Returns nil when no constraint uses `:wildcard`, so the validator does not
+  apply a restriction."
+  [store constraints]
+  (when (some wildcard-constraint? constraints)
+    (store/all-children store snomed/ConceptModelAttribute)))
+
+(s/fdef ungrouped-constraint-satisfied?
+  :args (s/cat :properties map?
+               :constraint ::group-constraint))
+(defn ungrouped-constraint-satisfied?
+  "Does the concept satisfy an ungrouped constraint?
+  For ungrouped refinements, the constraint is evaluated across ALL
+  relationships of the concept (all groups including group 0). This differs
+  from grouped evaluation where all constraints must be met within a single
+  non-zero group. `properties` is {group-id {type-id #{values}}} as from
+  [[store/properties]]. `constraint` is [op attribute-ids value]."
+  [properties constraint]
+  (let [merged-props (apply merge-with into (vals properties))]
+    (constraint-satisfied? merged-props constraint)))
+
+(s/fdef concept-satisfies-ungrouped-constraint?
+  :args (s/cat :store ::store
+               :concept-id :info.snomed.Concept/id
+               :constraint ::group-constraint))
+(defn concept-satisfies-ungrouped-constraint?
+  "Does the concept satisfy an ungrouped attribute constraint?
+  Fetches [[store/properties]] and delegates to
+  [[ungrouped-constraint-satisfied?]]."
+  [store concept-id constraint]
+  (ungrouped-constraint-satisfied? (store/properties store concept-id) constraint))
+
 (def ^:private concrete-numeric-comparison-ops
   {"="  search/q-concrete=
    ">"  search/q-concrete>
@@ -536,37 +819,142 @@
    "<=" search/q-concrete<=
    "!=" search/q-concrete!=})
 
+(defn resolve-attribute-ids
+  "Resolve an ECL attribute-name subexpression to either the keyword
+  `:wildcard` (when it matched `*`) or a set of attribute concept ids,
+  filtered to descendants of the ECL §8.5 umbrella: 410662002 |Concept
+  model attribute| for expression comparisons, or 762706009 |Concept model
+  data attribute| for concrete-value comparisons. Returns nil when
+  `ecl-attribute-name` is nil."
+  [ctx ecl-attribute-name expression?]
+  (when ecl-attribute-name
+    (if (search/q-match-all? ecl-attribute-name)
+      :wildcard
+      (let [parent (if expression? snomed/ConceptModelAttribute snomed/ConceptModelDataAttribute)]
+        (into #{} (realise-concept-ids ctx (search/q-and [(search/q-descendantOf parent) ecl-attribute-name])))))))
+
+(defn parse-wildcard-attribute-equals
+  "Handle `* = S` where the attribute name is a wildcard. Projects sources via
+  the store's child-relationships index; realising all CMA attribute ids as
+  per-attribute OR clauses would exceed BooleanQuery's maxClauseCount.
+  Rejects cardinality and reverse flag."
+  [ctx cardinality reverse-flag? loc]
+  (when cardinality
+    (throw (ex-info "cardinality with wildcard attribute name not supported"
+                    {:text (zx/text loc)})))
+  (when reverse-flag?
+    (throw (ex-info "reverse flag with wildcard attribute name not supported"
+                    {:text (zx/text loc)})))
+  (let [sub-expr (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+        [incl excl] (search/rewrite-query sub-expr)]
+    (cond
+      (and (search/q-match-all? incl) (nil? excl))
+      (throw (ex-info "`* = *` not supported" {:text (zx/text loc)}))
+
+      (search/q-match-all? incl)
+      (throw (ex-info "`* = (* MINUS …)` not supported" {:text (zx/text loc)}))
+
+      :else
+      (let [incl-ids (when incl (realise-concept-ids ctx incl))
+            excl-ids (when excl (realise-concept-ids ctx excl))
+            incl-q   (when (seq incl-ids) (q-wildcard-attribute-in-set ctx incl-ids))
+            excl-q   (when (seq excl-ids) (q-wildcard-attribute-in-set ctx excl-ids))]
+        (cond
+          (and incl-q excl-q) (search/q-not incl-q excl-q)
+          incl-q              incl-q
+          :else               (search/q-match-none))))))
+
+(defn parse-attribute-not-equals
+  "Handle `A != S` at the concept level. ECL §6.5 requires an existential
+  check: a matching concept must have at least one value for A, and at
+  least one such value must not be in S. Plain Lucene negation would
+  wrongly exclude concepts with both in-range and out-of-range values, and
+  wrongly include concepts with no such attribute. We split candidates
+  with Lucene into those confirmable trivially (has A but no raw value in
+  S) vs those needing a store check, and validate only the latter.
+  `base-query`, when supplied, narrows the candidate set."
+  [ctx base-query cardinality reverse-flag? attribute-concept-ids loc]
+  (cond
+    (and cardinality (zero? (:min-value cardinality)) (zero? (:max-value cardinality)))
+    (throw (ex-info "[0..0] cardinality with != not yet supported (requires universal quantification)"
+                    {:text (zx/text loc)}))
+
+    cardinality
+    (throw (ex-info "cardinality with != not yet supported"
+                    {:text (zx/text loc)}))
+
+    reverse-flag?
+    (throw (ex-info "reverse flag with != not yet supported"
+                    {:text (zx/text loc)}))
+
+    :else
+    (let [sub-expr (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))
+          target-ids (realise-concept-ids ctx sub-expr)
+          attribute-ids (set attribute-concept-ids)
+          constraint [:not-in attribute-ids target-ids]
+          presence-query (q-or-or-none
+                          (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-concept-ids))
+          has-target-query (q-or-or-none
+                            (map #(search/q-attribute-in-set % target-ids) attribute-concept-ids))
+          narrow #(if base-query (search/q-and [base-query %]) %)
+          ;; Candidates split into:
+          ;;  definitely-match — has attr but no raw value in target → all values
+          ;;                     outside target → satisfies != trivially
+          ;;  maybe-match      — has attr AND at least one value in target →
+          ;;                     could also have a non-target value; needs store check
+          definitely-match-query (search/q-not (narrow presence-query) has-target-query)
+          maybe-match-ids (realise-concept-ids ctx (narrow (search/q-and [presence-query has-target-query])))
+          validated-maybe (into #{}
+                                (filter #(concept-satisfies-ungrouped-constraint?
+                                          (:store ctx) % constraint))
+                                maybe-match-ids)]
+      (search/q-or [definitely-match-query (search/q-concept-ids validated-maybe)]))))
+
 (defn parse-ecl-attribute
   "1.5: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws QM stringValue QM / booleanComparisonOperator ws booleanValue)
 
-   2.0: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue)\n"
-  [ctx loc]
+   2.0: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue)
+
+  `base-query` is an optional Lucene query representing the outer subexpression
+  constraint (e.g. `< 19829001`). When present, it narrows the candidate set for
+  two-phase validators (expression `!=`), avoiding materialisation of all
+  concepts with the attribute across the entire terminology.\n"
+  [ctx base-query loc]
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
         reverse-flag? (zx/xml1-> loc :reverseFlag zx/text)
-        ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+        ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint #(parse-subexpression-constraint ctx %))
         expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
         string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
         boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
-        ;; resolve the attribute(s) - we logically AND to ensure all are valid attributes (descendants of 246061005 snomed/Attribute)
-        ;; or for concrete value attribute checks, we ensure attributes are descendants of 762706009 - snomed/ConceptModelDataAttribute)
-        ;; this means a wildcard (*) attribute doesn't accidentally bring in too many concepts
-        parent-attribute-id (if expression-operator snomed/Attribute snomed/ConceptModelDataAttribute)
-        attribute-concept-ids (when ecl-attribute-name
-                                (realise-concept-ids ctx (search/q-and [(search/q-descendantOf parent-attribute-id) ecl-attribute-name])))] ;; realise the attributes in the expression]
-    (when-not (seq attribute-concept-ids)
+        ;; A wildcard `*` attribute name would otherwise realise thousands of
+        ;; ids and blow past BooleanQuery's maxClauseCount on downstream
+        ;; OR-per-id clauses; dispatch that case to a store-projection path.
+        attribute-ids (resolve-attribute-ids ctx ecl-attribute-name (boolean expression-operator))
+        wildcard? (= :wildcard attribute-ids)
+        attribute-concept-ids (when-not wildcard? attribute-ids)]
+    (when-not (or wildcard? (seq attribute-concept-ids))
       (throw (ex-info "attribute expression resulted in no valid attributes" {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
     (cond
       expression-operator
       (case expression-operator
-        "=" (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc)
-        "!=" (search/q-not (search/q-match-all) (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
+        "=" (if wildcard?
+              (parse-wildcard-attribute-equals ctx cardinality reverse-flag? loc)
+              (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
+        "!=" (do
+               (when wildcard?
+                 (throw (ex-info "`* != V` with wildcard attribute name not supported — would require iterating every concept"
+                                 {:text (zx/text loc)})))
+               (parse-attribute-not-equals ctx base-query cardinality reverse-flag? attribute-concept-ids loc))
         (throw (ex-info (str "unsupported expression operator " expression-operator) {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
 
       numeric-operator
-      (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
-            op (concrete-numeric-comparison-ops numeric-operator)]
-        (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids)))
+      (if wildcard?
+        (throw (ex-info "numeric comparison with wildcard attribute name not supported; use an explicit attribute"
+                        {:text (zx/text loc) :operator numeric-operator}))
+        (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
+              op (concrete-numeric-comparison-ops numeric-operator)]
+          (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids))))
 
       string-operator
       (throw (ex-info "expressions containing string concrete refinements not yet supported." {:text (zx/text loc)}))
@@ -579,9 +967,9 @@
 
 (defn parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
-  [ctx loc]
-  (let [ecl-attribute (zx/xml1-> loc :eclAttribute (partial parse-ecl-attribute ctx))
-        ecl-attribute-set (zx/xml1-> loc :eclAttributeSet parse-ecl-attribute-set)]
+  [ctx base-query loc]
+  (let [ecl-attribute (zx/xml1-> loc :eclAttribute #(parse-ecl-attribute ctx base-query %))
+        ecl-attribute-set (zx/xml1-> loc :eclAttributeSet #(parse-ecl-attribute-set ctx base-query %))]
     (cond
       (and ecl-attribute ecl-attribute-set)
       (search/q-and [ecl-attribute ecl-attribute-set])
@@ -591,10 +979,10 @@
 
 (defn parse-ecl-attribute-set
   "eclAttributeSet = subAttributeSet ws [conjunctionAttributeSet / disjunctionAttributeSet]"
-  [ctx loc]
-  (let [subattribute-set (zx/xml1-> loc :subAttributeSet (partial parse-subattribute-set ctx))
-        conjunction-attribute-set (zx/xml-> loc :conjunctionAttributeSet :subAttributeSet (partial parse-subattribute-set ctx))
-        disjunction-attribute-set (zx/xml-> loc :disjunctionAttributeSet :subAttributeSet (partial parse-subattribute-set ctx))]
+  [ctx base-query loc]
+  (let [subattribute-set (zx/xml1-> loc :subAttributeSet #(parse-subattribute-set ctx base-query %))
+        conjunction-attribute-set (zx/xml-> loc :conjunctionAttributeSet :subAttributeSet #(parse-subattribute-set ctx base-query %))
+        disjunction-attribute-set (zx/xml-> loc :disjunctionAttributeSet :subAttributeSet #(parse-subattribute-set ctx base-query %))]
     (cond
       (and conjunction-attribute-set subattribute-set)
       (search/q-and (conj conjunction-attribute-set subattribute-set))
@@ -605,31 +993,167 @@
       :else
       subattribute-set)))
 
-(defn parse-ecl-attribute-group
-  "eclAttributeGroup = [\"[\" cardinality \"]\" ws] \"{\" ws eclAttributeSet ws \"}\""
+(def ecl-numeric-op->keyword
+  {"=" := "!=" :!= ">" :> "<" :< ">=" :>= "<=" :<=})
+
+(defn extract-attribute-constraint
+  "Extract a group constraint tuple from a single eclAttribute XML node.
+  Returns [op attribute-ids value] for use with [[group-constraints-satisfied?]].
+  `attribute-ids` is either a set of concept ids or the keyword `:wildcard`
+  (when the attribute name was `*`).
+  Throws for syntax that cannot be faithfully represented by the current
+  same-group evaluator (e.g. reverse flag)."
   [ctx loc]
-  (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
-        ecl-attribute-set (zx/xml1-> loc :eclAttributeSet (partial parse-ecl-attribute-set ctx))]
-    (if-not cardinality
-      ecl-attribute-set
-      (throw (ex-info "cardinality in ECL attribute groups not yet implemented."
-                      {:text            (zx/text loc)
-                       :cardinality     cardinality
-                       :eclAttributeSet ecl-attribute-set})))))
+  (when (zx/xml1-> loc :reverseFlag zx/text)
+    (throw (ex-info "reverse flag within an ECL attribute group is not supported"
+                    {:text (zx/text loc) :reason :reverse-flag-in-group})))
+  (let [ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+        expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
+        numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
+        string-operator (zx/xml1-> loc :stringComparisonOperator zx/text)
+        boolean-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
+        attribute-ids (resolve-attribute-ids ctx ecl-attribute-name (boolean expression-operator))
+        wildcard? (= :wildcard attribute-ids)]
+    (when (and (not wildcard?) (not (seq attribute-ids)))
+      (throw (ex-info "attribute expression resulted in no valid attributes"
+                      {:text (zx/text loc)
+                       :eclAttributeName ecl-attribute-name})))
+    (cond
+      expression-operator
+      (let [sub-expr (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
+            [incl excl] (search/rewrite-query sub-expr)]
+        (cond
+          ;; wildcard attribute with a wildcard value — match-all semantics
+          ;; aren't meaningful here; reject for consistency with non-grouped path
+          (and wildcard? (= "=" expression-operator) (search/q-match-all? incl))
+          (throw (ex-info "wildcard attribute name with wildcard value inside a group not supported"
+                          {:text (zx/text loc)}))
+          ;; = *
+          (and (= "=" expression-operator) (search/q-match-all? incl) (nil? excl))
+          [:* attribute-ids nil]
+          ;; = (* MINUS S)
+          (and (= "=" expression-operator) (search/q-match-all? incl) excl)
+          [:minus attribute-ids (realise-concept-ids ctx excl)]
+          ;; = S or != S (possibly with exclusions resolved via set difference).
+          ;; For grouped '!=', constraint-satisfied? enforces the ECL
+          ;; existential semantics: a value for the attribute must exist in
+          ;; the group and at least one such value must lie outside target-ids.
+          :else
+          (let [target-ids (realise-concept-ids ctx sub-expr)]
+            [(if (= "=" expression-operator) :in :not-in) attribute-ids target-ids])))
+
+      numeric-operator
+      (if wildcard?
+        (throw (ex-info "numeric comparison with wildcard attribute name inside a group not supported"
+                        {:text (zx/text loc) :operator numeric-operator}))
+        [(ecl-numeric-op->keyword numeric-operator) attribute-ids
+         (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))])
+
+      string-operator
+      (throw (ex-info "string concrete refinements within an ECL attribute group not yet supported"
+                      {:text (zx/text loc) :reason :string-in-group}))
+
+      boolean-operator
+      (throw (ex-info "boolean concrete refinements within an ECL attribute group not yet supported"
+                      {:text (zx/text loc) :reason :boolean-in-group}))
+
+      :else
+      (throw (ex-info "unsupported attribute operator within an ECL attribute group"
+                      {:text (zx/text loc) :reason :unknown-operator-in-group})))))
+
+(defn extract-group-constraints
+  "Extract constraint tuples from an eclAttributeSet within a group.
+  Returns a vector of [op attribute-ids value] tuples for a flat conjunction.
+  Throws with a specific `:reason` when the set uses syntax that cannot be
+  faithfully represented by the current same-group evaluator (disjunction,
+  nesting, reverse attributes)."
+  [ctx loc]
+  (let [has-disjunction? (zx/xml1-> loc :disjunctionAttributeSet)
+        first-sub (zx/xml1-> loc :subAttributeSet)
+        conjunction-subs (zx/xml-> loc :conjunctionAttributeSet :subAttributeSet)
+        all-subs (cons first-sub conjunction-subs)]
+    (cond
+      has-disjunction?
+      (throw (ex-info "disjunction (OR) within an ECL attribute group is not supported"
+                      {:text (zx/text loc) :reason :disjunction-in-group}))
+      (not (every? #(zx/xml1-> % :eclAttribute) all-subs))
+      (throw (ex-info "nested attribute sets within an ECL attribute group are not supported"
+                      {:text (zx/text loc) :reason :nested-attribute-set-in-group}))
+      :else
+      (mapv #(extract-attribute-constraint ctx (zx/xml1-> % :eclAttribute)) all-subs))))
+
+(defn prefilter-for-constraint
+  "Build a broad Lucene prefilter for a single same-group constraint.
+  Negative expression operators are reduced to attribute-presence checks to
+  avoid concept-level false negatives before the store-level group validator.
+  When `attribute-ids` is `:wildcard`, use store-projected queries instead
+  of per-attribute OR disjunctions to avoid Lucene's maxClauseCount."
+  [ctx [op attribute-ids value]]
+  (if (= :wildcard attribute-ids)
+    (case op
+      :in (q-wildcard-attribute-in-set ctx value)
+      (throw (ex-info (str "grouped `" (name op) "` with wildcard attribute name not supported — would require iterating every concept")
+                      {:op op})))
+    (let [presence-query (q-or-or-none
+                          (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-ids))]
+      (case op
+        :in  (q-or-or-none (map #(search/q-attribute-in-set % value) attribute-ids))
+        :not-in presence-query
+        :minus  presence-query
+        :*      presence-query
+        :=   (q-or-or-none (map #(search/q-concrete= % value) attribute-ids))
+        :!=  (q-or-or-none (map #(search/q-concrete!= % value) attribute-ids))
+        :>   (q-or-or-none (map #(search/q-concrete> % value) attribute-ids))
+        :<   (q-or-or-none (map #(search/q-concrete< % value) attribute-ids))
+        :>=  (q-or-or-none (map #(search/q-concrete>= % value) attribute-ids))
+        :<=  (q-or-or-none (map #(search/q-concrete<= % value) attribute-ids))))))
+
+(defn prefilter-for-group
+  "Build a safe broad prefilter for a whole same-group conjunction of constraints."
+  [ctx constraints]
+  (search/q-and (map #(prefilter-for-constraint ctx %) constraints)))
+
+(defn parse-ecl-attribute-group
+  "eclAttributeGroup = [\"[\" cardinality \"]\" ws] \"{\" ws eclAttributeSet ws \"}\"
+  Enforces same-group matching: all attributes within { } must be satisfied
+  by a single relationship group. Uses a safe broad Lucene pre-filter, then
+  validates against the raw grouped relationship data from the store.
+
+  Fail closed if the group uses syntax that this evaluator cannot preserve.
+  Returning the raw Lucene attribute query here would silently degrade to
+  cross-group semantics, and for grouped '!=' would also introduce false
+  negatives, which is worse than rejecting the expression.
+
+  `base-query` is an optional Lucene query narrowing the candidate set."
+  [ctx base-query loc]
+  (when-let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)]
+    (throw (ex-info "cardinality in ECL attribute groups not yet implemented."
+                    {:text        (zx/text loc)
+                     :cardinality cardinality})))
+  (let [attr-set-loc (zx/xml1-> loc :eclAttributeSet)
+        group-constraints (extract-group-constraints ctx attr-set-loc)
+        broad-query (prefilter-for-group ctx group-constraints)
+        candidate-query (if base-query (search/q-and [base-query broad-query]) broad-query)
+        candidate-ids (realise-concept-ids ctx candidate-query)
+        cma-types (cma-attribute-types (:store ctx) group-constraints)
+        validated-ids (into #{}
+                            (filter #(concept-satisfies-group-constraints? (:store ctx) cma-types % group-constraints))
+                            candidate-ids)]
+    (search/q-concept-ids validated-ids)))
 
 (defn parse-sub-refinement
   "subRefinement = eclAttributeSet / eclAttributeGroup / \"(\" ws eclRefinement ws \")\"\n"
-  [ctx loc]
-  (or (zx/xml1-> loc :eclAttributeSet (partial parse-ecl-attribute-set ctx))
-      (zx/xml1-> loc :eclAttributeGroup (partial parse-ecl-attribute-group ctx))
-      (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))))
+  [ctx base-query loc]
+  (or (zx/xml1-> loc :eclAttributeSet #(parse-ecl-attribute-set ctx base-query %))
+      (zx/xml1-> loc :eclAttributeGroup #(parse-ecl-attribute-group ctx base-query %))
+      (zx/xml1-> loc :eclRefinement #(parse-ecl-refinement ctx base-query %))))
 
 (defn parse-ecl-refinement
   "subRefinement ws [conjunctionRefinementSet / disjunctionRefinementSet]"
-  [ctx loc]
-  (let [sub-refinement (zx/xml1-> loc :subRefinement (partial parse-sub-refinement ctx))
-        conjunction-refinement-set (zx/xml-> loc :conjunctionRefinementSet :subRefinement (partial parse-sub-refinement ctx))
-        disjunction-refinement-set (zx/xml-> loc :disjunctionRefinementSet :subRefinement (partial parse-sub-refinement ctx))]
+  [ctx base-query loc]
+  (let [sub-refinement (zx/xml1-> loc :subRefinement #(parse-sub-refinement ctx base-query %))
+        conjunction-refinement-set (zx/xml-> loc :conjunctionRefinementSet :subRefinement #(parse-sub-refinement ctx base-query %))
+        disjunction-refinement-set (zx/xml-> loc :disjunctionRefinementSet :subRefinement #(parse-sub-refinement ctx base-query %))]
     (cond
       (and sub-refinement (seq conjunction-refinement-set))
       (search/q-and (conj conjunction-refinement-set sub-refinement))
@@ -889,7 +1413,6 @@
         focus-concept (zx/xml1-> loc :eclFocusConcept parse-focus-concept)
         wildcard? (= :wildcard focus-concept)
         expression-constraint (zx/xml1-> loc :expressionConstraint (partial parse-expression-constraint ctx))
-        description-filter-constraints (zx/xml-> loc :descriptionFilterConstraint (partial parse-description-filter-constraint ctx))
         concept-filter-constraints (zx/xml-> loc :conceptFilterConstraint #(parse-concept-filter-constraint ctx %))
         member-filter-constraints (zx/xml-> loc :memberFilterConstraint
                                             #(parse-member-filter-constraint ctx (or focus-concept expression-constraint) %))
@@ -1013,8 +1536,11 @@
                                       :constraint-operator            constraint-operator
                                       :member-of                      member-of
                                       :focus-concept                  focus-concept
-                                      :expression-constraint          expression-constraint
-                                      :description-filter-constraints description-filter-constraints})))]
+                                      :expression-constraint          expression-constraint})))
+        ;; description filters are parsed AFTER base-query so the outer
+        ;; substrate can narrow wildcard term scans (see parse-wild-search-term-set)
+        description-filter-constraints (zx/xml-> loc :descriptionFilterConstraint
+                                                 #(parse-description-filter-constraint ctx base-query %))]
     ;; now take base query (as 'b') and process according to the constraints
     (-> base-query
         (apply-filter-constraints ctx concept-filter-constraints)
@@ -1023,8 +1549,8 @@
 
 (defn parse-refined-expression-constraint
   [ctx loc]
-  (let [subexpression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
-        ecl-refinement (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))]
+  (let [subexpression (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))
+        ecl-refinement (zx/xml1-> loc :eclRefinement #(parse-ecl-refinement ctx subexpression %))]
     (search/q-and [subexpression ecl-refinement])))
 
 (defn parse-expression-constraint
