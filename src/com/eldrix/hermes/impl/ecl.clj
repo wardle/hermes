@@ -773,7 +773,7 @@
         op (zx/xml1-> loc :booleanComparisonOperator zx/text)]
     (case op
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-module-ids concept-ids)])
-      "!=" (members/q-and [(members/q-refset-id refset-id)]))))
+      "!=" (members/q-not (members/q-refset-id refset-id) (members/q-module-ids concept-ids)))))
 
 (defn parse-member-filter
   "memberFilter = memberFieldFilter / moduleFilter / effectiveTimeFilter / activeFilter"

@@ -22,6 +22,11 @@
 
 (use-fixtures :once live-test-fixture)
 
+(defn ecl->concept-ids
+  "Test helper: resolve an ECL expression to a set of concept identifiers."
+  [svc ecl]
+  (search/do-query-for-concept-ids (.-searcher svc) (ecl/parse svc ecl)))
+
 (def ^:live simple-tests
   [{:ecl "404684003 |Clinical finding|"
     :f   (fn [concept-ids]
@@ -238,6 +243,28 @@
                                     (.startsWith ^String mapTarget "J458")))
                              items))
                   (str "Concept " cid " should NOT have a member item with mapPriority=1 AND mapTarget starting with J458")))))))))
+
+(deftest ^:live test-member-filter-module-id-not-equals
+  (testing "moduleId != should exclude members from the specified module"
+    (let [refset-id 900000000000527005
+          module-id 900000000000207008]
+      (when (contains? (hermes/installed-reference-sets *svc*) refset-id)
+        (let [ids-eq  (ecl->concept-ids *svc*
+                        (str " ^ " refset-id " {{ M moduleId = " module-id " }}"))
+              ids-neq (ecl->concept-ids *svc*
+                        (str " ^ " refset-id " {{ M moduleId != " module-id " }}"))]
+          (is (seq ids-eq) "Expected at least one member in the specified module")
+          (is (seq ids-neq) "Expected at least one member outside the specified module")
+          (doseq [cid (take 200 ids-eq)]
+            (let [items (hermes/component-refset-items *svc* cid refset-id)]
+              (is (some #(= module-id (:moduleId %)) items)
+                  (str "Concept " cid " should have a member in module " module-id))))
+          (doseq [cid (take 200 ids-neq)]
+            (let [items (hermes/component-refset-items *svc* cid refset-id)]
+              (is (not-any? #(= module-id (:moduleId %)) items)
+                  (str "Concept " cid " should not have any member in module " module-id))))
+          (is (empty? (set/intersection (set (take 200 ids-eq)) (set (take 200 ids-neq))))
+              "= and != moduleId filters should not overlap on sampled results"))))))
 
 (deftest ^:live test-refinement-with-wildcard-value
   (let [ch (a/chan)]
