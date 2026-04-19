@@ -5,6 +5,7 @@
             [clojure.test :refer [deftest is use-fixtures run-tests testing]]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.impl.ecl :as ecl]
+            [com.eldrix.hermes.impl.search :as search]
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
@@ -340,6 +341,10 @@
         result-2 (seq (hermes/expand-ecl *svc* ecl-2))]
     (is result-1 "Expected results")
     (is (not result-2) "If attribute value matches nothing, should return empty")))
+
+(deftest ^:live test-ancestor-or-self-of-wildcard
+  (is (search/q-match-all? (ecl/parse *svc* ">> *"))
+      ">> * should produce MatchAllDocsQuery (every concept is its own ancestor-or-self)"))
 
 (comment
   (def ^:dynamic *svc* (hermes/open "snomed.db"))

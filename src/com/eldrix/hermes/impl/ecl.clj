@@ -904,8 +904,8 @@
                      (search/q-match-all)
 
                      ;; ">> *"
-                     (and (= :ancestorOrSelfOf constraint-operator) wildcard?) ;; ">> *" = all concepts
-                     (search/q-ancestorOrSelfOf ctx snomed/Root)
+                     (and (= :ancestorOrSelfOf constraint-operator) wildcard?) ;; ">> *" = all concepts (each is ancestor-or-self of itself)
+                     (search/q-match-all)
 
                      ;; "< *"
                      (and (= :descendantOf constraint-operator) wildcard?) ;; "< *" = all concepts except root
