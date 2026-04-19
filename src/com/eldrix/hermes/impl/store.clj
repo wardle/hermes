@@ -184,6 +184,27 @@
   ([store concept-id]
    (proximal-parent-ids store concept-id snomed/IsA)))
 
+(defn child-relationships-of-types*
+  "Returns a set of source concept-ids for child relationships of the given
+  destination concept(s), using an existing core read transaction.
+  `concept-id-or-ids` is a single concept-id (destination) or a collection of
+  destinations. `type-concept-ids` is a set or predicate; a type filter is
+  required — callers must explicitly decide which relationship types to
+  include."
+  [^LmdbStore store txn concept-id-or-ids type-concept-ids]
+  (let [ids (if (number? concept-id-or-ids) [concept-id-or-ids] concept-id-or-ids)]
+    (into #{}
+          (comp (mapcat #(lmdb/raw-child-relationships* store txn %))
+                (filter #(type-concept-ids (% 1)))
+                (map #(% 3)))
+          ids)))
+
+(defn child-relationships-of-types
+  "A version of [[child-relationships-of-types*]] that manages transactions."
+  [^LmdbStore store concept-id-or-ids type-concept-ids]
+  (lmdb/with-txn [txn store :core]
+    (child-relationships-of-types* store txn concept-id-or-ids type-concept-ids)))
+
 (defn child-relationships-of-type
   "Returns a set of identifiers representing the child relationships of the
   specified type of the specified concept."
@@ -797,8 +818,5 @@
 
 (defmethod has-property? ExtendedConcept [_ ec property-id value-id]
   (contains? (get-in ec [:parentRelationships property-id]) value-id))
-
-
-
 
 
