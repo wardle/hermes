@@ -54,19 +54,19 @@
 (declare parse-expression-constraint)
 (declare parse-subexpression-constraint)
 
-(defn- parse-sctId [sctId]
+(defn parse-sctId [sctId]
   (parse-long (zx/xml1-> sctId zx/text)))
 
-(defn- parse-conceptId [conceptId]
+(defn parse-conceptId [conceptId]
   (zx/xml1-> conceptId :sctId parse-sctId))
 
-(defn- parse-concept-reference [cr]
+(defn parse-concept-reference [cr]
   (let [conceptId (zx/xml1-> cr :conceptId parse-conceptId)
         term (zx/xml1-> cr :term zx/text)]
     (cond-> {:conceptId conceptId}
       term (assoc :term term))))
 
-(defn- parse-constraint-operator
+(defn parse-constraint-operator
   "Returns constraint operator as a keyword.
   For example, :descendantOrSelfOf
 
@@ -74,7 +74,7 @@
   [loc]
   (:tag (first (zip/down loc))))
 
-(defn- parse-alt-identifier
+(defn parse-alt-identifier
   " altIdentifier = (QM altIdentifierSchemeAlias \" #\" altIdentifierCodeWithinQuotes QM / altIdentifierSchemeAlias \" #\" altIdentifierCodeWithoutQuotes) [ws \" | \" ws term ws \" | \"]
     altIdentifierSchemeAlias = alpha *(dash / alpha / integerValue)
     altIdentifierCodeWithinQuotes = 1*anyNonEscapedChar
@@ -82,7 +82,7 @@
   [loc]
   (throw (ex-info "unsupported clause altIdentifier " {:s (zx/text loc)})))
 
-(defn- parse-focus-concept
+(defn parse-focus-concept
   "eclFocusConcept = eclConceptReference / wildCard / altIdentifier"
   [loc]
   (or (zx/xml1-> loc :eclConceptReference parse-concept-reference)
@@ -91,22 +91,22 @@
 
 (s/fdef realise-concept-ids
   :args (s/cat :ctx ::ctx :q ::query))
-(defn- realise-concept-ids
+(defn realise-concept-ids
   "Realise a query as a set of concept identifiers."
   [{:keys [searcher]} ^Query q]
   (search/do-query-for-concept-ids searcher q))
 
-(defn- parse-conjunction-expression-constraint
+(defn parse-conjunction-expression-constraint
   "conjunctionExpressionConstraint = subExpressionConstraint 1*(ws conjunction ws subExpressionConstraint)"
   [ctx loc]
   (search/q-and (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
-(defn- parse-disjunction-expression-constraint
+(defn parse-disjunction-expression-constraint
   "disjunctionExpressionConstraint = subExpressionConstraint 1*(ws disjunction ws subExpressionConstraint)"
   [ctx loc]
   (search/q-or (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))))
 
-(defn- parse-exclusion-expression-constraint
+(defn parse-exclusion-expression-constraint
   "Parse an exclusion expression contraint.
   Unlike conjunction and disjunction constraints, exclusion constraints have
   only two clauses.
@@ -115,14 +115,14 @@
   (let [[exp exclusion] (zx/xml-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))]
     (search/q-not exp exclusion)))
 
-(defn- parse-compound-expression-constraint
+(defn parse-compound-expression-constraint
   "compoundExpressionConstraint = conjunctionExpressionConstraint / disjunctionExpressionConstraint / exclusionExpressionConstraint"
   [ctx loc]
   (or (zx/xml1-> loc :conjunctionExpressionConstraint (partial parse-conjunction-expression-constraint ctx))
       (zx/xml1-> loc :disjunctionExpressionConstraint (partial parse-disjunction-expression-constraint ctx))
       (zx/xml1-> loc :exclusionExpressionConstraint (partial parse-exclusion-expression-constraint ctx))))
 
-(defn- process-dotted
+(defn process-dotted
   "Sequentially resolve dotted attributes in sequence, evaluating from left to right.
    eg.
    <  19829001 |Disorder of lung| .
@@ -144,7 +144,7 @@
               result (into #{} (mapcat #(store/parent-relationships-of-types store % attrs-concept-ids)) concept-ids)] ;; and get those values for all of our current concepts
           (recur result (next attributes)))))))
 
-(defn- parse-dotted-expression-constraint
+(defn parse-dotted-expression-constraint
   "dottedExpressionConstraint = subExpressionConstraint 1*(ws dottedExpressionAttribute)
   eg: <  19829001 |Disorder of lung| . < 47429007 |Associated with| . 363698007 |Finding site|"
   [ctx loc]
@@ -161,12 +161,12 @@
   (let [refset-id (first (localeMatchFn))]
     (lang/fold refset-id s)))
 
-(defn- parse-match-search-term-set
+(defn parse-match-search-term-set
   [ctx loc]
   (let [terms (zx/xml-> loc :matchSearchTerm zx/text)]
     (search/q-and (map #(search/q-term (fold ctx %)) terms))))
 
-(defn- parse-wild-search-term-set
+(defn parse-wild-search-term-set
   "wildSearchTermSet = QM wildSearchTerm QM"
   [ctx loc]
   (let [term (zx/xml1-> loc :wildSearchTerm zx/text)]
@@ -174,18 +174,18 @@
 
 (declare parse-typed-search-term)
 
-(defn- parse-typed-search-term-set
+(defn parse-typed-search-term-set
   "typedSearchTermSet = \"(\" ws typedSearchTerm *(mws typedSearchTerm) ws \")\""
   [ctx loc]
   (let [terms (zx/xml-> loc :typedSearchTerm #(parse-typed-search-term ctx %))]
     (search/q-or terms)))
 
-(defn- parse-typed-search-term
+(defn parse-typed-search-term
   [ctx loc]
   (or (zx/xml1-> loc :matchSearchTermSet #(parse-match-search-term-set ctx %))
       (zx/xml1-> loc :wildSearchTermSet #(parse-wild-search-term-set ctx %))))
 
-(defn- parse-term-filter
+(defn parse-term-filter
   "termFilter = termKeyword ws stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet)\n"
   [ctx loc]
   (let [op (zx/xml1-> loc :stringComparisonOperator zx/text) ;; "=" or "!="
@@ -210,10 +210,10 @@
                                                  :term      typed-search-term
                                                  :term-sets typed-search-term-set})))))
 
-(defn- parse-language-filter [loc]
+(defn parse-language-filter [loc]
   (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
 
-(defn- parse-type-id-filter
+(defn parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (subExpressionConstraint / eclConceptReferenceSet"
   [{:keys [store] :as ctx} loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -239,7 +239,7 @@
    :SYN 900000000000013009
    :DEF 900000000000550004})
 
-(defn- parse-type-token-filter
+(defn parse-type-token-filter
   "type ws booleanComparisonOperator ws (typeToken / typeTokenSet)
   typeToken = synonym / fullySpecifiedName / definition
   typeTokenSet = \"(\" ws typeToken *(mws typeToken) ws \")\""
@@ -254,7 +254,7 @@
                    (throw (ex-info "invalid boolean operator for type token filter" {:text (zx/text loc) :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
-(defn- parse-type-filter
+(defn parse-type-filter
   "typeFilter = typeIdFilter / typeTokenFilter"
   [ctx loc]
   (or (zx/xml1-> loc :typeIdFilter (partial parse-type-id-filter ctx))
@@ -269,7 +269,7 @@
    "preferred"        :preferred-in
    900000000000548007 :preferred-in})
 
-(defn- parse-acceptability-set->kws
+(defn parse-acceptability-set->kws
   "Parse acceptability set into a sequence of keywords.
   Result is either ':acceptable-in' or ':preferred-in'
   acceptabilitySet = acceptabilityConceptReferenceSet / acceptabilityTokenSet
@@ -283,7 +283,7 @@
                 (map str/lower-case (zx/xml-> loc :acceptabilityTokenSet :acceptabilityToken zx/text)))]
     (map acceptability->kw ids)))
 
-(defn- parse-dialect-set
+(defn parse-dialect-set
   "Parse either a dialect-alias-set or a dialect-id-set. Turns either a concept id or a dialect alias into
   a refset identifier. Returns as a vector - dialect reference set id then acceptability and so on.
 
@@ -334,7 +334,7 @@
              (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
              (conj results acceptability))))))))
 
-(defn- parse-dialect-id-filter
+(defn parse-dialect-id-filter
   "dialectIdFilter = dialectId ws booleanComparisonOperator ws (subExpressionConstraint / dialectIdSet)"
   [ctx acceptability-set loc]
   (let [boolean-comparison-operator (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -354,7 +354,7 @@
       :else
       (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc) :op boolean-comparison-operator :refset-ids refset-ids})))))
 
-(defn- parse-dialect-alias-filter
+(defn parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
   [acceptability-set loc]
   (let [op (zx/xml1-> loc :booleanComparisonOperator zx/text)
@@ -377,7 +377,7 @@
       :else
       (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc)})))))
 
-(defn- parse-dialect-filter
+(defn parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
   [ctx loc]
   ;; Pass the acceptability set to the parsers of dialectIdFilter or dialectAliasFilter
@@ -388,7 +388,7 @@
     (or (zx/xml1-> loc :dialectIdFilter #(parse-dialect-id-filter ctx acceptability-set %))
         (zx/xml1-> loc :dialectAliasFilter #(parse-dialect-alias-filter acceptability-set %)))))
 
-(defn- parse-description-active-filter
+(defn parse-description-active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
   activeValue = activeTrueValue / activeFalseValue
   activeTrueValue = \"1\" / \"true\"
@@ -400,7 +400,7 @@
       "=" (search/q-description-active active?)
       "!=" (search/q-description-active (not active?)))))
 
-(defn- parse-description-filter
+(defn parse-description-filter
   "2.0: descriptionFilter = termFilter / languageFilter / typeFilter / dialectFilter / moduleFilter / effectiveTimeFilter / activeFilter\n
   1.5: filter = termFilter / languageFilter / typeFilter / dialectFilter"
   [ctx loc]
@@ -411,7 +411,7 @@
       (zx/xml1-> loc :activeFilter parse-description-active-filter)
       (throw (ex-info "Unsupported description filter" {:ecl (zx/text loc)}))))
 
-(defn- parse-description-filter-constraint
+(defn parse-description-filter-constraint
   "2.0: descriptionFilterConstraint = {{ ws [ d / D ] ws descriptionFilter *(ws , ws descriptionFilter) ws }}
   1.5 : filterConstraint = {{ ws filter *(ws , ws filter) ws }}
   At the moment, search term text folding (removing diacritics) uses the database default language reference set. This
@@ -420,7 +420,7 @@
   [ctx loc]
   (search/q-and (zx/xml-> loc :descriptionFilter #(parse-description-filter ctx %))))
 
-(defn- parse-concept-active-filter
+(defn parse-concept-active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue"
   [loc]
   (let [active? (boolean (zx/xml1-> loc :activeValue :activeTrueValue))
@@ -429,18 +429,18 @@
       "=" (search/q-concept-active active?)
       "!=" (search/q-concept-active (not active?)))))
 
-(defn- parse-concept-filter
+(defn parse-concept-filter
   "conceptFilter = definitionStatusFilter / moduleFilter / effectiveTimeFilter / activeFilter"
   [_ctx loc]
   (or (zx/xml1-> loc :activeFilter parse-concept-active-filter)
       (throw (ex-info "Unsupported concept filter" {:text (zx/text loc)}))))
 
-(defn- parse-concept-filter-constraint
+(defn parse-concept-filter-constraint
   "conceptFilterConstraint = {{\" ws (\"c\" / \"C\") ws conceptFilter *(ws \",\" ws conceptFilter) ws \"}}"
   [ctx loc]
   (search/q-and (zx/xml-> loc :conceptFilter #(parse-concept-filter ctx %))))
 
-(defn- parse-cardinality
+(defn parse-cardinality
   "cardinality = minValue to maxValue
   minValue = nonNegativeIntegerValue
   to = \"..\"
@@ -452,7 +452,7 @@
     {:min-value min-value
      :max-value (if (= max-value "*") Integer/MAX_VALUE (Integer/parseInt max-value))}))
 
-(defn- make-nested-query
+(defn make-nested-query
   "Generate a nested query with the function 'f' specified. Each query
   is realised as a list of concept identifiers which are passed to `f`
   and then re-combined."
@@ -464,7 +464,7 @@
       (search/q-not (f incl-concepts) (f excl-concepts))
       (f incl-concepts))))
 
-(defn- make-attribute-query
+(defn make-attribute-query
   "Generate a nested query for the attributes specified, rewriting any
   exclusion clauses in the parent nested context. If the nested query returns
   no results, then this takes care to return `q-match-none` rather than nil."
@@ -499,7 +499,7 @@
       :else
       (search/q-match-none))))
 
-(defn- parse-attribute--expression
+(defn parse-attribute--expression
   [ctx {min-value :min-value max-value :max-value :as cardinality} reverse-flag? attribute-concept-ids loc]
   (let [sub-expression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         attribute-query (when-not (and cardinality (zero? min-value)) (make-attribute-query ctx sub-expression attribute-concept-ids))
@@ -536,7 +536,7 @@
    "<=" search/q-concrete<=
    "!=" search/q-concrete!=})
 
-(defn- parse-ecl-attribute
+(defn parse-ecl-attribute
   "1.5: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws QM stringValue QM / booleanComparisonOperator ws booleanValue)
 
    2.0: eclAttribute = [\"[\" cardinality \"]\" ws] [reverseFlag ws] eclAttributeName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws \"#\" numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue)\n"
@@ -577,7 +577,7 @@
       :else
       (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:text (zx/text loc)})))))
 
-(defn- parse-subattribute-set
+(defn parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
   [ctx loc]
   (let [ecl-attribute (zx/xml1-> loc :eclAttribute (partial parse-ecl-attribute ctx))
@@ -589,7 +589,7 @@
       ecl-attribute ecl-attribute
       ecl-attribute-set ecl-attribute-set)))
 
-(defn- parse-ecl-attribute-set
+(defn parse-ecl-attribute-set
   "eclAttributeSet = subAttributeSet ws [conjunctionAttributeSet / disjunctionAttributeSet]"
   [ctx loc]
   (let [subattribute-set (zx/xml1-> loc :subAttributeSet (partial parse-subattribute-set ctx))
@@ -605,7 +605,7 @@
       :else
       subattribute-set)))
 
-(defn- parse-ecl-attribute-group
+(defn parse-ecl-attribute-group
   "eclAttributeGroup = [\"[\" cardinality \"]\" ws] \"{\" ws eclAttributeSet ws \"}\""
   [ctx loc]
   (let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)
@@ -617,14 +617,14 @@
                        :cardinality     cardinality
                        :eclAttributeSet ecl-attribute-set})))))
 
-(defn- parse-sub-refinement
+(defn parse-sub-refinement
   "subRefinement = eclAttributeSet / eclAttributeGroup / \"(\" ws eclRefinement ws \")\"\n"
   [ctx loc]
   (or (zx/xml1-> loc :eclAttributeSet (partial parse-ecl-attribute-set ctx))
       (zx/xml1-> loc :eclAttributeGroup (partial parse-ecl-attribute-group ctx))
       (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))))
 
-(defn- parse-ecl-refinement
+(defn parse-ecl-refinement
   "subRefinement ws [conjunctionRefinementSet / disjunctionRefinementSet]"
   [ctx loc]
   (let [sub-refinement (zx/xml1-> loc :subRefinement (partial parse-sub-refinement ctx))
@@ -637,7 +637,7 @@
       (search/q-or (conj disjunction-refinement-set sub-refinement))
       :else sub-refinement)))
 
-(defn- parse-member-filter--match-search-term-set
+(defn parse-member-filter--match-search-term-set
   "matchSearchTermSet = QM ws matchSearchTerm *(mws matchSearchTerm) ws QM
   Note, as an optimisation, we bring through the reference set identifier "
   [_ctx refset-id refset-field-name comparison-op loc]
@@ -647,7 +647,7 @@
       "=" (members/q-and [(members/q-refset-id refset-id) query])
       "!=" (members/q-not (members/q-refset-id refset-id) query))))
 
-(defn- parse-member-filter--wild-search-term-set
+(defn parse-member-filter--wild-search-term-set
   "wildSearchTermSet = QM wildSearchTerm QM
   wildSearchTerm = 1*(anyNonEscapedChar / escapedWildChar)"
   [_ctx refset-id refset-field-name comparison-op loc]
@@ -662,7 +662,7 @@
                :refset-id :info.snomed.Concept/id
                :refset-field-name string?
                :comparison-op #{"=" "!="} :loc ::loc))
-(defn- parse-member-filter-typed-search-term
+(defn parse-member-filter-typed-search-term
   "Parse a typedSearchTerm in the context of a member filter.
 
   typedSearchTerm = ( [ match ws : ws ] matchSearchTermSet ) / ( wild ws : ws wildSearchTermSet )
@@ -680,13 +680,13 @@
    ">=" members/q-field>=
    "!=" members/q-field!=})
 
-(defn- parse-member-filter--numeric
+(defn parse-member-filter--numeric
   [_ctx refset-id refset-field-name comparison-op loc]
   (let [v (zx/xml1-> loc zx/text parse-long)
         f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:text (zx/text loc) :op comparison-op})))]
     (members/q-and [(members/q-refset-id refset-id) (f refset-field-name v)])))
 
-(defn- parse-member-filter--subexpression-constraint
+(defn parse-member-filter--subexpression-constraint
   "Parse a member filter that is a subexpression constraint.
   We realise the concept identifiers for the subexpression, and simply use them
   in our member filter.
@@ -700,14 +700,14 @@
       "!=" (members/q-not (members/q-refset-id refset-id) (members/q-field-in refset-field-name values))
       (throw (ex-info "Invalid operation for subexpression constraint" {:op comparison-op :text (zx/text loc)})))))
 
-(defn- parse-member-field--boolean
+(defn parse-member-field--boolean
   [_ctx refset-id refset-field-name comparison-op loc]
   (let [v (parse-boolean (zx/text loc))]
     (case comparison-op
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-boolean refset-field-name v)])
       "!=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-boolean refset-field-name (not v))]))))
 
-(defn- parse-member-field-filter
+(defn parse-member-field-filter
   "memberFieldFilter = refsetFieldName ws (expressionComparisonOperator ws subExpressionConstraint / numericComparisonOperator ws
   # numericValue / stringComparisonOperator ws (typedSearchTerm / typedSearchTermSet) / booleanComparisonOperator ws booleanValue /
   ws timeComparisonOperator ws (timeValue / timeValueSet) )"
@@ -735,7 +735,7 @@
    "<=" members/q-time<=
    "!=" members/q-time!=})
 
-(defn- parse-time-value
+(defn parse-time-value
   "timeValue = QM [ year month day ] QM"
   [loc]
   (let [^int year (zx/xml1-> loc :year zx/text #(Integer/parseInt %))
@@ -743,7 +743,7 @@
         ^int day (zx/xml1-> loc :day zx/text #(Integer/parseInt %))]
     (LocalDate/of year month day)))
 
-(defn- parse-member-effective-time-filter
+(defn parse-member-effective-time-filter
   "effectiveTimeFilter = effectiveTimeKeyword ws timeComparisonOperator ws ( timeValue / timeValueSet )
    timeValueSet = \"(\" ws timeValue *(mws timeValue) ws \")"
   [_ctx refset-id loc]
@@ -753,7 +753,7 @@
         _ (println "values: " {:op op :f f :values values})]
     (members/q-and (into [(members/q-refset-id refset-id)] (mapv #(f "effectiveTime" %) values)))))
 
-(defn- parse-member-filter--active-filter
+(defn parse-member-filter--active-filter
   "activeFilter = activeKeyword ws booleanComparisonOperator ws activeValue
    booleanComparisonOperator = \"=\" / \"!=\"
    activeValue = activeTrueValue / activeFalseValue"
@@ -763,7 +763,7 @@
     (members/q-and [(members/q-refset-id refset-id)
                     (members/q-field-boolean "active" (if (= "=" op) active? (not active?)))])))
 
-(defn- parse-member-filter--module-filter
+(defn parse-member-filter--module-filter
   "moduleFilter = moduleIdKeyword ws booleanComparisonOperator ws (subExpressionConstraint / eclConceptReferenceSet)"
   [ctx refset-id loc]
   (let [concept-ids (or (seq (zx/xml1-> loc :subExpressionConstraint
@@ -775,7 +775,7 @@
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-module-ids concept-ids)])
       "!=" (members/q-and [(members/q-refset-id refset-id)]))))
 
-(defn- parse-member-filter
+(defn parse-member-filter
   "memberFilter = memberFieldFilter / moduleFilter / effectiveTimeFilter / activeFilter"
   [ctx refset-id loc]
   ;; note, must try to parse memberFieldFilter last as least specific
@@ -790,7 +790,7 @@
                               :focus-concept (s/keys :req-un [::conceptId])
                               :expression-constraint #(instance? Query %))
                :loc any?))
-(defn- parse-member-filter-constraint
+(defn parse-member-filter-constraint
   "Parse a member filter constraint. Unlike most parsers, we must have the
   context of the wider expression as 'refsets', which is a query for concepts
   that are a type of reference set. As such, we are forced to realise that query, and then
@@ -818,7 +818,7 @@
             referenced-component-ids (members/search memberSearcher q)]
         (search/q-concept-ids referenced-component-ids)))))
 
-(defn- parse-history-supplement
+(defn parse-history-supplement
   "historySupplement = {{ ws + ws historyKeyword [ historyProfileSuffix / ws historySubset ] ws }}
 
   Returns a query for the reference set identifiers to use in sourcing historical associations."
@@ -830,7 +830,7 @@
     (or history-subset
         (search/q-concept-ids (store/history-profile store profile)))))
 
-(defn- apply-filter-constraints
+(defn apply-filter-constraints
   [base-query _ctx filter-constraints]
   (if (seq filter-constraints)
     (search/q-and (conj filter-constraints base-query))
@@ -838,7 +838,7 @@
 
 (s/fdef apply-history-supplement
   :args (s/cat :base-query ::query :ctx ::ctx :history-supplement (s/nilable ::query)))
-(defn- apply-history-supplement
+(defn apply-history-supplement
   [base-query {:keys [store] :as ctx} history-supplement]
   (if history-supplement
     (let [concept-ids (realise-concept-ids ctx base-query)
@@ -847,7 +847,7 @@
       (search/q-concept-ids concept-ids'))
     base-query))
 
-(defn- parse-member-of
+(defn parse-member-of
   "memberOf = \"^\" [ ws \"[\" ws (refsetFieldNameSet / wildCard) ws \"]\"]
   refsetFieldNameSet = refsetFieldName *(ws \",\" ws refsetFieldName)
   refsetFieldName = 1*alpha
@@ -859,7 +859,7 @@
       (throw (ex-info "selection of other fields in refset(s) not supported" {:wildcard (boolean wildcard) :refset-field-names refset-field-names :text (zx/text loc)}))
       true)))
 
-(defn- parse-subexpression-constraint
+(defn parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / ( ws expressionConstraint ws )) *(ws memberFilterConstraint)) / (eclFocusConcept / ( ws expressionConstraint ws )) ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
 
   For the history supplement, the current implementation realises the main
@@ -1021,13 +1021,13 @@
         (apply-filter-constraints ctx description-filter-constraints)
         (apply-history-supplement ctx history-supplement))))
 
-(defn- parse-refined-expression-constraint
+(defn parse-refined-expression-constraint
   [ctx loc]
   (let [subexpression (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         ecl-refinement (zx/xml1-> loc :eclRefinement (partial parse-ecl-refinement ctx))]
     (search/q-and [subexpression ecl-refinement])))
 
-(defn- parse-expression-constraint
+(defn parse-expression-constraint
   "expressionConstraint = ws ( refinedExpressionConstraint / compoundExpressionConstraint / dottedExpressionConstraint / subExpressionConstraint ) ws"
   [ctx loc]
   (or (zx/xml1-> loc :refinedExpressionConstraint (partial parse-refined-expression-constraint ctx))
