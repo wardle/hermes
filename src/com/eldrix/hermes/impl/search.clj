@@ -501,6 +501,11 @@ items."
   [description-id]
   (LongPoint/newExactQuery "description-id" description-id))
 
+(defn q-description-ids
+  "Returns a query that will return documents for the descriptions specified."
+  [^Collection description-ids]
+  (LongPoint/newSetQuery "description-id" description-ids))
+
 (defn q-descendantOf
   "Returns a query that matches descendants of the specified concept."
   [concept-id]
