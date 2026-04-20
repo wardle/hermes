@@ -42,7 +42,7 @@
   (doseq [{:keys [title ecl]} shapes]
     (println (str "\n*** " title))
     (println "  expand-ecl:")
-    (crit/quick-bench (doall (hermes/ecl->concept-ids *svc* ecl)))
+    (crit/quick-bench (doall (hermes/expand-ecl *svc* ecl)))
     (doseq [term search-terms]
       (println (str "  search \"" term "\" (max-hits 100):"))
       (crit/quick-bench
