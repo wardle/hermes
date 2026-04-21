@@ -527,7 +527,7 @@
   999001261000000100 : NHS realm language (clinical part)
   999000691000001104 : NHS Realm language (pharmacy part)  (supercedes the old dm+d realm subset 30001000001134).
   This means that we need to be able to submit *multiple* language reference set identifiers."
-  ([store concept-id language-refset-ids]
+  ([^LmdbStore store concept-id language-refset-ids]
    (lmdb/with-txn [core-txn store :core]
      (lmdb/with-txn [refsets-txn store :refsets]
        (loop [refset-ids language-refset-ids]
@@ -540,7 +540,7 @@
                :concept-id :info.snomed.Concept/id
                :language-refset-ids (s/coll-of :info.snomed.Concept/id))
   :ret (s/nilable :info.snomed/Description))
-(defn preferred-fully-specified-name [store concept-id language-refset-ids]
+(defn preferred-fully-specified-name [^LmdbStore store concept-id language-refset-ids]
   (lmdb/with-txn [core-txn store :core]
     (lmdb/with-txn [refsets-txn store :refsets]
       (loop [refset-ids language-refset-ids]
