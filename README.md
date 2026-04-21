@@ -127,6 +127,7 @@ See [benchmarks](doc/performance.md) for full details.
 | [HTTP API](doc/http-api.md) | Endpoint reference with examples |
 | [MCP server](doc/mcp.md) | AI integration — tools, prompts, resources and configuration |
 | [Search and ECL](doc/search-and-ecl.md) | Full-text search, autocompletion and Expression Constraint Language |
+| [ECL implementation status](doc/ecl.md) | Feature-by-feature ECL v2.2 (and v2.3) coverage — what works, what's planned, what isn't currently supported |
 | [Cross-mapping](doc/cross-mapping.md) | Mapping to/from ICD-10, OPCS, reference sets and analytics |
 | [OWL reasoning](doc/owl-reasoning.md) | Post-coordinated expression classification and normal forms |
 | [REPL exploration](doc/repl.md) | Interactive SNOMED CT exploration with the Clojure REPL |

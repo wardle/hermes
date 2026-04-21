@@ -2,6 +2,16 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Fix ECL conformance bugs: `!=` now uses existential semantics (§6.5), attribute groups `{...}` match same-group only, `>> *`/`<<! *`/`>>! *` all match all concepts, and `{{ M moduleId != ... }}` correctly negates
+* Tighten ECL refinement attribute umbrella to `410662002 |Concept model attribute|` (§8.5); out-of-umbrella attributes now throw rather than being silently accepted
+* Extend ECL coverage: wildcard attribute names on refinement LHS (`* = V`, `{ * = V }`), wildcard term filters (`{{ D term = wild:"*sclero*" }}`)
+* Add public API `ecl->concept-ids` and `ecl-count` for concept-id projection without materialising full `Result` records
+* Add `intersect-ecl` to the HTTP API
+* Speed up ECL concept-id projection and refset member enumeration by ~100–250× on large result sets, via two changes: (1) new `NumericDocValuesField` columns on the descriptions-index `concept-id` and members-index `referencedComponentId`, avoiding stored-fields block decompression; and (2) a primitive `LongHashSet`-backed custom Lucene collector, avoiding `Long` autoboxing. `ecl-count` returns the collector's size directly without allocating a Clojure set. Read path auto-detects the new indexes; older indexes continue to work, but to benefit, re-indexing or building a new database is required.
+* Reduce LMDB transaction churn in `preferred-synonym` and `preferred-fully-specified-name` by opening a single transaction pair across the language-refset iteration loop instead of per-refset
+
 ## [1.4.1585] - 2026-04-09
 
 * Improve localisation / preferred term selection when expanding ECL expressions
@@ -53,7 +63,7 @@ This log documents significant changes for each release.
 
 * Fix CLI 'available' list to work gracefully if user does not have MLDS credentials
 
-## [1.4.1518] - 2026-03-03 
+## [1.4.1518] - 2026-03-03
 
 * Minor improvements to MCP server
 * Make MCP tooling, prompts and guides available as a library for in-process usage
@@ -80,7 +90,7 @@ This log documents significant changes for each release.
 * Upgrade Pedestal to v0.8.1, which uses Jetty 12; as such `hermes` now requires JDK>=17
 * Improve GitHub Actions to test against multiple Java versions
 * Upgrade other dependencies
- 
+
 ## [1.4.1474] - 2025-07-30
 
 * Improve automated downloads for distributions using [MLDS service - 'Member Licensing and Distribution Service'](https://mlds.ihtsdotools.org)
@@ -94,7 +104,7 @@ This log documents significant changes for each release.
 
 ## [1.4.1454] - 2025-02-21
 
-* Fix #70 with handling Unicode characters in ECL parsing 
+* Fix #70 with handling Unicode characters in ECL parsing
 * Fix #72 by forcing ordered choice to reduce ambiguity in parsing member filters
 * Fix #73 by updating ECL parser with newer 2.2 updates
 * Fix #75 with handling of Unicode characters and normalization (folding) for search within ECL description term filter
@@ -104,7 +114,7 @@ This log documents significant changes for each release.
 
 * Fix #69 by improving import of custom reference sets in which there are missing custom field values
 * Improve build process for uberjar to ensure backwards compatibility with JDK>=11
-* Update to latest [trud](https://github.com/wardle/trud) library as the NHS TRUD service now supports SHA256 for integrity checks on downloaded files 
+* Update to latest [trud](https://github.com/wardle/trud) library as the NHS TRUD service now supports SHA256 for integrity checks on downloaded files
 * Add `intersect-ecl-fn` to improve performance in data pipelines when an ECL expression may be re-used many times
 
 ## [1.4.1425] - 2024-11-07
@@ -114,19 +124,19 @@ This log documents significant changes for each release.
 
 ## [1.4.1420] - 2024-10-19
 
-* Add ranked search 
+* Add ranked search
 * Fix #68 and permit both additional custom query AND a constraint
 * Upgrade dependencies
 
-## [1.4.1400] - 2024-05-21 
+## [1.4.1400] - 2024-05-21
 
 * Add support for ECL v2.2, including the operators top and bottom
 
-## [1.4.1388] - 2024-05-19 
+## [1.4.1388] - 2024-05-19
 
 * Avoid deprecated methods in Lucene 9.10 series (e.g. use CollectorManager and not Collector) - preparing for Lucene 10 release
-* Upgrade dependencies 
-* Add more comprehensive tests for arbitrarily large descriptions (see #66) to prove Hermes will have no issues if maximum description length increases 
+* Upgrade dependencies
+* Add more comprehensive tests for arbitrarily large descriptions (see #66) to prove Hermes will have no issues if maximum description length increases
 
 ## [1.4.1368] - 2024-03-20
 
@@ -135,7 +145,7 @@ This log documents significant changes for each release.
 
 ## [1.4.1362] - 2024-03-11
 
-* Fix #64 such that integrity always maintained during updates-in-place and re-indexing 
+* Fix #64 such that integrity always maintained during updates-in-place and re-indexing
 * Upgrade to Apache Lucene 9.10.0
 
 ## [1.4.1351] - 2024-01-27
@@ -163,8 +173,8 @@ This log documents significant changes for each release.
 * Generated artifacts such as library jar now include improved metadata (pom.xml)
 
 ## [1.4.1296] - 2023-09-20
- 
-* #60 When not explicitly set, derive database default fallback locale on the basis 
+
+* #60 When not explicitly set, derive database default fallback locale on the basis
 of installed reference sets rather than the system default locale
 
 ## [1.4.1292] - 2023-09-19
@@ -192,28 +202,28 @@ import (e.g. running out of disk space)
 
 This version updates the index to add a search field for normalized (folded) text, particularly
 helpful in international deployments in which release centres do not include synonyms
-with and without non-semantically meaningful diacritics. This does not break 
+with and without non-semantically meaningful diacritics. This does not break
 compatibility with older indexes, but search using the folded index will obviously
-not work with indexes created by prior versions; as such, this release will 
+not work with indexes created by prior versions; as such, this release will
 show a warning to say that index is missing. This can be safely ignored if you do
 not need search against a folded index.
 
 ## [1.3.1232] - 2023-07-14
 
 * Change to search index structure to better handle runtime, dynamic results  
-  based on requested locale. This version is therefore incompatible with 
-  databases created by previous versions. Hermes always permitted getting a 
-  preferred term given localisation preferences, but the search index, for 
-  convenience, cached a preferred term at the time of index creation. Instead, 
-  v1.3 series caches all preferred terms so that search can return 
+  based on requested locale. This version is therefore incompatible with
+  databases created by previous versions. Hermes always permitted getting a
+  preferred term given localisation preferences, but the search index, for
+  convenience, cached a preferred term at the time of index creation. Instead,
+  v1.3 series caches all preferred terms so that search can return
   locale-specific results without requiring further round-trips.
 * Remove --locale as an option during index creation given now unnecessary
 * Add options `:accept-language` `:language-refset-ids` to core search API
 
 ## [1.2.1244] - 2023-07-07
 
-* Add language preferences to `synonyms` in core (Clojure), graph (Pathom) and Java APIs 
-* For graph API, expect service to be under key `:com.eldrix/hermes` in environment 
+* Add language preferences to `synonyms` in core (Clojure), graph (Pathom) and Java APIs
+* For graph API, expect service to be under key `:com.eldrix/hermes` in environment
 
 ## [1.2.1218] - 2023-06-26
 
@@ -230,12 +240,11 @@ not need search against a folded index.
 
 ## [1.2.1204] - 2023-05-29
 
-* Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result 
+* Add `expand-ecl*` to core API for human-readable results optimising fetch of preferred synonym for each result
 (and add `expandEclPreferred` for Java API clients)
 * Merge Java API wrapper ('hermes-api') into the main source repository
 * Add build steps to compile Java source code as part of 'prep-lib' and build of jar/uberjar artefacts thus
-deprecating code in https://github.com/wardle/hermes-api. That repository will now be archived.
-
+deprecating code in <https://github.com/wardle/hermes-api>. That repository will now be archived.
 
 ## [1.2.1190] - 2023-05-18
 
@@ -261,10 +270,10 @@ deprecating code in https://github.com/wardle/hermes-api. That repository will n
 * Make `properties` public in top-level library API
 * Add `match-locale` to top-level library API for when consumers need to parse
 the same language preferences for a number of separate calls
-* Add `/v1/snomed/concepts/:concept-id/properties` endpoint to HTTP API with 
+* Add `/v1/snomed/concepts/:concept-id/properties` endpoint to HTTP API with
 configuration options for pretty printing for human users, and `expand` for machine users
-* Improve handling of invalid parameters in HTTP API 
-* Improve documentation, including links to live examples 
+* Improve handling of invalid parameters in HTTP API
+* Improve documentation, including links to live examples
 
 ## [1.2.1115] - 2023-04-15
 
@@ -274,7 +283,7 @@ configuration options for pretty printing for human users, and `expand` for mach
 
 ## [1.2.1108] - 2023-04-13
 
-* Avoid HTTP 500 errors for bad client input in HTTP server. 
+* Avoid HTTP 500 errors for bad client input in HTTP server.
 * More consistent responses for HTTP server (result vs. empty result vs. not found).
 * Automated testing of HTTP server responses
 
@@ -297,7 +306,7 @@ downloads and install of a number of distributions across the World.
 
 ## [1.2.1060] - 2023-04-04
 
-* Add support for concrete values for store, indexing and search 
+* Add support for concrete values for store, indexing and search
 * Improve server error handling and reporting
 * Improve cardinality queries in ECL parsing/expansion
 * Improve wildcard attribute search
@@ -308,14 +317,14 @@ downloads and install of a number of distributions across the World.
 
 ## [1.2.1032] - 2023-04-01
 
-* Optimise handling wildcard value for attribute in an ECL refinement; the prior implementation had no special 
+* Optimise handling wildcard value for attribute in an ECL refinement; the prior implementation had no special
 handling for this, and so expanded the value to all concepts, impacting performance.
-* Fix handling of cardinality in expressions with a minimum of '0' (e.g. [0..1] or [0..0]). 
+* Fix handling of cardinality in expressions with a minimum of '0' (e.g. [0..1] or [0..0]).
 
 ## [1.2.1026] - 2023-03-29
 
 * Significant but backwards-compatible change in top-level API with improved, and shortened function names (e.g. `concept` rather than `get-concept` for Clojure-based library clients)
-* Miscellaneous code style and performance improvements 
+* Miscellaneous code style and performance improvements
 * Internal (private) API changes
 * Improve tests
 * More deterministic derivation of 'replace by' in graph API.
@@ -331,7 +340,7 @@ handling for this, and so expanded the value to all concepts, impacting performa
 
 ## [1.0.960] - 2023-02-15
 
-* Drop support for Lucene 8.x series and therefore Java 1.8 (latter out of support from 31 March 2022, and Lucene 9.x requires at least Java 11). 
+* Drop support for Lucene 8.x series and therefore Java 1.8 (latter out of support from 31 March 2022, and Lucene 9.x requires at least Java 11).
 * Improve Java API
 * Add ability to stream all concepts to top level API
 * Use new Lucene 9.5 'storedFields' in favour of deprecated document field access
@@ -345,10 +354,9 @@ handling for this, and so expanded the value to all concepts, impacting performa
 
 ## [1.0.938] - 2023-01-31
 
-* Add support to give multiple commands in one invocation via command-line interface 
-* Improve speed of import through tweaking memory map synchronisation 
+* Add support to give multiple commands in one invocation via command-line interface
+* Improve speed of import through tweaking memory map synchronisation
 * Improve speed of indexing through more efficient calculation of transitive closure tables for relationships
-
 
 ## [1.0.914] - 2023-01-23
 
@@ -358,7 +366,7 @@ handling for this, and so expanded the value to all concepts, impacting performa
 ## [1.0.895] - 2023-01-15
 
 * Significant update to command-line operation, while maintaining backwards-compatibility
-* Status reports now record count data in a nested map with a choice of formatting in the CLI. 
+* Status reports now record count data in a nested map with a choice of formatting in the CLI.
 
 ## [1.0.875] - 2023-01-07
 
@@ -368,7 +376,6 @@ handling for this, and so expanded the value to all concepts, impacting performa
 * Flag any module dependency problems on indexing and serve
 * Report size of search indices in status report
 * Use language preferences for fully specified name
-
 
 ## [1.0.822] - 2022-12-24
 
@@ -380,7 +387,7 @@ handling for this, and so expanded the value to all concepts, impacting performa
 * Upgrade to netty-buffer 4.1.86
 * Improve namespace stratification by factoring out common Lucene functions shared by the two indices (descriptions and refset members).
 * Move ECL and CG implementations into `com.eldrix.hermes.impl` as they contain no public-facing API.
-* Explicitly use an opaque handle for core API to represent encapsulated runtime state. The prior public but undocumented `Service` is now deprecated in favour of a private `Svc` with `hermes/open` returning `Closeable`.   
+* Explicitly use an opaque handle for core API to represent encapsulated runtime state. The prior public but undocumented `Service` is now deprecated in favour of a private `Svc` with `hermes/open` returning `Closeable`.
 
 ## [1.0.804] - 2022-11-27
 
@@ -392,12 +399,12 @@ handling for this, and so expanded the value to all concepts, impacting performa
 * Add `get-description` and `get-relationship` to top-level API
 * Add polymorphic `get-component` via graph API
 * Add additional reference set item resolution via graph API
-* Address miscellaneous code linting (removal unused imports and requires, avoid shadowing vars, improved comments / docstrings) 
+* Address miscellaneous code linting (removal unused imports and requires, avoid shadowing vars, improved comments / docstrings)
 
 ## [1.0.772] - 2022-11-08
 
 * Tweak indexing so that reference set items are indexed in a separate pass as
-an interim step during import, for refset reification, and then re-indexed in 
+an interim step during import, for refset reification, and then re-indexed in
 the formal 'index' step.
 * Update documentation to recommend compaction should be run *after* indexing, now
 that the core datastore is updated during indexing.
@@ -421,7 +428,7 @@ more than one relationship in a distribution relates to the same source-target-t
 ## [1.0.734] - 2022-10-15
 
 * Add support to automatically remove duplicates during search, when term and conceptId match.
-* Add ability to explicitly include or exclude inactive concepts and descriptions from HTTP API 
+* Add ability to explicitly include or exclude inactive concepts and descriptions from HTTP API
 
 ## [1.0.712] - 2022-08-14
 
@@ -448,7 +455,7 @@ more than one relationship in a distribution relates to the same source-target-t
 * Simplify usage when used as a library by Java clients, with an externally defined Java API.
 * Avoid ahead-of-time compilation when used as a library
 * Improve logging for distribution import
-* Upgrade dependencies (Lucene v9.2, trud v1.0.80, 
+* Upgrade dependencies (Lucene v9.2, trud v1.0.80,
 
 ## [0.12.644] - 2022-05-17
 
@@ -472,13 +479,13 @@ more than one relationship in a distribution relates to the same source-target-t
 * New two-phase import permitting reification of refset items on import.
 * Return refset items with extended attributes by default in graph and HTTP APIs.
 
-## [0.10.519] - 2022-04-09 
+## [0.10.519] - 2022-04-09
 
 * Improve speed and error handling in import
 * Revise approach to extended fields in reference set items
 * Bump to version 0.7 of the file-based database given changes in schema.
 This means this version will refuse to read databases created in prior versions.
-* Add runtime reification of refset items for those not reified during import. 
+* Add runtime reification of refset items for those not reified during import.
 
 ## [0.9.486] - 2022-04-03
 
@@ -500,7 +507,7 @@ This means this version will refuse to read databases created in prior versions.
 * Add synthetic SNOMED data generation
 * Much more complete automated testing using synthetic data
 * Add greater instrumentation when in development or testing
-* Add import of OWL reference set types 
+* Add import of OWL reference set types
 * Fix accept-language parsing and fallback in http server
 
 ## [0.9.369] - 2022-02-17
@@ -535,8 +542,7 @@ This means this version will refuse to read databases created in prior versions.
 
 * Status command now prints installed reference sets, and optionally counts of SNOMED data
 * Add `-v` `--verbose` flag to increase verbosity for commands, although they're pretty verbose already
-* Better error reporting during import 
-
+* Better error reporting during import
 
 ## [0.8.1] - 2021-10-30
 
@@ -561,7 +567,7 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.7.4] - 2021-07-27
 
 * Make JSON default for HTTP server
-* Add refsets HTTP endpoint 
+* Add refsets HTTP endpoint
 
 ## [0.7.3] - 2021-07-27
 
@@ -585,7 +591,7 @@ This means this version will refuse to read databases created in prior versions.
 * Add rudimentary GitHub Actions tests, but not yet using live db
 * Add historical associations reference set support
 * Update database version to v0.6 given new indexes.
-* Better query re-writing for when single must-not clauses used alone. 
+* Better query re-writing for when single must-not clauses used alone.
 
 ## [0.6.2] - 2021-04-20
 
@@ -611,7 +617,7 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.4.0] - 2021-03-08
 
 * Major change to backend store with new custom serialization resulting in enormous speed-up and size benefits.
-* UK dictionary of medicines and devices (dm+d) custom code extracted to [another repository](https://github.com/wardle/dmd) 
+* UK dictionary of medicines and devices (dm+d) custom code extracted to [another repository](https://github.com/wardle/dmd)
 * Add support for transitive synonyms
 
 ## [0.3.0] - 2021-01-27
@@ -628,4 +634,3 @@ This means this version will refuse to read databases created in prior versions.
 ## [0.1.0] - 2020-11-12
 
 * Basic SNOMED service (store/retrieval/inference)
-

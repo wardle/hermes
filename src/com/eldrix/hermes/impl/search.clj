@@ -24,7 +24,7 @@
   (:import (org.apache.lucene.analysis.standard StandardAnalyzer)
            (org.apache.lucene.analysis.tokenattributes CharTermAttribute)
            (org.apache.lucene.analysis Analyzer)
-           (org.apache.lucene.document Document DoubleField TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField IntPoint)
+           (org.apache.lucene.document Document DoubleField TextField Field$Store StoredField LongPoint StringField DoubleDocValuesField NumericDocValuesField IntPoint)
            (org.apache.lucene.index Term IndexWriter IndexWriterConfig DirectoryReader IndexWriterConfig$OpenMode IndexReader)
            (org.apache.lucene.search IndexSearcher MatchNoDocsQuery TermQuery FuzzyQuery BooleanClause$Occur PrefixQuery
                                      BooleanQuery$Builder DoubleValuesSource Query ScoreDoc WildcardQuery
@@ -148,6 +148,7 @@
               (.add (LongPoint. "description-id" (long-array [(:id ed)]))) ;; for indexing and search
               (.add (StoredField. "id" ^long (:id ed)))     ;; stored field of same
               (.add (StoredField. "concept-id" ^long (get-in ed [:concept :id])))
+              (.add (NumericDocValuesField. "concept-id" ^long (get-in ed [:concept :id])))
               (.add (LongPoint. "concept-id" (long-array [(get-in ed [:concept :id])]))))]
     ;; store preferred synonyms for every description in a field keyed by reference set identifier
     (doseq [[refset-id term] (:preferredSynonyms ed)]
@@ -367,12 +368,6 @@
   (let [stored-fields (.storedFields searcher)]
     (map (fn [^long doc-id] (doc->result (.document stored-fields doc-id) language-refset-ids)))))
 
-(defn xf-doc-id->concept-id
-  "Returns a transducer that maps a Lucene document id into a concept identifier."
-  [^IndexSearcher searcher]
-  (let [stored-fields (.storedFields searcher)]
-    (map (fn [^long doc-id] (.numericValue (.getField (.document stored-fields doc-id #{"concept-id"}) "concept-id"))))))
-
 (defn xf-scoredoc->concept-id
   "Returns a transducer that maps a Lucene ScoreDoc to a concept identifier"
   [^IndexSearcher searcher]
@@ -392,15 +387,21 @@ items."
           (map #(doc->result (.document stored-fields (.-doc ^ScoreDoc %)) language-refset-ids))))))
 
 (defn do-query-for-concept-ids
-  "Perform the query, returning results as a set of concept identifiers"
+  "Perform the query, returning results as a set of concept identifiers.
+  Uses a Lucene CollectorManager that reads `concept-id` from per-segment
+  NumericDocValues when present, falling back to StoredFields when the
+  field wasn't written (older indexes)."
   ([^IndexSearcher searcher ^Query query]
-   (into #{}
-         (xf-doc-id->concept-id searcher)
-         (lucene/search-all searcher query)))
+   (lucene/do-query-for-long-set searcher query "concept-id"))
   ([^IndexSearcher searcher ^Query query max-hits]
    (into #{}
          (xf-scoredoc->concept-id searcher)
          (seq (.-scoreDocs (.search searcher query ^int max-hits))))))
+
+(defn concept-count
+  "Return the number of distinct concepts matching `q`."
+  [searcher q]
+  (lucene/count-unique-long-field searcher q "concept-id"))
 
 (s/fdef do-search
   :args (s/cat :searcher ::searcher :params ::search-params))

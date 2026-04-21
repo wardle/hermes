@@ -22,11 +22,6 @@
 
 (use-fixtures :once live-test-fixture)
 
-(defn ecl->concept-ids
-  "Test helper: resolve an ECL expression to a set of concept identifiers."
-  [svc ecl]
-  (search/do-query-for-concept-ids (.-searcher svc) (ecl/parse svc ecl)))
-
 (def ecl-wildcard-cases
   ;; [pattern input expected-match?]
   [;; basic wildcards
@@ -200,8 +195,9 @@
            (is (empty? concept-ids) "All subtypes of multiple sclerosis should be active"))}
 
    ;; description type filter
-   {:ecl "24700007 {{ type = fsn }}"
-    :f   (fn [concept-ids] (is (concept-ids 24700007) "Multiple sclerosis should be found via its FSN"))}
+   {:ecl  "24700007 {{ type = fsn }}"
+    :opts #{:skip-counts}                                   ;; expand-ecl applies q-synonym so manual count from its results is 0
+    :f    (fn [concept-ids] (is (concept-ids 24700007) "Multiple sclerosis should be found via its FSN"))}
    {:ecl "24700007 {{ type = syn }}"
     :f   (fn [concept-ids] (is (concept-ids 24700007) "Multiple sclerosis should be found via its synonyms"))}
 
@@ -260,9 +256,10 @@
            (is (not (concept-ids 24700007)) "wild without a leading * should not match mid-term text"))}
 
    ;; wildcard term filter — same-description semantics
-   {:ecl "24700007 {{ D term = wild:\"multiple sclerosis (disorder)\", type = fsn }}"
-    :f   (fn [concept-ids]
-           (is (concept-ids 24700007) "FSN wildcard should match when the same description is an FSN"))}
+   {:ecl  "24700007 {{ D term = wild:\"multiple sclerosis (disorder)\", type = fsn }}"
+    :opts #{:skip-counts}                                   ;; expand-ecl applies q-synonym so manual count from its results is 0
+    :f    (fn [concept-ids]
+            (is (concept-ids 24700007) "FSN wildcard should match when the same description is an FSN"))}
    {:ecl "24700007 {{ D term = wild:\"multiple sclerosis (disorder)\", type = syn }}"
     :f   (fn [concept-ids]
            (is (not (concept-ids 24700007)) "synonym type filter must not match via a different description"))}
@@ -285,9 +282,13 @@
 
 
 (deftest ^:live do-simple-tests
-  (doseq [{:keys [ecl as f] :or {as :concept-ids}} simple-tests]
+  (doseq [{:keys [ecl as f opts] :or {as :concept-ids}} simple-tests]
     (testing ecl
-      (let [ids (ecl->concept-ids *svc* ecl)]
+      (let [ids (hermes/ecl->concept-ids *svc* ecl)]
+        (when-not (:skip-counts opts)
+          (let [manual-count (count (into #{} (map :conceptId) (hermes/expand-ecl *svc* ecl)))]
+            (is (= manual-count (hermes/ecl-count *svc* ecl))
+                "ecl-count should match the manually-deduped concept-id count from expand-ecl")))
         (when f
           (case as
             :concept-ids (f ids)
@@ -423,7 +424,7 @@
                 (map #(some (fn [s] (.startsWith "J45.9" s)) %))
                 (map #(is (true? %)))))
     (doseq [{:keys [ecl incl]} member-filter-tests]
-      (let [concept-ids (ecl->concept-ids *svc* ecl)]
+      (let [concept-ids (hermes/ecl->concept-ids *svc* ecl)]
         (when incl (is (set/subset? incl concept-ids)))))))
 
 (deftest ^{:live true :uk true} test-member-filter-uk
@@ -435,7 +436,7 @@
                 (map #(some (fn [s] (.startsWith s "J458")) %))
                 (map #(is (true? %)))))
     (doseq [{:keys [ecl incl]} member-filter-tests-uk]
-      (let [concept-ids (ecl->concept-ids *svc* ecl)]
+      (let [concept-ids (hermes/ecl->concept-ids *svc* ecl)]
         (when incl (is (set/subset? incl concept-ids)))))))
 
 (deftest ^{:live true :uk true} test-member-filter-conjunction
@@ -445,8 +446,8 @@
             ecl-target " ^ 999002271000000101 {{ M mapTarget = \"J458\" }}"
             ;; conjunctive filter: both conditions must hold on same member item
             ecl-both " ^ 999002271000000101 {{ M mapPriority = #1, mapTarget = \"J458\" }}"
-            ids-target (ecl->concept-ids *svc* ecl-target)
-            ids-both (ecl->concept-ids *svc* ecl-both)]
+            ids-target (hermes/ecl->concept-ids *svc* ecl-target)
+            ids-both (hermes/ecl->concept-ids *svc* ecl-both)]
         (is (set/subset? ids-both ids-target)
             "Conjunctive filter results must be a subset of single-filter results")
         (is (< (count ids-both) (count ids-target))
@@ -481,8 +482,8 @@
       (let [refset-id  999002271000000101
             exact-ecl  " ^ 999002271000000101 {{ M mapGroup = #1, mapPriority = #3, mapTarget = \"J458\" }}"
             ranged-ecl " ^ 999002271000000101 {{ M mapGroup != #2, mapPriority < #3, mapTarget = wild:\"J45*\" }}"
-            exact-ids  (ecl->concept-ids *svc* exact-ecl)
-            ranged-ids (ecl->concept-ids *svc* ranged-ecl)]
+            exact-ids  (hermes/ecl->concept-ids *svc* exact-ecl)
+            ranged-ids (hermes/ecl->concept-ids *svc* ranged-ecl)]
         (is (seq exact-ids) "Expected UK map members matching the exact-shape example")
         (is (seq ranged-ids) "Expected UK map members matching the numeric/wildcard example")
         (doseq [cid exact-ids]
@@ -507,9 +508,9 @@
     (let [refset-id 900000000000527005
           module-id 900000000000207008]
       (when (contains? (hermes/installed-reference-sets *svc*) refset-id)
-        (let [ids-eq  (ecl->concept-ids *svc*
+        (let [ids-eq  (hermes/ecl->concept-ids *svc*
                         (str " ^ " refset-id " {{ M moduleId = " module-id " }}"))
-              ids-neq (ecl->concept-ids *svc*
+              ids-neq (hermes/ecl->concept-ids *svc*
                         (str " ^ " refset-id " {{ M moduleId != " module-id " }}"))]
           (is (seq ids-eq) "Expected at least one member in the specified module")
           (is (seq ids-neq) "Expected at least one member outside the specified module")
@@ -536,9 +537,9 @@
 
 (deftest ^:live test-any-value-refinement-example
   (testing "Official example 2.13: attribute = * should match concepts with at least one value"
-    (let [any-value (ecl->concept-ids *svc*
+    (let [any-value (hermes/ecl->concept-ids *svc*
                       "< 404684003 |Clinical finding| : 116676008 |Associated morphology| = *")
-          cardinality (ecl->concept-ids *svc*
+          cardinality (hermes/ecl->concept-ids *svc*
                         "< 404684003 |Clinical finding| : [1..*] 116676008 |Associated morphology| = *")]
       (is (seq any-value) "Any-value refinement should return clinical findings with a morphology")
       (is (= any-value cardinality)
@@ -572,17 +573,17 @@
 
 (deftest ^:live test-term-filter-set-forms
   (testing "Official examples 8.1.5 and 8.1.7: term filter sets should behave like unions"
-    (let [term-set  (ecl->concept-ids *svc*
+    (let [term-set  (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = (\"heart\" \"card\") }}")
-          heart     (ecl->concept-ids *svc*
+          heart     (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = \"heart\" }}")
-          card      (ecl->concept-ids *svc*
+          card      (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = \"card\" }}")
-          mixed-set (ecl->concept-ids *svc*
+          mixed-set (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = (match:\"gas\" wild:\"*itis\") }}")
-          gas       (ecl->concept-ids *svc*
+          gas       (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = match:\"gas\" }}")
-          itis      (ecl->concept-ids *svc*
+          itis      (hermes/ecl->concept-ids *svc*
                       "< 64572001 |Disease| {{ term = wild:\"*itis\" }}")]
       (is (seq gas) "term = match:\"gas\" must return results for the mixed-set check to be meaningful")
       (is (seq itis) "term = wild:\"*itis\" must return results for the mixed-set check to be meaningful")
@@ -593,13 +594,13 @@
 
 (deftest ^:live test-description-type-filter-set-forms
   (testing "Official examples 8.3.4 and 8.3.5: type/typeId set forms should be equivalent"
-    (let [type-set   (ecl->concept-ids *svc*
+    (let [type-set   (hermes/ecl->concept-ids *svc*
                        "< 56265001 |Heart disease| {{ term = \"heart\", type = (syn fsn) }}")
-          typeid-set (ecl->concept-ids *svc*
+          typeid-set (hermes/ecl->concept-ids *svc*
                        "< 56265001 |Heart disease| {{ term = \"heart\", typeId = ( 900000000000013009 |Synonym| 900000000000003001 |Fully specified name| ) }}")
-          syn        (ecl->concept-ids *svc*
+          syn        (hermes/ecl->concept-ids *svc*
                        "< 56265001 |Heart disease| {{ term = \"heart\", type = syn }}")
-          fsn        (ecl->concept-ids *svc*
+          fsn        (hermes/ecl->concept-ids *svc*
                        "< 56265001 |Heart disease| {{ term = \"heart\", type = fsn }}")]
       (is (= type-set typeid-set)
           "type and typeId set forms should identify the same concepts")
@@ -608,8 +609,8 @@
 
 (deftest ^:live test-term-filter-not-equals
   (testing "!= term filter is existential across descriptions, so overlap with = is allowed"
-    (let [all-diseases (ecl->concept-ids *svc* "<  64572001 |Disease|  {{ term = \"heart\" }}")
-          not-heart    (ecl->concept-ids *svc* "<  64572001 |Disease|  {{ term != \"heart\" }}")
+    (let [all-diseases (hermes/ecl->concept-ids *svc* "<  64572001 |Disease|  {{ term = \"heart\" }}")
+          not-heart    (hermes/ecl->concept-ids *svc* "<  64572001 |Disease|  {{ term != \"heart\" }}")
           overlap      (clojure.set/intersection all-diseases not-heart)]
       (is (seq all-diseases) "There should be diseases matching 'heart'")
       (is (seq not-heart) "There should be diseases NOT matching 'heart'")
@@ -632,18 +633,18 @@
       "3-byte UTF-8 in terms"))
 
 (deftest ^:live test-top-of-set
-  (let [concept-ids (ecl->concept-ids *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|")
-        r1 (ecl->concept-ids *svc* " !!> ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )")
-        r2 (ecl->concept-ids *svc* " ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )
+  (let [concept-ids (hermes/ecl->concept-ids *svc* " <  386617003 |Digestive system finding|  .  363698007 |Finding site|")
+        r1 (hermes/ecl->concept-ids *svc* " !!> ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )")
+        r2 (hermes/ecl->concept-ids *svc* " ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )
                                    MINUS < ( <  386617003 |Digestive system finding|  .  363698007 |Finding site|  )")
         r3 (store/top-leaves (.-store *svc*) concept-ids)]  ;; calculate in a different way, albeit slower, to check result
     (is (= r1 r2) "top of set !!> operator should be equivalent to removing descendants via a MINUS clause")
     (is (= r1 r3) "top of set !!> operator in ECL should return same concept ids as store/top-leaves")))
 
 (deftest ^:live test-bottom-of-set
-  (let [concept-ids (ecl->concept-ids *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)")
-        r1 (ecl->concept-ids *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning| AND ^991411000000109 |Emergency care diagnosis simple reference set|)")
-        minus-concept-ids (ecl->concept-ids *svc* "> (>> 45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)")
+  (let [concept-ids (hermes/ecl->concept-ids *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)")
+        r1 (hermes/ecl->concept-ids *svc* "!!< ( >>  45133009 |Neurotoxic shellfish poisoning| AND ^991411000000109 |Emergency care diagnosis simple reference set|)")
+        minus-concept-ids (hermes/ecl->concept-ids *svc* "> (>> 45133009 |Neurotoxic shellfish poisoning|  AND ^  991411000000109 |Emergency care diagnosis simple reference set|)")
         r2 (set/difference concept-ids minus-concept-ids)
         r3 (store/leaves (.-store *svc*) concept-ids)]
     (is (= r1 r2 r3) "bottom of set !!< operator in ECL should return same concept ids as store/leaves")))
@@ -671,17 +672,17 @@
     (is (every? true? (map #(some-concrete-value? (:conceptId %) 1142135004 "#250000") r2)))))
 
 (deftest ^:live test-concrete-comparison-operators
-  (let [s-eq  (ecl->concept-ids *svc*
+  (let [s-eq  (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 = #250 }")
-        s-neq (ecl->concept-ids *svc*
+        s-neq (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 != #250 }")
-        s-gt  (ecl->concept-ids *svc*
+        s-gt  (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 > #250 }")
-        s-lt  (ecl->concept-ids *svc*
+        s-lt  (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 < #250 }")
-        s-gte (ecl->concept-ids *svc*
+        s-gte (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 >= #250 }")
-        s-lte (ecl->concept-ids *svc*
+        s-lte (hermes/ecl->concept-ids *svc*
                  "< 27658006: { << 127489000 = << 372687004, 1142135004 <= #250 }")]
     (testing "All operators return results"
       (is (seq s-eq) "= #250 should return results")
@@ -714,11 +715,11 @@
     ;; `<< X {{ C active = false }}` always returns empty. The aliases test
     ;; still exercises the parser and evaluator; `active-true` carries the
     ;; non-empty precondition that gives the equivalence assertion meaning.
-    (let [unfiltered     (ecl->concept-ids *svc* "<< 24700007")
-          active-true    (ecl->concept-ids *svc* "<< 24700007 {{ C active = true }}")
-          active-one     (ecl->concept-ids *svc* "<< 24700007 {{ C active = 1 }}")
-          inactive-false (ecl->concept-ids *svc* "<< 24700007 {{ C active = false }}")
-          inactive-zero  (ecl->concept-ids *svc* "<< 24700007 {{ C active = 0 }}")]
+    (let [unfiltered     (hermes/ecl->concept-ids *svc* "<< 24700007")
+          active-true    (hermes/ecl->concept-ids *svc* "<< 24700007 {{ C active = true }}")
+          active-one     (hermes/ecl->concept-ids *svc* "<< 24700007 {{ C active = 1 }}")
+          inactive-false (hermes/ecl->concept-ids *svc* "<< 24700007 {{ C active = false }}")
+          inactive-zero  (hermes/ecl->concept-ids *svc* "<< 24700007 {{ C active = 0 }}")]
       (is (seq active-true) "precondition: MS has active descendants")
       (is (= active-true active-one)
           "C active = 1 should be equivalent to C active = true")
@@ -738,9 +739,9 @@
   (when (and (contains? (hermes/installed-reference-sets *svc*) 999001261000000100)
              (contains? (hermes/installed-reference-sets *svc*) 900000000000508004))
     (let [base    "< 404684003"
-          all     (ecl->concept-ids *svc* base)
-          gb      (ecl->concept-ids *svc* (str base " {{ D dialectId = 999001261000000100 }}"))
-          us      (ecl->concept-ids *svc* (str base " {{ D dialectId = 900000000000508004 }}"))
+          all     (hermes/ecl->concept-ids *svc* base)
+          gb      (hermes/ecl->concept-ids *svc* (str base " {{ D dialectId = 999001261000000100 }}"))
+          us      (hermes/ecl->concept-ids *svc* (str base " {{ D dialectId = 900000000000508004 }}"))
           gb-only (set/difference gb us)
           refset-members (fn [desc-id refset-id]
                            (hermes/component-refset-items *svc* desc-id refset-id))]
@@ -760,8 +761,8 @@
 (deftest ^{:live true :uk true} test-dialect-filter-alias
   (testing "Official dialect alias syntax should match the corresponding dialectId filter"
     (when (contains? (hermes/installed-reference-sets *svc*) 999001261000000100)
-      (let [by-alias (ecl->concept-ids *svc* "<< 24700007 {{ D dialect = en-gb }}")
-            by-id    (ecl->concept-ids *svc* "<< 24700007 {{ D dialectId = 999001261000000100 }}")]
+      (let [by-alias (hermes/ecl->concept-ids *svc* "<< 24700007 {{ D dialect = en-gb }}")
+            by-id    (hermes/ecl->concept-ids *svc* "<< 24700007 {{ D dialectId = 999001261000000100 }}")]
         (is (= by-alias by-id)
             "Dialect aliases should expand to the same filter as dialectId")))))
 
@@ -780,16 +781,16 @@
     ;; Group 2: clavulanate ingredient + strength 125
     ;; With correct same-group matching, {ingredient=amoxicillin, strength<250}
     ;; must NOT match because no single group has both amoxicillin AND strength <250.
-    (let [in-same-group (ecl->concept-ids *svc*
+    (let [in-same-group (hermes/ecl->concept-ids *svc*
                           "< 27658006: { << 127489000 = << 372687004, 1142135004 > #250 }")
-          cross-group   (ecl->concept-ids *svc*
+          cross-group   (hermes/ecl->concept-ids *svc*
                           "< 27658006: { << 127489000 = << 372687004, 1142135004 < #250 }")]
       (is (in-same-group 392259005)
           "Group 1 has amoxicillin with strength 875 (>250) — should match")
       (is (not (cross-group 392259005))
           "No single group has amoxicillin AND strength <250 — cross-group must not match")))
   (testing "Grouped != uses raw relationship targets"
-    (let [results (ecl->concept-ids *svc*
+    (let [results (hermes/ecl->concept-ids *svc*
                     "< 27658006: { << 127489000 = << 372687004, << 127489000 != << 105590001 }")]
       (is (not (results 392259005))
           "Amoxicillin is a subtype of Substance, so grouped != << Substance must not match"))))
@@ -799,22 +800,22 @@
     ;; 392259005 is amoxicillin 875mg / clavulanate 125mg — it has two
     ;; active ingredient values (amoxicillin and clavulanate). Ungrouped !=
     ;; should match because clavulanate is NOT a subtype of amoxicillin.
-    (let [results (ecl->concept-ids *svc*
+    (let [results (hermes/ecl->concept-ids *svc*
                     "< 27658006 |Amoxicillin-containing product| : << 127489000 |Has active ingredient| != << 372687004 |Amoxicillin|")]
       (is (seq results) "Ungrouped != should return products with non-amoxicillin ingredients")
       (is (results 392259005) "Amoxicillin/clavulanate product should match because clavulanate != amoxicillin")))
   (testing "Ungrouped != must not include concepts without the attribute"
     ;; 24700007 (MS) has no 'has active ingredient' attribute
-    (let [results (ecl->concept-ids *svc*
+    (let [results (hermes/ecl->concept-ids *svc*
                     "<< 24700007 |Multiple sclerosis| : << 127489000 |Has active ingredient| != << 372687004 |Amoxicillin|")]
       (is (empty? results)
           "MS has no ingredient attribute — must not match ungrouped !=")))
   (testing "Ungrouped != includes concepts with both matching and non-matching values"
     ;; 392259005 has both amoxicillin (in target set) and clavulanate (not in target set).
     ;; With existential semantics, it should appear in BOTH = and != result sets.
-    (let [eq-results  (ecl->concept-ids *svc*
+    (let [eq-results  (hermes/ecl->concept-ids *svc*
                         "< 27658006 : << 127489000 = << 372687004 |Amoxicillin|")
-          neq-results (ecl->concept-ids *svc*
+          neq-results (hermes/ecl->concept-ids *svc*
                         "< 27658006 : << 127489000 != << 372687004 |Amoxicillin|")
           overlap     (set/intersection eq-results neq-results)]
       (is (seq eq-results) "= should return amoxicillin products")
@@ -822,16 +823,16 @@
       (is (overlap 392259005)
           "Combo product should appear in both = and != results (existential semantics)")
       ;; Also verify != is NOT the simple complement of =
-      (let [all-products (ecl->concept-ids *svc* "< 27658006")]
+      (let [all-products (hermes/ecl->concept-ids *svc* "< 27658006")]
         (is (not= neq-results (set/difference all-products eq-results))
             "!= must not be the simple complement of = (would wrongly include products without any ingredient)")))))
 
 (deftest ^:live test-history-profiles
-  (let [base  (ecl->concept-ids *svc* "<< 195967001 |Asthma|")
-        h-min (ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MIN}}")
-        h-mod (ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MOD}}")
-        h-max (ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MAX}}")
-        h-all (ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY}}")]
+  (let [base  (hermes/ecl->concept-ids *svc* "<< 195967001 |Asthma|")
+        h-min (hermes/ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MIN}}")
+        h-mod (hermes/ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MOD}}")
+        h-max (hermes/ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY-MAX}}")
+        h-all (hermes/ecl->concept-ids *svc* "<< 195967001 |Asthma| {{+HISTORY}}")]
     (is (set/subset? base h-min) "HISTORY-MIN should include all active concepts")
     (is (set/subset? h-min h-mod) "HISTORY-MOD should include everything from HISTORY-MIN")
     (is (set/subset? h-mod h-max) "HISTORY-MAX should include everything from HISTORY-MOD")
@@ -849,41 +850,45 @@
 
 
 (deftest ^:live test-chained-dot-notation
-  (let [sites        (ecl->concept-ids *svc*
+  (let [sites        (hermes/ecl->concept-ids *svc*
                        "< 19829001 |Disorder of lung| . 363698007 |Finding site|")
-        site-parents (ecl->concept-ids *svc*
+        site-parents (hermes/ecl->concept-ids *svc*
                        "< 19829001 |Disorder of lung| . 363698007 |Finding site| . 116680003 |Is a|")]
     (is (seq sites) "Single dot should return finding sites for lung disorders")
     (is (seq site-parents) "Chained dot should return IS-A parents of those finding sites")))
 
 (deftest ^:live test-ungrouped-not-equals-with-conjunction
   (testing "!= AND = finds multi-ingredient products"
-    (let [results (ecl->concept-ids *svc*
+    (let [results (hermes/ecl->concept-ids *svc*
                     "< 27658006 : << 127489000 = << 372687004 AND << 127489000 != << 372687004")]
       (is (results 392259005)))))
 
 (deftest ^:live test-base-query-narrowing-correctness
-  (let [narrow (ecl->concept-ids *svc*
+  (let [narrow (hermes/ecl->concept-ids *svc*
                  "< 27658006 : << 127489000 != << 372687004")
-        broad  (ecl->concept-ids *svc*
+        broad  (hermes/ecl->concept-ids *svc*
                  "<< 27658006 : << 127489000 != << 372687004")]
     (is (set/subset? narrow broad))
     (is (not (narrow 27658006)))))
 
 (deftest ^:live test-wildcard-equivalences
-  (testing "<< * and >> * should both produce match-all queries"
+  (testing "<< *, >> *, <<! *, >>! * should all produce match-all queries"
     (is (search/q-match-all? (ecl/parse *svc* "<< *"))
         "<< * should produce MatchAllDocsQuery")
     (is (search/q-match-all? (ecl/parse *svc* ">> *"))
-        ">> * should produce MatchAllDocsQuery"))
+        ">> * should produce MatchAllDocsQuery")
+    (is (search/q-match-all? (ecl/parse *svc* "<<! *"))
+        "<<! * should produce MatchAllDocsQuery (every concept is child-or-self of some concept)")
+    (is (search/q-match-all? (ecl/parse *svc* ">>! *"))
+        ">>! * should produce MatchAllDocsQuery (every concept is parent-or-self of some concept)"))
   (testing "< * and <! * should produce the same query"
     (is (= (ecl/parse *svc* "< *") (ecl/parse *svc* "<! *"))
         "< * and <! * should be equivalent (all concepts except root)")))
 
 (deftest ^:live test-wildcard-attribute-subset-invariant
   (testing "`* = V` must be a superset of `A = V` for any specific attribute A"
-    (let [wild (ecl->concept-ids *svc* "< 19829001 : * = 79654002")
-          spec (ecl->concept-ids *svc* "< 19829001 : 116676008 = 79654002")]
+    (let [wild (hermes/ecl->concept-ids *svc* "< 19829001 : * = 79654002")
+          spec (hermes/ecl->concept-ids *svc* "< 19829001 : 116676008 = 79654002")]
       (is (seq spec) "specific-attribute query must return results for the invariant to be meaningful")
       (is (set/subset? spec wild)
           "concepts matching a specific-attribute refinement must also match the wildcard"))))
@@ -894,50 +899,50 @@
     ;; were wrongly included, every direct IS-A child of V would appear in
     ;; `< V : * = V` via its `IS-A → V` relationship — producing a result
     ;; polluted with all direct children of V regardless of attribute semantics.
-    (let [direct-children (ecl->concept-ids *svc* "<! 19829001 |Disorder of lung|")
-          wild            (ecl->concept-ids *svc* "< 19829001 |Disorder of lung| : * = 19829001 |Disorder of lung|")]
+    (let [direct-children (hermes/ecl->concept-ids *svc* "<! 19829001 |Disorder of lung|")
+          wild            (hermes/ecl->concept-ids *svc* "< 19829001 |Disorder of lung| : * = 19829001 |Disorder of lung|")]
       (is (seq direct-children) "precondition: 19829001 must have direct IS-A children")
       (is (not (set/subset? direct-children wild))
           "direct IS-A children of V must not uniformly appear in `< V : * = V` — IS-A is not an ECL attribute"))))
 
 (deftest ^:live test-grouped-wildcard-attribute
   (testing "`{ * = V }` must be a superset of `{ A = V }` for any specific attribute A"
-    (let [wild (ecl->concept-ids *svc* "<< 24700007 : { * = 79654002 }")
-          spec (ecl->concept-ids *svc* "<< 24700007 : { 116676008 = 79654002 }")]
+    (let [wild (hermes/ecl->concept-ids *svc* "<< 24700007 : { * = 79654002 }")
+          spec (hermes/ecl->concept-ids *svc* "<< 24700007 : { 116676008 = 79654002 }")]
       (is (set/subset? spec wild)
           "specific-attribute group results must be a subset of wildcard group results"))))
 
 (deftest ^:live test-wildcard-attribute-unsupported-combos
   (testing "`* = *` throws — matches essentially all concepts with any attribute"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 19829001 : * = *"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 19829001 : * = *"))))
   (testing "`* != V` throws — would require iterating every concept"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 27658006 : * != << 372687004"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 27658006 : * != << 372687004"))))
   (testing "grouped `{ * != V }` throws — would require iterating every concept"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 27658006 : { * != << 372687004 }"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 27658006 : { * != << 372687004 }"))))
   (testing "cardinality combined with wildcard attribute throws"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 19829001 : [1..*] * = 79654002"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 19829001 : [1..*] * = 79654002"))))
   (testing "reverse flag combined with wildcard attribute throws"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 19829001 : R * = 79654002"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 19829001 : R * = 79654002"))))
   (testing "numeric comparison with wildcard attribute throws"
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 763158003 : * > #100")))
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 763158003 : * = #250")))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 763158003 : * > #100")))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 763158003 : * = #250")))))
 
 (deftest ^:live test-attribute-umbrella-is-concept-model-attribute
   (testing "ECL §8.5: expression-operator attribute names must resolve to descendants of 410662002 |Concept model attribute|"
     ;; 367565008 |Intention - attribute| is a descendant of 246061005 |Attribute|
     ;; but NOT of 410662002 |Concept model attribute|. It must not be accepted as
     ;; a valid ECL refinement attribute name.
-    (is (thrown? Exception (ecl->concept-ids *svc* "< 24700007 : 367565008 = 79654002")))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 24700007 : 367565008 = 79654002")))))
 
 (deftest ^:live test-bare-wildcard-term-requires-substrate
   (testing "`wild:\"*\"` without a narrowing outer expression is rejected — would iterate every description"
-    (is (thrown? Exception (ecl->concept-ids *svc* "* {{ D term = wild:\"*\" }}")))
-    (is (thrown? Exception (ecl->concept-ids *svc* "<< * {{ D term = wild:\"*\" }}"))))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "* {{ D term = wild:\"*\" }}")))
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "<< * {{ D term = wild:\"*\" }}"))))
   (testing "`wild:\"*\"` with a narrowing substrate does not iterate the full index and is accepted"
     ;; Every MS description matches `*` (so the filter itself is trivial); the
     ;; point is that the outer `24700007` narrows the description scan to
     ;; that concept's descriptions.
-    (is (contains? (ecl->concept-ids *svc* "24700007 {{ D term = wild:\"*\" }}") 24700007))))
+    (is (contains? (hermes/ecl->concept-ids *svc* "24700007 {{ D term = wild:\"*\" }}") 24700007))))
 
 ;; Hand-crafted properties modelling concept 392259005
 ;; (amoxicillin 875mg / clavulanate 125mg oral product)

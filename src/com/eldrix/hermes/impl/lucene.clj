@@ -9,6 +9,8 @@
 (ns ^:no-doc com.eldrix.hermes.impl.lucene
   (:require [clojure.core.async :as a])
   (:import (java.util List ArrayList)
+           (org.apache.lucene.index LeafReaderContext NumericDocValues StoredFields)
+           (org.apache.lucene.internal.hppc LongHashSet)
            (org.apache.lucene.util Version)
            (org.apache.lucene.search CollectionTerminatedException CollectorManager IndexSearcher BooleanClause$Occur BooleanQuery$Builder Query
                                      MatchAllDocsQuery BooleanQuery BooleanClause Collector LeafCollector Scorable ScoreMode)))
@@ -79,6 +81,60 @@
   (reduce [_ _]
     (when close? (a/close! ch))))
 
+;; A Lucene Collector that collects a deduped set of `long` values read from
+;; a named numeric field, one value per matching document. Per segment, reads
+;; via NumericDocValues (column-oriented, fast) when the field has a DocValues
+;; column, falling back to StoredFields decompression when it does not — so
+;; indexes built before the NumericDocValuesField was written still work.
+;; Backing store is a primitive `long[]`-backed set (Lucene's HPPC
+;; `LongHashSet`), avoiding `Long` autoboxing per match. The HPPC package is
+;; marked `internal` in Lucene; if a future Lucene release moves it, drop in
+;; an equivalent primitive long set here.
+(deftype IntoLongSetCollector [^String field ^LongHashSet s]
+  Collector
+  (getLeafCollector [_ ctx]
+    (let [leaf (.reader ^LeafReaderContext ctx)]
+      (if-let [^NumericDocValues ndv (.getNumericDocValues leaf field)]
+        (reify LeafCollector
+          (^void setScorer [_ ^Scorable _scorer])
+          (^void collect [_ ^int doc-id]
+            (.advance ndv doc-id)
+            (.add s (.longValue ndv))))
+        (let [^StoredFields sf (.storedFields leaf)
+              ^java.util.Set field-set #{field}]
+          (reify LeafCollector
+            (^void setScorer [_ ^Scorable _scorer])
+            (^void collect [_ ^int doc-id]
+              (.add s (long (.numericValue (.getField (.document sf doc-id field-set) field))))))))))
+  (scoreMode [_] ScoreMode/COMPLETE_NO_SCORES))
+
+(deftype IntoLongSetCollectorManager [^String field]
+  CollectorManager
+  (newCollector [_] (IntoLongSetCollector. field (LongHashSet.)))
+  (reduce [_ colls]
+    (let [out (LongHashSet.)]
+      (doseq [^IntoLongSetCollector c colls]
+        (.addAll out ^LongHashSet (.-s c)))
+      out)))
+
+(defn long-hashset->set
+  "Copy a Lucene `LongHashSet` into an immutable Clojure set of boxed longs.
+  Iterates a `long[]` to a transient, so each value is boxed exactly once."
+  [^LongHashSet s]
+  (let [^longs arr (.toArray s)
+        n (alength arr)]
+    (loop [i 0, out (transient #{})]
+      (if (< i n)
+        (recur (unchecked-inc i) (conj! out (aget arr i)))
+        (persistent! out)))))
+
+(defn do-query-for-long-set
+  "Run `q`, returning the distinct `long` values of `field` across matching
+  documents as an immutable Clojure set. Reads via NumericDocValues when the
+  field has a DocValues column, else via StoredFields."
+  [^IndexSearcher searcher ^Query q ^String field]
+  (long-hashset->set (.search searcher q (IntoLongSetCollectorManager. field))))
+
 (defn ^:deprecated search-all*
   "Search a Lucene index and return *all* results matching query specified.
   Results are returned as a sequence of Lucene document ids."
@@ -92,6 +148,12 @@
   Results are returned as a sequence of Lucene document ids."
   [^IndexSearcher searcher ^Query q]
   (.search searcher q (IntoSequenceCollectorManager.)))
+
+(defn count-unique-long-field
+  "Return the count of distinct `long` values of `field` across documents
+  matching `q`. Reads from NumericDocValues when available, else StoredFields."
+  [^IndexSearcher searcher ^Query q ^String field]
+  (.size ^LongHashSet (.search searcher q (IntoLongSetCollectorManager. field))))
 
 (defn ^:deprecated stream-all*
   "Search a Lucene index and return *all* results on the channel specified.

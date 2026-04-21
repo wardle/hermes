@@ -902,6 +902,20 @@
                     (search/distinct-by :conceptId))
               (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2 q3]) language-refset-ids))))
 
+(s/fdef ecl->concept-ids
+  :args (s/cat :svc ::svc :ecl ::non-blank-string))
+(defn ecl->concept-ids
+  "Return the set of concept identifiers matching the ECL expression."
+  [^Svc svc ecl]
+  (search/do-query-for-concept-ids (.-searcher svc) (ecl/parse svc ecl)))
+
+(s/fdef ecl-count
+  :args (s/cat :svc ::svc :ecl ::non-blank-string))
+(defn ecl-count
+  "Return the number of distinct concepts matching the ECL expression."
+  [^Svc svc ecl]
+  (search/concept-count (.-searcher svc) (ecl/parse svc ecl)))
+
 (s/fdef intersect-ecl
   :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
 (defn intersect-ecl
@@ -978,7 +992,7 @@
       (throw (ex-info "invalid parameters:" (s/explain-data ::transitive-synonym-params params)))
       (let [concept-ids (case op
                           :by-search (map :conceptId (search svc v))
-                          :by-ecl (map #(.-conceptId ^Result %) (expand-ecl svc v))
+                          :by-ecl (ecl->concept-ids svc v)
                           :by-concept-ids v)]
         (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
 
@@ -1056,7 +1070,7 @@
   (let [target-concept-ids
         (cond
           ;; a string should be an ECL expression -> expand to a set of identifiers
-          (string? target) (into #{} (map :conceptId) (expand-ecl svc target))
+          (string? target) (ecl->concept-ids svc target)
           ;; a collection should be a collection of identifiers -> make a set
           (coll? target) (set target)
           ;; a single number will be a refset identifier -> get its members

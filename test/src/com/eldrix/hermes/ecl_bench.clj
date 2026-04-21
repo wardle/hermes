@@ -1,10 +1,8 @@
 (ns com.eldrix.hermes.ecl-bench
-  "Benchmarks for ECL expansion and constrained search.
-
-  Each shape exercises a different ECL execution path; for each shape we
-  benchmark raw ECL expansion plus autocomplete-style searches using a few
-  representative terms (rare/medium/common) so regressions that favour one
-  term frequency can be spotted."
+  "Regression-oriented ECL benchmarks. Covers distinct ECL execution paths
+  through both `expand-ecl` (stored-fields Result path) and `ecl->concept-ids`
+  (concept-id-only projection). `ecl-count` shares the concept-ids projection
+  and is not benched separately."
   (:require [clojure.test :refer [deftest use-fixtures]]
             [com.eldrix.hermes.core :as hermes]
             [criterium.core :as crit]))
@@ -17,8 +15,6 @@
          (finally (hermes/close *svc*)))))
 
 (use-fixtures :once live-test-fixture)
-
-(def ^:private search-terms ["pain" "scler" "heart"])
 
 (def ^:private shapes
   [{:title "hier-small: << 24700007 (Multiple sclerosis subtree)"
@@ -36,17 +32,17 @@
    {:title "grouped-neq: same as ungrouped-neq but grouped"
     :ecl   "< 763158003 : { << 127489000 != << 372687004 }"}
    {:title "grouped-eq: grouped = for comparison with grouped-neq"
-    :ecl   "< 763158003 : { << 127489000 = << 372687004 }"}])
+    :ecl   "< 763158003 : { << 127489000 = << 372687004 }"}
+   {:title "member-filter-prefix: refset members with mapTarget prefix"
+    :ecl   "^ 447562003 {{ M mapTarget = \"G\" }}"}])
 
 (deftest ^:benchmark bench-ecl
   (doseq [{:keys [title ecl]} shapes]
     (println (str "\n*** " title))
     (println "  expand-ecl:")
     (crit/quick-bench (doall (hermes/expand-ecl *svc* ecl)))
-    (doseq [term search-terms]
-      (println (str "  search \"" term "\" (max-hits 100):"))
-      (crit/quick-bench
-        (hermes/search *svc* {:s term :constraint ecl :max-hits 100})))))
+    (println "  ecl->concept-ids:")
+    (crit/quick-bench (hermes/ecl->concept-ids *svc* ecl))))
 
 (comment
   (clojure.test/run-tests))

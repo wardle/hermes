@@ -13,7 +13,7 @@
             [com.eldrix.hermes.impl.lucene :as lucene]
             [com.eldrix.hermes.impl.store :as store])
   (:import (org.apache.lucene.search IndexSearcher TermQuery PrefixQuery Query MatchAllDocsQuery WildcardQuery)
-           (org.apache.lucene.document Document Field$Store StringField LongPoint StoredField)
+           (org.apache.lucene.document Document Field$Store StringField LongPoint NumericDocValuesField StoredField)
            (java.util UUID Collection)
            (java.time ZoneId LocalDate)
            (org.apache.lucene.store ByteBuffersDirectory FSDirectory)
@@ -27,13 +27,18 @@
   ^long [^LocalDate date]
   (.toEpochMilli (.toInstant (.atStartOfDay date (ZoneId/of "UTC")))))
 
-(def stored-fields
-  "A set of field names for which we store values in the index"
+(def dv+stored-fields
+  "Fields that need one-value-per-document projection (used by
+  `IntoLongSetCollectorManager` to collect one `long` per matching document
+  without decoding the whole document). Each field in this set is indexed as
+  both `NumericDocValuesField` — column store, fast path for recent binaries —
+  and `StoredField` — row store, fallback for binaries built before the
+  DocValues column was written."
   #{:referencedComponentId})
 
 (defn- make-string-field
   [k v]
-  (StringField. (name k) (str v) (if (stored-fields k) Field$Store/YES Field$Store/NO)))
+  (StringField. (name k) (str v) Field$Store/NO))
 
 (defmulti make-fields
   "Create Lucene field(s) from the value.
@@ -43,8 +48,9 @@
   (fn [_k v] (class v)))
 
 (defmethod make-fields Long [k v]
-  (if (stored-fields k)
+  (if (dv+stored-fields k)
     [(LongPoint. (name k) (long-array [v]))
+     (NumericDocValuesField. (name k) ^long v)
      (StoredField. (name k) ^long v)]
     [(LongPoint. (name k) (long-array [v]))]))
 
@@ -60,14 +66,16 @@
 (defmethod make-fields LocalDate [k v]
   (let [nm (name k)
         v' (localdate->epoch-milli v)]
-    (if (stored-fields k)
+    (if (dv+stored-fields k)
       [(LongPoint. nm (long-array [v']))
+       (NumericDocValuesField. nm ^long v')
        (StoredField. nm ^long v')]
       [(LongPoint. nm (long-array [v']))])))
 
 (defmethod make-fields Integer [k v]
-  (if (stored-fields k)
+  (if (dv+stored-fields k)
     [(LongPoint. (name k) (long-array [v]))
+     (NumericDocValuesField. (name k) ^long v)
      (StoredField. (name k) ^long v)]
     [(LongPoint. (name k) (long-array [v]))]))
 
@@ -254,12 +262,11 @@
   (LongPoint/newExactQuery "referencedComponentId" component-id))
 
 (defn search
-  "Performs the search, returning a set of referenced component identifiers."
-  [^IndexSearcher searcher query]
-  (let [sfields (.storedFields searcher)]
-    (into #{}
-          (map (fn [^long doc-id] (.numericValue (.getField (.document sfields doc-id #{"referencedComponentId"}) "referencedComponentId"))))
-          (lucene/search-all searcher query))))
+  "Performs the search, returning a set of referenced component identifiers.
+  Reads `referencedComponentId` from per-segment NumericDocValues when present,
+  falling back to StoredFields for indexes built before DocValues was written."
+  [^IndexSearcher searcher ^Query query]
+  (lucene/do-query-for-long-set searcher query "referencedComponentId"))
 
 (defn search*
   "Performs a search and returns whether result not empty.

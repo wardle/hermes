@@ -1438,6 +1438,14 @@
                      (and (= :childOf constraint-operator) wildcard?) ;; "<! *" = all concepts except root
                      (search/q-descendantOf snomed/Root)
 
+                     ;; "<<! *"
+                     (and (= :childOrSelfOf constraint-operator) wildcard?) ;; "<<! *" = all concepts (each is child-or-self of its parent or of itself)
+                     (search/q-match-all)
+
+                     ;; ">>! *"
+                     (and (= :parentOrSelfOf constraint-operator) wildcard?) ;; ">>! *" = all concepts (each is parent-or-self of its child or of itself)
+                     (search/q-match-all)
+
                      ;; "> *"
                      (and (= :ancestorOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
                      (throw (ex-info "wildcard expressions containing '> *' not yet supported" {:text (zx/text loc)}))
