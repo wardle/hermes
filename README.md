@@ -23,9 +23,9 @@ It provides:
 * OWL reasoning for post-coordinated expression classification, subsumption and normal forms
 * a native [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server with 29 tools for AI assistants
 * a HTTP/JSON API for language-agnostic integration
+* a [HL7 FHIR R4 terminology server](https://github.com/wardle/hades) via [hades](https://github.com/wardle/hades) — a generic, conformant FHIR terminology server built on hermes
 * an embeddable JVM library for in-process use from Clojure, Java or any JVM language
 * declarative [codelist generation](https://github.com/wardle/codelists) from ECL, ICD-10 and ATC codes
-* optional [HL7 FHIR R4 terminology server](https://github.com/wardle/hades) via hades
 
 It is designed to work at every scale — from a developer or analyst's laptop, 
 to a single instance serving thousands of concurrent users, to a horizontally 
@@ -165,7 +165,7 @@ round-trips or API keys.
 
 | Project | Description |
 |---|---|
-| [hades](https://github.com/wardle/hades) | HL7 FHIR R4 terminology server built on hermes |
+| [hades](https://github.com/wardle/hades) | Generic, conformant HL7 FHIR R4 terminology server built on hermes |
 | [codelists](https://github.com/wardle/codelists) | Declarative codelist generation from ECL, ICD-10 and ATC codes |
 | [dmd](https://github.com/wardle/dmd) | UK dictionary of medicines and devices |
 | [trud](https://github.com/wardle/trud) | UK reference data updates |
