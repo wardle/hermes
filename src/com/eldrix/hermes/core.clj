@@ -53,7 +53,7 @@
 
 (s/def ::svc any?)
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
-(s/def ::component-id (s/and pos-int? verhoeff/valid?))
+(s/def ::component-id pos-int?)
 
 (s/def ::s string?)
 (s/def ::constraint string?)
@@ -62,14 +62,14 @@
 (s/def ::fallback-fuzzy (s/int-in 0 3))
 (s/def ::query #(instance? Query %))
 (s/def ::accept-language string?)
-(s/def ::language-refset-ids (s/coll-of :info.snomed.Concept/id))
+(s/def ::language-refset-ids (s/coll-of int?))
 (s/def ::fold (s/or :bool boolean? :lang string?))
 (s/def ::show-fsn? boolean?)
 (s/def ::inactive-concepts? boolean?)
 (s/def ::inactive-descriptions? boolean?)
 (s/def ::remove-duplicates? boolean?)
 (s/def ::properties (s/map-of int? int?))
-(s/def ::concept-refsets (s/coll-of :info.snomed.Concept/id))
+(s/def ::concept-refsets (s/coll-of int?))
 
 (s/def ::result #(instance? Result %))
 
@@ -80,7 +80,7 @@
                    ::show-fsn? ::inactive-concepts? ::inactive-descriptions?
                    ::remove-duplicates? ::properties ::concept-refsets]))
 
-(s/def ::expression (s/or :concept-id :info.snomed.Concept/id :string string? :ctu :ctu/expression))
+(s/def ::expression (s/or :concept-id int? :string string? :ctu :ctu/expression))
 (s/def ::mode #{:structural :owl})
 
 (s/def ::transitive-synonym-params
@@ -117,28 +117,28 @@
     (.close memberReader)))
 
 (s/fdef concept
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn concept
-  "Return the concept with the specified identifier."
+  "Return the concept with the specified identifier, or nil."
   [^Svc svc concept-id]
   (store/concept (.-store svc) concept-id))
 
 (s/fdef description
-  :args (s/cat :svc ::svc :description-id :info.snomed.Description/id))
+  :args (s/cat :svc ::svc :description-id int?))
 (defn description
   "Return the description with the specified identifier."
   [^Svc svc description-id]
   (store/description (.-store svc) description-id))
 
 (s/fdef relationship
-  :args (s/cat :svc ::svc :relationship-id :info.snomed.Relationship/id))
+  :args (s/cat :svc ::svc :relationship-id int?))
 (defn relationship
   "Return the relationship with the specified identifier."
   [^Svc svc relationship-id]
   (store/relationship (.-store svc) relationship-id))
 
 (s/fdef extended-concept
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn extended-concept
   "Return an extended concept that includes the concept, and related data 
   such as descriptions, relationships, concrete values and reference set 
@@ -153,14 +153,14 @@
   (store/extended-concept (.-store svc) concept-id))
 
 (s/fdef descriptions
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn descriptions
   "Return a sequence of descriptions for the given concept."
   [^Svc svc concept-id]
   (store/concept-descriptions (.-store svc) concept-id))
 
 (s/fdef synonyms
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc :concept-id int? :language-refset-ids (s/? (s/coll-of int?))))
 (defn synonyms
   "Returns a sequence of synonyms for the given concept. If language-refset-ids
   is provided, then only synonyms that are preferred or acceptable in those
@@ -172,7 +172,7 @@
    (store/language-synonyms (.-store svc) concept-id language-refset-ids)))
 
 (s/fdef concrete-values
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn concrete-values
   "Returns a sequence of concrete values for the given concept."
   [^Svc svc concept-id]
@@ -201,7 +201,7 @@
       results)))
 
 (s/fdef all-parents
-  :args (s/cat :svc ::svc :concept-id-or-ids (s/or :concept :info.snomed.Concept/id :concepts (s/coll-of :info.snomed.Concept/id)) :type-id (s/? :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-id-or-ids (s/or :concept int? :concepts (s/coll-of int?)) :type-id (s/? int?)))
 (defn all-parents
   "Returns a set of concept ids of the parents of the specified concept(s). By
   design, this includes the concept(s)."
@@ -211,7 +211,7 @@
    (store/all-parents (.-store svc) concept-id-or-ids type-id)))
 
 (s/fdef all-children
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-id int? :type-id (s/? int?)))
 (defn all-children
   "Returns a set of concept ids of the children of the specified concept. By
   design, this includes the concept itself."
@@ -221,14 +221,14 @@
    (store/all-children (.-store svc) concept-id type-id)))
 
 (s/fdef parent-relationships
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn parent-relationships
   "Returns a map of the parent relationships keyed by type."
   [^Svc svc concept-id]
   (store/parent-relationships (.-store svc) concept-id))
 
 (s/fdef parent-relationships-expanded
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-id (s/? :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-id int? :type-id (s/? int?)))
 (defn parent-relationships-expanded
   "Returns a map of the parent relationships, with each value a set of
   identifiers representing the targets and their transitive closure tables. This
@@ -240,7 +240,7 @@
    (store/parent-relationships-expanded (.-store svc) concept-id type-id)))
 
 (s/fdef parent-relationships-of-type
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int? :type-concept-id int?))
 (defn parent-relationships-of-type
   "Returns a set of identifiers representing the parent relationships of the
   specified type of the specified concept."
@@ -248,7 +248,7 @@
   (store/parent-relationships-of-type (.-store svc) concept-id type-concept-id))
 
 (s/fdef child-relationships-of-type
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :type-concent-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int? :type-concept-id int?))
 (defn child-relationships-of-type
   "Returns a set of identifiers representing the child relationships of the
   specified type of the specified concept."
@@ -256,7 +256,7 @@
   (store/child-relationships-of-type (.-store svc) concept-id type-concept-id))
 
 (s/fdef component-refset-items
-  :args (s/cat :svc ::svc :component-id ::component-id :refset-id (s/? :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :component-id ::component-id :refset-id (s/? int?)))
 (defn component-refset-items
   "Returns a sequence of refset items for the given component."
   ([^Svc svc component-id]
@@ -284,7 +284,7 @@
   (store/refset-item (.-store svc) uuid))
 
 (s/fdef refset-descriptor-attribute-ids
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :refset-id int?))
 (defn refset-descriptor-attribute-ids
   "Return a vector of attribute description concept ids for the given reference
   set."
@@ -358,9 +358,7 @@
    (store/source-historical (.-store svc) component-id refset-ids)))
 
 (s/fdef with-historical
-  :args (s/cat :svc ::svc
-               :concept-ids (s/coll-of :info.snomed.Concept/id)
-               :refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc :concept-ids (s/coll-of int?) :refset-ids (s/? (s/coll-of int?))))
 (defn with-historical
   "For a given sequence of concept identifiers, expand to include historical
   associations both backwards and forwards in time.
@@ -397,7 +395,7 @@
   (store/installed-reference-sets (.-store svc)))
 
 (s/fdef member-field
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :s ::non-blank-string))
+  :args (s/cat :svc ::svc :refset-id int? :field ::non-blank-string :s ::non-blank-string))
 (defn member-field
   "Returns a set of referenced component identifiers that are members of the
   given reference set with a matching value 's' for the 'field' specified.
@@ -411,7 +409,7 @@
                    [(members/q-refset-id refset-id) (members/q-term field s)])))
 
 (s/fdef member-field-prefix
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :prefix ::non-blank-string))
+  :args (s/cat :svc ::svc :refset-id int? :field ::non-blank-string :prefix ::non-blank-string))
 (defn member-field-prefix
   "Return a set of referenced component identifiers that are members of the
   given reference set with a matching 'prefix' for the 'field' specified.
@@ -425,7 +423,7 @@
                    [(members/q-refset-id refset-id) (members/q-prefix field prefix)])))
 
 (s/fdef member-field-wildcard
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :field ::non-blank-string :s ::non-blank-string))
+  :args (s/cat :svc ::svc :refset-id int? :field ::non-blank-string :s ::non-blank-string))
 (defn member-field-wildcard
   "Return a set of referenced component identifiers that are members of the
   given reference set with a matching wildcard 'value' for the 'field'
@@ -442,7 +440,7 @@
                                   (members/q-wildcard field s)])))
 
 (s/fdef reverse-map
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :code ::non-blank-string))
+  :args (s/cat :svc ::svc :refset-id int? :code ::non-blank-string))
 (defn reverse-map
   "Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget specified. It's almost always better to
@@ -459,7 +457,7 @@
        (filter #(= (:mapTarget %) code))))
 
 (s/fdef reverse-map-prefix
-  :args (s/cat :svc ::svc :refset-id :info.snomed.Concept/id :prefix ::non-blank-string))
+  :args (s/cat :svc ::svc :refset-id int? :prefix ::non-blank-string))
 (defn reverse-map-prefix
   "Returns a sequence of reference set items representing the reverse mapping
   from the reference set and mapTarget. It is almost always better to use
@@ -497,7 +495,7 @@
    ((.-localeMatchFn svc) language-range fallback?)))
 
 (s/fdef preferred-synonym*
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-id int? :language-refset-ids (s/coll-of int?)))
 (defn preferred-synonym*
   "Given an ordered sequence of preferred language reference set ids, return
   the preferred synonym for the concept specified."
@@ -505,9 +503,7 @@
   (store/preferred-synonym (.-store svc) concept-id language-refset-ids))
 
 (s/fdef preferred-synonym
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
-               :language-range (s/? (s/nilable string?))
-               :fallback? (s/? boolean?)))
+  :args (s/cat :svc ::svc :concept-id int? :language-range (s/? (s/nilable string?)) :fallback? (s/? boolean?)))
 (defn preferred-synonym
   "Return the preferred synonym for the concept based on the language
   preferences specified.
@@ -534,7 +530,7 @@
      (preferred-synonym* svc concept-id lang-refset-ids))))
 
 (s/fdef fully-specified-name
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id :language-range (s/? (s/nilable ::non-blank-string))))
+  :args (s/cat :svc ::svc :concept-id int? :language-range (s/? (s/nilable ::non-blank-string))))
 (defn fully-specified-name
   "Return the fully specified name for the concept specified. If no language
   preferences are provided the database default locale will be used."
@@ -557,7 +553,7 @@
   (store/is-a? (.-store svc) concept-id subsumer-concept-id))
 
 (s/fdef are-any?
-  :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :parent-ids (s/coll-of :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :concept-ids (s/coll-of int?) :parent-ids (s/coll-of int?)))
 (defn are-any?
   "Are any of the concept-ids subsumed by any of the parent-ids?
 
@@ -840,8 +836,7 @@
     (snomed/->Result (.-id ps) concept-id (.-term ps) (.-term ps))))
 
 (s/fdef search-concept-ids
-  :args (s/cat :svc ::svc, :options (s/? (s/keys :opt-un [::accept-language ::language-refset-ids]))
-               :concept-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc, :options (s/? (s/keys :opt-un [::accept-language ::language-refset-ids])) :concept-ids (s/? (s/coll-of int?))))
 (defn search-concept-ids
   "Return search results containing the preferred descriptions of the concepts
   specified. Returns a transducer if no concept ids are specified. If a
@@ -890,7 +885,7 @@
      (search/do-query-for-results (.-searcher svc) (search/q-and [q1 q2]) (match-locale svc) max-hits))))
 
 (s/fdef expand-ecl*
-  :args (s/cat :svc ::svc :ecl ::non-blank-string :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :ecl ::non-blank-string :language-refset-ids (s/coll-of int?))
   :ret (s/coll-of ::result))
 (defn expand-ecl*
   "Expand an ECL expression returning preferred synonyms, one per concept.
@@ -921,7 +916,7 @@
   (search/concept-count (.-searcher svc) (ecl/parse svc ecl)))
 
 (s/fdef intersect-ecl
-  :args (s/cat :svc ::svc :concept-ids (s/coll-of :info.snomed.Concept/id) :ecl ::non-blank-string))
+  :args (s/cat :svc ::svc :concept-ids (s/coll-of int?) :ecl ::non-blank-string))
 (defn intersect-ecl
   "Returns the subset of the concept identifiers that satisfy the SNOMED ECL
   expression. Use [[intersect-ecl-fn]] if the same ECL expression will be
@@ -952,8 +947,7 @@
   (ecl/valid? s))
 
 (s/fdef ecl-contains?
-  :args (s/cat :svc ::svc, :concept-ids (s/coll-of :info.snomed.Concept/id)
-               :ecl ::non-blank-string))
+  :args (s/cat :svc ::svc, :concept-ids (s/coll-of int?) :ecl ::non-blank-string))
 (defn ^:deprecated ecl-contains?
   "DEPRECATED: use [[intersect-ecl]] instead.
 
@@ -977,8 +971,7 @@
     (search/do-query-for-results (.-searcher svc) query (match-locale svc))))
 
 (s/fdef transitive-synonyms
-  :args (s/cat :svc ::svc
-               :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc :params (s/alt :by-ecl string? :by-search ::search-params ::by-concept-ids (s/coll-of int?))))
 (defn transitive-synonyms
   "Returns all synonyms of the specified concepts, including those of its
   descendants.
@@ -1001,7 +994,7 @@
         (mapcat (partial store/transitive-synonyms (.-store svc)) concept-ids)))))
 
 (s/fdef refset-members
-  :args (s/cat :svc ::svc :refset-ids (s/+ :info.snomed.Concept/id)))
+  :args (s/cat :svc ::svc :refset-ids (s/+ int?)))
 (defn refset-members
   "Return a set of identifiers for the members of the given refset(s).
 
@@ -1014,10 +1007,10 @@
 
 (s/fdef map-into
   :args (s/cat :svc ::svc
-               :source-concept-ids (s/coll-of :info.snomed.Concept/id)
+               :source-concept-ids (s/coll-of int?)
                :target (s/alt :ecl string?
-                              :refset-id :info.snomed.Concept/id
-                              :concepts (s/coll-of :info.snomed.Concept/id))))
+                              :refset-id int?
+                              :concepts (s/coll-of int?))))
 (defn map-into
   "Map the source-concept-ids into the target, usually in order to reduce the
   dimensionality of the dataset. Returns a sequence of sets of identifiers that
@@ -1085,10 +1078,10 @@
 
 (s/fdef map-concept-into
   :args (s/cat :svc ::svc
-               :concept-id :info.snomed.Concept/id
+               :concept-id int?
                :target (s/alt :ecl string?
-                              :refset-id :info.snomed.Concept/id
-                              :concepts (s/coll-of :info.snomed.Concept/id))))
+                              :refset-id int?
+                              :concepts (s/coll-of int?))))
 (defn map-concept-into
   "Returns a set of concept identifiers representing the result of mapping a
   single concept into the target. For efficiency, it is almost always
@@ -1218,7 +1211,7 @@
                             (historical-associations svc (:id c)))))))))
 
 (s/fdef example-historical-associations
-  :args (s/cat :svc ::svc :type-id :info.snomed.Concept/id :n pos-int?))
+  :args (s/cat :svc ::svc :type-id int? :n pos-int?))
 (defn- example-historical-associations
   "Returns 'n' examples of the type of historical association specified."
   [^Svc svc type-id n]
@@ -1235,7 +1228,7 @@
                    (if append? (assoc result (:id c) assocs) result))))))))
 
 (s/fdef paths-to-root
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id))
+  :args (s/cat :svc ::svc :concept-id int?))
 (defn paths-to-root
   "Return a sequence of paths from the concept to root node.
   Each path is a sequence of identifiers, starting with the concept itself
@@ -1319,8 +1312,7 @@
    (render-expression* svc expression {:terms :update :language-refset-ids (match-locale svc language-range true)})))
 
 (s/fdef refinements*
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
-               :language-refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :svc ::svc :concept-id int? :language-refset-ids (s/? (s/coll-of int?))))
 
 (defn refinements*
   "Return the MRCM-permitted attributes for postcoordinating a concept.
@@ -1333,8 +1325,7 @@
          (refinements* svc concept-id))))
 
 (s/fdef refinements
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
-               :language-range (s/? (s/nilable string?))))
+  :args (s/cat :svc ::svc :concept-id int? :language-range (s/? (s/nilable string?))))
 
 (defn refinements
   "Return the MRCM-permitted attributes for postcoordinating a concept, with
@@ -1360,8 +1351,7 @@
                          (= snomed/MandatoryConceptModelRule (:ruleStrengthId ad))) (first v) v)))) {} props)))
 
 (s/fdef properties
-  :args (s/cat :svc ::svc :concept-id :info.snomed.Concept/id
-               :opts (s/? (s/nilable (s/keys :opt-un [::expand])))))
+  :args (s/cat :svc ::svc :concept-id int? :opts (s/? (s/nilable (s/keys :opt-un [::expand])))))
 (defn properties
   "Returns a concept's properties, including concrete values. Ungrouped
   properties are returned under key '0', with other groups returned with

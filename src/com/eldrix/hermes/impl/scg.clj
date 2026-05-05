@@ -240,9 +240,7 @@
     (assoc stripped :subExpression (canonicalize-subexpression (:subExpression stripped)))))
 
 (s/fdef concept->ctu*
-  :args (s/cat :concept-id :info.snomed.Concept/id
-               :defined? boolean?
-               :properties map?))
+  :args (s/cat :concept-id int? :defined? boolean? :properties map?))
 
 (defn concept->ctu*
   "Build an SCG expression IR from a concept's properties-by-group data.
@@ -360,8 +358,7 @@
 
 
 (s/fdef concept->ctu
-  :args (s/cat :store any?
-               :concept-id :info.snomed.Concept/id))
+  :args (s/cat :store any? :concept-id int?))
 
 (defn concept->ctu
   "Return the definition of a concept as an SCG expression IR.

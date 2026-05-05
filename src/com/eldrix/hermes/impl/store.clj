@@ -459,7 +459,7 @@
 
 
 (s/fdef language-synonyms
-  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :args (s/cat :store ::store :concept-id int? :language-refset-ids (s/coll-of int?))
   :ret (s/coll-of :info.snomed/Description))
 (defn language-synonyms
   "Return synonyms for the concept that are active and present in the language
@@ -487,7 +487,7 @@
         (recur (rest ds))))))
 
 (s/fdef preferred-description
-  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id :description-type-id :info.snomed.Concept/id :language-refset-id :info.snomed.Concept/id)
+  :args (s/cat :store ::store :concept-id int? :description-type-id int? :language-refset-id int?)
   :ret (s/nilable :info.snomed/Description))
 (defn preferred-description
   "Return the preferred description for the concept specified as defined by
@@ -536,9 +536,7 @@
                (recur (rest refset-ids)))))))))
 
 (s/fdef preferred-fully-specified-name
-  :args (s/cat :store ::store
-               :concept-id :info.snomed.Concept/id
-               :language-refset-ids (s/coll-of :info.snomed.Concept/id))
+  :args (s/cat :store ::store :concept-id int? :language-refset-ids (s/coll-of int?))
   :ret (s/nilable :info.snomed/Description))
 (defn preferred-fully-specified-name [^LmdbStore store concept-id language-refset-ids]
   (lmdb/with-txn [core-txn store :core]
@@ -550,9 +548,9 @@
 
 (s/fdef fully-specified-name
   :args (s/alt
-         :default (s/cat :store ::store :concept-id :info.snomed.Concept/id)
-         :specified (s/cat :store ::store :concept-id :info.snomed.Concept/id
-                           :language-refset-ids (s/coll-of :info.snomed.Concept/id) :fallback? boolean?))
+         :default (s/cat :store ::store :concept-id int?)
+         :specified (s/cat :store ::store :concept-id int?
+                           :language-refset-ids (s/coll-of int?) :fallback? boolean?))
   :ret (s/nilable :info.snomed/Description))
 (defn ^:deprecated fully-specified-name
   "DEPRECATED: Use [[preferred-fully-specified-name]] instead.
@@ -591,7 +589,7 @@
       (make-extended-concept* store core-txn refsets-txn c))))
 
 (s/fdef extended-concept
-  :args (s/cat :store ::store :concept-id :info.snomed.Concept/id))
+  :args (s/cat :store ::store :concept-id int?))
 (defn extended-concept
   "Get an extended concept for the concept specified."
   [^LmdbStore store concept-id]
@@ -651,9 +649,7 @@
      (source-historical* st txn component-id refset-ids))))
 
 (s/fdef with-historical
-  :args (s/cat :st ::store
-               :concept-ids (s/coll-of :info.snomed.Concept/id)
-               :refset-ids (s/? (s/coll-of :info.snomed.Concept/id))))
+  :args (s/cat :st ::store :concept-ids (s/coll-of int?) :refset-ids (s/? (s/coll-of int?))))
 (defn with-historical
   "For a given sequence of concept identifiers, expand to include historical
   associations both backwards and forwards in time.
