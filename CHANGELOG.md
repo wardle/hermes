@@ -2,7 +2,12 @@
 
 This log documents significant changes for each release.
 
-## Not yet released
+## [1.4.1611] - 2026-05-05
+
+* Simplify identifier function specs to plain `int?` / `pos-int?` (removing the Verhoeff-validating `:info.snomed.Concept/id` spec from `:args`). This unblocks consumer libraries that want to enable spec instrumentation without their own integer IDs being rejected.
+* `validate-expression` now returns a `:parse-error` validation result instead of throwing when the expression fails to parse
+
+## [1.4.1607] - 2026-04-22
 
 * Fix ECL conformance bugs: `!=` now uses existential semantics (§6.5), attribute groups `{...}` match same-group only, `>> *`/`<<! *`/`>>! *` all match all concepts, and `{{ M moduleId != ... }}` correctly negates
 * Tighten ECL refinement attribute umbrella to `410662002 |Concept model attribute|` (§8.5); out-of-umbrella attributes now throw rather than being silently accepted
