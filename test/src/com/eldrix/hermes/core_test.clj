@@ -242,8 +242,11 @@
         "Finding with grouped finding site should be valid")
     (is (nil? (hermes/validate-expression *svc* "80146002 : { 260686004 = 129304002 , 405813007 = 181255000 }"))
         "Procedure with grouped method + site should be valid"))
-  (testing "unparseable expression throws"
-    (is (thrown? Exception (hermes/validate-expression *svc* "not a valid expression!!!"))))
+  (testing "unparseable expression returns parse-error"
+    (let [errs (hermes/validate-expression *svc* "not a valid expression!!!")]
+      (is (= 1 (count errs)))
+      (is (= :parse-error (:error (first errs))))
+      (is (string? (:message (first errs))))))
   (let [ret-spec (:ret (s/get-spec `hermes/validate-expression))
         error-cases
         [{:description "Non-existent concept"

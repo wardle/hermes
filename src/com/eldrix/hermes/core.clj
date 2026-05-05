@@ -585,7 +585,7 @@
   "Assoc a human-readable :message into a validation error map.
   Works with both concept errors from scg/errors and MRCM errors from
   mrcm/expression-errors."
-  [{:keys [error concept-id attribute-id value-id] :as err}]
+  [{:keys [error concept-id attribute-id value-id message] :as err}]
   (assoc err :message
          (case error
            :concept-not-found       (str "Concept " concept-id " not found")
@@ -595,6 +595,7 @@
            :value-out-of-range      (str "Value " value-id " out of range for attribute " attribute-id)
            :attribute-must-be-grouped   (str "Attribute " attribute-id " must be grouped")
            :attribute-must-be-ungrouped (str "Attribute " attribute-id " must not be grouped")
+           :parse-error             (or message "Could not parse expression")
            (str "Validation error: " error))))
 
 (s/fdef validate-expression
@@ -615,9 +616,12 @@
   ([svc expression]
    (validate-expression svc expression nil))
   ([^Svc svc expression {:keys [mrcm] :or {mrcm true}}]
-   (let [ctu (->ctu expression)
-         store (.-store svc)]
-     (seq (map assoc-error-message (or (scg/errors store ctu) (when mrcm (mrcm/expression-errors svc ctu snomed/PostcoordinatedContent))))))))
+   (try
+     (let [ctu (->ctu expression)
+           store (.-store svc)]
+       (seq (map assoc-error-message (or (scg/errors store ctu) (when mrcm (mrcm/expression-errors svc ctu snomed/PostcoordinatedContent))))))
+     (catch Exception e
+       [(assoc-error-message {:error :parse-error :message (.getMessage e)})]))))
 
 (s/fdef activate-reasoner
   :args (s/cat :svc ::svc))
