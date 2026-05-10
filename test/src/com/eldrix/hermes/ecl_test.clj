@@ -342,10 +342,7 @@
    ;; language filters (official examples 8.2.1 and 8.2.2)
    {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }}" :error :not-supported}
    {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}" :error :not-supported}
-   ;; string concrete refinement (official example 2.10) — fails earlier
-   ;; on attribute resolution because 111115 isn't a CMA descendant in
-   ;; this substrate; therefore :invalid-value not :not-supported
-   {:ecl "< 373873005 |pharmaceutical / biologic product| : 111115 |trade name| = \"PANADOL\"" :error :invalid-value}
+   {:ecl "< 373873005 |pharmaceutical / biologic product| : 111115 |trade name| = \"PANADOL\"" :error :invalid-code}
    ;; grouped string concrete refinement — must fail closed with a specific
    ;; reason, not an internal case miss
    {:ecl "< 373873005 : { 1142135004 = \"PANADOL\" }" :error :not-supported :reason :string-in-group}
@@ -370,9 +367,6 @@
    ;; wildcard ancestor/parent (from snomed.org/ecl section 6.1)
    {:ecl "> *" :error :not-supported}
    {:ecl ">! *" :error :not-supported}
-   ;; boolean concrete refinement (official example 2.11) — also fails
-   ;; earlier on attribute resolution (859999999102 isn't a CMA
-   ;; descendant in this substrate); therefore :invalid-value
    {:ecl "< 373873005 |Pharmaceutical / biologic product| : 859999999102 |Is in national benefit scheme| = TRUE" :error :invalid-value}
    ;; [0..0] cardinality with != (requires universal quantification, from snomed.org/ecl section 6.5)
    {:ecl "< 404684003 |Clinical finding| : [0..0] 116676008 |Associated morphology| != << 26036001 |Obstruction|" :error :not-supported}
