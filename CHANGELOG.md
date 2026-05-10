@@ -2,6 +2,11 @@
 
 This log documents significant changes for each release.
 
+## [1.4.1614] - 2026-05-10 
+
+* Improve consistency of internal errors when parsing SNOMED ECL
+* ECL concept references are now Verhoeff-validated at parse time. Malformed concept ids (e.g. `< 99999999`) throw instead of silently returning zero results
+
 ## [1.4.1611] - 2026-05-05
 
 * Simplify identifier function specs to plain `int?` / `pos-int?` (removing the Verhoeff-validating `:info.snomed.Concept/id` spec from `:args`). This unblocks consumer libraries that want to enable spec instrumentation without their own integer IDs being rejected.
