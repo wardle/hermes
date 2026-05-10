@@ -21,6 +21,7 @@
             [com.eldrix.hermes.impl.store :as store]
             [com.eldrix.hermes.rf2]
             [com.eldrix.hermes.snomed :as snomed]
+            [com.eldrix.hermes.verhoeff :as verhoeff]
             [instaparse.combinators :as c]
             [instaparse.core :as insta])
   (:import (org.apache.lucene.search Query IndexSearcher)
@@ -35,6 +36,15 @@
 (s/def ::localeMatchFn fn?)
 (s/def ::ctx (s/keys :req-un [::store ::searcher ::memberSearcher ::localeMatchFn]))
 (s/def ::loc any?)
+
+(s/def ::error
+  #{:syntax-error :invalid-code :not-found :invalid-value :not-supported})
+(s/def ::text string?)
+(s/def ::s string?)
+(s/def ::line nat-int?)
+(s/def ::column nat-int?)
+(s/def ::parse-error
+  (s/keys :req-un [::error] :opt-un [::text ::s ::line ::column]))
 
 (def ecl-grammar
   (-> (c/abnf (slurp (io/resource "ecl-v2.2.abnf")))
@@ -60,7 +70,11 @@
   (parse-long (zx/xml1-> sctId zx/text)))
 
 (defn parse-conceptId [conceptId]
-  (zx/xml1-> conceptId :sctId parse-sctId))
+  (let [id (zx/xml1-> conceptId :sctId parse-sctId)]
+    (if (and (verhoeff/valid? id) (= :info.snomed/Concept (snomed/identifier->type id)))
+      id
+      (throw (ex-info (str "invalid concept identifier: " id)
+                      {:error :invalid-code, :s (str id)})))))
 
 (defn parse-concept-reference [cr]
   (let [conceptId (zx/xml1-> cr :conceptId parse-conceptId)
@@ -82,7 +96,7 @@
     altIdentifierCodeWithinQuotes = 1*anyNonEscapedChar
     altIdentifierCodeWithoutQuotes = 1*(alpha / digit / dash / \" . \" / \" _ \")"
   [loc]
-  (throw (ex-info "unsupported clause altIdentifier " {:s (zx/text loc)})))
+  (throw (ex-info "unsupported clause altIdentifier " {:error :not-supported, :s (zx/text loc)})))
 
 (defn parse-focus-concept
   "eclFocusConcept = eclConceptReference / wildCard / altIdentifier"
@@ -266,7 +280,7 @@
         narrowing-base? (and base-query (not (search/q-match-all? base-query)))]
     (when (and (not narrowing-base?) (search/q-match-all? candidate-query))
       (throw (ex-info "wildcard term with no alphanumeric content requires an outer subexpression to narrow the description scan"
-                      {:term term})))
+                      {:error :invalid-value, :term term})))
     (let [narrowed-query (if narrowing-base?
                            (search/q-and [base-query candidate-query])
                            candidate-query)]
@@ -311,13 +325,14 @@
       (search/q-not (search/q-match-all) typed-search-term-set)
 
       :else
-      (throw (ex-info "unsupported term filter" {:s         (zx/text loc)
+      (throw (ex-info "unsupported term filter" {:error     :not-supported
+                                                 :s         (zx/text loc)
                                                  :op        op
                                                  :term      typed-search-term
                                                  :term-sets typed-search-term-set})))))
 
 (defn parse-language-filter [loc]
-  (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:text (zx/text loc)})))
+  (throw (ex-info "language filters are not supported and should be deprecated; please use dialect filter / language reference sets" {:error :not-supported, :s (zx/text loc)})))
 
 (defn parse-type-id-filter
   "typeIdFilter = typeId ws booleanComparisonOperator ws (subExpressionConstraint / eclConceptReferenceSet"
@@ -328,7 +343,7 @@
                      (zx/xml-> loc :eclConceptReferenceSet :eclConceptReference :conceptId parse-conceptId))]
     (cond
       (empty? type-ids)
-      (throw (ex-info (str "unknown type-id filter; type ids not found: " (zx/text loc)) {:text (zx/text loc)}))
+      (throw (ex-info (str "unknown type-id filter; type ids not found: " (zx/text loc)) {:error :not-found, :s (zx/text loc)}))
 
       (= "=" boolean-comparison-operator)
       (search/q-typeAny type-ids)
@@ -338,7 +353,7 @@
       (search/q-typeAny (set/difference (store/all-children store 900000000000446008) type-ids))
 
       :else
-      (throw (ex-info "unknown type-id filter" {:text (zx/text loc)})))))
+      (throw (ex-info "unknown type-id filter" {:error :invalid-value, :s (zx/text loc)})))))
 
 (def ^:private type-token->type-id
   {:FSN 900000000000003001
@@ -357,7 +372,7 @@
         type-ids (case boolean-comparison-operator
                    "=" types
                    "!=" (set/difference (store/all-children store 900000000000446008) (set types))
-                   (throw (ex-info "invalid boolean operator for type token filter" {:text (zx/text loc) :op boolean-comparison-operator})))]
+                   (throw (ex-info "invalid boolean operator for type token filter" {:error :invalid-value, :s (zx/text loc), :op boolean-comparison-operator})))]
     (search/q-typeAny type-ids)))
 
 (defn parse-type-filter
@@ -420,7 +435,7 @@
              results
 
              (and d-alias (nil? mapped))
-             (throw (ex-info (str "unknown dialect: '" d-alias "'") {:text (zx/text loc)}))
+             (throw (ex-info (str "unknown dialect: '" d-alias "'") {:error :not-found, :s (zx/text loc)}))
 
              (and is-even? mapped)                         ;; if it's an alias or id, and we're ready for it, add it
              (conj results mapped)
@@ -435,7 +450,7 @@
              (apply conj results [default-acceptability concept-id])
 
              (and is-even? acceptability)                  ;; if it's an acceptability and we've not had an alias - fail fast  (should never happen)
-             (throw (ex-info "parse error: acceptability before dialect alias" {:text (zx/text loc) :alias d-alias :acceptability acceptability :results results :count count}))
+             (throw (ex-info "parse error: acceptability before dialect alias" {:error :invalid-value, :s (zx/text loc), :alias d-alias, :acceptability acceptability, :results results, :count count}))
 
              (and is-odd? acceptability)                   ;; if it's an acceptability and we're ready, add it.
              (conj results acceptability))))))))
@@ -456,17 +471,22 @@
                               (search/q-description-memberOf refset-id))) m)))
 
       (empty? refset-ids)                                   ;; if we did not realise any concepts from the subexpression
-      (throw (ex-info (str "dialect ids not found:" (zx/xml1-> loc :subExpressionConstraint zx/text)) {:text (zx/text loc)}))
+      (throw (ex-info (str "dialect ids not found:" (zx/xml1-> loc :subExpressionConstraint zx/text)) {:error :not-found, :s (zx/text loc)}))
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc) :op boolean-comparison-operator :refset-ids refset-ids})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:error :not-supported, :s (zx/text loc), :op boolean-comparison-operator, :refset-ids refset-ids})))))
 
 (defn parse-dialect-alias-filter
   "dialectAliasFilter = dialect ws booleanComparisonOperator ws (dialectAlias / dialectAliasSet)"
   [acceptability-set loc]
   (let [op (zx/xml1-> loc :booleanComparisonOperator zx/text)
-        dialect-alias (lang/dialect->refset-id (zx/xml1-> loc :dialectAlias zx/text))
+        d-alias-text (zx/xml1-> loc :dialectAlias zx/text)
+        dialect-alias (lang/dialect->refset-id d-alias-text)
         dialect-aliases (zx/xml-> loc :dialectAliasSet #(parse-dialect-set acceptability-set %))]
     (cond
+      (and d-alias-text (nil? dialect-alias))
+      (throw (ex-info (str "unknown dialect: '" d-alias-text "'")
+                      {:error :not-found, :s (zx/text loc)}))
+
       (and (= "=" op) acceptability-set dialect-alias)
       (search/q-acceptability acceptability-set dialect-alias)
 
@@ -481,7 +501,7 @@
                               (search/q-description-memberOf refset-id))) m)))
 
       :else
-      (throw (ex-info "unimplemented dialect alias filter" {:text (zx/text loc)})))))
+      (throw (ex-info "unimplemented dialect alias filter" {:error :not-supported, :s (zx/text loc)})))))
 
 (defn parse-dialect-filter
   "dialectFilter = (dialectIdFilter / dialectAliasFilter) [ ws acceptabilitySet ]"
@@ -515,7 +535,7 @@
       (zx/xml1-> loc :typeFilter #(parse-type-filter ctx %))
       (zx/xml1-> loc :dialectFilter #(parse-dialect-filter ctx %))
       (zx/xml1-> loc :activeFilter parse-description-active-filter)
-      (throw (ex-info "Unsupported description filter" {:ecl (zx/text loc)}))))
+      (throw (ex-info "Unsupported description filter" {:error :not-supported, :s (zx/text loc)}))))
 
 (defn parse-description-filter-constraint
   "2.0: descriptionFilterConstraint = {{ ws [ d / D ] ws descriptionFilter *(ws , ws descriptionFilter) ws }}
@@ -543,7 +563,7 @@
   "conceptFilter = definitionStatusFilter / moduleFilter / effectiveTimeFilter / activeFilter"
   [_ctx loc]
   (or (zx/xml1-> loc :activeFilter parse-concept-active-filter)
-      (throw (ex-info "Unsupported concept filter" {:text (zx/text loc)}))))
+      (throw (ex-info "Unsupported concept filter" {:error :not-supported, :s (zx/text loc)}))))
 
 (defn parse-concept-filter-constraint
   "conceptFilterConstraint = {{\" ws (\"c\" / \"C\") ws conceptFilter *(ws \",\" ws conceptFilter) ws \"}}"
@@ -558,9 +578,13 @@
   many = \"*\""
   [loc]
   (let [min-value (Integer/parseInt (zx/xml1-> loc :minValue zx/text))
-        max-value (zx/xml1-> loc :maxValue zx/text)]
+        max-value-text (zx/xml1-> loc :maxValue zx/text)
+        max-value (if (= max-value-text "*") Integer/MAX_VALUE (Integer/parseInt max-value-text))]
+    (when (< max-value min-value)
+      (throw (ex-info (str "invalid cardinality range: [" min-value ".." max-value-text "]")
+                      {:error :invalid-value, :s (zx/text loc)})))
     {:min-value min-value
-     :max-value (if (= max-value "*") Integer/MAX_VALUE (Integer/parseInt max-value))}))
+     :max-value max-value}))
 
 (defn make-nested-query
   "Generate a nested query with the function 'f' specified. Each query
@@ -639,7 +663,7 @@
       ;; we are not trying to implement edge case of an expression containing both cardinality and reversal, at least not yet
       ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.3+Cardinality for how it *should* work
       (and cardinality reverse-flag?)
-      (throw (ex-info "expressions containing both cardinality and reverse flag not yet supported." {:text (zx/text loc)}))
+      (throw (ex-info "expressions containing both cardinality and reverse flag not yet supported." {:error :not-supported, :s (zx/text loc)}))
 
       ;; if reverse, we need to take the values (subexp-result), and for each take the value(s) of the property
       ;; specified to build a list of concept identifiers from which to build a query.
@@ -657,7 +681,7 @@
       (search/q-and cardinality-queries)
 
       :else
-      (throw (ex-info "invalid attribute query" {:text (zx/text loc)})))))
+      (throw (ex-info "invalid attribute query" {:error :invalid-value, :s (zx/text loc)})))))
 
 ;; Group constraint evaluation
 ;; ---------------------------
@@ -696,24 +720,24 @@
                                          (select-keys group-props cma-types)
                                          group-props)))
                    (into #{} (mapcat #(get group-props %)) attribute-ids))]
-    (case op
-      :in     (boolean (some value actuals))
-      ;; ECL '!=' is existential rather than vacuous: the attribute must exist,
-      ;; and at least one value in the group must fall outside the target set.
-      ;; Absence is expressed separately with cardinality, e.g. [0..0].
-      :not-in (boolean (some #(not (value %)) actuals))
-      :minus  (boolean (some #(not (value %)) actuals))
-      :*      (boolean (seq actuals))
-      (let [parsed (keep parse-concrete-value actuals)]
-        (case op
-          :=  (boolean (some #(= % value) parsed))
-          :!= (boolean (some #(not= % value) parsed))
-          (let [v (double value)]                         ;; numeric comparisons only
-            (case op
-              :>  (boolean (some #(> (double %) v) parsed))
-              :<  (boolean (some #(< (double %) v) parsed))
-              :>= (boolean (some #(>= (double %) v) parsed))
-              :<= (boolean (some #(<= (double %) v) parsed))))))))))
+     (case op
+       :in     (boolean (some value actuals))
+       ;; ECL '!=' is existential rather than vacuous: the attribute must exist,
+       ;; and at least one value in the group must fall outside the target set.
+       ;; Absence is expressed separately with cardinality, e.g. [0..0].
+       :not-in (boolean (some #(not (value %)) actuals))
+       :minus  (boolean (some #(not (value %)) actuals))
+       :*      (boolean (seq actuals))
+       (let [parsed (keep parse-concrete-value actuals)]
+         (case op
+           :=  (boolean (some #(= % value) parsed))
+           :!= (boolean (some #(not= % value) parsed))
+           (let [v (double value)]                         ;; numeric comparisons only
+             (case op
+               :>  (boolean (some #(> (double %) v) parsed))
+               :<  (boolean (some #(< (double %) v) parsed))
+               :>= (boolean (some #(>= (double %) v) parsed))
+               :<= (boolean (some #(<= (double %) v) parsed))))))))))
 
 (s/def ::group-operator #{:in :not-in :minus :* := :!= :> :< :>= :<=})
 (s/def ::group-constraint-value
@@ -751,10 +775,10 @@
    (group-constraints-satisfied? properties nil constraints))
   ([properties cma-types constraints]
    (boolean
-     (some (fn [[group-id group-props]]
-             (when (pos? group-id)
-               (every? #(constraint-satisfied? group-props cma-types %) constraints)))
-           properties))))
+    (some (fn [[group-id group-props]]
+            (when (pos? group-id)
+              (every? #(constraint-satisfied? group-props cma-types %) constraints)))
+          properties))))
 
 (defn wildcard-constraint? [[_ attribute-ids _]]
   (= :wildcard attribute-ids))
@@ -775,7 +799,7 @@
    (concept-satisfies-group-constraints? store nil concept-id constraints))
   ([store cma-types concept-id constraints]
    (group-constraints-satisfied?
-     (store/properties store concept-id) cma-types constraints)))
+    (store/properties store concept-id) cma-types constraints)))
 
 (defn cma-attribute-types
   "Resolve the set of type-ids that are descendants of 410662002
@@ -841,18 +865,18 @@
   [ctx cardinality reverse-flag? loc]
   (when cardinality
     (throw (ex-info "cardinality with wildcard attribute name not supported"
-                    {:text (zx/text loc)})))
+                    {:error :not-supported, :s (zx/text loc)})))
   (when reverse-flag?
     (throw (ex-info "reverse flag with wildcard attribute name not supported"
-                    {:text (zx/text loc)})))
+                    {:error :not-supported, :s (zx/text loc)})))
   (let [sub-expr (zx/xml1-> loc :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         [incl excl] (search/rewrite-query sub-expr)]
     (cond
       (and (search/q-match-all? incl) (nil? excl))
-      (throw (ex-info "`* = *` not supported" {:text (zx/text loc)}))
+      (throw (ex-info "`* = *` not supported" {:error :not-supported, :s (zx/text loc)}))
 
       (search/q-match-all? incl)
-      (throw (ex-info "`* = (* MINUS …)` not supported" {:text (zx/text loc)}))
+      (throw (ex-info "`* = (* MINUS …)` not supported" {:error :not-supported, :s (zx/text loc)}))
 
       :else
       (let [incl-ids (when incl (realise-concept-ids ctx incl))
@@ -877,15 +901,15 @@
   (cond
     (and cardinality (zero? (:min-value cardinality)) (zero? (:max-value cardinality)))
     (throw (ex-info "[0..0] cardinality with != not yet supported (requires universal quantification)"
-                    {:text (zx/text loc)}))
+                    {:error :not-supported, :s (zx/text loc)}))
 
     cardinality
     (throw (ex-info "cardinality with != not yet supported"
-                    {:text (zx/text loc)}))
+                    {:error :not-supported, :s (zx/text loc)}))
 
     reverse-flag?
     (throw (ex-info "reverse flag with != not yet supported"
-                    {:text (zx/text loc)}))
+                    {:error :not-supported, :s (zx/text loc)}))
 
     :else
     (let [sub-expr (zx/xml1-> loc :subExpressionConstraint #(parse-subexpression-constraint ctx %))
@@ -934,7 +958,7 @@
         wildcard? (= :wildcard attribute-ids)
         attribute-concept-ids (when-not wildcard? attribute-ids)]
     (when-not (or wildcard? (seq attribute-concept-ids))
-      (throw (ex-info "attribute expression resulted in no valid attributes" {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
+      (throw (ex-info "attribute expression resulted in no valid attributes" {:error :invalid-value, :s (zx/text loc), :eclAttributeName ecl-attribute-name})))
     (cond
       expression-operator
       (case expression-operator
@@ -944,26 +968,26 @@
         "!=" (do
                (when wildcard?
                  (throw (ex-info "`* != V` with wildcard attribute name not supported — would require iterating every concept"
-                                 {:text (zx/text loc)})))
+                                 {:error :not-supported, :s (zx/text loc)})))
                (parse-attribute-not-equals ctx base-query cardinality reverse-flag? attribute-concept-ids loc))
-        (throw (ex-info (str "unsupported expression operator " expression-operator) {:text (zx/text loc) :eclAttributeName ecl-attribute-name})))
+        (throw (ex-info (str "unsupported expression operator " expression-operator) {:error :invalid-value, :s (zx/text loc), :eclAttributeName ecl-attribute-name})))
 
       numeric-operator
       (if wildcard?
         (throw (ex-info "numeric comparison with wildcard attribute name not supported; use an explicit attribute"
-                        {:text (zx/text loc) :operator numeric-operator}))
+                        {:error :not-supported, :s (zx/text loc), :operator numeric-operator}))
         (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
               op (concrete-numeric-comparison-ops numeric-operator)]
           (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids))))
 
       string-operator
-      (throw (ex-info "expressions containing string concrete refinements not yet supported." {:text (zx/text loc)}))
+      (throw (ex-info "expressions containing string concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
 
       boolean-operator
-      (throw (ex-info "expressions containing boolean concrete refinements not yet supported." {:text (zx/text loc)}))
+      (throw (ex-info "expressions containing boolean concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
 
       :else
-      (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:text (zx/text loc)})))))
+      (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:error :invalid-value, :s (zx/text loc)})))))
 
 (defn parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
@@ -1006,7 +1030,7 @@
   [ctx loc]
   (when (zx/xml1-> loc :reverseFlag zx/text)
     (throw (ex-info "reverse flag within an ECL attribute group is not supported"
-                    {:text (zx/text loc) :reason :reverse-flag-in-group})))
+                    {:error :not-supported, :s (zx/text loc), :reason :reverse-flag-in-group})))
   (let [ecl-attribute-name (zx/xml1-> loc :eclAttributeName :subExpressionConstraint (partial parse-subexpression-constraint ctx))
         expression-operator (zx/xml1-> loc :expressionComparisonOperator zx/text)
         numeric-operator (zx/xml1-> loc :numericComparisonOperator zx/text)
@@ -1016,7 +1040,8 @@
         wildcard? (= :wildcard attribute-ids)]
     (when (and (not wildcard?) (not (seq attribute-ids)))
       (throw (ex-info "attribute expression resulted in no valid attributes"
-                      {:text (zx/text loc)
+                      {:error :invalid-value
+                       :s (zx/text loc)
                        :eclAttributeName ecl-attribute-name})))
     (cond
       expression-operator
@@ -1027,7 +1052,7 @@
           ;; aren't meaningful here; reject for consistency with non-grouped path
           (and wildcard? (= "=" expression-operator) (search/q-match-all? incl))
           (throw (ex-info "wildcard attribute name with wildcard value inside a group not supported"
-                          {:text (zx/text loc)}))
+                          {:error :not-supported, :s (zx/text loc)}))
           ;; = *
           (and (= "=" expression-operator) (search/q-match-all? incl) (nil? excl))
           [:* attribute-ids nil]
@@ -1045,21 +1070,21 @@
       numeric-operator
       (if wildcard?
         (throw (ex-info "numeric comparison with wildcard attribute name inside a group not supported"
-                        {:text (zx/text loc) :operator numeric-operator}))
+                        {:error :not-supported, :s (zx/text loc), :operator numeric-operator}))
         [(ecl-numeric-op->keyword numeric-operator) attribute-ids
          (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))])
 
       string-operator
       (throw (ex-info "string concrete refinements within an ECL attribute group not yet supported"
-                      {:text (zx/text loc) :reason :string-in-group}))
+                      {:error :not-supported, :s (zx/text loc), :reason :string-in-group}))
 
       boolean-operator
       (throw (ex-info "boolean concrete refinements within an ECL attribute group not yet supported"
-                      {:text (zx/text loc) :reason :boolean-in-group}))
+                      {:error :not-supported, :s (zx/text loc), :reason :boolean-in-group}))
 
       :else
       (throw (ex-info "unsupported attribute operator within an ECL attribute group"
-                      {:text (zx/text loc) :reason :unknown-operator-in-group})))))
+                      {:error :not-supported, :s (zx/text loc), :reason :unknown-operator-in-group})))))
 
 (defn extract-group-constraints
   "Extract constraint tuples from an eclAttributeSet within a group.
@@ -1075,10 +1100,10 @@
     (cond
       has-disjunction?
       (throw (ex-info "disjunction (OR) within an ECL attribute group is not supported"
-                      {:text (zx/text loc) :reason :disjunction-in-group}))
+                      {:error :not-supported, :s (zx/text loc), :reason :disjunction-in-group}))
       (not (every? #(zx/xml1-> % :eclAttribute) all-subs))
       (throw (ex-info "nested attribute sets within an ECL attribute group are not supported"
-                      {:text (zx/text loc) :reason :nested-attribute-set-in-group}))
+                      {:error :not-supported, :s (zx/text loc), :reason :nested-attribute-set-in-group}))
       :else
       (mapv #(extract-attribute-constraint ctx (zx/xml1-> % :eclAttribute)) all-subs))))
 
@@ -1093,7 +1118,7 @@
     (case op
       :in (q-wildcard-attribute-in-set ctx value)
       (throw (ex-info (str "grouped `" (name op) "` with wildcard attribute name not supported — would require iterating every concept")
-                      {:op op})))
+                      {:error :not-supported, :op op})))
     (let [presence-query (q-or-or-none
                           (map #(search/q-attribute-count % 1 Integer/MAX_VALUE) attribute-ids))]
       (case op
@@ -1128,7 +1153,8 @@
   [ctx base-query loc]
   (when-let [cardinality (zx/xml1-> loc :cardinality parse-cardinality)]
     (throw (ex-info "cardinality in ECL attribute groups not yet implemented."
-                    {:text        (zx/text loc)
+                    {:error       :not-supported
+                     :s           (zx/text loc)
                      :cardinality cardinality})))
   (let [attr-set-loc (zx/xml1-> loc :eclAttributeSet)
         group-constraints (extract-group-constraints ctx attr-set-loc)
@@ -1207,7 +1233,7 @@
 (defn parse-member-filter--numeric
   [_ctx refset-id refset-field-name comparison-op loc]
   (let [v (zx/xml1-> loc zx/text parse-long)
-        f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:text (zx/text loc) :op comparison-op})))]
+        f (or (get numeric-comparison-ops comparison-op) (throw (ex-info "Invalid comparison operator" {:error :invalid-value, :s (zx/text loc), :op comparison-op})))]
     (members/q-and [(members/q-refset-id refset-id) (f refset-field-name v)])))
 
 (defn parse-member-filter--subexpression-constraint
@@ -1222,7 +1248,7 @@
     (case comparison-op
       "=" (members/q-and [(members/q-refset-id refset-id) (members/q-field-in refset-field-name values)])
       "!=" (members/q-not (members/q-refset-id refset-id) (members/q-field-in refset-field-name values))
-      (throw (ex-info "Invalid operation for subexpression constraint" {:op comparison-op :text (zx/text loc)})))))
+      (throw (ex-info "Invalid operation for subexpression constraint" {:error :invalid-value, :s (zx/text loc), :op comparison-op})))))
 
 (defn parse-member-field--boolean
   [_ctx refset-id refset-field-name comparison-op loc]
@@ -1247,7 +1273,8 @@
         (zx/xml1-> loc :numericValue #(parse-member-filter--numeric ctx refset-id refset-field-name comparison-op %))
         (zx/xml1-> loc :subExpressionConstraint #(parse-member-filter--subexpression-constraint ctx refset-id refset-field-name comparison-op %))
         (zx/xml1-> loc :booleanValue #(parse-member-field--boolean ctx refset-id refset-field-name comparison-op %))
-        (throw (ex-info "Unsupported member field filter:" {:text                (zx/text loc)
+        (throw (ex-info "Unsupported member field filter:" {:error               :not-supported
+                                                            :s                   (zx/text loc)
                                                             :refset-field-name   refset-field-name
                                                             :comparison-operator comparison-op})))))
 
@@ -1380,7 +1407,7 @@
   (let [refset-field-names (zx/xml-> loc :refsetFieldNameSet :refsetFieldName zx/text)
         wildcard (zx/xml1-> loc :wildCard)]
     (if (or (seq refset-field-names) wildcard)
-      (throw (ex-info "selection of other fields in refset(s) not supported" {:wildcard (boolean wildcard) :refset-field-names refset-field-names :text (zx/text loc)}))
+      (throw (ex-info "selection of other fields in refset(s) not supported" {:error :not-supported, :s (zx/text loc), :wildcard (boolean wildcard), :refset-field-names refset-field-names}))
       true)))
 
 (defn parse-subexpression-constraint
@@ -1448,11 +1475,11 @@
 
                      ;; "> *"
                      (and (= :ancestorOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
-                     (throw (ex-info "wildcard expressions containing '> *' not yet supported" {:text (zx/text loc)}))
+                     (throw (ex-info "wildcard expressions containing '> *' not yet supported" {:error :not-supported, :s (zx/text loc)}))
 
                      ;; ">! *"
                      (and (= :parentOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
-                     (throw (ex-info "wildcard expressions containing '>! *' not yet supported" {:text (zx/text loc)}))
+                     (throw (ex-info "wildcard expressions containing '>! *' not yet supported" {:error :not-supported, :s (zx/text loc)}))
 
                      ;; "^ *"
                      (and member-of wildcard?)              ;; "^ *" = all concepts that are referenced by any reference set in the substrate:
@@ -1540,7 +1567,8 @@
 
                      :else
                      (throw (ex-info "error: unimplemented expression fragment; use `(ex-data *e)` to see context."
-                                     {:text                           (zx/text loc)
+                                     {:error                          :not-supported
+                                      :s                              (zx/text loc)
                                       :constraint-operator            constraint-operator
                                       :member-of                      member-of
                                       :focus-concept                  focus-concept
@@ -1579,7 +1607,8 @@
   (let [p (ecl-parser s)]
     (if (insta/failure? p)
       (let [fail (insta/get-failure p)]
-        (throw (ex-info (str "invalid SNOMED ECL expression at line " (:line p) ", column " (:column p) ": '" (:text p) "'.") fail)))
+        (throw (ex-info (str "invalid SNOMED ECL expression at line " (:line p) ", column " (:column p) ": '" (:text p) "'.")
+                        (assoc (into {} fail) :error :syntax-error))))
       (zx/xml1-> (zip/xml-zip p)
                  :expressionConstraint
                  (partial parse-expression-constraint ctx)))))

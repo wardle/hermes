@@ -8,6 +8,7 @@
   belong in a separate namespace without this fixture."
   (:require [clojure.core.async :as a]
             [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is use-fixtures run-tests testing]]
             [com.eldrix.hermes.core :as hermes]
@@ -304,70 +305,94 @@
 
 
 
-(def pending-or-unsupported-tests
-  "ECL features not yet implemented, or syntax that the current evaluator
-  cannot faithfully represent. Tests pass if an exception is thrown."
-  [;; concept filter: definitionStatus (from snomed.org/ecl section 6.9)
-   {:ecl "< 56265001 |Heart disease| {{ C definitionStatus = primitive }}"}
-   {:ecl "< 56265001 |Heart disease| {{ C definitionStatus = defined }}"}
-   {:ecl "< 56265001 |Heart disease| {{ C definitionStatusId = 900000000000074008 }}"}
+(def ecl-error-cases
+  "Data-driven cases for ECL parse errors."
+  [;; --- :invalid-code (Verhoeff failure on a concept reference) ---
+   {:ecl "< 99999999" :error :invalid-code :s "99999999"}
+
+   ;; --- :syntax-error (instaparse failure) ---
+   {:ecl "<<< 73211009" :error :syntax-error}
+
+   ;; --- :invalid-value (cardinality range max < min) ---
+   {:ecl "< 373873005 : [5..2] 127489000 = << 105590001" :error :invalid-value}
+
+   ;; --- :not-found (unknown dialect alias — single, exercises
+   ;;     parse-dialect-alias-filter validation) ---
+   {:ecl "<< 24700007 {{ term = \"x\", dialect = en-zzzz }}" :error :not-found}
+   ;; --- :not-found (unknown dialect alias inside a set — exercises
+   ;;     parse-dialect-set validation) ---
+   {:ecl "<< 24700007 {{ term = \"x\", dialect = ( en-zzzz ) }}" :error :not-found}
+
+   ;; --- :not-supported (existing pending/unsupported features) ---
+   ;; concept filter: definitionStatus (from snomed.org/ecl section 6.9)
+   {:ecl "< 56265001 |Heart disease| {{ C definitionStatus = primitive }}" :error :not-supported}
+   {:ecl "< 56265001 |Heart disease| {{ C definitionStatus = defined }}" :error :not-supported}
+   {:ecl "< 56265001 |Heart disease| {{ C definitionStatusId = 900000000000074008 }}" :error :not-supported}
    ;; concept filter: moduleId (from snomed.org/ecl section 6.9)
-   {:ecl "< 195967001 |Asthma| {{ C moduleId = 900000000000207008 |SNOMED CT core module| }}"}
+   {:ecl "< 195967001 |Asthma| {{ C moduleId = 900000000000207008 |SNOMED CT core module| }}" :error :not-supported}
    ;; concept filter: effectiveTime (from snomed.org/ecl section 6.9)
-   {:ecl "< 125605004 |Fracture of bone| {{ C effectiveTime >= \"20190731\" }}"}
-   {:ecl "< 125605004 |Fracture of bone| {{ C effectiveTime <= \"20190731\" }}"}
+   {:ecl "< 125605004 |Fracture of bone| {{ C effectiveTime >= \"20190731\" }}" :error :not-supported}
+   {:ecl "< 125605004 |Fracture of bone| {{ C effectiveTime <= \"20190731\" }}" :error :not-supported}
    ;; description filter: moduleId (from snomed.org/ecl section 6.8)
-   {:ecl "< 195967001 |Asthma| {{ D moduleId = 900000000000207008 |SNOMED CT core module| }}"}
+   {:ecl "< 195967001 |Asthma| {{ D moduleId = 900000000000207008 |SNOMED CT core module| }}" :error :not-supported}
    ;; description filter: effectiveTime (from snomed.org/ecl section 6.8)
-   {:ecl "< 125605004 |Fracture of bone| {{ D effectiveTime >= \"20190731\" }}"}
+   {:ecl "< 125605004 |Fracture of bone| {{ D effectiveTime >= \"20190731\" }}" :error :not-supported}
    ;; description filter: id (official example 8.5.1)
-   {:ecl "< 131148009 |Bleeding| {{ D id = 670169018 }}"}
+   {:ecl "< 131148009 |Bleeding| {{ D id = 670169018 }}" :error :not-supported}
    ;; language filters (official examples 8.2.1 and 8.2.2)
-   {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }}"}
-   {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}"}
-   ;; string concrete refinement (official example 2.10)
-   {:ecl "< 373873005 |pharmaceutical / biologic product| : 111115 |trade name| = \"PANADOL\""}
+   {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }}" :error :not-supported}
+   {:ecl "< 64572001 |Disease| {{ term = \"hjärt\", language = sv }} {{ term = \"heart\", language = en }}" :error :not-supported}
+   ;; string concrete refinement (official example 2.10) — fails earlier
+   ;; on attribute resolution because 111115 isn't a CMA descendant in
+   ;; this substrate; therefore :invalid-value not :not-supported
+   {:ecl "< 373873005 |pharmaceutical / biologic product| : 111115 |trade name| = \"PANADOL\"" :error :invalid-value}
    ;; grouped string concrete refinement — must fail closed with a specific
    ;; reason, not an internal case miss
-   {:ecl "< 373873005 : { 1142135004 = \"PANADOL\" }" :reason :string-in-group}
-   {:ecl "< 373873005 : { 1142135004 != \"PANADOL\" }" :reason :string-in-group}
+   {:ecl "< 373873005 : { 1142135004 = \"PANADOL\" }" :error :not-supported :reason :string-in-group}
+   {:ecl "< 373873005 : { 1142135004 != \"PANADOL\" }" :error :not-supported :reason :string-in-group}
    ;; grouped boolean concrete refinement — must fail closed with a specific
    ;; reason, not an internal case miss
-   {:ecl "< 373873005 : { 1142135004 = true }" :reason :boolean-in-group}
-   {:ecl "< 373873005 : { 1142135004 != false }" :reason :boolean-in-group}
+   {:ecl "< 373873005 : { 1142135004 = true }" :error :not-supported :reason :boolean-in-group}
+   {:ecl "< 373873005 : { 1142135004 != false }" :error :not-supported :reason :boolean-in-group}
    ;; attribute group cardinality (from snomed.org/ecl section 6.3)
-   {:ecl "< 373873005 |Pharmaceutical / biologic product| : [1..3] { 127489000 |Has active ingredient| = < 105590001 |Substance| }"}
-   {:ecl "< 404684003 |Clinical finding| : [1..1] { 363698007 |Finding site| = < 91723000 |Anatomical structure| }"}
-   {:ecl "< 404684003 |Clinical finding| : [0..0] { [2..*] 363698007 |Finding site| = < 91723000 |Anatomical structure| }"}
+   {:ecl "< 373873005 |Pharmaceutical / biologic product| : [1..3] { 127489000 |Has active ingredient| = < 105590001 |Substance| }" :error :not-supported}
+   {:ecl "< 404684003 |Clinical finding| : [1..1] { 363698007 |Finding site| = < 91723000 |Anatomical structure| }" :error :not-supported}
+   {:ecl "< 404684003 |Clinical finding| : [0..0] { [2..*] 363698007 |Finding site| = < 91723000 |Anatomical structure| }" :error :not-supported}
    ;; unsupported grouped syntax should fail closed until implemented
-   {:ecl "< 404684003 : { 363698007 = << 39057004 OR 116676008 = << 415582006 }"}
-   {:ecl "< 404684003 : { (363698007 = << 39057004 , 116676008 = << 415582006) }"}
+   {:ecl "< 404684003 : { 363698007 = << 39057004 OR 116676008 = << 415582006 }" :error :not-supported}
+   {:ecl "< 404684003 : { (363698007 = << 39057004 , 116676008 = << 415582006) }" :error :not-supported}
    ;; cardinality + reverse flag (from snomed.org/ecl section 6.3)
-   {:ecl "< 105590001 |Substance| : [3..3] R 127489000 |Has active ingredient| = *"}
+   {:ecl "< 105590001 |Substance| : [3..3] R 127489000 |Has active ingredient| = *" :error :not-supported}
    ;; reverse flag inside an attribute group — cannot be faithfully represented
-   {:ecl "<< 27658006 : { R 116676008 = 79654002 }"}
+   {:ecl "<< 27658006 : { R 116676008 = 79654002 }" :error :not-supported}
    ;; refset field selection (from snomed.org/ecl section 6.6)
-   {:ecl " ^ [targetComponentId]  900000000000527005 |SAME AS association reference set|  {{ M referencedComponentId =  67415000 |Hay asthma|  }}"}
+   {:ecl " ^ [targetComponentId]  900000000000527005 |SAME AS association reference set|  {{ M referencedComponentId =  67415000 |Hay asthma|  }}" :error :not-supported}
    ;; wildcard ancestor/parent (from snomed.org/ecl section 6.1)
-   {:ecl "> *"}
-   {:ecl ">! *"}
-   ;; boolean concrete refinement (official example 2.11)
-   {:ecl "< 373873005 |Pharmaceutical / biologic product| : 859999999102 |Is in national benefit scheme| = TRUE"}
+   {:ecl "> *" :error :not-supported}
+   {:ecl ">! *" :error :not-supported}
+   ;; boolean concrete refinement (official example 2.11) — also fails
+   ;; earlier on attribute resolution (859999999102 isn't a CMA
+   ;; descendant in this substrate); therefore :invalid-value
+   {:ecl "< 373873005 |Pharmaceutical / biologic product| : 859999999102 |Is in national benefit scheme| = TRUE" :error :invalid-value}
    ;; [0..0] cardinality with != (requires universal quantification, from snomed.org/ecl section 6.5)
-   {:ecl "< 404684003 |Clinical finding| : [0..0] 116676008 |Associated morphology| != << 26036001 |Obstruction|"}
+   {:ecl "< 404684003 |Clinical finding| : [0..0] 116676008 |Associated morphology| != << 26036001 |Obstruction|" :error :not-supported}
    ;; alt identifiers (from snomed.org/ecl section 6.1)
-   {:ecl "LOINC#54486-6"}])
+   {:ecl "LOINC#54486-6" :error :not-supported}])
 
-(deftest ^:live do-pending-or-unsupported-tests
-  (doseq [{:keys [ecl reason]} pending-or-unsupported-tests]
+(deftest ^:live test-ecl-errors
+  (doseq [{exp-error :error, exp-reason :reason, exp-s :s, :keys [ecl]} ecl-error-cases]
     (testing ecl
-      (let [ex (try (hermes/expand-ecl *svc* ecl) nil
-                    (catch Exception e e))]
-        (is (some? ex)
-            (str "Expected exception for unimplemented or unsupported feature: " ecl))
-        (when reason
-          (is (= reason (:reason (ex-data ex)))
-              (str "Expected ex-data :reason " reason " for: " ecl)))))))
+      (let [{act-error :error, act-reason :reason, act-s :s, :as d}
+            (try (hermes/expand-ecl *svc* ecl) nil
+                 (catch clojure.lang.ExceptionInfo e (ex-data e)))]
+        (is (s/valid? ::ecl/parse-error d)
+            (str "ex-data should conform to ::ecl/parse-error: " (s/explain-str ::ecl/parse-error d)))
+        (is (= exp-error act-error)
+            (str "expected :error " exp-error " for: " ecl))
+        (is (or (nil? exp-reason) (= exp-reason act-reason))
+            (str "expected :reason " exp-reason " for: " ecl))
+        (is (or (nil? exp-s) (= exp-s act-s))
+            (str "expected :s " exp-s " for: " ecl))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
