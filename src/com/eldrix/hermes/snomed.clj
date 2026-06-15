@@ -1135,7 +1135,7 @@
 (def BodyStructure 123037004)
 (def ClinicalFinding 404684003)
 (def EnvironmentGeographicLocation 308916002)
-(def Event 308916002)
+(def Event 272379006)
 (def ObservableEntity 363787002)
 (def Organism 410607006)
 (def PharmaceuticalBiologicalProduct 373873005)
@@ -1145,10 +1145,10 @@
 (def QualifierValue 362981000)
 (def RecordArtefact 419891008)
 (def SituationWithExplicitContext 243796009)
-(def SocialContext 243796009)
+(def SocialContext 48176007)
 (def Specimen 123038009)
 (def StagingAndScales 254291000)
-(def Substance 254291000)
+(def Substance 105590001)
 (def LinkageConcept 106237007)
 
 ;; Special concepts
@@ -1221,7 +1221,7 @@
 (def TemporalContext 408731000)
 (def TimeAspect 370134009)
 (def UsingEnergy 424244007)
-(def UsingSubstance 42436100)
+(def UsingSubstance 424361007)
 
 ;; Other common concepts
 (def Side 182353008)
