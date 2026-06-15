@@ -743,7 +743,7 @@
    ```."
   [store]
   (let [ch (a/chan)]
-    (stream-all-refset-items store ch)
+    (a/thread (stream-all-refset-items store ch))
     (loop [results {}]
       (if-let [item (a/<!! ch)]
         (recur (update results (type item) (fnil inc 0)))
