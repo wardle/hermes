@@ -1300,8 +1300,7 @@
   [_ctx refset-id loc]
   (let [op (zx/xml1-> loc :timeComparisonOperator zx/text)
         f (get time-comparison-ops op)
-        values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))
-        _ (println "values: " {:op op :f f :values values})]
+        values (or (seq (zx/xml-> loc :timeValue parse-time-value)) (zx/xml-> loc :timeValueSet :timeValue parse-time-value))]
     (members/q-and (into [(members/q-refset-id refset-id)] (mapv #(f "effectiveTime" %) values)))))
 
 (defn parse-member-filter--active-filter
