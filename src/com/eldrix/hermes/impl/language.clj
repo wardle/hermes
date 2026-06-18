@@ -169,18 +169,29 @@
   [^Locale locale]
   (if (= Locale/US locale) 1 0))
 
+(defn available-locales*
+  "Pure: given the set of installed reference set ids, return the recognised
+  installed locales as BCP-47 language tags, ordered by fallback priority so
+  that en-US (the International edition default) is last and a natively-installed
+  national locale is preferred as the database default. A locale counts as
+  installed when the first (primary) reference set in its priority list is
+  installed."
+  [installed-refset-ids]
+  (->> language-reference-sets
+       (reduce-kv (fn [acc k [refset-id & _]] ;; first (primary) reference set, not any
+                    (if (installed-refset-ids refset-id)
+                      (conj acc (Locale/forLanguageTag k))
+                      acc))
+                  [])
+       (sort-by locale-priority)
+       (mapv #(.toLanguageTag ^Locale %))))
+
 (defn available-locales
-  "Returns a sequence of recognised, installed locales. Results are returned in
-  a meaningful order, in which locales that are defined in country-specific
-  extensions are listed before those from the International edition. "
+  "Returns a sequence of recognised, installed locales, ordered so that locales
+  defined in country-specific extensions are listed before those from the
+  International edition."
   [store]
-  (let [installed-refset-ids (store/installed-reference-sets store)
-        installed-locales (reduce-kv
-                            (fn [acc k [refset-id & _]]     ;; we check that the FIRST reference set id is installed, rather than ANY in the list
-                              (if (installed-refset-ids refset-id)
-                                (conj acc (.toLanguageTag (Locale/forLanguageTag k)))
-                                acc)) [] language-reference-sets)]
-    (sort-by locale-priority installed-locales)))
+  (available-locales* (store/installed-reference-sets store)))
 
 (defn default-fallback-locale
   "Returns a string representing the 'best' fallback locale given what is
@@ -307,6 +318,8 @@
    {:lang "fi" :exclude "åäö"}                              ;; Finnish}
    {:lang "fr" :exclude nil}                                ;; French
    {:lang "no" :exclude "æøå"}                              ;; Norwegian
+   {:lang "nb" :exclude "æøå"}                              ;; Norwegian Bokmål (language refsets map to "nb"/"nn", not "no")
+   {:lang "nn" :exclude "æøå"}                              ;; Norwegian Nynorsk
    {:lang "es" :exclude nil}                                ;; Spanish
    {:lang "en" :exclude nil}                                ;; English
    {:lang "sv" :exclude "åäö"}])                            ;; Swedish

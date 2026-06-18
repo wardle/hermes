@@ -15,3 +15,12 @@
   (is (= "Lasegues test" (lang/fold "en" "Laségues test")) "Diacritic é should be stripped in English")
   (is (= "Lasegues test" (lang/fold "sv" "Laségues test")) "Diacritic é should be stripped in Swedish")
   (is (= "Spælsau sheep breed" (lang/fold "en" "Spælsau sheep breed")) "'æ' should not be folded"))
+
+(deftest test-available-locales-orders-en-us-last
+  ;; en-US must sort last so a natively-installed national locale wins as the
+  ;; database default. Regression: the ordering compared a `Locale` object
+  ;; against language-tag strings and silently did nothing, leaving en-US
+  ;; wherever map iteration happened to put it.
+  (let [all-primary (set (map (comp first val) lang/language-reference-sets))]
+    (is (= "en-US" (peek (vec (lang/available-locales* all-primary))))
+        "en-US must sort last regardless of map iteration order")))
