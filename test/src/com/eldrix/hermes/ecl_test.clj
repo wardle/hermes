@@ -453,6 +453,17 @@
       (let [concept-ids (hermes/ecl->concept-ids *svc* ecl)]
         (when incl (is (set/subset? incl concept-ids)))))))
 
+(deftest ^:live test-member-effective-time-filter
+  (testing "M effectiveTime filters evaluate without error and != is the complement of ="
+    (when (contains? (hermes/installed-reference-sets *svc*) 447562003)
+      (let [;; 2000-01-01 predates the first SNOMED CT release, so no member
+            ;; item has this effectiveTime: != matches every member, = matches none
+            all (hermes/ecl->concept-ids *svc* " ^  447562003")
+            neq (hermes/ecl->concept-ids *svc* " ^  447562003 {{ M effectiveTime != \"20000101\" }}")
+            eq  (hermes/ecl->concept-ids *svc* " ^  447562003 {{ M effectiveTime = \"20000101\" }}")]
+        (is (= all neq) "effectiveTime != an impossibly-early date should match every member")
+        (is (empty? eq) "effectiveTime = an impossibly-early date should match no member")))))
+
 (deftest ^{:live true :uk true} test-member-filter-uk
   (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
     (dorun (->> (hermes/expand-ecl *svc* " ^  999002271000000101  {{ M mapPriority = #1, mapTarget = \"J458\" }}")

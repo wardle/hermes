@@ -218,8 +218,7 @@
   "Create a query for items with a field, or an effective time, not equal to 'd'."
   (^Query [d] (q-time!= "effectiveTime" d))
   (^Query [^String field d]
-   (let [v (localdate->epoch-milli d)]
-     (q-or [(q-time< field (dec v)) (q-time> field (inc v))]))))
+   (q-or [(q-time< field d) (q-time> field d)])))
 
 (defn q-field=
   "Create a query for items with a field equal to"
