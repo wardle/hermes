@@ -22,6 +22,7 @@
    [com.eldrix.hermes.importer :as importer]
    [expound.alpha :as expound])
   (:import (clojure.lang ExceptionInfo)
+           (java.io PrintStream)
            (java.net ConnectException)
            (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
@@ -101,13 +102,20 @@
       (clojure.pprint/pprint st))))
 
 (defn mcp [{:keys [db locale owl]} _]
-  (with-open [svc (hermes/open db {:default-locale locale})]
-    (log-module-dependency-problems svc)
-    (when owl
-      (when-not @reasoner/owl-loaded?
-        (throw (ex-info "OWL libraries not found on classpath" {})))
-      (future (hermes/activate-reasoner svc)))
-    (mcp/start! svc)))
+  ;; Redirect System/out to stderr before opening the service so startup logging
+  ;; cannot corrupt the JSON-RPC stream; responses are written to the real stdout.
+  (let [out-stream System/out]
+    (System/setOut (PrintStream. System/err true))
+    (try
+      (with-open [svc (hermes/open db {:default-locale locale})]
+        (log-module-dependency-problems svc)
+        (when owl
+          (when-not @reasoner/owl-loaded?
+            (throw (ex-info "OWL libraries not found on classpath" {})))
+          (future (hermes/activate-reasoner svc)))
+        (mcp/start! svc out-stream))
+      (finally
+        (System/setOut (PrintStream. out-stream true))))))
 
 (defn serve [{:keys [db _port _bind-address allowed-origin locale owl] :as params} _]
   (let [svc (hermes/open db {:default-locale locale})

@@ -15,7 +15,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.mcp :as mcp])
-  (:import (java.io BufferedReader InputStreamReader PrintStream)))
+  (:import (java.io BufferedReader InputStreamReader)))
 
 (set! *warn-on-reflection* true)
 
@@ -102,27 +102,21 @@
 
 (defn start!
   "Start the MCP server, reading JSON-RPC messages from stdin and writing
-  responses to stdout. Logs to stderr. Blocks until stdin is closed."
-  [svc]
+  responses to `out-stream`. Blocks until stdin is closed."
+  [svc ^java.io.OutputStream out-stream]
   (log/info "starting MCP server")
-  (let [out-stream System/out
-        rdr (BufferedReader. (InputStreamReader. System/in))]
-    ;; Redirect System/out to stderr so stray prints don't corrupt the JSON-RPC stream.
-    (System/setOut (PrintStream. System/err true))
-    (try
-      (binding [*out* (java.io.OutputStreamWriter. out-stream)]
-        (loop []
-          (when-let [line (.readLine rdr)]
-            (when-not (str/blank? line)
-              (try
-                (let [msg (json/read-str line)]
-                  (when-let [response (dispatch svc msg)]
-                    (write-message! response)))
-                (catch Exception e
-                  (log/error e "error processing MCP message")
-                  (try
-                    (write-message! (json-rpc-error nil -32700 "Parse error"))
-                    (catch Exception _)))))
-            (recur))))
-      (finally
-        (System/setOut (PrintStream. out-stream true))))))
+  (let [rdr (BufferedReader. (InputStreamReader. System/in))]
+    (binding [*out* (java.io.OutputStreamWriter. out-stream)]
+      (loop []
+        (when-let [line (.readLine rdr)]
+          (when-not (str/blank? line)
+            (try
+              (let [msg (json/read-str line)]
+                (when-let [response (dispatch svc msg)]
+                  (write-message! response)))
+              (catch Exception e
+                (log/error e "error processing MCP message")
+                (try
+                  (write-message! (json-rpc-error nil -32700 "Parse error"))
+                  (catch Exception _)))))
+          (recur))))))
