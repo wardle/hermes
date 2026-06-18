@@ -52,7 +52,13 @@
    ["test (finding)"     "test (finding)"        true]
    ["test [a]"           "test [a]"              true]
    ["a+b"                "a+b"                   true]
-   ["a+b"                "aab"                   false]])
+   ["a+b"                "aab"                   false]
+   ;; greedy in-order matching: prefix/suffix anchoring with empty between
+   ["ab*ab"              "abab"                  true]
+   ["ab*ab"              "abXab"                 true]
+   ["ab*ab"              "aba"                   false]
+   ["a*b*c"              "axbyc"                 true]
+   ["a*b*c"              "axyc"                  false]])
 
 (deftest ^:live ecl-wildcard-pattern
   (doseq [[pattern input expected] ecl-wildcard-cases]
