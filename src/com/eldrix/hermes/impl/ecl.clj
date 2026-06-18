@@ -1409,6 +1409,25 @@
       (throw (ex-info "selection of other fields in refset(s) not supported" {:error :not-supported, :s (zx/text loc), :wildcard (boolean wildcard), :refset-field-names refset-field-names}))
       true)))
 
+(defn constraint-operator->nested-fn
+  "Return the function that, given a realised set of concept identifiers, builds
+  the query applying constraint operator `op` to that set (for use with
+  [[make-nested-query]]). Throws if `op` is not a recognised constraint operator."
+  [store op]
+  (case op
+    :descendantOf       search/q-descendantOfAny
+    :descendantOrSelfOf search/q-descendantOrSelfOfAny
+    :childOf            search/q-childOfAny
+    :childOrSelfOf      search/q-childOrSelfOfAny
+    :ancestorOf         #(search/q-ancestorOfAny store %)
+    :ancestorOrSelfOf   #(search/q-ancestorOrSelfOfAny store %)
+    :parentOf           #(search/q-parentOfAny store %)
+    :parentOrSelfOf     #(search/q-parentOrSelfOfAny store %)
+    :bottom             #(search/q-bottomOfSet store %)
+    :top                search/q-topOfSet
+    (throw (ex-info (str "unsupported constraint operator applied to memberOf: " op)
+                    {:error :not-supported, :constraint-operator op}))))
+
 (defn parse-subexpression-constraint
   "subExpressionConstraint = [constraintOperator ws] ( ( [memberOf ws] (eclFocusConcept / ( ws expressionConstraint ws )) *(ws memberFilterConstraint)) / (eclFocusConcept / ( ws expressionConstraint ws )) ) *(ws (descriptionFilterConstraint / conceptFilterConstraint)) [ws historySupplement]
 
@@ -1443,10 +1462,43 @@
         member-filter-constraints (zx/xml-> loc :memberFilterConstraint
                                             #(parse-member-filter-constraint ctx (or focus-concept expression-constraint) %))
         history-supplement (zx/xml1-> loc :historySupplement #(parse-history-supplement ctx %))
+        ;; the memberOf result, evaluated independently of any constraint operator
+        ;; (ECL §5.4: when both are present, memberOf is evaluated first)
+        member-query (when member-of
+                       (cond
+                         ;; "^ *" = all concepts referenced by any reference set in the substrate
+                         wildcard?
+                         (search/q-memberOfInstalledReferenceSet store)
+
+                         ;; "^ conceptId {{ M mapTarget=\"J45.9\" }}" — memberOf with member filters
+                         (seq member-filter-constraints)
+                         (search/q-and member-filter-constraints)
+
+                         ;; "^ conceptId"
+                         (:conceptId focus-concept)
+                         (search/q-memberOf (:conceptId focus-concept))
+
+                         ;; "^ (expressionConstraint)"
+                         expression-constraint
+                         (make-nested-query ctx expression-constraint search/q-memberOfAny)
+
+                         :else
+                         (throw (ex-info "memberOf requires a reference set concept, a set of reference set concepts, or a wildcard"
+                                         {:error :invalid-value, :s (zx/text loc)}))))
         base-query (cond
                      ;; "*"
                      (and (nil? member-of) (nil? constraint-operator) wildcard?) ;; "*" = all concepts
                      (search/q-match-all)                   ;; see https://confluence.ihtsdotools.org/display/DOCECL/6.1+Simple+Expression+Constraints
+
+                     ;; "^ ..." — memberOf with no constraint operator: the member set itself
+                     (and member-of (nil? constraint-operator))
+                     member-query
+
+                     ;; "< ^ ...", "<< ^ ...", etc. — apply the operator to the member
+                     ;; set (ECL §5.4: memberOf is processed prior to the operator)
+                     member-of
+                     (make-nested-query ctx member-query
+                                        (constraint-operator->nested-fn store constraint-operator))
 
                      ;; "<< *"
                      (and (= :descendantOrSelfOf constraint-operator) wildcard?) ;; "<< *" = all concepts
@@ -1479,21 +1531,6 @@
                      ;; ">! *"
                      (and (= :parentOf constraint-operator) wildcard?) ;; TODO: support returning all non-leaf concepts
                      (throw (ex-info "wildcard expressions containing '>! *' not yet supported" {:error :not-supported, :s (zx/text loc)}))
-
-                     ;; "^ *"
-                     (and member-of wildcard?)              ;; "^ *" = all concepts that are referenced by any reference set in the substrate:
-                     (search/q-memberOfInstalledReferenceSet store)
-
-                     ;; "^ conceptId {{ M mapTarget="J45.9"}}"   ;; member of, but with filter constraints
-                     (and member-of (or focus-concept expression-constraint) (seq member-filter-constraints))
-                     (search/q-and member-filter-constraints)
-
-                     ;; "^ conceptId"
-                     (and member-of (:conceptId focus-concept))
-                     (search/q-memberOf (:conceptId focus-concept))
-
-                     (and member-of expression-constraint)
-                     (make-nested-query ctx expression-constraint search/q-memberOfAny)
 
                      (and (nil? constraint-operator) expression-constraint)
                      expression-constraint

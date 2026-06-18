@@ -470,6 +470,24 @@
         (is (= all neq) "effectiveTime != an impossibly-early date should match every member")
         (is (empty? eq) "effectiveTime = an impossibly-early date should match no member")))))
 
+(deftest ^:live test-member-of-with-constraint-operator
+  (testing "a constraint operator before memberOf applies to the member set (ECL §5.4)"
+    (when (contains? (hermes/installed-reference-sets *svc*) 723264001)
+      (let [members      (set (hermes/ecl->concept-ids *svc* " ^ 723264001"))
+            descendants  (set (hermes/ecl->concept-ids *svc* " < ^ 723264001"))
+            desc-or-self (set (hermes/ecl->concept-ids *svc* " << ^ 723264001"))]
+        (is (seq members))
+        (is (seq descendants) "members are body structures and must have descendants")
+        ;; the operator must NOT be silently dropped (the bug returned the members)
+        (is (not= members descendants)
+            "'< ^ X' must differ from '^ X'; previously the operator was dropped")
+        ;; ECL §5.4: '<< ^ X' == members unioned with their strict descendants
+        (is (= desc-or-self (set/union members descendants))
+            "'<< ^ X' should equal the members unioned with their strict descendants")
+        ;; every strict descendant must be subsumed by at least one member
+        (is (every? #(hermes/are-any? *svc* [%] members) (take 100 descendants))
+            "each concept in '< ^ X' must be subsumed by some member of X")))))
+
 (deftest ^{:live true :uk true} test-member-filter-uk
   (when (contains? (hermes/installed-reference-sets *svc*) 999002271000000101)
     (dorun (->> (hermes/expand-ecl *svc* " ^  999002271000000101  {{ M mapPriority = #1, mapTarget = \"J458\" }}")
