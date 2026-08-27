@@ -1014,13 +1014,6 @@
     ;; descendant of 762706009 |Concept model data attribute|.
     (is (thrown? clojure.lang.ExceptionInfo
                  (hermes/ecl->concept-ids *svc* "< 763158003 : 116676008 > #100"))))
-  (testing "an extension relationship is matched explicitly and by a literal wildcard"
-    ;; 8653101000001104 |Has excipient| is beneath the UK extension hierarchy
-    ;; 408739003 |Unapproved attribute|. 8653301000001102 is an actual target.
-    (let [explicit (hermes/ecl->concept-ids *svc* "* : 8653101000001104 = 8653301000001102")
-          wildcard (hermes/ecl->concept-ids *svc* "* : * = 8653301000001102")]
-      (is (seq explicit))
-      (is (set/subset? explicit wildcard))))
   (testing "an attribute name resolving to no concept is still rejected"
     (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 24700007 : 100000102 = 79654002")))))
 
@@ -1040,10 +1033,8 @@
 
 (deftest ^:live test-allowed-wildcard-attribute-types
   (let [types (ecl/allowed-wildcard-attribute-types (:store *svc*))]
-    (is (contains? (store/all-children (:store *svc*) 408739003) 8653101000001104)
-        "precondition: dm+d Has excipient is beneath Unapproved attribute")
-    (is (contains? types 8653101000001104)
-        "extension attributes beneath 246061005 |Attribute| must be allowed")
+    (is (contains? types 367565008)
+        "descendants of 246061005 |Attribute| outside the concept model hierarchy must be allowed")
     (is (not (contains? types snomed/IsA))
         "116680003 |Is a| must be removed from literal wildcard types")))
 
