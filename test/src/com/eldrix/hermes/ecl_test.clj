@@ -957,9 +957,10 @@
           "concepts matching a specific-attribute refinement must also match the wildcard"))))
 
 (deftest ^:live test-wildcard-attribute-excludes-isa
-  (testing "`* = V` must not treat IS-A as an attribute — §8.5 restricts `*` to descendants of 410662002 |Concept model attribute|"
-    ;; IS-A (116680003) is NOT a descendant of ConceptModelAttribute. If it
-    ;; were wrongly included, every direct IS-A child of V would appear in
+  (testing "`* = V` must not treat IS-A as a wildcard attribute"
+    ;; IS-A is beneath 246061005 |Attribute| but is deliberately removed from
+    ;; the literal wildcard type set. If it were included, every direct child
+    ;; of V would appear in
     ;; `< V : * = V` via its `IS-A → V` relationship — producing a result
     ;; polluted with all direct children of V regardless of attribute semantics.
     (let [direct-children (hermes/ecl->concept-ids *svc* "<! 19829001 |Disorder of lung|")
@@ -990,12 +991,61 @@
     (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 763158003 : * > #100")))
     (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 763158003 : * = #250")))))
 
-(deftest ^:live test-attribute-umbrella-is-concept-model-attribute
-  (testing "ECL §8.5: expression-operator attribute names must resolve to descendants of 410662002 |Concept model attribute|"
+(deftest ^:live test-attribute-type-resolution
+  (testing "an unused concept beneath 246061005 |Attribute| matches nothing"
     ;; 367565008 |Intention - attribute| is a descendant of 246061005 |Attribute|
-    ;; but NOT of 410662002 |Concept model attribute|. It must not be accepted as
-    ;; a valid ECL refinement attribute name.
-    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 24700007 : 367565008 = 79654002")))))
+    ;; but no relationship uses it as a type, so it is valid and matches nothing.
+    (is (empty? (hermes/ecl->concept-ids *svc* "< 24700007 : 367565008 = 79654002"))))
+  (testing "ECL permits 116680003 |Is a| as an explicit attribute name"
+    ;; IS-A is not a descendant of 410662002, so the umbrella wrongly rejected it.
+    (let [direct-children (hermes/ecl->concept-ids *svc* "<! 19829001 |Disorder of lung|")
+          via-isa (hermes/ecl->concept-ids *svc* "< 19829001 |Disorder of lung| : 116680003 = 19829001 |Disorder of lung|")]
+      (is (seq via-isa) "explicit IS-A refinement must resolve, not throw")
+      (is (= direct-children via-isa))))
+  (testing "408739003 |Unapproved attribute| itself is valid but unused"
+    (is (empty? (hermes/ecl->concept-ids *svc* "< 404684003 : 408739003 = *"))))
+  (testing "a grouped unused Attribute is valid and matches nothing"
+    (is (empty? (hermes/ecl->concept-ids *svc* "< 24700007 : { 367565008 = 79654002 }"))))
+  (testing "a concept outside 246061005 |Attribute| is rejected"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hermes/ecl->concept-ids *svc* "< 24700007 : 404684003 = 79654002"))))
+  (testing "a concrete comparison against a non-data attribute is rejected"
+    ;; 116676008 |Associated morphology| is a concept model attribute but not a
+    ;; descendant of 762706009 |Concept model data attribute|.
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (hermes/ecl->concept-ids *svc* "< 763158003 : 116676008 > #100"))))
+  (testing "an extension relationship is matched explicitly and by a literal wildcard"
+    ;; 8653101000001104 |Has excipient| is beneath the UK extension hierarchy
+    ;; 408739003 |Unapproved attribute|. 8653301000001102 is an actual target.
+    (let [explicit (hermes/ecl->concept-ids *svc* "* : 8653101000001104 = 8653301000001102")
+          wildcard (hermes/ecl->concept-ids *svc* "* : * = 8653301000001102")]
+      (is (seq explicit))
+      (is (set/subset? explicit wildcard))))
+  (testing "an attribute name resolving to no concept is still rejected"
+    (is (thrown? Exception (hermes/ecl->concept-ids *svc* "< 24700007 : 100000102 = 79654002")))))
+
+(deftest ^:live test-attribute-name-exceeding-lucene-clause-limit
+  (testing "a broad attribute name builds one Lucene clause per relationship type and is rejected clearly"
+    ;; `<< 408739003` resolves to over a thousand types, exceeding Lucene's
+    ;; maxClauseCount. This must surface as an ECL `:not-supported` error, not
+    ;; as a raw Lucene TooManyClauses.
+    (doseq [ecl ["< 404684003 : << 408739003 = *"
+                 "< 404684003 : << 408739003 = 79654002"
+                 "< 404684003 : { << 408739003 = * }"]]
+      (is (thrown? clojure.lang.ExceptionInfo (hermes/ecl->concept-ids *svc* ecl)))
+      (is (= :not-supported
+             (try (hermes/ecl->concept-ids *svc* ecl)
+                  nil
+                  (catch clojure.lang.ExceptionInfo e (:error (ex-data e)))))))))
+
+(deftest ^:live test-allowed-wildcard-attribute-types
+  (let [types (ecl/allowed-wildcard-attribute-types (:store *svc*))]
+    (is (contains? (store/all-children (:store *svc*) 408739003) 8653101000001104)
+        "precondition: dm+d Has excipient is beneath Unapproved attribute")
+    (is (contains? types 8653101000001104)
+        "extension attributes beneath 246061005 |Attribute| must be allowed")
+    (is (not (contains? types snomed/IsA))
+        "116680003 |Is a| must be removed from literal wildcard types")))
 
 (deftest ^:live test-bare-wildcard-term-requires-substrate
   (testing "`wild:\"*\"` without a narrowing outer expression is rejected — would iterate every description"
@@ -1244,27 +1294,29 @@
             typed-concrete-properties
             [[:> #{762949000} 1.0]]))
         "Ordering comparisons should currently throw on non-numeric concrete values"))
-  (testing "Wildcard attribute is restricted to Concept model attribute descendants (ECL §8.5)"
-    ;; With a 3rd arg of allowed CMA attribute types, `:wildcard` must consider
-    ;; only type-ids in that set. Without it, a non-CMA type (e.g. from a
-    ;; malformed extension) would spuriously satisfy `* = V`.
-    (let [cma-types #{116676008 363698007}]
+  (testing "Wildcard attribute is restricted to the supplied allowed attribute types"
+    (let [wildcard-attribute-types #{116676008 8653101000001104}]
       (is (not (ecl/group-constraints-satisfied?
                  {1 {367565008 #{79654002}}}
-                 cma-types
+                 wildcard-attribute-types
                  [[:in :wildcard #{79654002}]]))
-          "Type 367565008 (not a CMA descendant) must not satisfy `* = V`")
+          "A type outside the allowed set must not satisfy `* = V`")
       (is (ecl/group-constraints-satisfied?
             {1 {116676008 #{79654002}}}
-            cma-types
+            wildcard-attribute-types
             [[:in :wildcard #{79654002}]])
-          "Type 116676008 (a CMA descendant) should satisfy `* = V`")
+          "An international attribute in the allowed set should satisfy `* = V`")
+      (is (ecl/group-constraints-satisfied?
+            {1 {8653101000001104 #{79654002}}}
+            wildcard-attribute-types
+            [[:in :wildcard #{79654002}]])
+          "An extension attribute in the allowed set should satisfy `* = V`")
       (is (not (ecl/group-constraints-satisfied?
                  {1 {367565008 #{79654002}
                      116676008 #{99999999}}}
-                 cma-types
+                 wildcard-attribute-types
                  [[:in :wildcard #{79654002}]]))
-          "Value 79654002 under a non-CMA type must not be counted toward `* = 79654002`"))))
+          "Values under disallowed types must not be counted toward `* = V`"))))
 
 (deftest ^:live test-satisfies-ungrouped-constraint
   (testing "Ungrouped :not-in merges all groups"

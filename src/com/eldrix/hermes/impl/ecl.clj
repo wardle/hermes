@@ -24,7 +24,7 @@
             [com.eldrix.hermes.verhoeff :as verhoeff]
             [instaparse.combinators :as c]
             [instaparse.core :as insta])
-  (:import (org.apache.lucene.search Query IndexSearcher)
+  (:import (org.apache.lucene.search Query IndexSearcher IndexSearcher$TooManyClauses)
            (java.time LocalDate)
            (java.util.regex Pattern)
            (com.eldrix.hermes.snomed Result)))
@@ -604,16 +604,22 @@
   (or (search/q-or (remove nil? queries))
       (search/q-match-none)))
 
+(defn allowed-wildcard-attribute-types
+  "Return relationship type-ids allowed by a literal wildcard attribute name:
+  descendants of 246061005 |Attribute|, excluding 116680003 |Is a|."
+  [store]
+  (disj (store/all-children store snomed/Attribute) snomed/IsA))
+
 (defn q-wildcard-attribute-in-set
-  "Lucene query matching concepts with any active concept-model-attribute
+  "Lucene query matching concepts with any allowed wildcard attribute
   relationship whose direct target is in `value-concept-ids`. Projects sources
   via the LMDB child-relationships index instead of building one Lucene clause
   per attribute type (which would blow past BooleanQuery's maxClauseCount).
-  Filters to descendants of 410662002 |Concept model attribute| per ECL §8.5,
-  so IS-A (116680003) — a taxonomic relationship, not an attribute — is
-  excluded."
+  Attribute types are descendants of 246061005 |Attribute|, excluding
+  116680003 |Is a| so taxonomic relationships do not satisfy a literal
+  wildcard refinement."
   [{:keys [store]} value-concept-ids]
-  (let [attribute-types (store/all-children store snomed/ConceptModelAttribute)
+  (let [attribute-types (allowed-wildcard-attribute-types store)
         sources (store/child-relationships-of-types store value-concept-ids attribute-types)]
     (if (seq sources)
       (search/q-concept-ids sources)
@@ -707,17 +713,17 @@
   "Does a single group's properties satisfy a constraint?
   `group-props` is {type-id #{values}} for one group.
   `constraint` is [op attribute-ids value]. `attribute-ids` may be the
-  keyword `:wildcard` meaning 'any concept model attribute'; when present,
-  `cma-types` (a set of CMA descendant type-ids) restricts which group types
-  are considered. Without `cma-types`, `:wildcard` matches any type in the
+  keyword `:wildcard` meaning 'any allowed wildcard attribute'; when present,
+  `wildcard-attribute-types` restricts which group types are considered.
+  Without `wildcard-attribute-types`, `:wildcard` matches any type in the
   group (a tighter restriction from callers is recommended to honour
   ECL §8.5)."
   ([group-props constraint]
    (constraint-satisfied? group-props nil constraint))
-  ([group-props cma-types [op attribute-ids value]]
+  ([group-props wildcard-attribute-types [op attribute-ids value]]
    (let [actuals (if (= :wildcard attribute-ids)
-                   (into #{} cat (vals (if cma-types
-                                         (select-keys group-props cma-types)
+                   (into #{} cat (vals (if wildcard-attribute-types
+                                         (select-keys group-props wildcard-attribute-types)
                                          group-props)))
                    (into #{} (mapcat #(get group-props %)) attribute-ids))]
      (case op
@@ -756,16 +762,16 @@
 
 (s/fdef group-constraints-satisfied?
   :args (s/cat :properties map?
-               :cma-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
+               :wildcard-attribute-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
                :constraints (s/coll-of ::group-constraint)))
 (defn group-constraints-satisfied?
   "Does at least one non-zero relationship group satisfy all constraints?
   `properties` is {group-id {type-id #{values}}} as from [[store/properties]].
   Relationship values must be raw targets, not ancestor-expanded values,
   otherwise negative operators such as :not-in and :minus become unsound.
-  `cma-types`, when supplied, is the set of type-ids that are descendants of
-  410662002 |Concept model attribute| (ECL §8.5); it restricts which group
-  types are considered for `:wildcard` constraints.
+  `wildcard-attribute-types`, when supplied, is the allowed set of type-ids
+  beneath 246061005 |Attribute|, excluding 116680003 |Is a|. It restricts
+  which group types are considered for `:wildcard` constraints.
   `constraints` is a coll of [op attribute-ids value] tuples where:
   - op is a keyword: :in, :not-in, :minus, :*, :=, :!=, :>, :<, :>=, :<=
   - attribute-ids is a set of type concept IDs, or the keyword `:wildcard`
@@ -773,11 +779,11 @@
     or a number/string/boolean (for comparison operators)"
   ([properties constraints]
    (group-constraints-satisfied? properties nil constraints))
-  ([properties cma-types constraints]
+  ([properties wildcard-attribute-types constraints]
    (boolean
     (some (fn [[group-id group-props]]
             (when (pos? group-id)
-              (every? #(constraint-satisfied? group-props cma-types %) constraints)))
+              (every? #(constraint-satisfied? group-props wildcard-attribute-types %) constraints)))
           properties))))
 
 (defn wildcard-constraint? [[_ attribute-ids _]]
@@ -785,30 +791,29 @@
 
 (s/fdef concept-satisfies-group-constraints?
   :args (s/cat :store ::store
-               :cma-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
+               :wildcard-attribute-types (s/? (s/nilable (s/every :info.snomed.Concept/id :kind set?)))
                :concept-id :info.snomed.Concept/id
                :constraints (s/coll-of ::group-constraint)))
 (defn concept-satisfies-group-constraints?
   "Does at least one non-zero relationship group of concept-id satisfy all
   constraints? Fetches [[store/properties]] and delegates to
-  [[group-constraints-satisfied?]]. `cma-types`, when supplied, is the set
-  of Concept model attribute descendants (ECL §8.5) to restrict `:wildcard`
+  [[group-constraints-satisfied?]]. `wildcard-attribute-types`, when supplied,
+  is the allowed set of Attribute descendants to restrict `:wildcard`
   matching; callers iterating many candidates should pre-resolve it with
-  [[cma-attribute-types]] to avoid repeated store lookups."
+  [[wildcard-attribute-types-for-constraints]] to avoid repeated store lookups."
   ([store concept-id constraints]
    (concept-satisfies-group-constraints? store nil concept-id constraints))
-  ([store cma-types concept-id constraints]
+  ([store wildcard-attribute-types concept-id constraints]
    (group-constraints-satisfied?
-    (store/properties store concept-id) cma-types constraints)))
+    (store/properties store concept-id) wildcard-attribute-types constraints)))
 
-(defn cma-attribute-types
-  "Resolve the set of type-ids that are descendants of 410662002
-  |Concept model attribute|, if needed by any constraint in `constraints`.
+(defn wildcard-attribute-types-for-constraints
+  "Resolve the allowed wildcard attribute type-ids if needed by `constraints`.
   Returns nil when no constraint uses `:wildcard`, so the validator does not
   apply a restriction."
   [store constraints]
   (when (some wildcard-constraint? constraints)
-    (store/all-children store snomed/ConceptModelAttribute)))
+    (allowed-wildcard-attribute-types store)))
 
 (s/fdef ungrouped-constraint-satisfied?
   :args (s/cat :properties map?
@@ -845,21 +850,21 @@
 
 (defn resolve-attribute-ids
   "Resolve an ECL attribute-name subexpression to either the keyword
-  `:wildcard` (when it matched `*`) or a set of attribute concept ids,
-  filtered to descendants of the ECL §8.5 umbrella: 410662002 |Concept
-  model attribute| for expression comparisons, or 762706009 |Concept model
-  data attribute| for concrete-value comparisons. Returns nil when
+  `:wildcard` (when it matched `*`) or a set of valid attribute concept ids.
+  Expression comparisons are restricted to descendants of 246061005
+  |Attribute|; concrete comparisons are restricted to descendants of
+  762706009 |Concept model data attribute|. Returns nil when
   `ecl-attribute-name` is nil."
   [ctx ecl-attribute-name expression?]
   (when ecl-attribute-name
     (if (search/q-match-all? ecl-attribute-name)
       :wildcard
-      (let [parent (if expression? snomed/ConceptModelAttribute snomed/ConceptModelDataAttribute)]
-        (into #{} (realise-concept-ids ctx (search/q-and [(search/q-descendantOf parent) ecl-attribute-name])))))))
+      (let [root (if expression? snomed/Attribute snomed/ConceptModelDataAttribute)]
+        (into #{} (realise-concept-ids ctx (search/q-and [(search/q-descendantOf root) ecl-attribute-name])))))))
 
 (defn parse-wildcard-attribute-equals
   "Handle `* = S` where the attribute name is a wildcard. Projects sources via
-  the store's child-relationships index; realising all CMA attribute ids as
+  the store's child-relationships index; realising all allowed attribute ids as
   per-attribute OR clauses would exceed BooleanQuery's maxClauseCount.
   Rejects cardinality and reverse flag."
   [ctx cardinality reverse-flag? loc]
@@ -959,35 +964,43 @@
         attribute-concept-ids (when-not wildcard? attribute-ids)]
     (when-not (or wildcard? (seq attribute-concept-ids))
       (throw (ex-info "attribute expression resulted in no valid attributes" {:error :invalid-value, :s (zx/text loc), :eclAttributeName ecl-attribute-name})))
-    (cond
-      expression-operator
-      (case expression-operator
-        "=" (if wildcard?
-              (parse-wildcard-attribute-equals ctx cardinality reverse-flag? loc)
-              (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
-        "!=" (do
-               (when wildcard?
-                 (throw (ex-info "`* != V` with wildcard attribute name not supported — would require iterating every concept"
-                                 {:error :not-supported, :s (zx/text loc)})))
-               (parse-attribute-not-equals ctx base-query cardinality reverse-flag? attribute-concept-ids loc))
-        (throw (ex-info (str "unsupported expression operator " expression-operator) {:error :invalid-value, :s (zx/text loc), :eclAttributeName ecl-attribute-name})))
+    (try
+      (cond
+        expression-operator
+        (case expression-operator
+          "=" (if wildcard?
+                (parse-wildcard-attribute-equals ctx cardinality reverse-flag? loc)
+                (parse-attribute--expression ctx cardinality reverse-flag? attribute-concept-ids loc))
+          "!=" (do
+                 (when wildcard?
+                   (throw (ex-info "`* != V` with wildcard attribute name not supported — would require iterating every concept"
+                                   {:error :not-supported, :s (zx/text loc)})))
+                 (parse-attribute-not-equals ctx base-query cardinality reverse-flag? attribute-concept-ids loc))
+          (throw (ex-info (str "unsupported expression operator " expression-operator) {:error :invalid-value, :s (zx/text loc), :eclAttributeName ecl-attribute-name})))
 
-      numeric-operator
-      (if wildcard?
-        (throw (ex-info "numeric comparison with wildcard attribute name not supported; use an explicit attribute"
-                        {:error :not-supported, :s (zx/text loc), :operator numeric-operator}))
-        (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
-              op (concrete-numeric-comparison-ops numeric-operator)]
-          (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids))))
+        numeric-operator
+        (if wildcard?
+          (throw (ex-info "numeric comparison with wildcard attribute name not supported; use an explicit attribute"
+                          {:error :not-supported, :s (zx/text loc), :operator numeric-operator}))
+          (let [v (Double/parseDouble (zx/xml1-> loc :numericValue zx/text))
+                op (concrete-numeric-comparison-ops numeric-operator)]
+            (search/q-or (map (fn [type-id] (op type-id v)) attribute-concept-ids))))
 
-      string-operator
-      (throw (ex-info "expressions containing string concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
+        string-operator
+        (throw (ex-info "expressions containing string concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
 
-      boolean-operator
-      (throw (ex-info "expressions containing boolean concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
+        boolean-operator
+        (throw (ex-info "expressions containing boolean concrete refinements not yet supported." {:error :not-supported, :s (zx/text loc)}))
 
-      :else
-      (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:error :invalid-value, :s (zx/text loc)})))))
+        :else
+        (throw (ex-info "expression does not have a supported operator (expression/numeric/string/boolean)." {:error :invalid-value, :s (zx/text loc)})))
+      (catch IndexSearcher$TooManyClauses e
+        (throw (ex-info "attribute name matches too many relationship types to evaluate; use a narrower attribute name"
+                        {:error :not-supported
+                         :s (zx/text loc)
+                         :n-attribute-types (count attribute-concept-ids)
+                         :max-clause-count (IndexSearcher/getMaxClauseCount)}
+                        e))))))
 
 (defn parse-subattribute-set
   "subAttributeSet = eclAttribute / \"(\" ws eclAttributeSet ws \")\""
@@ -1156,16 +1169,23 @@
                     {:error       :not-supported
                      :s           (zx/text loc)
                      :cardinality cardinality})))
-  (let [attr-set-loc (zx/xml1-> loc :eclAttributeSet)
-        group-constraints (extract-group-constraints ctx attr-set-loc)
-        broad-query (prefilter-for-group ctx group-constraints)
-        candidate-query (if base-query (search/q-and [base-query broad-query]) broad-query)
-        candidate-ids (realise-concept-ids ctx candidate-query)
-        cma-types (cma-attribute-types (:store ctx) group-constraints)
-        validated-ids (into #{}
-                            (filter #(concept-satisfies-group-constraints? (:store ctx) cma-types % group-constraints))
-                            candidate-ids)]
-    (search/q-concept-ids validated-ids)))
+  (try
+    (let [attr-set-loc (zx/xml1-> loc :eclAttributeSet)
+          group-constraints (extract-group-constraints ctx attr-set-loc)
+          broad-query (prefilter-for-group ctx group-constraints)
+          candidate-query (if base-query (search/q-and [base-query broad-query]) broad-query)
+          candidate-ids (realise-concept-ids ctx candidate-query)
+          wildcard-attribute-types (wildcard-attribute-types-for-constraints (:store ctx) group-constraints)
+          validated-ids (into #{}
+                              (filter #(concept-satisfies-group-constraints? (:store ctx) wildcard-attribute-types % group-constraints))
+                              candidate-ids)]
+      (search/q-concept-ids validated-ids))
+    (catch IndexSearcher$TooManyClauses e
+      (throw (ex-info "attribute name matches too many relationship types to evaluate; use a narrower attribute name"
+                      {:error :not-supported
+                       :s (zx/text loc)
+                       :max-clause-count (IndexSearcher/getMaxClauseCount)}
+                      e)))))
 
 (defn parse-sub-refinement
   "subRefinement = eclAttributeSet / eclAttributeGroup / \"(\" ws eclRefinement ws \")\"\n"
