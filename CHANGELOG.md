@@ -2,6 +2,16 @@
 
 This log documents significant changes for each release.
 
+## Not yet released
+
+* Fix ECL attribute resolution: explicit expression attribute names are validated against `246061005 |Attribute|`, allowing IS-A and extension attributes such as UK dm+d `8653101000001104 |Has excipient|`; concrete comparisons remain restricted to `762706009 |Concept model data attribute|`. Literal wildcard attribute names use the same `Attribute` hierarchy while excluding `116680003 |Is a|`, preventing taxonomic relationships from polluting wildcard refinements.
+* ECL attribute names matching more relationship types than Lucene's `maxClauseCount` (e.g. `<< 408739003`) now raise a `:not-supported` error identifying the limit, rather than surfacing a raw Lucene `TooManyClauses`
+* Fix ECL: a constraint operator before `memberOf` (e.g. `< ^ X`) is now applied to the member set instead of being dropped
+* Fix ECL member `effectiveTime` filters (`!=` now works and is the complement of `=`)
+* Fix locale selection so a national locale is preferred over `en-US` as the default
+* Fix Norwegian (`nb`/`nn`) folding
+* Fix MCP server stdout corruption by redirecting startup logging to stderr
+
 ## [1.4.1614] - 2026-05-10 
 
 * Improve consistency of internal errors when parsing SNOMED ECL
