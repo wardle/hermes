@@ -4,6 +4,8 @@ This log documents significant changes for each release.
 
 ## Not yet released
 
+## [1.4.1627] - 2026-08-29
+
 * Fix ECL attribute resolution: explicit expression attribute names are validated against `246061005 |Attribute|`, allowing IS-A and extension attributes such as UK dm+d `8653101000001104 |Has excipient|`; concrete comparisons remain restricted to `762706009 |Concept model data attribute|`. Literal wildcard attribute names use the same `Attribute` hierarchy while excluding `116680003 |Is a|`, preventing taxonomic relationships from polluting wildcard refinements.
 * ECL attribute names matching more relationship types than Lucene's `maxClauseCount` (e.g. `<< 408739003`) now raise a `:not-supported` error identifying the limit, rather than surfacing a raw Lucene `TooManyClauses`
 * Fix ECL: a constraint operator before `memberOf` (e.g. `< ^ X`) is now applied to the member set instead of being dropped
