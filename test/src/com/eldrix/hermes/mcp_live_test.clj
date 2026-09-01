@@ -51,12 +51,25 @@
     (is (= 2 (count result)))))
 
 (deftest ^:live test-tool-fully-specified-name
+  (doseq [[locale expected-term] [["en" "Multiple sclerosis (disorder)"]
+                                  ["es-AR" "esclerosis múltiple (trastorno)"]]
+          :when (seq (hermes/match-locale *svc* locale false))]
+    (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 13
+                                    "method"  "tools/call"
+                                    "params"  {"name" "fully_specified_name"
+                                               "arguments" {"concept_id" 24700007
+                                                            "accept_language" locale}}})
+          content (get-in resp ["result" "content"])
+          text    (json/read-str (get (first content) "text"))]
+      (is (= expected-term (get text "term")))))
   (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 13
                                   "method"  "tools/call"
-                                  "params"  {"name" "fully_specified_name" "arguments" {"concept_id" 24700007}}})
+                                  "params"  {"name" "fully_specified_name"
+                                             "arguments" {"concept_id" 24700007}}})
         content (get-in resp ["result" "content"])
         text    (json/read-str (get (first content) "text"))]
-    (is (str/includes? (get text "term") "(disorder)"))))
+    (is (= (:term (hermes/fully-specified-name *svc* 24700007))
+           (get text "term")))))
 
 (deftest ^:live test-tool-fully-specified-name-batch
   (let [resp (mcp/dispatch *svc* {"jsonrpc" "2.0" "id" 14

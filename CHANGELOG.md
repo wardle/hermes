@@ -4,6 +4,8 @@ This log documents significant changes for each release.
 
 ## Not yet released
 
+* Make live locale tests edition-neutral while explicitly validating English and, when installed, Argentinian Spanish terms
+
 ## [1.4.1627] - 2026-08-29
 
 * Fix ECL attribute resolution: explicit expression attribute names are validated against `246061005 |Attribute|`, allowing IS-A and extension attributes such as UK dm+d `8653101000001104 |Has excipient|`; concrete comparisons remain restricted to `762706009 |Concept model data attribute|`. Literal wildcard attribute names use the same `Attribute` hierarchy while excluding `116680003 |Is a|`, preventing taxonomic relationships from polluting wildcard refinements.

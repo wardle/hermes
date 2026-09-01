@@ -195,8 +195,18 @@
       (is (clojure.string/includes?
             (hermes/render-expression* *svc* "24700007 |My custom term|" {:terms :add :language-refset-ids lang})
             "My custom term"))))
-  (testing "convenience wrapper renders with terms"
-    (is (clojure.string/includes? (hermes/render-expression *svc* "24700007") "Multiple sclerosis")))
+  (testing "convenience wrapper renders explicit installed locales"
+    (doseq [[locale expected-term] [["en" "Multiple sclerosis"]
+                                    ["es-AR" "esclerosis múltiple"]]
+            :when (seq (hermes/match-locale *svc* locale false))]
+      (is (clojure.string/includes?
+            (hermes/render-expression *svc* "24700007" locale)
+            expected-term))))
+  (testing "convenience wrapper renders the database default locale"
+    (let [expected-term (:term (hermes/preferred-synonym *svc* 24700007))]
+      (is (clojure.string/includes?
+            (hermes/render-expression *svc* "24700007")
+            expected-term))))
   (testing "accepts concept id"
     (is (= "=== 24700007" (hermes/render-expression* *svc* 24700007))))
   (testing "definition-status :auto omits default === prefix"
@@ -225,14 +235,23 @@
     (let [attrs (hermes/refinements* *svc* 78277001)]
       (is (some #(and (= 272741003 (:conceptId %)) (not (:grouped %))) attrs)
           "Laterality should be permitted and ungrouped")))
-  (testing "with language refset ids includes terms"
-    (let [lang (hermes/match-locale *svc*)
-          attrs (hermes/refinements* *svc* 441806004 lang)]
-      (is (every? :term attrs))
-      (is (some #(= "Finding site" (:term %)) attrs))))
+  (testing "with language refset ids includes locale-specific terms"
+    (doseq [[locale expected-term] [["en" "Finding site"]
+                                    ["es-AR" "sitio del hallazgo"]]
+            :let [lang (hermes/match-locale *svc* locale false)]
+            :when (seq lang)]
+      (let [attrs (hermes/refinements* *svc* 441806004 lang)]
+        (is (every? :term attrs))
+        (is (some #(and (= 363698007 (:conceptId %))
+                        (= expected-term (:term %)))
+                  attrs)))))
   (testing "convenience wrapper includes terms"
-    (let [attrs (hermes/refinements *svc* 441806004)]
-      (is (every? :term attrs)))))
+    (let [attrs (hermes/refinements *svc* 441806004)
+          finding-site-term (:term (hermes/preferred-synonym *svc* 363698007))]
+      (is (every? :term attrs))
+      (is (some #(and (= 363698007 (:conceptId %))
+                      (= finding-site-term (:term %)))
+                attrs)))))
 
 (deftest ^:live test-validate-expression
   (testing "valid expressions"
@@ -354,5 +373,4 @@
         results (hermes/expand-ecl-historic *svc* "<24700007")]
     (is (s/valid? ret-spec results))
     (is (seq results))))
-
 

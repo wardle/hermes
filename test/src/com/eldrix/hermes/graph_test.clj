@@ -61,18 +61,25 @@
            (get-in result [:>all :info.snomed.Concept/parentRelationshipIds snomed/IsA])))))
 
 (deftest ^:live test-search
-  (let [result (p.eql/process *registry*
-                              [{'(info.snomed.Search/search
-                                   {:s          "mnd"
-                                    :constraint "<404684003"
-                                    :max-hits   1})
-                                [:info.snomed.Concept/id
-                                 :info.snomed.Description/id
-                                 :info.snomed.Description/term
-                                 {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-                                 :info.snomed.Concept/active]}])]
-    (is (= 37340000 (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/id])))
-    (is (= "Motor neuron disease" (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
+  (let [svc (:com.eldrix/hermes *registry*)]
+    (doseq [[locale expected-term] [["en" "Motor neuron disease"]
+                                    ["es-AR" "enfermedad de la neurona motora"]]
+            :when (seq (hermes/match-locale svc locale false))]
+      (let [result (p.eql/process
+                     *registry*
+                     [{(list 'info.snomed.Search/search
+                             {:s               "mnd"
+                              :constraint      "<404684003"
+                              :max-hits        1
+                              :accept-language locale})
+                       [:info.snomed.Concept/id
+                        :info.snomed.Description/id
+                        :info.snomed.Description/term
+                        {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                        :info.snomed.Concept/active]}])]
+        (is (= 37340000 (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/id])))
+        (is (= expected-term
+               (get-in result ['info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))))
 
 (deftest ^:live test-expand
   (let [result (p.eql/process *registry*
@@ -142,18 +149,25 @@
       (is (= "Appendicectomy" (:info.snomed.Description/term (first result)))))))
 
 (deftest ^:live test-search-resolver
-  (let [result (p.eql/process *registry*
-                              ['({:info.snomed.Search/search [:info.snomed.Concept/id
-                                                              :info.snomed.Description/id
-                                                              :info.snomed.Description/term
-                                                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-                                                              :info.snomed.Concept/active]}
-                                 {:s          "mnd"
-                                  :constraint "<404684003"
-                                  :max-hits   1})])]
-
-    (is (= 37340000 (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/id])))
-    (is (= "Motor neuron disease" (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
+  (let [svc (:com.eldrix/hermes *registry*)]
+    (doseq [[locale expected-term] [["en" "Motor neuron disease"]
+                                    ["es-AR" "enfermedad de la neurona motora"]]
+            :when (seq (hermes/match-locale svc locale false))]
+      (let [result (p.eql/process
+                     *registry*
+                     [(list {:info.snomed.Search/search
+                             [:info.snomed.Concept/id
+                              :info.snomed.Description/id
+                              :info.snomed.Description/term
+                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                              :info.snomed.Concept/active]}
+                            {:s               "mnd"
+                             :constraint      "<404684003"
+                             :max-hits        1
+                             :accept-language locale})])]
+        (is (= 37340000 (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/id])))
+        (is (= expected-term
+               (get-in result [:info.snomed.Search/search 0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))))
 
 
 (defn test-historical-refset-item
@@ -228,12 +242,20 @@
 
 (deftest ^:live test-ctv3-crossmap
   (when (contains? (hermes/installed-reference-sets (:com.eldrix/hermes *registry*)) 900000000000497000)
-    (let [ms (p.eql/process *registry*
-                            {:info.read/ctv3 "F20.."}
-                            [:info.snomed.Concept/id
-                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}])]
-      (is (= "multiple sclerosis" (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
-      (is (= 24700007 (:info.snomed.Concept/id ms))))))
+    (let [svc (:com.eldrix/hermes *registry*)]
+      (doseq [[locale expected-term] [["en" "multiple sclerosis"]
+                                      ["es-AR" "esclerosis múltiple"]]
+              :when (seq (hermes/match-locale svc locale false))]
+        (let [ms (p.eql/process
+                   *registry*
+                   {:info.read/ctv3 "F20.."}
+                   [:info.snomed.Concept/id
+                    {(list :info.snomed.Concept/preferredDescription
+                           {:accept-language locale})
+                     [:info.snomed.Description/lowercaseTerm]}])]
+          (is (= expected-term
+                 (get-in ms [:info.snomed.Concept/preferredDescription :info.snomed.Description/lowercaseTerm])))
+          (is (= 24700007 (:info.snomed.Concept/id ms))))))))
 
 (deftest ^:live test-refsets
   (testing "refset ids and items"
